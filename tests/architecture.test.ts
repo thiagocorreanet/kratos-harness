@@ -49,6 +49,60 @@ describe("import extraction", () => {
       "node:crypto",
     ]);
   });
+
+  it("finds imports split across lines", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-architecture-"));
+    roots.push(root);
+    const file = join(root, "multiline.ts");
+    // This is Prettier's own output for an import with several names, so an
+    // extractor that only reads single-line imports would miss most real ones.
+    await writeFile(
+      file,
+      [
+        "import {",
+        "  mkdir,",
+        "  readFile,",
+        '} from "node:fs/promises";',
+        "import type {",
+        "  Clock,",
+        '} from "../ports/index.js";',
+        "import",
+        "  { indirect }",
+        '  from "node:crypto";',
+        'export * from "node:os";',
+        "  import { indented } from " + '"node:tls";',
+      ].join("\n"),
+      "utf8",
+    );
+
+    expect(await collectImports(file)).toEqual([
+      "node:fs/promises",
+      "../ports/index.js",
+      "node:crypto",
+      "node:os",
+      "node:tls",
+    ]);
+  });
+
+  it("reads every import in the layered source it sweeps", async () => {
+    // A silently empty result would make the repository sweep vacuous, so the
+    // real files are asserted to yield their real dependencies.
+    expect(
+      await collectImports(
+        join(repositoryRoot, "packages/runtime/src/infra/fake/index.ts"),
+      ),
+    ).toEqual(["../../ports/index.js"]);
+
+    expect(
+      await collectImports(
+        join(repositoryRoot, "packages/runtime/src/composition/index.ts"),
+      ),
+    ).toEqual([
+      "../domain/effects.js",
+      "../infra/node/index.js",
+      "../ports/index.js",
+    ]);
+  });
 });
 
 describe("layer classification", () => {
