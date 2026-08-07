@@ -53,20 +53,47 @@ function inside(root: string, candidate: string): boolean {
 async function resolveInside(root: string, path: string): Promise<string> {
   const normalized = normalizeProjectPath(path);
   const absolute = join(root, normalized);
+  const realRoot = await realpath(root);
+
   const parent = dirname(absolute);
-  let realParent: string;
+  let resolved: string;
   try {
-    realParent = await realpath(parent);
-  } catch {
+    const realParent = await realpath(parent);
+    if (!inside(realRoot, realParent)) {
+      throw new Error("Runtime path escapes the project");
+    }
+    resolved = join(realParent, normalized.split("/").pop() ?? normalized);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("escapes the project")
+    ) {
+      throw error;
+    }
     // The parent does not exist yet, so nothing can redirect it. Its own
     // ancestors are checked when they are created.
     return absolute;
   }
-  const realRoot = await realpath(root);
-  if (!inside(realRoot, realParent)) {
-    throw new Error("Runtime path escapes the project");
+
+  // Checking the parent alone is not enough: when the final component is itself
+  // a symlink, the whole redirect lives in that last segment and the parent is
+  // perfectly legitimate. Resolving it is what closes that hole.
+  try {
+    const realTarget = await realpath(resolved);
+    if (!inside(realRoot, realTarget)) {
+      throw new Error("Runtime path escapes the project");
+    }
+    return realTarget;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("escapes the project")
+    ) {
+      throw error;
+    }
+    // The final component does not exist yet, so it cannot redirect anywhere.
+    return resolved;
   }
-  return join(realParent, normalized.split("/").pop() ?? normalized);
 }
 
 export function nodeFileSystem(root: string): FileSystem {
@@ -78,7 +105,12 @@ export function nodeFileSystem(root: string): FileSystem {
       await writeFile(absolute, content, "utf8");
     },
     remove: async (path) => {
-      await rm(await resolveInside(root, path), { force: true });
+      // Recursive so removing a directory succeeds rather than failing with
+      // EISDIR while the in-memory implementation reports success.
+      await rm(await resolveInside(root, path), {
+        force: true,
+        recursive: true,
+      });
     },
     makeDirectory: async (path) => {
       await mkdir(await resolveInside(root, path), { recursive: true });
@@ -86,7 +118,10 @@ export function nodeFileSystem(root: string): FileSystem {
     list: async (path) => {
       const absolute =
         path === "." || path === "" ? root : await resolveInside(root, path);
-      const entries = await readdir(absolute);
+      // Nothing to enumerate is an empty listing, not an error. A missing path
+      // and a non-directory both yield [], which is what the in-memory
+      // implementation does and what the shared contract fixes.
+      const entries = await readdir(absolute).catch(() => []);
       return entries.sort((left, right) => left.localeCompare(right, "en-US"));
     },
     stat: async (path) => {
@@ -197,6 +232,9 @@ export function nodeLocks(root: string): Locks {
       } satisfies Lease;
     },
     release: async (lease) => {
+      // A stale owner must not free a lease someone else now holds; that is
+      // exactly what the fencing token is for.
+      if (lease.fencingToken !== token) return;
       await rm(join(root, `${normalizeProjectPath(lease.owner)}.lock`), {
         force: true,
       });
