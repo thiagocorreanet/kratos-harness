@@ -131,7 +131,19 @@ export function memoryFileSystem(
       }),
     remove: (path) =>
       deferred(() => {
-        files.delete(normalizeProjectPath(path));
+        const normalized = normalizeProjectPath(path);
+        files.delete(normalized);
+        directories.delete(normalized);
+        // Removing a directory removes what it held, so a later stat cannot
+        // report a child of a directory that no longer exists.
+        for (const candidate of [...files.keys()]) {
+          if (candidate.startsWith(`${normalized}/`)) files.delete(candidate);
+        }
+        for (const candidate of [...directories]) {
+          if (candidate.startsWith(`${normalized}/`)) {
+            directories.delete(candidate);
+          }
+        }
       }),
     makeDirectory: (path) =>
       deferred(() => {
@@ -159,7 +171,12 @@ export function memoryFileSystem(
         const normalized = normalizeProjectPath(path);
         const content = files.get(normalized);
         if (content !== undefined) {
-          return { kind: "file", size: content.length } satisfies FileStat;
+          // Bytes, not UTF-16 code units: any policy budgeting by size would
+          // otherwise pass in memory and misbehave on disk.
+          return {
+            kind: "file",
+            size: Buffer.byteLength(content, "utf8"),
+          } satisfies FileStat;
         }
         if (directories.has(normalized)) {
           return { kind: "directory", size: 0 } satisfies FileStat;
@@ -189,7 +206,9 @@ export function stubGit(configured: StubGitState = {}): Git {
   };
 }
 
-export function memoryLocks(): Locks {
+export function memoryLocks(
+  clock: Clock = fixedClock("2026-08-07T00:00:00.000Z"),
+): Locks {
   const held = new Map<string, Lease>();
   let token = 0;
   return {
@@ -199,7 +218,7 @@ export function memoryLocks(): Locks {
       const lease: Lease = {
         owner: scope,
         fencingToken: token,
-        expiresAt: new Date(ttlMs),
+        expiresAt: new Date(clock.now().getTime() + ttlMs),
       };
       held.set(scope, lease);
       return Promise.resolve(lease);
