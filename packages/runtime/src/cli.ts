@@ -43,6 +43,9 @@ export function runCli(
     return 0;
   }
 
-  error(`Unknown argument: ${rest.join(" ")}. Run yoda --help for usage.\n`);
+  // The arguments are deliberately not echoed. A misordered `--expect` lands
+  // here, so echoing would turn this into the way a supplied version value or
+  // an absolute path reaches public output.
+  error("Unrecognized arguments. Run yoda --help for usage.\n");
   return 2;
 }

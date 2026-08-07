@@ -43,9 +43,23 @@ describe("runCli", () => {
   it("rejects an unknown argument", () => {
     expect(invoke(["start"])).toEqual({
       exitCode: 2,
-      stderr: "Unknown argument: start. Run yoda --help for usage.\n",
+      stderr: "Unrecognized arguments. Run yoda --help for usage.\n",
       stdout: "",
     });
+  });
+
+  it.each([
+    [["/home/someone/private/secret-token"], "secret-token"],
+    [["--version", "--expect", "sekrit-value-1.2.3"], "sekrit-value"],
+    [["--expect", "9.9.9", "unknown-subcommand"], "unknown-subcommand"],
+  ])("never echoes caller-supplied text from %o", (args, secret) => {
+    // A misordered --expect lands here, so this path must not become the way a
+    // supplied value or an absolute path reaches public output.
+    const result = invoke(args);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).not.toContain(secret);
+    expect(result.stdout).not.toContain(secret);
   });
 
   it("answers the handshake with a contract report", () => {
