@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible, non-security defect in public behavior.
+title: "[BUG] "
+labels:
+  - bug
+  - english-only
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use normative English and search for an existing issue first.
+        Do not include vulnerabilities, secrets, customer or personal data, private source, or confidential infrastructure. Report suspected security problems through [private vulnerability reporting](https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new).
+  - type: input
+    id: affected-version
+    attributes:
+      label: Affected version or commit
+      description: Provide the exact tag or full commit SHA. State `main` only with its current SHA.
+      placeholder: 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include operating system, architecture, Node/npm versions, host, and relevant filesystem or Git details.
+      placeholder: Ubuntu 24.04 x86_64; Node 24.18.0; npm 11.16.0; Codex
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest deterministic sequence that reproduces the defect from a known starting state.
+      placeholder: |
+        1. Start from...
+        2. Run...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the result, state effects, reason/exit code, and evidence that should occur.
+      placeholder: The operation should...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Describe what occurred, including redacted output and state effects.
+      placeholder: The operation instead...
+    validations:
+      required: true
+  - type: textarea
+    id: regression-evidence
+    attributes:
+      label: Regression test or evidence
+      description: Provide a minimal failing test, fixture, command output, or explain precisely how maintainers can capture one.
+      placeholder: npm test -- path/to/focused.test.ts
+    validations:
+      required: true
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Public-report confirmations
+      description: Every confirmation is required before this public issue is created.
+      options:
+        - label: I searched for an existing issue and this report is focused on one defect.
+          required: true
+        - label: This report is written in normative English.
+          required: true
+        - label: This report contains no suspected vulnerability, exploit detail, secret, private data, or proprietary source.
+          required: true
+    validations:
+      required: true

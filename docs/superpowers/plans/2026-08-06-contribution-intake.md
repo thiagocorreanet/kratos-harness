@@ -34,12 +34,12 @@
 - Consumes: exact npm lockfile and Issue Form YAML.
 - Produces: one development-only YAML parser available to Vitest.
 
-- [ ] **Step 1: Pin YAML exactly**
+- [x] **Step 1: Pin YAML exactly**
 
 Add `"yaml": "2.9.0"` to root `devDependencies`. Do not add a production
 dependency or a new public script.
 
-- [ ] **Step 2: Regenerate and verify the lockfile**
+- [x] **Step 2: Regenerate and verify the lockfile**
 
 Using exact Node/npm:
 
@@ -51,7 +51,7 @@ npm ls yaml --depth=0
 
 Expected: YAML resolves exactly to `2.9.0`; strict lifecycle policy still passes.
 
-- [ ] **Step 3: Update the toolchain contract**
+- [x] **Step 3: Update the toolchain contract**
 
 List YAML 2.9.0 as the development-only configuration parser and state that it
 does not enter the embedded runtime bundle.
@@ -67,21 +67,21 @@ does not enter the embedded runtime bundle.
 - Consumes: `.github/ISSUE_TEMPLATE/*.yml`, PR template, workflow guide, package manifest.
 - Produces: schema, policy, discovery, and local draft assertions.
 
-- [ ] **Step 1: Write schema-subset helpers**
+- [x] **Step 1: Write schema-subset helpers**
 
 Parse YAML with `parseDocument`, reject parser warnings/errors, require object
 roots, and validate exactly the GitHub-supported form keys and body element
 types. Validate unique kebab-case IDs, required attributes, option shapes,
 existing labels, and form-level names/descriptions/titles.
 
-- [ ] **Step 2: Write intake-policy tests**
+- [x] **Step 2: Write intake-policy tests**
 
 Assert exact form inventory plus `config.yml`; blank issues disabled; the first
 contact link is private vulnerability reporting. Assert each form contains its
 designated reproduction/acceptance IDs and safe required checkboxes. Assert the
 security-safe form cannot be mistaken for confidential reporting.
 
-- [ ] **Step 3: Write PR/workflow contract tests**
+- [x] **Step 3: Write PR/workflow contract tests**
 
 Assert PR headings for issue/work ID, design, compatibility, state/migration/
 security, deterministic tests, model evaluations, failure evidence, provenance,
@@ -89,13 +89,13 @@ DCO, English, and focused scope. Assert workflow guide contains the complete
 label taxonomy, nine milestones, ten work-ID streams, immutability/no reuse, and
 the proposed `developer` to `main` boundary owned by issue #60.
 
-- [ ] **Step 4: Write local draft rendering test**
+- [x] **Step 4: Write local draft rendering test**
 
 For each form, render a filled Markdown draft into an OS temporary directory,
 assert every required non-Markdown field has a visible heading/value, then remove
 the tree in `finally`. No GitHub issue or notification is created.
 
-- [ ] **Step 5: Confirm RED**
+- [x] **Step 5: Confirm RED**
 
 Run: `npm test -- tests/github-contribution-contract.test.ts`
 
@@ -118,25 +118,25 @@ not exist.
 - Consumes: GitHub Issue Form schema and approved governance/security policy.
 - Produces: exactly five discoverable public forms and two non-issue contact links.
 
-- [ ] **Step 1: Configure the chooser**
+- [x] **Step 1: Configure the chooser**
 
 Set `blank_issues_enabled: false`. Put private vulnerability reporting first and
 the repository support policy second.
 
-- [ ] **Step 2: Implement bug and compatibility forms**
+- [x] **Step 2: Implement bug and compatibility forms**
 
 Bug requires affected version/commit, environment, minimal reproduction,
 expected/actual behavior, regression test/evidence, and policy confirmations.
 Compatibility additionally requires oracle/provenance boundary, exact input,
 expected/observed result, severity class, and redacted differential evidence.
 
-- [ ] **Step 3: Implement feature and documentation forms**
+- [x] **Step 3: Implement feature and documentation forms**
 
 Feature requires problem, outcome, alternatives, objective acceptance evidence,
 and contract/state/migration/security impact. Documentation requires location,
 audience problem, proposed change, acceptance evidence, and safety confirmation.
 
-- [ ] **Step 4: Implement the security-safe form**
+- [x] **Step 4: Implement the security-safe form**
 
 Use a public-hardening title and prominent private-report URL. Require safe scope,
 desired hardening, acceptance evidence, and attestations that no suspected
@@ -157,32 +157,32 @@ present.
 - Consumes: contribution/governance policy and current GitHub labels/milestones.
 - Produces: one review contract and one authoritative taxonomy/branch guide.
 
-- [ ] **Step 1: Write the PR template**
+- [x] **Step 1: Write the PR template**
 
 Add all design-required sections and separate deterministic tests from prompt/
 model evaluations. Include closing reference, stable work ID, compatibility,
 risk, migration, security, rollback, failure evidence, provenance, DCO, English,
 documentation, and focused-scope confirmations.
 
-- [ ] **Step 2: Document labels and milestones**
+- [x] **Step 2: Document labels and milestones**
 
 Inventory every current namespaced and GitHub intake/community label with usage
 rules. Document the nine public milestones as evidence campaigns without date
 promises and one-milestone ownership.
 
-- [ ] **Step 3: Document stable IDs and proposed branches**
+- [x] **Step 3: Document stable IDs and proposed branches**
 
 Specify `[STREAM-NN]`, all ten streams, immutable/no-reuse allocation, and
 `[EPIC]`. Document short-lived branch names, proposed integration into
 `developer`, approved release PRs into `main`, and issue #60 ownership. State the
 current repository/PR instructions control until activation.
 
-- [ ] **Step 4: Link the workflow entrypoint**
+- [x] **Step 4: Link the workflow entrypoint**
 
 Add the guide to CONTRIBUTING and the README contribution path without expanding
 the installation or product-readiness claims.
 
-- [ ] **Step 5: Confirm GREEN and commit**
+- [x] **Step 5: Confirm GREEN and commit**
 
 ```bash
 npm test -- tests/github-contribution-contract.test.ts

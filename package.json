@@ -32,7 +32,8 @@
     "prettier": "3.9.6",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.66.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "yaml": "2.9.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,

@@ -58,11 +58,13 @@ scripts/             deterministic build and package verification
 
 All npm packages are private ESM workspaces. The root has no production
 dependencies. Its exactly pinned development dependencies are compilers,
-linters, formatters, the CSpell documentation checker, test/coverage tools, type
-declarations, and the bundler.
+linters, formatters, the CSpell documentation checker, the YAML configuration
+parser, test/coverage tools, type declarations, and the bundler.
 Only the exactly pinned esbuild installer is allowed to run a dependency
 lifecycle script. npm treats uncovered scripts as installation errors and
 explicitly denies the optional fsevents script recorded for macOS compatibility.
+YAML `2.9.0` is used only by repository contract tests for GitHub configuration;
+it is absent from the embedded runtime bundle.
 
 ## Runtime artifact
 

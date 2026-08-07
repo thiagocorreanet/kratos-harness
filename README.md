@@ -318,7 +318,8 @@ commands proves the repository foundation, not SDD product readiness.
 
 Mestre Yoda is being developed in the open, and thoughtful contributions are welcome.
 
-Start with the [Contribution guide](CONTRIBUTING.md), then use the
+Start with the [Contribution guide](CONTRIBUTING.md) and
+[work taxonomy](docs/contributing/workflow.md), then use the
 [Code of Conduct](CODE_OF_CONDUCT.md), [Governance](GOVERNANCE.md), and
 [Support policy](SUPPORT.md) for their respective paths.
 

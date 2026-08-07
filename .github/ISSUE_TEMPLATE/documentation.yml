@@ -1,0 +1,60 @@
+name: Documentation report
+description: Correct or improve one public documentation path with acceptance evidence.
+title: "[DOCUMENTATION] "
+labels:
+  - documentation
+  - type:documentation
+  - english-only
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use normative English and search for an existing documentation issue first.
+        Do not include vulnerabilities, secrets, customer or personal data, private source, or confidential infrastructure. Use [private vulnerability reporting](https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new) for security-sensitive material.
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Link the file, heading, page, or workflow whose public text should change.
+      placeholder: README.md#development
+    validations:
+      required: true
+  - type: textarea
+    id: audience-problem
+    attributes:
+      label: Audience and current problem
+      description: Identify the reader and explain what is inaccurate, missing, ambiguous, or inaccessible.
+      placeholder: A first-time contributor may conclude...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed documentation change
+      description: Describe the smallest accurate correction and any terminology or architecture source it must preserve.
+      placeholder: Update the section to state...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-evidence
+    attributes:
+      label: Acceptance evidence
+      description: List link, spelling, render, example-command, or clean-room reader checks appropriate to this change.
+      placeholder: markdownlint, Lychee, CSpell, and reader outcome...
+    validations:
+      required: true
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Documentation confirmations
+      description: Every confirmation is required before this public issue is created.
+      options:
+        - label: I checked the architecture and existing documentation terminology.
+          required: true
+        - label: This proposal uses normative English and does not present planned behavior as available.
+          required: true
+        - label: This report contains no secret, private data, proprietary source, or confidential vulnerability detail.
+          required: true
+    validations:
+      required: true
