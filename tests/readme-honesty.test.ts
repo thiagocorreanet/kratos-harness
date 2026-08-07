@@ -36,7 +36,7 @@ describe("README honesty", () => {
   it("makes current availability impossible to mistake", () => {
     expect(readme).toContain("There is no supported installation method");
     expect(readme).toContain(
-      "supports only `--help`, `--version`, and `handshake`",
+      "supports only `help`, `version`, and `handshake`",
     );
     expect(readme).toContain("not runnable in the current bundle");
     expect(readme).toContain("not ready for production");

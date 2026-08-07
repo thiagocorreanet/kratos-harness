@@ -39,6 +39,10 @@ export function renderHelp(registry: CommandRegistry): string {
   const width = Math.max(
     12,
     ...commands.map((spec) => spec.path.join(" ").length + 2),
+    ...GLOBAL_FLAGS.map((flag) => label(flag).length + 2),
+    ...commands.flatMap((spec) =>
+      spec.flags.map((flag) => label(flag).length + 6),
+    ),
   );
   const lines = [
     "Usage: yoda [--expect <version>] [--json] <command>",

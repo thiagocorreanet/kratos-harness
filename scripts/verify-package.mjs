@@ -35,8 +35,8 @@ const projectDenylist = [
   /(^|\/)runtime(\/|$)/u,
   /\.(ts|map)$/u,
 ];
-const expectedHelp =
-  "Usage: yoda [--expect <version>] [--help | --version | handshake]\n";
+const expectedHelpFirstLine =
+  "Usage: yoda [--expect <version>] [--json] <command>";
 const expectedVersion = "0.0.0-development\n";
 const allowedBuiltins = new Set(
   builtinModules.map((moduleName) =>
@@ -92,7 +92,7 @@ async function inventory(directory) {
 function executeIsolated(
   executable,
   argument,
-  expectedOutput,
+  acceptsOutput,
   workingDirectory,
 ) {
   const command = process.platform === "win32" ? process.execPath : executable;
@@ -121,13 +121,26 @@ function executeIsolated(
     );
   }
 
-  if (result.stdout !== expectedOutput) {
+  if (!acceptsOutput(result.stdout)) {
     fail(
       `${argument} produced unexpected stdout: ${JSON.stringify(result.stdout)}`,
     );
   }
 
   return result.stdout;
+}
+
+function acceptsHelp(output) {
+  return (
+    output.split("\n")[0] === expectedHelpFirstLine &&
+    ["handshake", "help", "version"].every((command) =>
+      output.includes(`  ${command}`),
+    )
+  );
+}
+
+function exactly(expected) {
+  return (output) => output === expected;
 }
 
 const stagedFiles = await inventory(pluginDirectory);
@@ -208,7 +221,7 @@ try {
   // never receive the runtime, its sources, or a dependency tree.
   const projectRoot = join(cleanRoom, "project");
   await mkdir(projectRoot, { recursive: true });
-  executeIsolated(isolatedArtifact, "--help", expectedHelp, projectRoot);
+  executeIsolated(isolatedArtifact, "--help", acceptsHelp, projectRoot);
   const denied = deniedEntries(await readdir(projectRoot, { recursive: true }));
   if (denied.length > 0) {
     fail(`project install contains denied entries: ${denied.join(", ")}`);
@@ -233,13 +246,13 @@ try {
   const help = executeIsolated(
     isolatedArtifact,
     "--help",
-    expectedHelp,
+    acceptsHelp,
     cleanRoom,
   );
   const version = executeIsolated(
     isolatedArtifact,
     "--version",
-    expectedVersion,
+    exactly(expectedVersion),
     cleanRoom,
   );
   console.log(`inventory: ${stagedFiles.join(", ")}`);

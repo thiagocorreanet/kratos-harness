@@ -41,13 +41,18 @@ describe("generated help", () => {
     const help = renderHelp(registry);
     expect(help).toContain("  ac check");
     expect(help).toContain("Check every stored acceptance criterion.");
-    expect(help).toContain("      --root <path>");
+    expect(help).toMatch(
+      / {6}--root <path>\s{2,}Operate on the project rooted at this path\./u,
+    );
   });
 
   it("lists every global flag", () => {
     const help = renderHelp(registry);
     expect(help).toContain("--expect <version>");
     expect(help).toContain("--json");
+    expect(help).toContain(
+      "--expect <version>  Act only when the plugin version matches exactly.",
+    );
   });
 
   it("orders commands deterministically", () => {
