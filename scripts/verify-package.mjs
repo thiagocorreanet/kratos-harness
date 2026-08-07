@@ -9,6 +9,7 @@ import {
   readdir,
   rm,
 } from "node:fs/promises";
+import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +20,14 @@ const repositoryRoot = dirname(
 const pluginDirectory = join(repositoryRoot, "dist/plugin");
 const artifact = join(pluginDirectory, "runtime/yoda.mjs");
 const expectedInventory = ["runtime/yoda.mjs"];
+const expectedDirectories = new Set(["runtime"]);
+const expectedHelp = "Usage: yoda [--help | --version]\n";
+const expectedVersion = "0.0.0-development\n";
+const allowedBuiltins = new Set(
+  builtinModules.map((moduleName) =>
+    moduleName.startsWith("node:") ? moduleName : `node:${moduleName}`,
+  ),
+);
 
 function fail(message) {
   throw new Error(`Package verification failed: ${message}`);
@@ -43,7 +52,14 @@ async function inventory(directory) {
 
     if (details.isFile()) {
       files.push(relative(directory, absolutePath).split(sep).join("/"));
-    } else if (!details.isDirectory()) {
+    } else if (details.isDirectory()) {
+      const stagedDirectory = relative(directory, absolutePath)
+        .split(sep)
+        .join("/");
+      if (!expectedDirectories.has(stagedDirectory)) {
+        fail(`unexpected staged directory: ${stagedDirectory}`);
+      }
+    } else {
       fail(`unsupported staged entry: ${relative(directory, absolutePath)}`);
     }
   }
@@ -51,7 +67,12 @@ async function inventory(directory) {
   return files.sort();
 }
 
-function executeIsolated(executable, argument, workingDirectory) {
+function executeIsolated(
+  executable,
+  argument,
+  expectedOutput,
+  workingDirectory,
+) {
   const command = process.platform === "win32" ? process.execPath : executable;
   const args =
     process.platform === "win32" ? [executable, argument] : [argument];
@@ -75,6 +96,12 @@ function executeIsolated(executable, argument, workingDirectory) {
   if (result.status !== 0 || result.stderr !== "") {
     fail(
       `${argument} exited ${String(result.status)} with stderr: ${result.stderr}`,
+    );
+  }
+
+  if (result.stdout !== expectedOutput) {
+    fail(
+      `${argument} produced unexpected stdout: ${JSON.stringify(result.stdout)}`,
     );
   }
 
@@ -115,8 +142,8 @@ const metadata = JSON.parse(
 );
 for (const output of Object.values(metadata.outputs)) {
   for (const imported of output.imports) {
-    if (imported.external === true && !imported.path.startsWith("node:")) {
-      fail(`bundle has external non-Node import: ${imported.path}`);
+    if (imported.external === true && !allowedBuiltins.has(imported.path)) {
+      fail(`bundle has invalid external import: ${imported.path}`);
     }
   }
 }
@@ -129,8 +156,18 @@ try {
     await chmod(isolatedArtifact, 0o755);
   }
 
-  const help = executeIsolated(isolatedArtifact, "--help", cleanRoom);
-  const version = executeIsolated(isolatedArtifact, "--version", cleanRoom);
+  const help = executeIsolated(
+    isolatedArtifact,
+    "--help",
+    expectedHelp,
+    cleanRoom,
+  );
+  const version = executeIsolated(
+    isolatedArtifact,
+    "--version",
+    expectedVersion,
+    cleanRoom,
+  );
   const hash = createHash("sha256").update(bundle).digest("hex");
 
   console.log(`inventory: ${stagedFiles.join(", ")}`);

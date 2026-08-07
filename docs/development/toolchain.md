@@ -59,7 +59,8 @@ All npm packages are private ESM workspaces. The root has no production
 dependencies. Its exactly pinned development dependencies are compilers,
 linters, formatters, test/coverage tools, type declarations, and the bundler.
 Only the exactly pinned esbuild installer is allowed to run a dependency
-lifecycle script.
+lifecycle script. npm treats uncovered scripts as installation errors and
+explicitly denies the optional fsevents script recorded for macOS compatibility.
 
 ## Runtime artifact
 

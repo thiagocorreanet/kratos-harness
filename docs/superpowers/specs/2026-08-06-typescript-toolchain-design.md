@@ -162,10 +162,11 @@ Version ranges are not permitted in manifests. The lockfile is the complete
 transitive resolution. Automated dependency updates must change one logical
 tool family at a time and run the entire verification suite.
 
-npm's lifecycle-script allowlist permits only the exactly pinned
-`esbuild@0.28.1` installer, which selects its locked native binary. No other
-dependency may execute an installation script without a reviewed manifest
-change.
+npm's strict lifecycle-script allowlist permits only the exactly pinned
+`esbuild@0.28.1` installer, which selects its locked native binary. The optional
+`fsevents@2.3.3` script is explicitly denied for cross-platform lockfile
+consistency. Any uncovered script fails installation until a reviewed manifest
+change assigns an explicit allow or deny decision.
 
 The runtime may import Node built-ins and internal workspace modules only.
 Package verification rejects a staged artifact that references `node_modules`,

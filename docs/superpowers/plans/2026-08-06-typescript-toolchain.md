@@ -48,7 +48,8 @@
 - [x] **Step 1: Add the pinned manifests and runtime selectors**
 
 Create the root manifest with no `dependencies`, exact `devDependencies`, an
-`allowScripts` entry permitting only `esbuild@0.28.1`, and this command graph:
+strict `allowScripts` policy permitting only `esbuild@0.28.1`, explicitly
+denying `fsevents@2.3.3`, and this command graph:
 
 ```json
 {
@@ -84,7 +85,8 @@ Create the root manifest with no `dependencies`, exact `devDependencies`, an
     "vitest": "4.1.10"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": false
   }
 }
 ```
@@ -93,7 +95,7 @@ Each workspace manifest is private, ESM, and exports its TypeScript source. Use 
 
 - [x] **Step 2: Add deterministic environment and ignore files**
 
-Write `24.18.0` to both `.nvmrc` and `.node-version`. Configure `.npmrc` with `engine-strict=true`, `package-lock=true`, `save-exact=true`, `audit=false`, and `fund=false`. Ignore only generated/dependency material:
+Write `24.18.0` to both `.nvmrc` and `.node-version`. Configure `.npmrc` with `engine-strict=true`, `package-lock=true`, `save-exact=true`, `strict-allow-scripts=true`, `audit=false`, and `fund=false`. Ignore only generated/dependency material:
 
 ```gitignore
 node_modules/

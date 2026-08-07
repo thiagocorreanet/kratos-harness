@@ -33,6 +33,7 @@
     "vitest": "4.1.10"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": false
   }
 }
