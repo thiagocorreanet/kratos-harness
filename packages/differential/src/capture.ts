@@ -11,10 +11,12 @@ import type {
   ManifestEntry,
   Mutation,
   ProcessObservation,
+  StructuredObservation,
 } from "./types.ts";
 
 const executeFile = promisify(execFile);
 const maximumManifestEntries = 4096;
+const maximumFileBytes = 8 * 1024 * 1024;
 
 export interface CaptureSelector {
   structured: readonly { id: string; path: string }[];
@@ -54,12 +56,28 @@ async function manifest(project: string): Promise<ManifestEntry[]> {
     for (const name of children) {
       const absolute = join(directory, name);
       const path = relative(project, absolute).split(sep).join("/");
-      if (path === ".git" || path.startsWith(".git/")) continue;
       const stats = await lstat(absolute);
+      if (path === ".git") {
+        // Record that a repository exists without importing its
+        // nondeterministic internals. Creating or removing a repository stays
+        // visible as a mutation; `capture.git` observes its semantics.
+        entries.push({
+          path,
+          type: stats.isDirectory() ? "directory" : "file",
+          mode: stats.isDirectory() ? "directory" : "file",
+          size: 0,
+        });
+        continue;
+      }
       if (stats.isDirectory()) {
         entries.push({ path, type: "directory", mode: "directory", size: 0 });
         await visit(absolute);
       } else if (stats.isFile()) {
+        if (stats.size > maximumFileBytes) {
+          throw new Error(
+            "Differential filesystem capture exceeds the file limit",
+          );
+        }
         const content = await readFile(absolute);
         entries.push({
           path,
@@ -138,6 +156,31 @@ function stream(value: string, disclosure: "digest" | "content") {
   };
 }
 
+/**
+ * A missing `git` binary is a harness failure. Recording it as "not a
+ * repository" would make both sides agree vacuously on every Git scenario.
+ */
+function assertGitRunnable(error: unknown): void {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  ) {
+    throw new Error("Differential Git capture cannot run git");
+  }
+}
+
+/** An unborn HEAD is a real repository state, not an error. */
+async function captureHead(project: string): Promise<string | null> {
+  try {
+    return (await gitOutput(project, ["rev-parse", "HEAD"])).trim() || null;
+  } catch (error) {
+    assertGitRunnable(error);
+    return null;
+  }
+}
+
 async function captureGit(
   project: string,
   disclosure: "digest" | "content",
@@ -150,20 +193,17 @@ async function captureGit(
     ) {
       return null;
     }
-  } catch {
+  } catch (error) {
+    assertGitRunnable(error);
     return null;
   }
-  const [headText, status, worktreeDiff, indexDiff, refsText] =
-    await Promise.all([
-      gitOutput(project, ["rev-parse", "HEAD"]),
-      gitOutput(project, ["status", "--porcelain=v2", "--branch"]),
-      gitOutput(project, ["diff", "--binary", "--no-ext-diff"]),
-      gitOutput(project, ["diff", "--cached", "--binary", "--no-ext-diff"]),
-      gitOutput(project, [
-        "for-each-ref",
-        "--format=%(refname)%00%(objectname)",
-      ]),
-    ]);
+  const [head, status, worktreeDiff, indexDiff, refsText] = await Promise.all([
+    captureHead(project),
+    gitOutput(project, ["status", "--porcelain=v2", "--branch"]),
+    gitOutput(project, ["diff", "--binary", "--no-ext-diff"]),
+    gitOutput(project, ["diff", "--cached", "--binary", "--no-ext-diff"]),
+    gitOutput(project, ["for-each-ref", "--format=%(refname)%00%(objectname)"]),
+  ]);
   const refs = refsText
     .trim()
     .split("\n")
@@ -177,7 +217,7 @@ async function captureGit(
     })
     .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
   return {
-    head: headText.trim() || null,
+    head,
     status: stream(status, disclosure),
     worktreeDiff: stream(worktreeDiff, disclosure),
     indexDiff: stream(indexDiff, disclosure),
@@ -202,29 +242,46 @@ export async function captureAfter(
 ): Promise<DifferentialObservation> {
   const after = await manifest(project);
   const structured = await Promise.all(
-    selector.structured.map(async ({ id, path }) => {
-      try {
-        validateSafeRelativePath(path);
-      } catch {
-        throw new Error("Differential structured capture path is unsafe");
-      }
-      const absolute = join(project, path);
-      const [stats, resolved] = await Promise.all([
-        lstat(absolute),
-        realpath(absolute),
-      ]);
-      if (!stats.isFile() || !inside(project, resolved)) {
-        throw new Error("Differential structured capture path is unsafe");
-      }
-      const source = await readFile(resolved, "utf8");
-      try {
-        return { id, path, value: canonicalize(JSON.parse(source) as unknown) };
-      } catch {
-        throw new Error(
-          `Differential structured capture ${id} contains invalid JSON`,
-        );
-      }
-    }),
+    selector.structured.map(
+      async ({ id, path }): Promise<StructuredObservation> => {
+        try {
+          validateSafeRelativePath(path);
+        } catch {
+          throw new Error("Differential structured capture path is unsafe");
+        }
+        const absolute = join(project, path);
+        let resolved: string;
+        try {
+          resolved = await realpath(absolute);
+        } catch {
+          // Missing, or a link with no target: the side produced no artifact.
+          return { id, path, state: "absent" };
+        }
+        // Escaping the sandbox is never an observation; refuse to read it.
+        if (!inside(project, resolved)) {
+          throw new Error("Differential structured capture path is unsafe");
+        }
+        const stats = await lstat(resolved);
+        if (!stats.isFile()) return { id, path, state: "unreadable" };
+        const source = await readFile(resolved);
+        try {
+          return {
+            id,
+            path,
+            state: "valid",
+            value: canonicalize(JSON.parse(source.toString("utf8")) as unknown),
+          };
+        } catch {
+          return {
+            id,
+            path,
+            state: "invalid",
+            bytes: source.byteLength,
+            sha256: digest(source),
+          };
+        }
+      },
+    ),
   );
   return {
     process: processObservation,

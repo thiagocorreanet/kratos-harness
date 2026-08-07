@@ -55,11 +55,22 @@ export interface Mutation {
   kind: "added" | "modified" | "deleted";
 }
 
-export interface StructuredObservation {
-  id: string;
-  path: string;
-  value: unknown;
-}
+/**
+ * A selected artifact is always observable. Absence, an unreadable path, and
+ * unparsable content are behavioral differences to compare, not harness
+ * failures, so each is a distinct explicit state.
+ */
+export type StructuredObservation =
+  | { id: string; path: string; state: "absent" }
+  | { id: string; path: string; state: "unreadable" }
+  | {
+      id: string;
+      path: string;
+      state: "invalid";
+      bytes: number;
+      sha256: string;
+    }
+  | { id: string; path: string; state: "valid"; value: unknown };
 
 export interface GitObservation {
   head: string | null;
