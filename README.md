@@ -29,7 +29,7 @@ This repository is intentionally public from the beginning so that its architect
 | --- | --- |
 | Architecture and implementation backlog | Available |
 | Go compatibility baseline | Planned |
-| TypeScript deterministic runtime | Planned |
+| TypeScript deterministic runtime | [Foundation available](docs/development/toolchain.md) |
 | Claude Code integration | Planned |
 | OpenAI Codex integration | Planned |
 | Legacy project migration | Planned |
@@ -238,6 +238,13 @@ Development is organized into explicit maturity stages:
 4. **Stable** — mandatory parity, security, migration, host, and pilot criteria are satisfied.
 
 The frozen Go implementation will not be retired merely because the rewrite appears feature-complete. Retirement requires measurable compatibility, migration, native platform, host E2E, recovery, and pilot evidence.
+
+## Development
+
+The repository now provides a pinned Node/npm workspace, strict TypeScript
+validation, tests with coverage, and a standalone bundle smoke check. Follow the
+[deterministic toolchain guide](docs/development/toolchain.md) to reproduce the
+complete validation sequence from a clean checkout.
 
 ## Contributing
 
