@@ -35,7 +35,7 @@
 - Consumes: design fields/status/exit rules and the parity discovery reason names.
 - Produces: executable requirements for `schemas/result.v1.schema.json`, `schemas/reason-catalog.v1.schema.json`, and `packages/contracts/catalogs/reason-codes.v1.json`.
 
-- [ ] **Step 1: Write the absent-artifact schema test**
+- [x] **Step 1: Write the absent-artifact schema test**
 
 Create a test that loads both schemas and the catalog, compiles schemas with
 `new Ajv2020({ allErrors: true, strict: true })`, and asserts exact identities:
@@ -62,7 +62,7 @@ are `success|failure|blocked`, and exit codes are integers 0..5. Validate one
 minimal result for each conditional and reject an unknown property, a failure
 with empty `why`, a success with recovery, and an absolute evidence ref.
 
-- [ ] **Step 2: Write the absent-catalog completeness test**
+- [x] **Step 2: Write the absent-catalog completeness test**
 
 Load the 71 discovery names and assert:
 
@@ -86,7 +86,7 @@ description and non-success recovery; null success recovery; lowercase stable
 code; exit/status consistency; sorted unique codes; and no description or
 non-null recovery duplicated across entries.
 
-- [ ] **Step 3: Confirm RED**
+- [x] **Step 3: Confirm RED**
 
 Run:
 
@@ -96,7 +96,7 @@ npm test -- --run tests/result-contract-schema.test.ts tests/result-contract-cat
 
 Expected: both files fail because schemas and catalog do not exist.
 
-- [ ] **Step 4: Commit the failing contract**
+- [x] **Step 4: Commit the failing contract**
 
 ```bash
 git add tests/result-contract-schema.test.ts tests/result-contract-catalog.test.ts
@@ -119,7 +119,7 @@ git commit -s -m "test: specify universal result contract"
 - Consumes: Task 1 exact tests and the 71 immutable discovery keys.
 - Produces: schemas compiled by Ajv and a sorted 76-entry catalog consumed by every later task.
 
-- [ ] **Step 1: Implement the result schema**
+- [x] **Step 1: Implement the result schema**
 
 Define closed `$defs.evidence` with required `kind` and `ref`, optional
 lowercase-hex `sha256`, `kind` enum `artifact|event|approval|test|observation`,
@@ -144,7 +144,7 @@ Repeat for exits 1/2 => failure and 3/4/5 => blocked, requiring nonempty `why`
 and string recovery. Make summary/why safe nonempty single-line strings with a
 4,096-character ceiling and disallow control characters.
 
-- [ ] **Step 2: Implement the catalog schema**
+- [x] **Step 2: Implement the catalog schema**
 
 Require exact top-level fields `contractVersion` and `reasons`. Each closed
 reason entry uses the eight fields from Task 1. Enforce the stable code regex,
@@ -152,7 +152,7 @@ description/recovery safe-line rules, null success recovery, status/exit
 conditionals, evidence enum
 `required|optional|forbidden`, and a minimum of 76 entries.
 
-- [ ] **Step 3: Author all 76 reason entries**
+- [x] **Step 3: Author all 76 reason entries**
 
 Use the old Go behavior and parity row reference to assign legacy exits:
 
@@ -174,14 +174,14 @@ failure/blocked reason and true only as an allowance for successful reasons
 that can commit. Retry is true only after the entry-specific recovery can
 change the prerequisite or conflict.
 
-- [ ] **Step 4: Document schema ownership**
+- [x] **Step 4: Document schema ownership**
 
 Update `schemas/README.md` to name v1 as the first public runtime result
 contract, link both schemas and catalog, explain that issue #12 will define the
 remaining plugin/state/host schema families, and state that catalog version is
 independent of package version.
 
-- [ ] **Step 5: Make Task 1 GREEN and commit**
+- [x] **Step 5: Make Task 1 GREEN and commit**
 
 ```bash
 npm test -- --run tests/result-contract-schema.test.ts tests/result-contract-catalog.test.ts

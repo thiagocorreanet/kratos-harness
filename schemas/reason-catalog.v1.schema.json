@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mestre-yoda.dev/schemas/reason-catalog/v1",
+  "title": "Mestre Yoda Reason Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "reasons"],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "reasons": {
+      "type": "array",
+      "minItems": 76,
+      "items": { "$ref": "#/$defs/reason" }
+    }
+  },
+  "$defs": {
+    "safeLine": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000-\\u001f\\u007f\\r\\n]+$"
+    },
+    "reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "description",
+        "status",
+        "exitCode",
+        "evidence",
+        "stateChanged",
+        "retryable",
+        "recovery"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)*$"
+        },
+        "description": { "$ref": "#/$defs/safeLine" },
+        "status": { "enum": ["success", "failure", "blocked"] },
+        "exitCode": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "evidence": { "enum": ["required", "optional", "forbidden"] },
+        "stateChanged": { "type": "boolean" },
+        "retryable": { "type": "boolean" },
+        "recovery": {
+          "oneOf": [{ "$ref": "#/$defs/safeLine" }, { "type": "null" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "exitCode": { "const": 0 } },
+            "required": ["exitCode"]
+          },
+          "then": {
+            "properties": {
+              "status": { "const": "success" },
+              "retryable": { "const": false },
+              "recovery": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "exitCode": { "enum": [1, 2] } },
+            "required": ["exitCode"]
+          },
+          "then": {
+            "properties": {
+              "status": { "const": "failure" },
+              "stateChanged": { "const": false },
+              "recovery": { "$ref": "#/$defs/safeLine" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "exitCode": { "enum": [3, 4, 5] } },
+            "required": ["exitCode"]
+          },
+          "then": {
+            "properties": {
+              "status": { "const": "blocked" },
+              "stateChanged": { "const": false },
+              "recovery": { "$ref": "#/$defs/safeLine" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

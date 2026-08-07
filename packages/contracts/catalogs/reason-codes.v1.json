@@ -1,0 +1,765 @@
+{
+  "contractVersion": "1.0.0",
+  "reasons": [
+    {
+      "code": "blocked.context_unreadable",
+      "description": "The decision context cannot be read or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the decision context cannot be read or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.current_step_mismatch",
+      "description": "The persisted current step differs from the plan's in-progress step.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the persisted current step differs from the plan's in-progress step, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.current_step_orphan",
+      "description": "The persisted current step does not exist in the active plan.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the persisted current step does not exist in the active plan, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.dup_step_id",
+      "description": "The active plan contains duplicate step identifiers.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active plan contains duplicate step identifiers, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.empty_plan",
+      "description": "The active plan contains no executable steps.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active plan contains no executable steps, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.feature_mismatch",
+      "description": "The requested feature differs from the feature recorded by the active run.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested feature differs from the feature recorded by the active run, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.feature_state_ilegivel",
+      "description": "The active feature state cannot be decoded or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active feature state cannot be decoded or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.gaps_ilegivel",
+      "description": "The active gaps document cannot be decoded or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active gaps document cannot be decoded or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.guardrails_ausente",
+      "description": "A harness project is missing its required guardrails document.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a harness project is missing its required guardrails document, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.guardrails_ilegivel",
+      "description": "The required guardrails document cannot be decoded or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the required guardrails document cannot be decoded or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.legacy_failed",
+      "description": "A required legacy compatibility operation reported failure.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a required legacy compatibility operation reported failure, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.multi_in_progress",
+      "description": "More than one plan step is marked in progress.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve more than one plan step is marked in progress, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.no_runnable_step",
+      "description": "No pending step has all dependencies satisfied.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve no pending step has all dependencies satisfied, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.partition_ilegivel",
+      "description": "The pending partition proposal cannot be decoded or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the pending partition proposal cannot be decoded or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.runid_mismatch",
+      "description": "The requested run identifier differs from the active run.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested run identifier differs from the active run, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.state_unreadable",
+      "description": "The active run state cannot be read or validated.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active run state cannot be read or validated, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.stop_loss_budget",
+      "description": "The run exceeded its configured stop-loss budget.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run exceeded its configured stop-loss budget, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.stop_loss_flag",
+      "description": "The run has an active stop-loss flag requiring release.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run has an active stop-loss flag requiring release, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "blocked.unknown_dep",
+      "description": "A plan step names a dependency that is absent from the plan.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a plan step names a dependency that is absent from the plan, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "brain_migration_pending",
+      "description": "The project still requires the explicit Brain-layout migration.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the project still requires the explicit Brain-layout migration, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.git_baseline_invalid",
+      "description": "The recorded Git baseline is absent, malformed, or inconsistent.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the recorded Git baseline is absent, malformed, or inconsistent, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.ignored_removed",
+      "description": "A path ignored at baseline was removed during the code step.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a path ignored at baseline was removed during the code step, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.observation_changed",
+      "description": "The observed repository identity changed since execution began.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the observed repository identity changed since execution began, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.state_missing",
+      "description": "Completion cannot find the required active run or step state.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve completion cannot find the required active run or step state, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.step_state_mismatch",
+      "description": "The step selected for completion is not the active code step.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the step selected for completion is not the active code step, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.undeclared_change",
+      "description": "The worktree contains a change outside the step's declared scope.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the worktree contains a change outside the step's declared scope, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "complete.worktree_changed",
+      "description": "The worktree content no longer matches the completion observation.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the worktree content no longer matches the completion observation, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "dashboard.estado_ilegivel",
+      "description": "Dashboard rendering cannot read the canonical trail status.",
+      "status": "failure",
+      "exitCode": 1,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve dashboard rendering cannot read the canonical trail status, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "dashboard.telemetria_ilegivel",
+      "description": "Dashboard rendering cannot read the telemetry history.",
+      "status": "failure",
+      "exitCode": 1,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve dashboard rendering cannot read the telemetry history, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "done.all_steps",
+      "description": "The decision engine observed that every plan step is complete.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "gate.aceitacao_final",
+      "description": "The run is waiting for explicit final human acceptance.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run is waiting for explicit final human acceptance, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "gate.aprovacao_spec",
+      "description": "The run is waiting for explicit approval of the current specification lineage.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run is waiting for explicit approval of the current specification lineage, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "gate.gaps_abertos",
+      "description": "The run is waiting for a human decision on open business gaps.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run is waiting for a human decision on open business gaps, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "gate.particionamento",
+      "description": "The run is waiting for a human decision on the partition proposal.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run is waiting for a human decision on the partition proposal, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "gate.prd_ausente",
+      "description": "The run cannot advance because its required PRD artifact is absent.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the run cannot advance because its required PRD artifact is absent, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.active_feature_corrupt",
+      "description": "Guard evaluation cannot validate the active-feature marker.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot validate the active-feature marker, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.config_corrupt",
+      "description": "Guard evaluation cannot validate project configuration.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot validate project configuration, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.config_missing",
+      "description": "Guard evaluation cannot find required project configuration.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot find required project configuration, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.external_path",
+      "description": "The requested write resolves outside the authorized project boundary.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested write resolves outside the authorized project boundary, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.guardrails_corrupt",
+      "description": "Guard evaluation cannot validate the guardrails document.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot validate the guardrails document, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.guardrails_missing",
+      "description": "Guard evaluation cannot find the guardrails document.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot find the guardrails document, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.outside_allow",
+      "description": "The requested write is outside every configured allow rule.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested write is outside every configured allow rule, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.project_marker_corrupt",
+      "description": "Guard evaluation cannot validate the project marker.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot validate the project marker, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.scope_corrupt",
+      "description": "Guard evaluation cannot validate the active scope document.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve guard evaluation cannot validate the active scope document, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.scope_deny",
+      "description": "The active scope explicitly denies the requested write.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the active scope explicitly denies the requested write, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.spec_artifact",
+      "description": "The requested write targets a protected specification artifact.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested write targets a protected specification artifact, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.spec_not_approved",
+      "description": "The requested code write precedes approval of the current specification.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested code write precedes approval of the current specification, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.uninspectable",
+      "description": "The requested target cannot be inspected safely.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the requested target cannot be inspected safely, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "guard.write_block",
+      "description": "A configured write-block rule matches the requested target.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a configured write-block rule matches the requested target, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "judge.auto_julgamento",
+      "description": "The observed executor and judge are the same while self-judgment is forbidden.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the observed executor and judge are the same while self-judgment is forbidden, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "judge.modelo_divergente",
+      "description": "The observed judge model differs from the required judge model.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the observed judge model differs from the required judge model, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "loop.blocked",
+      "description": "The orchestration loop reached a deterministic blocked decision.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the orchestration loop reached a deterministic blocked decision, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "loop.halted",
+      "description": "The orchestration loop is explicitly halted and cannot select more work.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the orchestration loop is explicitly halted and cannot select more work, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "loop.next_ready",
+      "description": "The orchestration loop found the next step ready for execution.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "loop.stop_loss",
+      "description": "The orchestration loop stopped after reaching its stop-loss condition.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the orchestration loop stopped after reaching its stop-loss condition, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "no_git",
+      "description": "The completion baseline intentionally represents a project without a Git repository.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "run.next_step",
+      "description": "The decision engine selected the next runnable plan step.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "run.resuming",
+      "description": "The decision engine selected the already in-progress step for resumption.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "runtime.internal_failure",
+      "description": "An unexpected internal failure was sanitized before reaching normal output.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "forbidden",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": "Capture an authorized redacted diagnostic bundle and report the stable reason without blindly retrying."
+    },
+    {
+      "code": "runtime.lease_conflict",
+      "description": "Another unexpired fenced lease owns the requested mutation.",
+      "status": "blocked",
+      "exitCode": 5,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Wait for the valid lease to finish or expire, reload canonical state, and request the mutation again."
+    },
+    {
+      "code": "runtime.recovery_required",
+      "description": "A durable transaction marker requires explicit verified recovery.",
+      "status": "blocked",
+      "exitCode": 4,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Run the explicit transaction recovery operation, verify its event evidence, and then repeat the original request."
+    },
+    {
+      "code": "runtime.revision_conflict",
+      "description": "Canonical state changed after the decision input was loaded.",
+      "status": "blocked",
+      "exitCode": 5,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Reload canonical state, recompute the decision from the new revision, and submit a fresh mutation."
+    },
+    {
+      "code": "runtime.state_corrupt",
+      "description": "Snapshot, event-chain, or canonical-state integrity validation failed.",
+      "status": "blocked",
+      "exitCode": 4,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Preserve the rejected state, run the explicit integrity audit, and retry only after verified repair or rebuild."
+    },
+    {
+      "code": "trail.aceite_incompleto",
+      "description": "Final acceptance was requested before all readiness conditions were satisfied.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve final acceptance was requested before all readiness conditions were satisfied, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.gate_divergente",
+      "description": "The supplied gate does not equal the active pending gate.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the supplied gate does not equal the active pending gate, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.maintenance_tty",
+      "description": "The maintenance operation requires interactive terminal input.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "forbidden",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the maintenance operation requires interactive terminal input, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.nao_trilho",
+      "description": "The project is not yet operating in trail mode and receives migration orientation.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "trail.objetivo_divergente",
+      "description": "A different active objective was supplied without explicit replacement.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a different active objective was supplied without explicit replacement, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.ok",
+      "description": "The requested trail operation completed successfully.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "required",
+      "stateChanged": true,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "trail.output_invalido",
+      "description": "A required phase output is absent, malformed, or inconsistent.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a required phase output is absent, malformed, or inconsistent, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.prd_invalido",
+      "description": "The PRD checkpoint is absent, malformed, or not completed.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the PRD checkpoint is absent, malformed, or not completed, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.sem_run",
+      "description": "No active feature run exists for the requested trail operation.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "trail.spec_revision_invalid",
+      "description": "Specification revision was requested from an incompatible gate or state.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve specification revision was requested from an incompatible gate or state, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.use_done",
+      "description": "Final acceptance must use the dedicated done operation instead of continue.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve final acceptance must use the dedicated done operation instead of continue, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.uso",
+      "description": "The trail command arguments do not satisfy the operation usage contract.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "forbidden",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve the trail command arguments do not satisfy the operation usage contract, reload the authoritative project state, and repeat the operation."
+    },
+    {
+      "code": "trail.worktree_dirty",
+      "description": "A code step cannot start or rebaseline with disallowed worktree changes.",
+      "status": "failure",
+      "exitCode": 2,
+      "evidence": "optional",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Resolve a code step cannot start or rebaseline with disallowed worktree changes, reload the authoritative project state, and repeat the operation."
+    }
+  ]
+}
