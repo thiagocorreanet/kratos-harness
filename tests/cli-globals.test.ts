@@ -44,6 +44,7 @@ describe("global flag parsing", () => {
 
   it("preserves JSON mode when global parsing fails", () => {
     expect(parseGlobals(["--json", "--expect"]).globals.json).toBe(true);
+    expect(parseGlobals(["--expect", "--json"]).globals.json).toBe(true);
   });
 
   it("accepts an identical repeat and refuses a conflicting one", () => {

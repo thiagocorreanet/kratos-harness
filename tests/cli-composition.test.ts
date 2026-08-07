@@ -90,6 +90,10 @@ describe("composed command line", () => {
       exitCode: 2,
       stderr: "",
     });
+    expect(await run(["--expect", "--json"])).toMatchObject({
+      exitCode: 2,
+      stderr: "",
+    });
     expect((await run(["version", "--unknown"])).stderr).toContain(
       "Reason: trail.uso",
     );

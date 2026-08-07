@@ -21,7 +21,7 @@ function failed(why: string, globals: Globals): GlobalParse {
 /** Extract flags shared by every command regardless of argument order. */
 export function parseGlobals(argv: readonly string[]): GlobalParse {
   const rest: string[] = [];
-  let json = false;
+  const json = argv.includes("--json");
   let expect: string | null = null;
   let orientation: Globals["orientation"] = null;
   let skip = false;
@@ -32,7 +32,7 @@ export function parseGlobals(argv: readonly string[]): GlobalParse {
       continue;
     }
     if (token === "--json") {
-      json = true;
+      continue;
     } else if (token === "--help" || token === "-h") {
       orientation = "help";
     } else if (token === "--version") {
