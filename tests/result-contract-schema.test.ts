@@ -22,12 +22,16 @@ let resultSchema: JsonObject;
 let catalogSchema: JsonObject;
 let catalog: JsonObject;
 
+async function readJson<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
 beforeAll(async () => {
-  [resultSchema, catalogSchema, catalog] = await Promise.all(
-    [resultSchemaPath, catalogSchemaPath, catalogPath].map(async (path) =>
-      JSON.parse(await readFile(path, "utf8")),
-    ),
-  );
+  [resultSchema, catalogSchema, catalog] = await Promise.all([
+    readJson<JsonObject>(resultSchemaPath),
+    readJson<JsonObject>(catalogSchemaPath),
+    readJson<JsonObject>(catalogPath),
+  ]);
 });
 
 function baseResult(exitCode: number): JsonObject {
@@ -60,10 +64,8 @@ describe("universal result JSON schemas", () => {
       $id: "https://mestre-yoda.dev/schemas/reason-catalog/v1",
       additionalProperties: false,
     });
-    expect(catalog).toMatchObject({
-      contractVersion: "1.0.0",
-      reasons: expect.any(Array),
-    });
+    expect(catalog.contractVersion).toBe("1.0.0");
+    expect(Array.isArray(catalog.reasons)).toBe(true);
     expect(resultSchema.required).toEqual([
       "contractVersion",
       "status",

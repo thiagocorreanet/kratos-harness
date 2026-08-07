@@ -36,6 +36,7 @@ This repository is intentionally public from the beginning so that its architect
 | Architecture and implementation backlog | Available |
 | Go compatibility baseline | [Frozen at v0.6.5](docs/compatibility/go-v3-v0.6.5-baseline.md) |
 | Go-to-TypeScript parity inventory | [Complete; parity evidence at 0.00%](docs/compatibility/parity-inventory.md) |
+| Universal result contract | [Version 1 published and verified](docs/compatibility/result-contract.md) |
 | TypeScript deterministic runtime | [Foundation available](docs/development/toolchain.md) |
 | Claude Code integration | Planned |
 | OpenAI Codex integration | Planned |
@@ -253,25 +254,33 @@ GitHub Actions will separate fast pull-request feedback from broader nightly, co
 
 ## Failure explanations
 
-Failures should be useful to both humans and agents. Runtime operations are planned around a universal result contract:
+Failures should be useful to both humans and agents. The published
+[universal result contract](docs/compatibility/result-contract.md) fixes their
+machine-readable fields, exit categories, reason policy, evidence references,
+safe rendering, and recovery semantics before the runtime consumes it:
 
 ```json
 {
+  "contractVersion": "1.0.0",
   "status": "blocked",
   "exitCode": 3,
-  "reasonCode": "GATE_EVIDENCE_STALE",
-  "summary": "Required evidence no longer matches the current artifact.",
+  "reasonCode": "trail.gate_divergente",
+  "summary": "The supplied gate did not match the active pending gate.",
   "why": [
-    "The approved artifact hash differs from the current artifact hash."
+    "The approval targeted a gate other than the currently pending gate."
   ],
-  "evidence": [],
+  "evidence": [
+    {
+      "kind": "approval",
+      "ref": ".brain/runs/0001-login/approvals.jsonl",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
   "stateChanged": false,
   "retryable": true,
-  "recovery": "Regenerate the evidence and request approval for the current artifact."
+  "recovery": "Resolve the supplied gate does not equal the active pending gate, reload the authoritative project state, and repeat the operation."
 }
 ```
-
-The final catalog and schemas will be defined through the [compatibility contract](https://github.com/thiagocorreanet/mestre-yoda/issues/11).
 
 ## Roadmap
 

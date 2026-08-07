@@ -141,6 +141,16 @@ Process exit and JSON `exitCode` are identical. Adapters may translate transport
 envelopes but may not reinterpret the category. The same logical outcome must
 use the same reason and exit across CLI, Claude Code, Codex, and future hosts.
 
+The predecessor's `guard.external_path` warning and `guard.uninspectable`
+notice remain intentional non-blocking exit 0 outcomes. Other guard refusal or
+layout reasons retain exit 2.
+
+Some frozen reason names appeared only in nested predecessor decisions and did
+not own a universal process exit. The v1 catalog keeps those names but assigns
+one result exit across commands and hosts: blocking decision and policy reasons
+use exit 3. This normalization is explicit rather than a claim that every old
+nested reason already had that process behavior.
+
 ## 7. Reason catalog
 
 The catalog is a closed, sorted array. Each entry contains:

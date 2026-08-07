@@ -30,17 +30,25 @@ interface Catalog {
   readonly reasons: readonly ReasonEntry[];
 }
 
+interface Discovery {
+  readonly namespaces: {
+    readonly reason_codes: readonly { readonly name: string }[];
+  };
+}
+
 let legacyCodes: string[];
 let catalog: Catalog;
 
+async function readJson<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
 beforeAll(async () => {
   const [discovery, parsedCatalog] = await Promise.all([
-    readFile(discoveryPath, "utf8").then((value) => JSON.parse(value)),
-    readFile(catalogPath, "utf8").then((value) => JSON.parse(value) as Catalog),
+    readJson<Discovery>(discoveryPath),
+    readJson<Catalog>(catalogPath),
   ]);
-  legacyCodes = discovery.namespaces.reason_codes.map(
-    ({ name }: { readonly name: string }) => name,
-  );
+  legacyCodes = discovery.namespaces.reason_codes.map(({ name }) => name);
   catalog = parsedCatalog;
 });
 
@@ -92,6 +100,21 @@ describe("universal result reason catalog", () => {
         expect(recoveries.has(reason.recovery ?? ""), reason.code).toBe(false);
         recoveries.add(reason.recovery ?? "");
       }
+    }
+  });
+
+  it("preserves non-blocking guard warning exits from Go v3", () => {
+    for (const code of ["guard.external_path", "guard.uninspectable"]) {
+      expect(
+        catalog.reasons.find((reason) => reason.code === code),
+        code,
+      ).toMatchObject({
+        status: "success",
+        exitCode: 0,
+        stateChanged: false,
+        retryable: false,
+        recovery: null,
+      });
     }
   });
 });

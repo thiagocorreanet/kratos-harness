@@ -26,20 +26,22 @@ let canonicalCatalogSchema: JsonObject;
 let canonicalCatalog: JsonObject;
 let canonicalExamples: JsonObject[];
 
+async function readJson<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
 beforeAll(async () => {
   [canonicalResultSchema, canonicalCatalogSchema, canonicalCatalog] =
-    await Promise.all(
-      [resultSchemaPath, catalogSchemaPath, catalogPath].map(async (path) =>
-        JSON.parse(await readFile(path, "utf8")),
-      ),
-    );
+    await Promise.all([
+      readJson<JsonObject>(resultSchemaPath),
+      readJson<JsonObject>(catalogSchemaPath),
+      readJson<JsonObject>(catalogPath),
+    ]);
   canonicalExamples = await Promise.all(
     (await readdir(examplesPath))
       .filter((name) => name.endsWith(".json"))
       .sort()
-      .map(async (name) =>
-        JSON.parse(await readFile(join(examplesPath, name), "utf8")),
-      ),
+      .map((name) => readJson<JsonObject>(join(examplesPath, name))),
   );
 });
 

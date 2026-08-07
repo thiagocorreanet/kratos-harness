@@ -383,13 +383,13 @@
     },
     {
       "code": "guard.external_path",
-      "description": "The requested write resolves outside the authorized project boundary.",
-      "status": "failure",
-      "exitCode": 2,
+      "description": "The requested target is outside guard jurisdiction and produced a non-blocking warning.",
+      "status": "success",
+      "exitCode": 0,
       "evidence": "optional",
       "stateChanged": false,
-      "retryable": true,
-      "recovery": "Resolve the requested write resolves outside the authorized project boundary, reload the authoritative project state, and repeat the operation."
+      "retryable": false,
+      "recovery": null
     },
     {
       "code": "guard.guardrails_corrupt",
@@ -473,13 +473,13 @@
     },
     {
       "code": "guard.uninspectable",
-      "description": "The requested target cannot be inspected safely.",
-      "status": "failure",
-      "exitCode": 2,
+      "description": "The guard could not inspect the requested target and produced a non-blocking warning.",
+      "status": "success",
+      "exitCode": 0,
       "evidence": "optional",
       "stateChanged": false,
-      "retryable": true,
-      "recovery": "Resolve the requested target cannot be inspected safely, reload the authoritative project state, and repeat the operation."
+      "retryable": false,
+      "recovery": null
     },
     {
       "code": "guard.write_block",

@@ -39,6 +39,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | `npm run test:coverage` | Enforce 100% coverage on the initial CLI decision surface |
 | `npm run oracle:verify` | Validate the public metadata-only Go v3 oracle catalog offline |
 | `npm run parity:check` | Validate exhaustive legacy coverage and report objective TypeScript parity |
+| `npm run result:check` | Validate the universal result schemas, 76 reason policies, and six exit examples |
 | `npm run build` | Rebuild the standalone runtime artifact |
 | `npm run package:verify` | Inspect and execute the staged artifact outside the checkout |
 | `npm run verify` | Run the complete offline validation chain in dependency order |
@@ -118,6 +119,12 @@ discovery keys into 400 owned and independently verifiable compatibility rows.
 requirements, invalid evidence references, and unsupported parity claims. It
 currently reports `0 / 400 (0.00%)`: the worklist is complete, while behavior
 implementation and differential evidence remain future work.
+
+The [universal result contract](../compatibility/result-contract.md) preserves
+all 71 frozen reason names and predecessor exits 0 through 3, then adds five
+runtime-only reasons and exits 4 and 5 for explicit recovery and concurrency.
+`npm run result:check` validates its closed schemas, catalog policy, examples,
+canonical ordering, and public-output safety offline.
 
 ## Runtime artifact
 

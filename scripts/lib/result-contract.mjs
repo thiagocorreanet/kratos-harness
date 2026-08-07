@@ -79,9 +79,12 @@ function assertSafeStrings(value) {
       /(?:token|secret|password)\s*[:=]/iu,
       /(?:^|\s)\/(?:etc|home|private|tmp|Users|var)\//u,
       /(?:^|\s)[A-Za-z]:[\\/]/u,
-      /[\u0000-\u001f\u007f]/u,
     ];
-    if (unsafe.some((pattern) => pattern.test(value))) {
+    const hasControlCharacter = [...value].some((character) => {
+      const code = character.codePointAt(0);
+      return code !== undefined && (code <= 31 || code === 127);
+    });
+    if (hasControlCharacter || unsafe.some((pattern) => pattern.test(value))) {
       throw validationFailure("unsafe text is not publishable");
     }
     return;

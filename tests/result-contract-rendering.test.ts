@@ -13,18 +13,24 @@ const libraryUrl = pathToFileURL(
 ).href;
 
 type JsonObject = Record<string, unknown>;
-type Rendered = { stdout: string; stderr: string; exitCode: number };
+interface Rendered {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
 
 let examples: JsonObject[];
+
+async function readJson<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
 
 beforeAll(async () => {
   examples = await Promise.all(
     (await readdir(examplesPath))
       .filter((name) => name.endsWith(".json"))
       .sort()
-      .map(async (name) =>
-        JSON.parse(await readFile(join(examplesPath, name), "utf8")),
-      ),
+      .map((name) => readJson<JsonObject>(join(examplesPath, name))),
   );
 });
 
@@ -82,9 +88,9 @@ describe("universal result rendering", () => {
         ...(example.evidence as JsonObject[]).map((evidence) =>
           [
             `Evidence: ${String(evidence.kind)} ${String(evidence.ref)}`,
-            evidence.sha256 === undefined
+            typeof evidence.sha256 !== "string"
               ? ""
-              : ` sha256=${String(evidence.sha256)}`,
+              : ` sha256=${evidence.sha256}`,
           ].join(""),
         ),
         `State changed: ${String(example.stateChanged)}`,

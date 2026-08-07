@@ -157,11 +157,12 @@ conditionals, evidence enum
 Use the old Go behavior and parity row reference to assign legacy exits:
 
 - exit 0: `run.*`, `done.all_steps`, `trail.ok`, `trail.nao_trilho`,
-  `trail.sem_run`, and `no_git` orientation/success outcomes;
+  `trail.sem_run`, `no_git`, `guard.external_path`, and
+  `guard.uninspectable` orientation/success outcomes;
 - exit 1: the two `dashboard.*` validation/read outcomes;
 - exit 2: usage/environment reasons including `trail.uso`,
-  `trail.maintenance_tty`, `trail.worktree_dirty`, guard invocation/layout
-  failures, and `runtime.internal_failure`;
+  `trail.maintenance_tty`, `trail.worktree_dirty`, blocking guard
+  invocation/layout failures, and `runtime.internal_failure`;
 - exit 3: `blocked.*`, `gate.*`, `loop.*`, `judge.*`, `complete.*`, and the
   remaining trail gate/policy refusals;
 - exit 4: only `runtime.state_corrupt` and `runtime.recovery_required`;
@@ -363,21 +364,21 @@ git commit -s -m "test: prove safe result rendering"
 - Consumes: all implemented artifacts and exact checker output.
 - Produces: contributor/consumer documentation and completion evidence.
 
-- [ ] **Step 1: Document the public contract**
+- [x] **Step 1: Document the public contract**
 
 Explain all ten fields, evidence shape, exits 0..5, catalog fields, rendering
 ownership, safety/redaction, versioning, additive TypeScript-only exits, and how
 to run `npm run result:check`. Include one success and one blocked example from
 checked fixtures, not hand-maintained variants.
 
-- [ ] **Step 2: Update discoverability**
+- [x] **Step 2: Update discoverability**
 
 Link the guide from README failure explanations and replace the illustrative
 uppercase `GATE_EVIDENCE_STALE` with the checked `trail.gate_divergente`
 example. Add `npm run result:check` to the toolchain command table and explain
 that 76 catalog entries comprise 71 frozen plus five runtime-only codes.
 
-- [ ] **Step 3: Run focused documentation checks**
+- [x] **Step 3: Run focused documentation checks**
 
 ```bash
 npm run spellcheck
@@ -402,7 +403,7 @@ Request independent review of schema strictness, all 76 reason mappings,
 example/catalog cross-validation, rendering/redaction, compatibility claims,
 and issue #11 acceptance criteria. Resolve all Critical and Important findings.
 
-- [ ] **Step 5: Commit documentation**
+- [x] **Step 5: Commit documentation**
 
 ```bash
 git add README.md .cspell.json docs
