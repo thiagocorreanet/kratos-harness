@@ -63,13 +63,14 @@ describe("README honesty", () => {
     expect([...documentedNpmCommands].sort()).toEqual([...commands].sort());
 
     expect(packageManifest.scripts).toMatchObject({
-      spellcheck: 'cspell --no-progress --show-suggestions "**/*.md"',
+      spellcheck:
+        'cspell --gitignore-root . --no-progress --show-suggestions "**/*.md"',
       "parity:check": "node scripts/check-parity-inventory.mjs",
       "result:check": "node scripts/check-result-contract.mjs",
       build: "node scripts/build.mjs",
       "package:verify": "node scripts/verify-package.mjs",
       verify:
-        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run build && npm run package:verify",
+        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run build && npm run package:verify",
     });
     expect(commands.indexOf("npm run build")).toBeLessThan(
       commands.indexOf("npm run package:verify"),
