@@ -39,6 +39,13 @@ JSON or human form, and no command writes to a stream on its own.
 - The host adapter protocol (`ADP-01`).
 - Byte parity with the frozen Go v3 help text. The help output is generated
   from the registry, so it matches only once the registry is complete.
+- The `--require-contract` global flag. The inventory records that it runs a
+  compatibility check before dispatch, and its only legacy reference is
+  `cmd/yoda/contrato.go`, whose provenance is hash-only. Which contract family
+  it pins is not derivable from the frozen evidence, and `CMP-04` does not
+  answer it either. Implementing it would mean inventing a public contract, so
+  it stays an unknown flag and returns a usage failure until an authorized
+  oracle observation settles the behavior.
 
 ## Decisions
 
@@ -88,8 +95,8 @@ remember to check.
 
 ### D3: Global flags are parsed at any position
 
-`--expect`, `--require-contract`, `--json`, `--help`, and `--version` are
-extracted from anywhere in `argv` before the command token is resolved.
+`--expect`, `--json`, `--help`, `-h`, and `--version` are extracted from
+anywhere in `argv` before the command token is resolved.
 
 `--help`, `-h`, and `--version` are normalized into the `help` and `version`
 commands rather than handled as flags with their own output path. They are
@@ -146,9 +153,9 @@ A caller needs one rule: a non-zero exit means a result envelope.
 Catalog revision 1.2 already covers this pipeline. `trail.uso` is the frozen
 usage reason, with exit 2, forbidden evidence, and the recovery text already
 written. It covers an unknown command, an unknown flag, a missing flag value,
-and wrong arity. The `contract.plugin_version_*` reasons cover `--expect` and
-`--require-contract`, and are what `classifyExpectedVersion` already returns.
-An unanticipated throw becomes `runtime.internal_failure` at the edge.
+and wrong arity. The `contract.plugin_version_*` reasons cover `--expect`, and
+are what `classifyExpectedVersion` already returns. An unanticipated throw
+becomes `runtime.internal_failure` at the edge.
 
 Adding a reason code would mean a catalog revision, and this issue introduces no
 outcome the catalog cannot already name.
