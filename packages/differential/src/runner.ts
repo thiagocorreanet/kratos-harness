@@ -189,6 +189,13 @@ async function execute(
   child.on("error", () => {
     termination.outcome = "spawn_error";
   });
+  // A child is free to exit without draining stdin, which fails the pending
+  // write with EPIPE. That is observable through the child's own outcome, so
+  // it must not become an unhandled rejection that bypasses cleanup, leaks the
+  // sandbox, prints a stack trace, and exits with the mismatch code.
+  child.stdin.on("error", () => {
+    // Deliberately ignored; see above.
+  });
   child.stdin.end(scenario.invocation.stdin);
 
   const timeout = setTimeout(() => {
@@ -231,6 +238,7 @@ export async function runScenarioSide(
   const root = await mkdtemp(
     join(parent, `yoda-differential-${options.side}-`),
   );
+  let run: SideRun;
   try {
     await Promise.all([
       mkdir(join(root, "home"), { mode: 0o700 }),
@@ -254,7 +262,7 @@ export async function runScenarioSide(
       processRun.observation,
       options.scenario.disclosure.artifacts,
     );
-    return {
+    run = {
       side: options.side,
       executableSha256: executable.sha256,
       durationMs: processRun.durationMs,
@@ -264,9 +272,16 @@ export async function runScenarioSide(
         project,
       ),
     };
-  } finally {
-    await rm(root, { recursive: true, force: true });
+  } catch (error) {
+    // Clean up without letting a cleanup failure replace and hide the real
+    // cause of the run failure.
+    await rm(root, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
   }
+  // On the success path a failed cleanup is itself a harness failure: a leaked
+  // sandbox must never pass silently.
+  await rm(root, { recursive: true, force: true });
+  return run;
 }
 
 export async function runScenario(
