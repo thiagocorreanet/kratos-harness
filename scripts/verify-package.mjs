@@ -28,7 +28,8 @@ const expectedInventory = [
   "runtime/yoda.mjs",
 ];
 const expectedDirectories = new Set(["runtime"]);
-const expectedHelp = "Usage: yoda [--help | --version]\n";
+const expectedHelp =
+  "Usage: yoda [--expect <version>] [--help | --version | handshake]\n";
 const expectedVersion = "0.0.0-development\n";
 const allowedBuiltins = new Set(
   builtinModules.map((moduleName) =>

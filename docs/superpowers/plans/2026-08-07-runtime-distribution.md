@@ -412,7 +412,7 @@ git commit -s -m "feat: emit the two-file runtime and its manifest"
 - Produces: `classifyExpectedVersion(value: unknown): ContractFailureResult | null`, returning `null` when the value matches the bundle plugin version.
 - Consumes: `classifyContractVersion` and `contractFailureResult` from `@mestre-yoda/contracts`.
 
-- [ ] **Step 1: Write the failing handshake tests**
+- [x] **Step 1: Write the failing handshake tests**
 
 ```ts
 import { buildHandshakeResponse, classifyExpectedVersion } from "@mestre-yoda/runtime/handshake";
@@ -449,7 +449,7 @@ describe("runtime handshake", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/runtime-handshake.test.ts
@@ -457,7 +457,7 @@ npm test -- tests/runtime-handshake.test.ts
 
 Expected: FAIL because `handshake.ts` does not exist.
 
-- [ ] **Step 3: Implement the handshake and wire the CLI**
+- [x] **Step 3: Implement the handshake and wire the CLI**
 
 `buildHandshakeResponse` reads `contract-families.v1.json` and returns a message
 with `host: "unknown"`, `capabilities: []`, and
@@ -490,7 +490,7 @@ branch of `classifyExpectedVersion` is covered by the `it.each` table above plus
 the accepting case; keep the module free of unreachable defensive branches so
 the gate stays achievable.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/runtime-handshake.test.ts packages/runtime/src/cli.test.ts

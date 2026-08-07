@@ -52,7 +52,9 @@ describe("standalone runtime bundle", () => {
     const result = execute("--help");
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("Usage: yoda [--help | --version]\n");
+    expect(result.stdout).toBe(
+      "Usage: yoda [--expect <version>] [--help | --version | handshake]\n",
+    );
     expect(result.stderr).toBe("");
   });
 

@@ -38,7 +38,7 @@ afterAll(() => {
 async function corruptCore(replacement: string): Promise<void> {
   const bundle = await readFile(core, "utf8");
   const corrupted = bundle.replace(
-    "Usage: yoda [--help | --version]",
+    "Usage: yoda [--expect <version>] [--help | --version | handshake]",
     replacement,
   );
   expect(corrupted).not.toBe(bundle);

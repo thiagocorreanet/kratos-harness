@@ -3,7 +3,10 @@
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
-  "exports": "./src/cli.ts",
+  "exports": {
+    ".": "./src/cli.ts",
+    "./handshake": "./src/handshake.ts"
+  },
   "dependencies": {
     "@mestre-yoda/contracts": "0.0.0-development"
   }
