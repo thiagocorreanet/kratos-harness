@@ -6,7 +6,7 @@
 
 **Architecture:** Three private npm workspaces separate contracts, adapter boundaries, and runtime composition while a root-only development toolchain owns validation and bundling. The runtime exposes a pure CLI function for unit tests; esbuild embeds all internal code into `dist/plugin/runtime/yoda.mjs`, and a package verifier executes that one file outside the checkout.
 
-**Tech Stack:** Node.js 24.18.0, npm 11.16.0, TypeScript 6.0.2 compatibility package, ESLint 10.8.0, typescript-eslint 8.66.0, Prettier 3.9.6, Vitest 4.1.10 with V8 coverage, esbuild 0.28.1.
+**Tech Stack:** Node.js 24.18.0, npm 11.16.0, TypeScript 6.0.2 compatibility package, ESLint 10.8.0 with `@eslint/js` 10.0.1, typescript-eslint 8.66.0, Prettier 3.9.6, Vitest 4.1.10 with V8 coverage, esbuild 0.28.1.
 
 ## Global Constraints
 
@@ -47,7 +47,8 @@
 
 - [ ] **Step 1: Add the pinned manifests and runtime selectors**
 
-Create the root manifest with no `dependencies`, exact `devDependencies`, and this command graph:
+Create the root manifest with no `dependencies`, exact `devDependencies`, an
+`allowScripts` entry permitting only `esbuild@0.28.1`, and this command graph:
 
 ```json
 {
@@ -72,6 +73,7 @@ Create the root manifest with no `dependencies`, exact `devDependencies`, and th
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
     "@vitest/coverage-v8": "4.1.10",
     "esbuild": "0.28.1",
@@ -80,6 +82,9 @@ Create the root manifest with no `dependencies`, exact `devDependencies`, and th
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.66.0",
     "vitest": "4.1.10"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }
 ```
@@ -117,7 +122,7 @@ npm --version
 npm ls --depth=0
 ```
 
-Expected: versions are `v24.18.0` and `11.16.0`; installation uses only the committed resolution; all eight root development dependencies are present and there are no production dependencies.
+Expected: versions are `v24.18.0` and `11.16.0`; installation uses only the committed resolution; all nine root development dependencies are present and there are no production dependencies.
 
 - [ ] **Step 5: Commit the toolchain foundation**
 
@@ -135,6 +140,7 @@ git commit -m "build: establish deterministic TypeScript workspace"
 - Create: `packages/adapters/src/index.ts`
 - Create: `packages/runtime/src/cli.test.ts`
 - Create: `packages/runtime/src/cli.ts`
+- Create: `packages/runtime/src/main.ts`
 
 **Interfaces:**
 
@@ -183,7 +189,7 @@ Expected: FAIL because `packages/runtime/src/cli.ts` does not exist.
 
 - [ ] **Step 3: Add the minimal host-neutral contract and CLI implementation**
 
-Export `YODA_VERSION` from contracts and implement the exact behavior under test. The executable guard compares `import.meta.url` with `pathToFileURL(process.argv[1]).href`, then passes `process.argv.slice(2)` and stream writers to `runCli` and assigns the returned value to `process.exitCode`. Keep `packages/adapters/src/index.ts` as a type-only boundary exporting:
+Export `YODA_VERSION` from contracts and implement the exact behavior under test. The executable `main.ts` passes `process.argv.slice(2)` and stream writers to `runCli` and assigns the returned value to `process.exitCode`. Keep `packages/adapters/src/index.ts` as a type-only boundary exporting:
 
 ```typescript
 export interface HostAdapter {
@@ -240,7 +246,7 @@ await build({
   absWorkingDir: repositoryRoot,
   banner: { js: "#!/usr/bin/env node" },
   bundle: true,
-  entryPoints: ["packages/runtime/src/cli.ts"],
+  entryPoints: ["packages/runtime/src/main.ts"],
   format: "esm",
   logLevel: "info",
   metafile: true,

@@ -1,0 +1,10 @@
+{
+  "name": "@mestre-yoda/runtime",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": "./src/cli.ts",
+  "dependencies": {
+    "@mestre-yoda/contracts": "0.0.0-development"
+  }
+}

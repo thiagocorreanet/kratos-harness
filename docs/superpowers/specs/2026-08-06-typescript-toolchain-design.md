@@ -110,7 +110,8 @@ packages/
     ├── package.json
     └── src/
         ├── cli.test.ts
-        └── cli.ts
+        ├── cli.ts
+        └── main.ts
 scripts/
 ├── build.mjs
 └── verify-package.mjs
@@ -148,6 +149,7 @@ The repository has **zero production dependencies** in this issue. Every tool is
 an exactly pinned root `devDependency`:
 
 - `typescript` aliased to `@typescript/typescript6@6.0.2`;
+- `@eslint/js@10.0.1`;
 - `@types/node@24.13.3`;
 - `eslint@10.8.0`;
 - `typescript-eslint@8.66.0`;
@@ -159,6 +161,11 @@ an exactly pinned root `devDependency`:
 Version ranges are not permitted in manifests. The lockfile is the complete
 transitive resolution. Automated dependency updates must change one logical
 tool family at a time and run the entire verification suite.
+
+npm's lifecycle-script allowlist permits only the exactly pinned
+`esbuild@0.28.1` installer, which selects its locked native binary. No other
+dependency may execute an installation script without a reviewed manifest
+change.
 
 The runtime may import Node built-ins and internal workspace modules only.
 Package verification rejects a staged artifact that references `node_modules`,
@@ -188,7 +195,7 @@ depend on a global package, or hide subprocess failures.
 
 `packages/runtime/src/cli.ts` exposes a pure `runCli` function that accepts
 arguments and output/error writers and returns a process exit code. The
-executable wrapper passes `process.argv` and Node streams to it.
+executable `main.ts` wrapper passes `process.argv` and Node streams to it.
 
 Supported behavior in this issue is deliberately limited:
 
@@ -204,7 +211,7 @@ command contract owned by later compatibility/runtime issues.
 
 ## 9. Build and package verification
 
-`scripts/build.mjs` invokes the esbuild JavaScript API with one runtime entry,
+`scripts/build.mjs` invokes the esbuild JavaScript API with the `main.ts` runtime entry,
 ESM output, Node 24 target, bundled internal modules, a Unix shebang, a metafile,
 and no source-map path leakage. It removes only the known `dist/plugin` staging
 directory before building and makes the resulting file executable.
@@ -235,10 +242,11 @@ minimal implementation. Black-box tests then fail until the build and package
 verification scripts create a standalone artifact.
 
 Vitest runs in a single deterministic Node environment with no network use. V8
-coverage includes executable source and enforces 100% statements, branches,
-functions, and lines for the minimal runtime smoke surface. Type-only contract
-and adapter declarations are excluded from executable coverage rather than
-credited as covered code.
+coverage includes the executable CLI decision logic and enforces 100%
+statements, branches, functions, and lines for the minimal runtime smoke
+surface. The process-only `main.ts` wrapper is proven by black-box execution;
+type-only contract and adapter declarations are excluded from executable
+coverage rather than credited as covered code.
 
 The clean-room smoke test creates a temporary directory outside the checkout,
 copies only `yoda.mjs`, sets its working directory there, clears module lookup
