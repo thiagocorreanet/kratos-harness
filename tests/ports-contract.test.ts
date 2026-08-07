@@ -1,4 +1,12 @@
-import { mkdtemp, readdir, rm, symlink } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,7 +23,9 @@ import {
   nodeClock,
   nodeEnvironment,
   nodeFileSystem,
+  nodeGit,
   nodeIds,
+  nodeLocks,
   nodeOutput,
 } from "@mestre-yoda/runtime/infra/node";
 import { describe, expect, it } from "vitest";
@@ -77,11 +87,127 @@ describeOutputContract("node", () =>
   }),
 );
 
-// Git and locks run against the fake only. `RUN-08` and `RUN-07` own their real
-// semantics; asserting repository classification or lease expiry here would
-// pre-empt issues that have not been designed yet.
+describeLocksContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-node-locks-"));
+  return {
+    port: nodeLocks(root),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
+});
+describeGitContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
+  return {
+    port: nodeGit(root),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
+});
+
+// `RUN-07` and `RUN-08` own the full semantics of leases and repository
+// classification. What is shared here is only what both implementations must
+// already agree on; the exception is per-assertion, not per-port.
+
+describe("node git classification", () => {
+  async function repository(): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
+    execFileSync("git", ["init", "-q", "--initial-branch=main"], { cwd: root });
+    return root;
+  }
+
+  it("classifies a repository with no commit as unborn", async () => {
+    const root = await repository();
+    try {
+      expect(await nodeGit(root).state()).toBe("unborn");
+      expect(await nodeGit(root).head()).toBeNull();
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("classifies a directory with no repository as absent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
+    try {
+      expect(await nodeGit(root).state()).toBe("absent");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("classifies a committed tree as clean and a modified one as dirty", async () => {
+    const root = await repository();
+    try {
+      await writeFile(join(root, "a.txt"), "one", "utf8");
+      execFileSync("git", ["add", "a.txt"], { cwd: root });
+      execFileSync(
+        "git",
+        [
+          "-c",
+          "user.name=Test",
+          "-c",
+          "user.email=test@example.invalid",
+          "commit",
+          "-qm",
+          "first",
+        ],
+        { cwd: root },
+      );
+
+      expect(await nodeGit(root).state()).toBe("clean");
+      expect(await nodeGit(root).head()).toMatch(/^[a-f0-9]{40}$/u);
+      expect(await nodeGit(root).changedPaths()).toEqual([]);
+
+      await writeFile(join(root, "a.txt"), "two", "utf8");
+      expect(await nodeGit(root).state()).toBe("dirty");
+      expect(await nodeGit(root).changedPaths()).toEqual(["a.txt"]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+});
 
 describe("node filesystem safety", () => {
+  it("refuses a final component that is a symlink out of the root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-node-fs-"));
+    const outside = await mkdtemp(join(tmpdir(), "yoda-outside-"));
+    try {
+      const secret = join(outside, "secret.txt");
+      await writeFile(secret, "SECRET", "utf8");
+      await symlink(secret, join(root, "link.txt"));
+      const fileSystem = nodeFileSystem(root);
+
+      // Resolving only the parent misses this: the parent is the root itself,
+      // so the redirect lives entirely in the last segment.
+      await expect(fileSystem.read("link.txt")).rejects.toThrow(
+        "escapes the project",
+      );
+      await expect(fileSystem.write("link.txt", "PWNED")).rejects.toThrow(
+        "escapes the project",
+      );
+      await expect(fileSystem.stat("link.txt")).rejects.toThrow(
+        "escapes the project",
+      );
+      expect(await readFile(secret, "utf8")).toBe("SECRET");
+    } finally {
+      await Promise.all([
+        rm(root, { force: true, recursive: true }),
+        rm(outside, { force: true, recursive: true }),
+      ]);
+    }
+  });
+
+  it("still allows a symlink that stays inside the root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-node-fs-"));
+    try {
+      const fileSystem = nodeFileSystem(root);
+      await fileSystem.write("real.txt", "inside");
+      await symlink(join(root, "real.txt"), join(root, "alias.txt"));
+
+      // A refusal must be about escaping, not about symlinks as such.
+      expect(await fileSystem.read("alias.txt")).toBe("inside");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("refuses a write redirected outside the root by a symlink", async () => {
     const root = await mkdtemp(join(tmpdir(), "yoda-node-fs-"));
     const outside = await mkdtemp(join(tmpdir(), "yoda-outside-"));

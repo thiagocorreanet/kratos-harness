@@ -129,6 +129,35 @@ export function describeFileSystemContract(
       });
     });
 
+    it("reports size in bytes, not UTF-16 code units", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await fileSystem.write("accented.txt", "héllo");
+        // "héllo" is 5 code units but 6 UTF-8 bytes. Any policy that budgets or
+        // compares by size would pass in memory and misbehave on disk if the
+        // two disagreed here.
+        expect((await fileSystem.stat("accented.txt"))?.size).toBe(6);
+      });
+    });
+
+    it("removes a directory", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await fileSystem.makeDirectory("gone");
+        await fileSystem.remove("gone");
+        expect(await fileSystem.stat("gone")).toBeNull();
+      });
+    });
+
+    it("returns an empty listing when there is nothing to enumerate", async () => {
+      await withFileSystem(async (fileSystem) => {
+        // Nothing to list is an empty listing, not an error. Both
+        // implementations must agree on this, or a caller enumerating state
+        // would behave differently in memory than on disk.
+        expect(await fileSystem.list("missing-directory")).toEqual([]);
+        await fileSystem.write("a-file.txt", "x");
+        expect(await fileSystem.list("a-file.txt")).toEqual([]);
+      });
+    });
+
     it("makes a directory idempotently", async () => {
       await withFileSystem(async (fileSystem) => {
         await fileSystem.makeDirectory("d");
@@ -233,6 +262,36 @@ export function describeLocksContract(
         // A reused token would let a stale owner be mistaken for the current
         // one, which is the whole point of fencing.
         expect(second?.fencingToken).toBeGreaterThan(first?.fencingToken ?? 0);
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("expires a lease in the future, not at the epoch", async () => {
+      const { port, dispose } = await factory();
+      try {
+        const lease = await port.acquire("run", 60_000);
+        // A lease that reads as already expired inverts every expiry check
+        // written against it.
+        expect(lease?.expiresAt.getTime()).toBeGreaterThan(
+          new Date("2020-01-01T00:00:00.000Z").getTime(),
+        );
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("ignores a release from a stale owner", async () => {
+      const { port, dispose } = await factory();
+      try {
+        const held = await port.acquire("run", 60_000);
+        expect(held).not.toBeNull();
+        if (held === null) return;
+
+        // A stale owner holding an old token must not be able to free a lease
+        // someone else now holds -- that is what fencing is for.
+        await port.release({ ...held, fencingToken: held.fencingToken - 1 });
+        expect(await port.acquire("run", 60_000)).toBeNull();
       } finally {
         await dispose();
       }

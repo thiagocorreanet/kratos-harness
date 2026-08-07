@@ -91,6 +91,19 @@ describe("effect plan application", () => {
     expect(output.human_).toEqual(["ok\n"]);
   });
 
+  it("appends to an existing event log instead of replacing it", async () => {
+    const { fileSystem, ports } = fakeRuntime();
+
+    await applyPlan(planOf({ kind: "append_event", event: "first" }), ports);
+    await applyPlan(planOf({ kind: "append_event", event: "second" }), ports);
+
+    // Truncating here would be silent, unrecoverable loss in the precursor to
+    // the event store.
+    expect(await fileSystem.read(".brain/events.jsonl")).toBe(
+      "first\nsecond\n",
+    );
+  });
+
   it("produces byte-identical output across two fixed runs", async () => {
     const run = async (): Promise<string> => {
       const { output, ports } = fakeRuntime();
