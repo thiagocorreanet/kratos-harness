@@ -19,6 +19,14 @@ export type ProjectResolution =
       readonly kind: "marker-unusable";
       readonly reasonCode: "guard.project_marker_corrupt";
     })
+  | (Rooted & {
+      readonly kind: "configuration-unusable";
+      readonly reasonCode:
+        | "guard.config_missing"
+        | "guard.config_corrupt"
+        | "contract.state_version_invalid"
+        | "contract.state_version_unsupported";
+    })
   | {
       readonly kind: "not-found";
       readonly reasonCode: "guard.config_missing";

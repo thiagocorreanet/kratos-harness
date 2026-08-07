@@ -79,6 +79,11 @@ describe("project discovery vocabulary", () => {
         root: "/workspace/project",
         reasonCode: "guard.project_marker_corrupt",
       },
+      {
+        kind: "configuration-unusable",
+        root: "/workspace/project",
+        reasonCode: "guard.config_corrupt",
+      },
       { kind: "not-found", reasonCode: "guard.config_missing" },
       { kind: "refused", reasonCode: "trail.uso" },
     ] as const satisfies readonly ProjectResolution[];
@@ -88,6 +93,7 @@ describe("project discovery vocabulary", () => {
       "root-only",
       "migration-pending",
       "marker-unusable",
+      "configuration-unusable",
       "not-found",
       "refused",
     ]);

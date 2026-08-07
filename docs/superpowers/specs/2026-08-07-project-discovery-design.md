@@ -285,6 +285,7 @@ points at the exact command that fixes it.
 | `root-only` | Root found, no `.brain`, no legacy sibling |
 | `migration-pending` | Root found, no `.brain`, legacy sibling present |
 | `marker-unusable` | `.brain` exists but is not a usable directory |
+| `configuration-unusable` | Root and `.brain` found, but configuration classification or validation failed |
 | `not-found` | No root could be resolved |
 | `refused` | The supplied `--root` cannot be used |
 
