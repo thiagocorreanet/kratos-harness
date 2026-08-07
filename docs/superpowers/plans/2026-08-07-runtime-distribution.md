@@ -140,7 +140,7 @@ git commit -s -m "feat: add the unsupported interpreter reason"
 - Produces: a preflight template containing the literal placeholders `__MINIMUM_NODE__`, `__SUMMARY__`, `__RECOVERY__`, and `__CORE__`, substituted at build time by Task 3.
 - Produces: on an unsupported interpreter, one line of `result.v1` JSON on stdout and exit `2`; otherwise a dynamic import of the core bundle.
 
-- [ ] **Step 1: Write the failing preflight tests**
+- [x] **Step 1: Write the failing preflight tests**
 
 The old-interpreter case runs the real file under a stub that rewrites
 `process.versions.node` before the entry point loads, so the shipped artifact is
@@ -233,7 +233,7 @@ describe("runtime preflight", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/runtime-preflight.test.ts
@@ -241,7 +241,7 @@ npm test -- tests/runtime-preflight.test.ts
 
 Expected: FAIL because `preflight.mjs` does not exist.
 
-- [ ] **Step 3: Write the preflight**
+- [x] **Step 3: Write the preflight**
 
 No `const`, `let`, arrow functions, template literals, optional chaining, or
 top-level `await` — every one of those would defeat the purpose:
@@ -289,11 +289,11 @@ if (atLeast(process.versions.node, MINIMUM)) {
 }
 ```
 
-Add `packages/runtime/src/boot/preflight.mjs` to `.prettierignore` and exclude it
-from `eslint.config.mjs`, because its placeholders and deliberate legacy syntax
-are not valid targets for either tool.
+No lint or format exclusion turned out to be needed: `no-var` is not part of
+`eslint:recommended`, and Prettier formats the legacy syntax unchanged. Leave
+both configurations alone rather than adding an exemption nothing requires.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/runtime-preflight.test.ts
