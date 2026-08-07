@@ -84,7 +84,7 @@ function assertSafeStrings(value) {
       /(?:token|secret|password)["']?\s*[:=]/iu,
       /(?:api[_-]?key|access[_-]?token|client[_-]?secret)["']?\s*[:=]/iu,
       /\b(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOOGLE_APPLICATION_CREDENTIALS|AZURE_[A-Z0-9_]+)\b["']?\s*[:=]/u,
-      /\b(?:Basic|Bearer)\s+\S+/u,
+      /\b(?:Basic|Bearer)\s+(?:[A-Za-z]{20,}|(?=\S*(?:\d|[-._~+/=]))\S+)/u,
       /-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/u,
       /\bTraceback \(most recent call last\):/u,
       /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/u,

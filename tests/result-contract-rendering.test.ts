@@ -177,6 +177,8 @@ describe("universal result rendering", () => {
   it.each([
     "The basic configuration is valid.",
     "The bearer completed the requested handoff.",
+    "Basic configuration is valid.",
+    "Bearer completed the requested handoff.",
   ])("allows non-credential prose: %s", (summary) => {
     const blocked = examples.find(({ exitCode }) => exitCode === 3);
     if (blocked === undefined) throw new Error("missing blocked example");
