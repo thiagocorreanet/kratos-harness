@@ -159,6 +159,11 @@ no denied entry.
 The [runtime distribution contract](../compatibility/runtime-distribution.md)
 explains why the boot is split and what each inventory guarantees.
 
+The runtime source is layered, and the layering is enforced by a test rather
+than a convention: `domain` and `ports` cannot import Node builtins, and only an
+entry point may import `composition`. See the
+[runtime boundary contract](../architecture/runtime-boundaries.md).
+
 The minimal help/version/handshake surface exists only to prove the toolchain.
 Workflow commands, schemas, state, host behavior, and legacy compatibility
 arrive in their dedicated backlog issues.
