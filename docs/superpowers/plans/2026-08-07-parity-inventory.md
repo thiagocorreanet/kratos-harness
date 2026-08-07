@@ -33,7 +33,7 @@
 - Consumes: the approved design, issue #10, and the issue #9 oracle manifest.
 - Produces: executable assertions for immutable identity, discovery coverage, row shape, PRD priority, evidence shape, and initial parity.
 
-- [ ] **Step 1: Write the missing-catalog RED test**
+- [x] **Step 1: Write the missing-catalog RED test**
 
 Read both future JSON files and assert these fixed discovery facts:
 
@@ -92,7 +92,7 @@ expect(row).toEqual({
 Require dedicated P0 rows covering all four frozen PRD anchors and assert every
 row starts `not_started` with four `planned`, null-path verification cases.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- tests/parity-inventory-contract.test.ts
@@ -100,7 +100,7 @@ npm test -- tests/parity-inventory-contract.test.ts
 
 Expected: FAIL because `discovery.json` and `matrix.json` do not exist.
 
-- [ ] **Step 3: Commit the failing contract**
+- [x] **Step 3: Commit the failing contract**
 
 ```bash
 git add tests/parity-inventory-contract.test.ts
