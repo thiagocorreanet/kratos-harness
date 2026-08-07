@@ -407,14 +407,14 @@ git commit -s -m "feat: compose runtime ports and apply effect plans"
 
 - Publishes the layer table, the port catalogue, the composition contract, and honest unchanged parity.
 
-- [ ] **Step 1: Write documentation RED tests**
+- [x] **Step 1: Write documentation RED tests**
 
 Add a guide test requiring `docs/architecture/runtime-boundaries.md` to contain
 each layer name, each port name, `createRuntime`, `EffectPlan`, and the sentence
 that only an entry point may import composition. Assert parity still reads
 `0 / 400 (0.00%)`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/architecture.test.ts
@@ -422,7 +422,7 @@ npm test -- tests/architecture.test.ts
 
 Expected: FAIL because the guide does not exist.
 
-- [ ] **Step 3: Publish exact documentation**
+- [x] **Step 3: Publish exact documentation**
 
 Document the four layers and their allowed imports; why the rule is a test
 rather than a linter plugin; the seven ports and which issue owns the full
@@ -431,7 +431,7 @@ overrides rather than reading the environment; the effect plan and its
 relationship to dry run; and that this issue adds no policy, no transition, and
 no parity evidence.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 ```bash
 export PATH=/tmp/tmp.qb2rcwG3r2/node-v24.18.0-linux-x64/bin:$PATH
@@ -446,7 +446,7 @@ git status --short
 
 Expected: all gates PASS, parity unchanged, only intended changes remain.
 
-- [ ] **Step 5: Commit and review**
+- [x] **Step 5: Commit and review**
 
 ```bash
 git add docs tests

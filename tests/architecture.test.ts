@@ -1,8 +1,8 @@
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
   classifyLayer,
@@ -121,6 +121,45 @@ describe("dependency direction", () => {
     ["packages/runtime/src/cli.ts", "./composition/runtime.js"],
   ])("allows %s importing %s", (path, specifier) => {
     expect(violations([{ path, imports: [specifier] }])).toEqual([]);
+  });
+});
+
+describe("runtime boundary documentation", () => {
+  let guide = "";
+
+  beforeAll(async () => {
+    guide = await readFile(
+      join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+      "utf8",
+    );
+  });
+
+  it.each([
+    "domain",
+    "ports",
+    "infra",
+    "composition",
+    "Clock",
+    "Ids",
+    "FileSystem",
+    "Git",
+    "Locks",
+    "Environment",
+    "Output",
+    "createRuntime",
+    "EffectPlan",
+    "0 / 400 (0.00%)",
+  ])("publishes %s", (required) => {
+    expect(guide).toContain(required);
+  });
+
+  it("states that only an entry point may import composition", () => {
+    expect(guide).toMatch(/only an entry point may import composition/iu);
+  });
+
+  it("names the issues that own Git and Locks semantics", () => {
+    expect(guide).toContain("RUN-07");
+    expect(guide).toContain("RUN-08");
   });
 });
 
