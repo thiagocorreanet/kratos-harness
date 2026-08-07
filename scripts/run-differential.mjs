@@ -185,6 +185,11 @@ async function main() {
   const selected = corpus.entries.filter(
     (entry) => entry.class === options.className,
   );
+  // An empty selection would otherwise report a vacuous pass, because every
+  // scenario is an equality claim and `[].every(...)` is true.
+  if (selected.length === 0) {
+    throw new Error("Differential corpus selected no runnable scenario");
+  }
   const planned = corpus.entries.filter(
     (entry) => entry.class === "planned",
   ).length;

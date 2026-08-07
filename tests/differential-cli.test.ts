@@ -63,6 +63,28 @@ describe("differential harness CLI", () => {
     expect(result.stderr).toBe("");
   });
 
+  it("rejects a corpus with no selected runnable scenarios", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-differential-cli-corpus-"));
+    temporaryRoots.push(root);
+    const corpus = join(root, "corpus.json");
+    await writeFile(
+      corpus,
+      JSON.stringify({
+        schemaVersion: 1,
+        oracleId: "go-v3-v0.6.5",
+        entries: [],
+      }),
+      "utf8",
+    );
+
+    const result = invoke(["--corpus", corpus]);
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe(
+      "Differential harness error: execution failed\n",
+    );
+  });
+
   it.each([
     [["--unknown"], "unknown option"],
     [["--format"], "missing value"],
