@@ -7,16 +7,32 @@ workspaces, captures process/filesystem/structured/Git observations, applies
 only declared normalization, and reports stable field-level mismatches. It does
 not modify the source checkout.
 
-Public CI runs an original synthetic equality scenario:
+Public CI runs original synthetic scenarios:
 
 ```bash
 npm run differential:check
 ```
 
-The corpus contains one executable public self-test, two authorized live
-bootstrap scenarios, and 12 planned PRD requirements. The public self-test
-proves the harness; it is not Go parity evidence and does not change the current
-`0 / 400 (0.00%)` parity result.
+The corpus contains two executable public self-tests, two authorized live
+bootstrap scenarios, and 12 planned PRD requirements:
+
+| Scenario | Proves |
+| --- | --- |
+| `self-test-equality` | process outcome, exit code, stream digests, and an unchanged manifest |
+| `self-test-normalized-state` | all three normalization operations, added directory and file mutations, a `valid` captured artifact, and an `absent` one |
+
+`self-test-normalized-state` is not a tautology: the driver writes its array
+members in the opposite order and emits CRLF, so the scenario only matches its
+golden observation because sorting, token replacement, and line-ending
+normalization actually ran.
+
+Because both self-test sides run the same executable, the public corpus cannot
+by itself observe a Go-vs-TypeScript divergence. Divergence handling — seeded
+mismatches, timeouts, crashes, partial mutations, output overflow, and report
+redaction — is proven by the harness self-tests in `tests/differential-*.test.ts`.
+
+The public self-tests prove the harness; they are not Go parity evidence and do
+not change the current `0 / 400 (0.00%)` parity result.
 
 ## Authorized live comparison
 
@@ -87,10 +103,28 @@ The canonical observation includes:
 - selected canonical JSON state/result/event values;
 - optional Git HEAD, refs, status, staged diff, and unstaged diff summaries.
 
-Filesystem traversal uses `lstat` and never follows captured symlinks. Selected
-JSON must remain a regular file whose resolved path is below the workspace.
-Special files, unsafe links, malformed JSON, over-limit manifests, and
-case-fold-colliding fixture paths fail explicitly.
+Filesystem traversal uses `lstat` and never follows captured symlinks. A `.git`
+entry is recorded as a presence marker and never descended into, so creating or
+removing a repository stays visible as a mutation without importing
+nondeterministic repository internals. Special files, over-limit manifests,
+over-limit individual files, unsafe links, and case-fold-colliding fixture paths
+fail explicitly.
+
+Every selected artifact is always observable, because artifact behavior is
+exactly what the harness compares. Each carries one of four states:
+
+| State | Meaning |
+| --- | --- |
+| `absent` | the side produced no artifact at that path |
+| `unreadable` | the path exists but is not a regular file |
+| `invalid` | a regular file whose bytes are not JSON, reported as byte count and digest |
+| `valid` | parsed and canonicalized JSON |
+
+Only a path resolving outside the workspace is refused outright rather than
+observed; the harness never reads it. An unborn `HEAD` is captured as
+`head: null` rather than an error, so "did this side initialize a repository?"
+is comparable. A missing `git` executable is a harness failure, never a silent
+"not a repository" that both sides would agree on vacuously.
 
 ## Normalization and disclosure
 
@@ -112,6 +146,32 @@ names only the artifact pointer. Neither private key names nor private scalar
 values from predecessor output can reach a report. Setting
 `disclosure.artifacts` to `content` is the explicit opt-in that enables
 field-level pointers, and it is reserved for original public fixtures.
+
+Protection is prefix-symmetric: a rule is rejected both when it names a
+protected field and when it names an ancestor of one, because removing the
+ancestor removes the protected field with it. The only normalizable parts of a
+captured stream are the disclosed `content` bodies; when one is rewritten, its
+sibling `bytes` and `sha256` are recomputed so a stream summary never describes
+a buffer other than the one it reports.
+
+### The golden observation is post-normalization
+
+A scenario's `expected` block is never normalized. It must therefore be written
+as a **complete observation as it appears after normalization has run** — for
+example with `<TIMESTAMP>` already substituted and arrays already sorted.
+
+This invariant is what makes normalization safe. Each side is compared to the
+golden by total recursive equality over the union of keys, so equality with the
+golden implies the two sides equal each other, and a golden that omits a field
+fails closed rather than skipping it. Authoring a pre-normalization golden is
+the most common fixture mistake and shows up as a mismatch on the fields the
+rules touch.
+
+Because filesystem manifests are protected, a scenario whose artifact bytes are
+genuinely nondeterministic on disk (an embedded wall-clock timestamp, say)
+cannot be made to match by normalizing the captured value alone: the file's
+manifest digest still differs. Such scenarios need a deterministic artifact or
+an explicitly justified per-file rule.
 
 Every mismatch names the affected parity contract IDs. A seeded difference
 returns Exit `1`; there is no “expected difference means success” mode.
