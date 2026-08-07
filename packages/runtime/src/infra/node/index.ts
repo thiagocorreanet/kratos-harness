@@ -26,6 +26,8 @@ import type {
   RepositoryState,
 } from "../../ports/index.js";
 
+export { nodeWorkspace } from "./workspace.js";
+
 const run = promisify(execFile);
 
 export function nodeClock(): Clock {

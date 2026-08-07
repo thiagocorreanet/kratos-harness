@@ -89,6 +89,8 @@ describe("README honesty", () => {
     expect(readme).toContain("embedded ESM runtime");
     expect(readme).toContain("runtime/yoda.mjs");
     expect(readme).toContain("Node.js 24");
+    expect(readme).toContain("project discovery contract");
+    expect(readme).toContain("no new runnable command");
   });
 
   it("links every required public path", () => {

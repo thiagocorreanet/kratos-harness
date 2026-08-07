@@ -48,6 +48,13 @@ afterAll(async () => {
 });
 
 describe("standalone runtime bundle", () => {
+  it("keeps the command surface unchanged while discovery remains internal", () => {
+    const result = execute("--help");
+
+    expect(result.stdout).not.toContain("discover");
+    expect(result.stdout).not.toContain("init");
+  });
+
   it("prints help outside the repository", () => {
     const result = execute("--help");
 

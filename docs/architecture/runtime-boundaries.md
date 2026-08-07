@@ -69,6 +69,12 @@ that imports it, which is what the layering exists to prevent.
 | `Locks` | acquire and release a fenced lease | concurrency timing |
 | `Environment` | environment variables and working directory | ambient process state |
 | `Output` | structured and human output | stream side effects |
+| `Workspace` | canonical paths, read-only project markers, and Git worktree topology | ambient discovery state |
+
+`Workspace` is deliberately separate from `RuntimePorts`. Project discovery
+uses it before a project root exists; only after discovery succeeds does
+`createRuntimeAt` construct mutation-capable ports at that root. See the
+[project discovery contract](project-discovery.md) for precedence and safety.
 
 `Git` and `Locks` ship deliberately thin implementations. `RUN-08` owns
 repository classification and approved scope deltas; `RUN-07` owns lease expiry,
@@ -170,8 +176,9 @@ boundary, and this issue does not claim to provide it.
 ## Scope
 
 This issue delivers the boundary; it defines no policy, no transition, and no
-command. The objective lifecycle, guardrails, event store, locks, project
-discovery, and host adapters fill it in through their own issues.
+command. The objective lifecycle, guardrails, event store, locks, and host
+adapters fill it in through their own issues. Read-only project discovery now
+uses the boundary without changing the shipped command surface.
 
 Parity remains `0 / 400 (0.00%)`. This is internal structure and adds no
 differential, integration, or E2E evidence to any row.

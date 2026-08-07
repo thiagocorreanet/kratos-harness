@@ -91,7 +91,11 @@ describe("import extraction", () => {
       await collectImports(
         join(repositoryRoot, "packages/runtime/src/infra/fake/index.ts"),
       ),
-    ).toEqual(["../../ports/index.js"]);
+    ).toEqual([
+      "node:path",
+      "../../domain/project/index.js",
+      "../../ports/index.js",
+    ]);
 
     expect(
       await collectImports(

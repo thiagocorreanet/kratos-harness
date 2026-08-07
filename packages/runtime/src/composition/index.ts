@@ -22,6 +22,14 @@ export function createRuntime(
   overrides: Partial<RuntimePorts> = {},
 ): RuntimePorts {
   const root = overrides.environment?.workingDirectory() ?? process.cwd();
+  return createRuntimeAt(root, overrides);
+}
+
+/** Compose mutation ports only after project discovery selects a root. */
+export function createRuntimeAt(
+  root: string,
+  overrides: Partial<RuntimePorts> = {},
+): RuntimePorts {
   return {
     clock: nodeClock(),
     ids: nodeIds(),
