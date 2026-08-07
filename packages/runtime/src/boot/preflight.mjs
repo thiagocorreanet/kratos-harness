@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Plugin runtime entry point.
 //
-// This file is a template. The build substitutes __MINIMUM_NODE__, __SUMMARY__,
-// __RECOVERY__, and __CORE__ and writes the result to runtime/yoda.mjs.
+// The build substitutes the interpreter floor, the catalog summary and recovery
+// text, and the core path into this file. Those markers are deliberately not
+// named here: naming them would substitute this very comment and leave the
+// shipped artifact describing itself incoherently.
 //
 // It deliberately uses only syntax valid on Node 12 and is never transpiled. A
 // module is parsed in full before any of it runs, so a version guard sharing a

@@ -26,6 +26,14 @@ const minimumNode = "24.0.0";
  * or backslash escape the literal it lands in.
  */
 function embed(value) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error("Build failed: catalog text is missing or not a string");
+  }
+  // A line break would break out of the emitted line, and a leftover marker
+  // would survive the substitution guard below.
+  if (/[\r\n]/u.test(value) || /__[A-Z_]+__/u.test(value)) {
+    throw new Error("Build failed: catalog text is not embeddable");
+  }
   return JSON.stringify(value).slice(1, -1);
 }
 
