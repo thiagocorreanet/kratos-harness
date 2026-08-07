@@ -315,7 +315,7 @@ git commit -s -m "feat: run bounded differential sandboxes"
 Cover default JSON self-test, human rendering, unknown/duplicate/missing options,
 missing live runners, wrong oracle digest before mutation, valid oracle with
 seeded version/help mismatch, and redaction of absolute paths, secrets, stack
-text, and nondisclosed streams.
+text, and undisclosed streams.
 
 - [x] **Step 2: Run RED**
 
@@ -351,7 +351,7 @@ sorts keys; human output prints scenario and mismatch pointers only. Add
 npm test -- tests/differential-cli.test.ts tests/differential-runner.test.ts
 npm run differential:check
 npm run build
-node scripts/run-differential.mjs --class live --oracle /home/thiago-botelho/.betaup/bin/yoda --candidate dist/plugin/runtime/yoda.mjs
+node scripts/run-differential.mjs --class live --oracle <authorized-go-v3-binary> --candidate dist/plugin/runtime/yoda.mjs
 ```
 
 Expected: tests/self-test PASS; authorized live comparison verifies the oracle,
@@ -385,7 +385,7 @@ git commit -s -m "test: add golden differential corpus"
 
 - Publishes operation, exit/redaction/security contracts, current live mismatch evidence, and honest unchanged parity until full row evidence exists.
 
-- [ ] **Step 1: Write documentation RED tests**
+- [x] **Step 1: Write documentation RED tests**
 
 Require docs to name public/live commands, exit 0/1/2, digest-only disclosure,
 temporary isolation, current known mismatch, source immutability, and PRD
@@ -393,7 +393,7 @@ temporary isolation, current known mismatch, source immutability, and PRD
 or secrets. Assert parity remains `0 / 400` if no row gained all four evidence
 classes.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/readme-honesty.test.ts tests/parity-inventory-matrix.test.ts
@@ -401,7 +401,7 @@ npm test -- tests/readme-honesty.test.ts tests/parity-inventory-matrix.test.ts
 
 Expected: FAIL because docs do not expose the harness.
 
-- [ ] **Step 3: Publish exact documentation**
+- [x] **Step 3: Publish exact documentation**
 
 Document scenario fields/limits, capture/normalization/mismatch semantics,
 public and authorized commands, exit codes, no-shell/path controls, disclosure
@@ -410,7 +410,7 @@ unit+differential+integration+E2E are required before parity. Keep CI on public
 `npm run verify`; add no oracle secret or private artifact. Check completed plan
 steps in this file.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 ```bash
 export PATH=/tmp/tmp.qb2rcwG3r2/node-v24.18.0-linux-x64/bin:$PATH

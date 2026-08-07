@@ -110,7 +110,7 @@ Every scenario is an equality claim: both observations must satisfy the golden
 assertions and must match each other after approved normalization. Seeded
 differences live only in harness self-tests, must exit nonzero, and are never
 valid matrix evidence. Golden assertions may use byte count and digest instead
-of private or nondisclosable text.
+of private or unpublished text.
 
 ## 5. Runner isolation and lifecycle
 
@@ -276,8 +276,8 @@ Development is test-first. Required self-tests prove:
 11. a wrong oracle digest fails before scenario materialization;
 12. diagnostic mismatches cannot become parity evidence.
 
-The live evidence command runs the representative initial corpus against
-`/home/thiago-botelho/.betaup/bin/yoda` and the newly built bundle. Its report
+The live evidence command runs the representative initial corpus against an
+explicit authorized Go v3 binary and the newly built bundle. Its report
 must identify the verified oracle as `go-v3-v0.6.5`, identify the candidate by
 digest, remain redacted, and return nonzero for current behavioral differences.
 That nonzero result is expected evidence of an honest harness, not a CI pass.

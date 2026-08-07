@@ -28,6 +28,13 @@ The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json), and the
 registry format is
 [`contract-manifest.v1.schema.json`](contracts/contract-manifest.v1.schema.json).
+
+The compatibility test family contains the closed
+[`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)
+and
+[`differential-observation.v1.schema.json`](compatibility/differential-observation.v1.schema.json)
+contracts. They bound isolated inputs, capture selection, normalization,
+disclosure, and golden observations; they do not claim runtime parity.
 See the [contract versioning guide](../docs/compatibility/contract-versioning.md)
 for compatibility windows, provenance, and PRD guarantees.
 

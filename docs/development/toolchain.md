@@ -40,6 +40,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | `npm run oracle:verify` | Validate the public metadata-only Go v3 oracle catalog offline |
 | `npm run parity:check` | Validate exhaustive legacy coverage and report objective TypeScript parity |
 | `npm run result:check` | Validate the universal result schemas, 76 reason policies, and six exit examples |
+| `npm run differential:check` | Run the offline synthetic differential self-test without the private oracle |
 | `npm run build` | Rebuild the standalone runtime artifact |
 | `npm run package:verify` | Inspect and execute the staged artifact outside the checkout |
 | `npm run verify` | Run the complete offline validation chain in dependency order |
@@ -78,6 +79,7 @@ untrusted fork code without granting it repository write authority.
 packages/contracts/  host-neutral public types and versioned constants
 packages/adapters/   host adapter protocol boundary
 packages/runtime/    deterministic runtime composition and CLI
+packages/differential/ isolated validation, execution, capture, normalization, and comparison
 schemas/             versioned public runtime contracts
 fixtures/            compatibility and golden-scenario inputs
 tests/               black-box tests of the final bundle
@@ -119,6 +121,12 @@ discovery keys into 400 owned and independently verifiable compatibility rows.
 requirements, invalid evidence references, and unsupported parity claims. It
 currently reports `0 / 400 (0.00%)`: the worklist is complete, while behavior
 implementation and differential evidence remain future work.
+
+The [differential harness](../compatibility/differential-harness.md) now makes
+Go-versus-TypeScript comparison executable. Public `npm run differential:check`
+uses only an original synthetic fixture. Authorized live mode verifies an
+explicit Go binary digest before measuring the bootstrap bundle and currently
+reports the known help/version mismatch without granting parity.
 
 The [universal result contract](../compatibility/result-contract.md) preserves
 all 71 frozen reason names and predecessor exits 0 through 3, then adds five

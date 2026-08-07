@@ -151,6 +151,12 @@ cross-check, then mapped exactly once. New TypeScript-only behavior is not
 silently described as Go parity; an incompatibility needs a versioned contract
 and the complete intentional-difference approval chain.
 
+The [differential harness](differential-harness.md) now executes versioned
+golden scenarios in independent sandboxes and links field-level mismatches to
+these row IDs. Its public synthetic self-test is harness evidence, not behavior
+parity. The initial authorized help/version comparisons remain mismatches, so
+the objective result stays `0 / 400 (0.00%)`.
+
 ## Authorized source cross-check
 
 Public CI remains offline. An authorized maintainer can re-run mechanical

@@ -110,12 +110,13 @@ migration must keep its inner payload byte-preserving; a current envelope may
 identify the payload but may not rewrite its fields or meaning. Its frozen
 schema digest is recorded only as compatibility metadata.
 
-PRD behavior remains `migration-only` until issue #13 proves differential
-parity for sufficient and insufficient context, blocking questions, 5 Whys,
-5W2H, root cause, validated problem, solution hypothesis, success metric,
-risks, deferred questions, invalid structured output, lineage revision, and
-content-bound approval. No current manifest entry claims PRD parity before that
-evidence exists.
+PRD behavior remains `migration-only`. The issue #13 differential harness now
+tracks 12 planned PRD requirements for sufficient and insufficient context,
+`needs_input`, blocking/deferred questions, 5 Whys, 5W2H, probable root cause,
+invalid structured output, lineage drift, revision, and content-bound approval.
+They deliberately contain no invented golden output and grant no parity. No
+current manifest entry claims PRD parity before executable unit, differential,
+integration, and E2E evidence exists.
 
 ## Evolution rules
 

@@ -93,6 +93,11 @@ jobs:
           set -euo pipefail
           npm run templates:validate 2>&1 | tee .ci-diagnostics/templates.log
 
+      - name: Run differential self-tests
+        run: |
+          set -euo pipefail
+          npm run differential:check 2>&1 | tee .ci-diagnostics/differential.log
+
       - name: Build bundle
         run: |
           set -euo pipefail

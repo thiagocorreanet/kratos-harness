@@ -97,6 +97,7 @@ describe("pull-request CI workflow", () => {
       "Run unit tests",
       "Run coverage tests",
       "Validate GitHub template schemas",
+      "Run differential self-tests",
       "Build bundle",
       "Verify package contents",
       "Upload failure diagnostics",
@@ -121,7 +122,7 @@ describe("pull-request CI workflow", () => {
     const jobs = object(workflow.jobs, "jobs");
     const quality = object(jobs.quality, "quality");
     const steps = quality.steps as JsonObject[];
-    const commandSteps = steps.slice(3, 14);
+    const commandSteps = steps.slice(3, 15);
     const expectedCommands = [
       "node --version",
       "npm ci",
@@ -132,6 +133,7 @@ describe("pull-request CI workflow", () => {
       "npm test",
       "npm run test:coverage",
       "npm run templates:validate",
+      "npm run differential:check",
       "npm run build",
       "npm run package:verify",
     ];
