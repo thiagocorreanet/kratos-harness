@@ -88,11 +88,19 @@ if (reason === undefined) {
 
 // The catalog is the single source of truth for this text. Injecting it here
 // keeps the preflight free of a hand-maintained copy that could drift.
-const preflight = template
-  .replaceAll("__MINIMUM_NODE__", embed(minimumNode))
-  .replaceAll("__SUMMARY__", embed(reason.description))
-  .replaceAll("__RECOVERY__", embed(reason.recovery))
-  .replaceAll("__CORE__", "./yoda.core.mjs");
+const substitutions = {
+  MINIMUM_NODE: embed(minimumNode),
+  SUMMARY: embed(reason.description),
+  RECOVERY: embed(reason.recovery),
+  CORE: "./yoda.core.mjs",
+};
+
+// One pass, so an injected value that happens to contain another marker cannot
+// be rewritten by a later substitution.
+const preflight = template.replace(
+  /__(MINIMUM_NODE|SUMMARY|RECOVERY|CORE)__/gu,
+  (_match, key) => substitutions[key],
+);
 
 if (/__[A-Z_]+__/u.test(preflight)) {
   throw new Error(
