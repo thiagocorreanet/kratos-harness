@@ -42,7 +42,7 @@
 - Produces closed `DifferentialScenario`, `DifferentialObservation`, `GoldenAssertions`, `NormalizationRule`, `Mismatch`, and `DifferentialReport` types.
 - Consumes real row IDs from `compatibility/inventory/go-v3-v0.6.5/matrix.json`.
 
-- [ ] **Step 1: Write failing contract tests**
+- [x] **Step 1: Write failing contract tests**
 
 Compile both schemas and validate one complete fixture. Mutate every object with
 an unknown key. Test missing/unknown/duplicate matrix IDs, timeout over `30000`,
@@ -55,7 +55,7 @@ it.each(["../x", "/x", "C:\\x", "https://x.invalid", "a\\b", "a/./b", "a//b", "a
 );
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/differential-contract.test.ts
@@ -63,7 +63,7 @@ npm test -- tests/differential-contract.test.ts
 
 Expected: FAIL because package and schemas do not exist.
 
-- [ ] **Step 3: Implement closed contracts and loader**
+- [x] **Step 3: Implement closed contracts and loader**
 
 Define discriminated workspace entries and normalization operations:
 
@@ -87,7 +87,7 @@ each process stream to 1 MiB. AJV errors expose scenario ID and keyword only.
 Validate matrix IDs and safe POSIX paths before returning. Add exact dependency
 `ajv: 8.20.0` and `allowImportingTsExtensions: true`.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm install --package-lock-only --ignore-scripts
