@@ -35,6 +35,11 @@ await writeFile(
   `${JSON.stringify(result.metafile, null, 2)}\n`,
   "utf8",
 );
+await writeFile(
+  join(pluginDirectory, "unexpected.txt"),
+  "intentional package failure\n",
+  "utf8",
+);
 
 if (process.platform !== "win32") {
   await chmod(artifact, 0o755);
