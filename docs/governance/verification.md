@@ -3,7 +3,7 @@
 - Verification date: 2026-08-06 (America/Sao_Paulo)
 - Tracking issue: [#4](https://github.com/thiagocorreanet/mestre-yoda/issues/4)
 - Branch: `docs/issue-4-governance`
-- Policy commit: `430685a`
+- Policy commit: `dc6e40d`
 - Status: Pre-merge evidence complete; post-merge GitHub recognition required
 
 ## Contribution path dry run
@@ -28,6 +28,10 @@ Signed-off-by: Example Contributor <contributor@example.com>
 
 This proves the documented trailer form is recognized by Git. It does not claim
 automated enforcement, which remains owned by issues #6 and #7.
+
+Every commit in the issue #4 branch was then inspected with
+`git interpret-trailers --parse` and contains exactly one valid
+`Signed-off-by` trailer from its author.
 
 ## Vulnerability path dry run
 
