@@ -148,17 +148,34 @@ The declared contract applies to success only. Any failure or blocked outcome
 renders the universal result envelope regardless of what the command declared.
 A caller needs one rule: a non-zero exit means a result envelope.
 
-### D7: No new reason code
+### D7: One new reason code, because the catalog cannot name success here
 
-Catalog revision 1.2 already covers this pipeline. `trail.uso` is the frozen
-usage reason, with exit 2, forbidden evidence, and the recovery text already
-written. It covers an unknown command, an unknown flag, a missing flag value,
-and wrong arity. The `contract.plugin_version_*` reasons cover `--expect`, and
-are what `classifyExpectedVersion` already returns. An unanticipated throw
-becomes `runtime.internal_failure` at the edge.
+Failure needs nothing new. `trail.uso` is the frozen usage reason, with exit 2,
+forbidden evidence, and the recovery text already written. It covers an unknown
+command, an unknown flag, a missing flag value, and wrong arity. The
+`contract.plugin_version_*` reasons cover `--expect`, and are what
+`classifyExpectedVersion` already returns. An unanticipated throw becomes
+`runtime.internal_failure` at the edge.
 
-Adding a reason code would mean a catalog revision, and this issue introduces no
-outcome the catalog cannot already name.
+Success is the gap. No frozen exit-0 reason describes a read-only operation
+that published orientation output. The ten that exist are tied to trail, loop,
+run, and guard semantics, and the only general one, `trail.ok`, requires
+evidence and represents a committed mutation. `help` and `version` therefore
+have no truthful reason to report.
+
+The shipped `handshake` payload already exposes this: it reports `trail.ok`
+with empty evidence, contradicting that reason's own policy. The defect exists
+today and this issue is what makes it visible, because the runtime now
+validates what it publishes.
+
+Catalog revision 1.3 adds `runtime.orientation_ok`: success, exit 0, evidence
+optional, no state change, not retryable, no recovery. It is additive, so
+revisions 1.0 through 1.2 stay byte-identical and the contract version stays
+`1.0.0`. `help`, `version`, and the handshake payload all move to it.
+
+Inventing nothing was the alternative, and it fails: it would mean either a
+result that contradicts its own catalog entry, or `help` and `version` having
+no JSON form at all, which the acceptance criteria reject.
 
 ### D8: The runtime owns a second renderer, proven equivalent
 
