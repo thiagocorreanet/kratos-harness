@@ -163,7 +163,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.y
 git diff --check
 ```
 
-- [ ] **Step 2: Obtain an independent code review**
+- [x] **Step 2: Obtain an independent code review**
 
 Resolve every technically valid finding and rerun affected checks.
 
