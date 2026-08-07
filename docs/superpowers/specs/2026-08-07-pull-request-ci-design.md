@@ -43,9 +43,10 @@ It does not use `pull_request_target`, `workflow_run`, privileged reusable
 workflows, tag/release triggers, schedules, or paths filters. Every source or
 configuration change must receive the same foundation checks.
 
-Concurrency groups by workflow plus pull-request number or Git ref. Only
-`pull_request` runs set `cancel-in-progress: true`; branch pushes are preserved
-as durable integration/release evidence. This carries forward the useful
+Concurrency groups pull requests by workflow plus pull-request number and gives
+every non-PR run its unique run ID. Only `pull_request` runs set
+`cancel-in-progress: true`; branch pushes are preserved as durable
+integration/release evidence, including pending pushes. This carries forward the useful
 superseded-PR lesson from the private predecessor without copying its Go,
 self-hosted runner, private distribution, or prose implementation.
 
@@ -96,9 +97,11 @@ steps in order:
 10. `npm run build`;
 11. `npm run package:verify`.
 
-Each command runs under Bash pipe-failure semantics and tees combined output to
-a fixed diagnostic file. A failing command therefore fails its named step; the
-log capture cannot turn a failure into success. The template schema step remains
+Each command runs under Bash fail-fast, unset-variable, and pipe-failure
+semantics and tees combined output to a fixed diagnostic file. Toolchain values
+are captured once and each assertion fails immediately. A failing command
+therefore fails its named step; the log capture cannot turn a failure into
+success. The template schema step remains
 the one explicit online validation because it retrieves a commit- and SHA-256-
 pinned schema; all other repository gates are offline after install.
 
@@ -109,7 +112,8 @@ behavior.
 
 ## 6. Failure diagnostics
 
-One final `if: failure()` step uploads only:
+One final failure step uploads only for pushes, manual runs, and same-repository
+pull requests:
 
 - `.ci-diagnostics/` named command logs;
 - `coverage/` when the coverage gate ran;
@@ -119,21 +123,24 @@ The artifact name uses only run ID/attempt, hidden-file inclusion is limited to
 the explicitly named diagnostics directory, missing paths are ignored, and
 retention is 3 days. No npm cache/debug tree, repository secret, token,
 credential, environment dump, home directory, or arbitrary workspace archive is
-uploaded. Successful runs upload no artifact.
+uploaded. Successful runs and fork pull requests upload no artifact. Fork runs
+retain the same named step logs in the GitHub Actions interface without allowing
+untrusted code to substitute symlinks in artifact paths.
 
 ## 7. Fork safety
 
 GitHub's documented `pull_request` model supplies fork workflows a read-only
 token and withholds repository secrets unless maintainers explicitly configure
 otherwise. This workflow further removes every secret reference and write use.
-Fork code can read the already-public checkout, execute public tests, and upload
-failure logs from that public code; it cannot mutate repository content,
+Fork code can read the already-public checkout, execute public tests, and read
+its run logs; it cannot upload artifacts, mutate repository content,
 approve/comment on a PR, publish a package, deploy, or read a repository secret.
 
 The security boundary is protected by a repository contract test that rejects:
 
 - `pull_request_target` or any secret expression;
-- permissions other than `contents: read`;
+- workflow permissions other than `contents: read`, any job-level permission
+  override, or any `continue-on-error` override;
 - self-hosted or non-`ubuntu-latest` runners;
 - mutable/non-SHA action references;
 - persisted checkout credentials, package-manager cache, write/publish steps,

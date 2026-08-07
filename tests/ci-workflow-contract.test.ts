@@ -54,14 +54,14 @@ describe("pull-request CI workflow", () => {
 
   it("uses read-only, fork-safe authority", () => {
     expect(workflow.permissions).toEqual({ contents: "read" });
-    expect(rawWorkflow).not.toMatch(/\bsecrets\s*[.[]/u);
+    expect(rawWorkflow).not.toMatch(/\bsecrets\b/iu);
     expect(rawWorkflow).not.toMatch(
       /\b(?:deploy|publish|pull-requests:\s*write|issues:\s*write)\b/iu,
     );
 
     const concurrency = object(workflow.concurrency, "concurrency");
     expect(concurrency.group).toBe(
-      "ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+      "ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}",
     );
     expect(concurrency["cancel-in-progress"]).toBe(
       "${{ github.event_name == 'pull_request' }}",
@@ -77,8 +77,13 @@ describe("pull-request CI workflow", () => {
     expect(quality["runs-on"]).toBe("ubuntu-latest");
     expect(quality["timeout-minutes"]).toBe(15);
     expect(quality.env).toEqual({ CI: "true" });
+    expect(quality.permissions).toBeUndefined();
+    expect(quality["continue-on-error"]).toBeUndefined();
 
     const steps = quality.steps as JsonObject[];
+    expect(steps.every((step) => step["continue-on-error"] === undefined)).toBe(
+      true,
+    );
     expect(steps.map((step) => step.name)).toEqual([
       "Checkout",
       "Set up exact Node.js",
@@ -133,12 +138,16 @@ describe("pull-request CI workflow", () => {
 
     for (const [index, step] of commandSteps.entries()) {
       const command = String(step.run);
-      expect(command, String(step.name)).toContain("set -o pipefail");
+      expect(command, String(step.name)).toContain("set -euo pipefail");
       expect(command, String(step.name)).toContain(expectedCommands[index]);
       expect(command, String(step.name)).toMatch(
         /2>&1\s*\|\s*tee \.ci-diagnostics\/[a-z-]+\.log/u,
       );
     }
+
+    const toolchain = String(commandSteps[0]?.run);
+    expect(toolchain).toContain('test "$node_version" = "v24.18.0"');
+    expect(toolchain).toContain('test "$npm_version" = "11.16.0"');
   });
 
   it("uploads only short-lived diagnostics after failure", () => {
@@ -146,7 +155,9 @@ describe("pull-request CI workflow", () => {
     const quality = object(jobs.quality, "quality");
     const steps = quality.steps as JsonObject[];
     const upload = steps.at(-1);
-    expect(upload?.if).toBe("${{ failure() }}");
+    expect(upload?.if).toBe(
+      "${{ failure() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}",
+    );
 
     expect(object(upload?.with, "upload.with")).toEqual({
       "compression-level": 6,

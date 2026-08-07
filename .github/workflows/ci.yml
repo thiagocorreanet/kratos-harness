@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -43,66 +43,68 @@ jobs:
 
       - name: Verify exact toolchain
         run: |
-          set -o pipefail
+          set -euo pipefail
           {
-            node --version
-            npm --version
-            test "$(node --version)" = "v24.18.0"
-            test "$(npm --version)" = "11.16.0"
+            node_version="$(node --version)"
+            npm_version="$(npm --version)"
+            printf '%s\n' "$node_version"
+            printf '%s\n' "$npm_version"
+            test "$node_version" = "v24.18.0"
+            test "$npm_version" = "11.16.0"
           } 2>&1 | tee .ci-diagnostics/toolchain.log
 
       - name: Install locked dependencies
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm ci 2>&1 | tee .ci-diagnostics/install.log
 
       - name: Check formatting
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run format:check 2>&1 | tee .ci-diagnostics/format.log
 
       - name: Check spelling
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run spellcheck 2>&1 | tee .ci-diagnostics/spelling.log
 
       - name: Lint
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run lint 2>&1 | tee .ci-diagnostics/lint.log
 
       - name: Type-check
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run typecheck 2>&1 | tee .ci-diagnostics/type-check.log
 
       - name: Run unit tests
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm test 2>&1 | tee .ci-diagnostics/unit-tests.log
 
       - name: Run coverage tests
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run test:coverage 2>&1 | tee .ci-diagnostics/coverage.log
 
       - name: Validate GitHub template schemas
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run templates:validate 2>&1 | tee .ci-diagnostics/templates.log
 
       - name: Build bundle
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run build 2>&1 | tee .ci-diagnostics/build.log
 
       - name: Verify package contents
         run: |
-          set -o pipefail
+          set -euo pipefail
           npm run package:verify 2>&1 | tee .ci-diagnostics/package.log
 
       - name: Upload failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ failure() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ci-failure-${{ github.run_id }}-${{ github.run_attempt }}

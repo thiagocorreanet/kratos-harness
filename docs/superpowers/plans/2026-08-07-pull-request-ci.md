@@ -13,7 +13,7 @@
 - Trigger only on pull requests and pushes targeting `developer` or `main`, plus manual dispatch.
 - Use `pull_request`, never `pull_request_target`; reference no secrets and grant only `contents: read`.
 - Pin every third-party action to an immutable full commit SHA with a release comment.
-- Cancel superseded pull-request runs but never cancel branch pushes.
+- Cancel superseded pull-request runs but give every branch push a unique concurrency group so pending pushes are also preserved.
 - Run on `ubuntu-latest`, cap the job at 15 minutes, and retain failure diagnostics for three days.
 - Install with `npm ci` and verify the exact Node.js and npm versions before quality checks.
 - Keep issue #7 open until GitHub-hosted success and deliberate-failure evidence exists.
@@ -31,15 +31,16 @@
 - Consumes: `.github/workflows/ci.yml`, `package.json`, and the approved CI design.
 - Produces: deterministic assertions for triggers, permissions, concurrency, runner, timeouts, pinned actions, command order, diagnostics, and fork-safe exclusions.
 
-- [ ] **Step 1: Write the workflow contract test**
+- [x] **Step 1: Write the workflow contract test**
 
 Parse the workflow with the pinned `yaml` package. Assert exact protected branches,
-read-only permissions, pull-request-only cancellation, one `ubuntu-latest` job,
+read-only permissions without job overrides, pull-request-only cancellation,
+unique branch-push groups, no ignored failures, one `ubuntu-latest` job,
 the 15-minute timeout, exact action SHAs and inputs, expected command order,
 failure-only artifact policy, and the absence of secrets, elevated permissions,
 publishing, deployment, or `pull_request_target` behavior.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run:
 
@@ -49,7 +50,7 @@ npm test -- tests/ci-workflow-contract.test.ts
 
 Expected: FAIL because `.github/workflows/ci.yml` does not exist.
 
-- [ ] **Step 3: Commit the failing contract**
+- [x] **Step 3: Commit the failing contract**
 
 ```bash
 git add tests/ci-workflow-contract.test.ts
@@ -68,13 +69,13 @@ git commit -s -m "test: specify pull-request CI contract"
 - Consumes: `.nvmrc`, `package-lock.json`, root npm scripts, and the immutable action SHAs in the design.
 - Produces: the `CI / Node quality and package` required-check candidate and three-day failure diagnostics.
 
-- [ ] **Step 1: Add triggers, permissions, concurrency, and the bounded job**
+- [x] **Step 1: Add triggers, permissions, concurrency, and the bounded job**
 
 Configure `pull_request`, `push`, and `workflow_dispatch`; grant only
 `contents: read`; cancel superseded pull-request runs; define one
 `ubuntu-latest` job with `timeout-minutes: 15` and `CI: "true"`.
 
-- [ ] **Step 2: Add the pinned setup and validation pipeline**
+- [x] **Step 2: Add the pinned setup and validation pipeline**
 
 Pin checkout, setup-node, and upload-artifact to their approved full SHAs.
 Disable persisted Git credentials and package-manager caching. Verify the exact
@@ -83,13 +84,14 @@ type-checking, unit tests, coverage, template schema validation, build, and
 package verification in that order. Pipe each command through `tee` with shell
 pipeline failure propagation into `.ci-diagnostics`.
 
-- [ ] **Step 3: Add failure-only diagnostics**
+- [x] **Step 3: Add failure-only diagnostics**
 
-Upload only fixed repository paths on failure, ignore absent optional paths,
-include hidden diagnostic files, and retain the artifact for exactly three days.
-Do not upload npm user logs or environment dumps.
+Upload only fixed repository paths for failures from trusted repository refs,
+ignore absent optional paths, include hidden diagnostic files, and retain the
+artifact for exactly three days. Do not upload artifacts for fork pull requests,
+npm user logs, or environment dumps.
 
-- [ ] **Step 4: Confirm GREEN and validate Actions syntax**
+- [x] **Step 4: Confirm GREEN and validate Actions syntax**
 
 Run:
 
@@ -100,7 +102,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.y
 
 Expected: contract tests pass and actionlint emits no diagnostics.
 
-- [ ] **Step 5: Commit the workflow**
+- [x] **Step 5: Commit the workflow**
 
 ```bash
 git add .github/workflows/ci.yml tests/ci-workflow-contract.test.ts
@@ -119,18 +121,18 @@ git commit -s -m "ci: add pull-request quality foundation"
 - Consumes: the implemented workflow and its exact local command sequence.
 - Produces: an honest CI badge and documentation for local reproduction and diagnostics.
 
-- [ ] **Step 1: Add the real CI status badge**
+- [x] **Step 1: Add the real CI status badge**
 
 Link the README badge to `.github/workflows/ci.yml` on `main`; do not add
 coverage or release badges without published services.
 
-- [ ] **Step 2: Document local parity and diagnostic behavior**
+- [x] **Step 2: Document local parity and diagnostic behavior**
 
 Explain the exact pinned runtime, `npm ci`, `npm run verify`, the separate
 template-schema command, sequential failure behavior, and the three-day
 failure artifact without promising a required branch-protection rule.
 
-- [ ] **Step 3: Run focused documentation checks and commit**
+- [x] **Step 3: Run focused documentation checks and commit**
 
 ```bash
 npm run format:check
@@ -151,7 +153,7 @@ git commit -s -m "docs: explain pull-request CI checks"
 - Consumes: Tasks 1–3.
 - Produces: a reviewed implementation pull request merged into `main`, while issue #7 remains open for platform evidence.
 
-- [ ] **Step 1: Run the clean local quality suite**
+- [x] **Step 1: Run the clean local quality suite**
 
 ```bash
 npm ci

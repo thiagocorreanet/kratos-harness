@@ -56,10 +56,12 @@ distinct online step between coverage and build; CI does not hide additional
 validation behavior from local contributors.
 
 Checks run sequentially after one locked installation, so the first invalid
-stage names the blocking concern directly. A failed run uploads the completed
-step logs plus any existing coverage and build output as a diagnostic artifact
-for three days. The artifact intentionally excludes npm user logs, environment
-dumps, and secrets.
+stage names the blocking concern directly. A failed trusted-branch or
+same-repository pull-request run uploads the completed step logs plus any
+existing coverage and build output as a diagnostic artifact for three days.
+Fork pull requests keep their step logs in Actions but cannot upload artifacts,
+which prevents untrusted code from substituting paths. Artifacts intentionally
+exclude npm user logs, environment dumps, and secrets.
 
 The workflow uses the `pull_request` event, read-only repository permissions,
 no secret references, no persisted checkout credentials, and standard
