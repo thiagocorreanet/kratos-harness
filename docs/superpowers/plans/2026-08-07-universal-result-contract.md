@@ -215,7 +215,7 @@ Expected: all Task 1 tests pass.
 - Consumes: Task 2 schemas/catalog.
 - Produces: `validateResultContract({ catalog, examples, resultSchema, catalogSchema })`, `canonicalResultJson(result)`, CLI `npm run result:check`.
 
-- [ ] **Step 1: Write CLI and mutation RED tests**
+- [x] **Step 1: Write CLI and mutation RED tests**
 
 Expect canonical success output:
 
@@ -231,7 +231,7 @@ example exit gap. Every mutation exits 1 with a sanitized
 `Result contract validation failed:` message. Unknown/malformed CLI options exit
 2 without echoing a supplied path.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- --run tests/result-contract-checker.test.ts
