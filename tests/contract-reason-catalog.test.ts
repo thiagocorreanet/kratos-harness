@@ -47,21 +47,24 @@ const additions = new Map([
 let catalogV1: Catalog;
 let catalogV11: Catalog;
 let catalogV1Text: string;
+let catalogV11Text: string;
 
 beforeAll(async () => {
-  [catalogV1Text, catalogV11] = await Promise.all([
+  [catalogV1Text, catalogV11Text] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
-    readFile(catalogV11Path, "utf8").then(
-      (text) => JSON.parse(text) as Catalog,
-    ),
+    readFile(catalogV11Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
+  catalogV11 = JSON.parse(catalogV11Text) as Catalog;
 });
 
 describe("contract reason catalog revision", () => {
   it("preserves revision 1.0 and appends exactly six contract reasons", () => {
     expect(createHash("sha256").update(catalogV1Text).digest("hex")).toBe(
       "63f91e9ae2c2d1f0dce1ac6313b75a4e3fb27627920620c7bc6eed3ad63dc2e2",
+    );
+    expect(createHash("sha256").update(catalogV11Text).digest("hex")).toBe(
+      "12cd5de430900f8c084613d33563276b05354a142a060f8a3784bf5bb48b2fca",
     );
     expect(catalogV11.contractVersion).toBe("1.0.0");
     expect(catalogV11.reasons.slice(0, catalogV1.reasons.length)).toEqual(
