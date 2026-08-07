@@ -384,6 +384,12 @@ export function memoryWorkspace(seed: MemoryWorkspaceSeed = {}): Workspace {
 
   return {
     canonicalize: (path, base) => Promise.resolve(canonicalize(path, base)),
+    inspect: (path) =>
+      deferred(() => {
+        const canonical = canonicalize(path, path);
+        if (canonical === null) throw new Error("Workspace path is unusable");
+        return inspect(canonical);
+      }),
     ancestors: (start) => {
       const canonical = canonicalize(start, start);
       if (canonical === null) return Promise.resolve([]);

@@ -43,10 +43,8 @@ export function describeWorkspaceContract(
     });
 
     it("observes project-local marker and configuration bytes", async () => {
-      await withWorkspace(async ({ port, start, project }) => {
-        const candidate = (await port.ancestors(start)).find(
-          ({ path }) => path === project,
-        );
+      await withWorkspace(async ({ port, project }) => {
+        const candidate = await port.inspect(project);
         expect(candidate).toMatchObject({
           path: project,
           brain: "directory",
@@ -82,6 +80,7 @@ export function describeWorkspaceContract(
         expect(Object.keys(port).sort()).toEqual([
           "ancestors",
           "canonicalize",
+          "inspect",
           "locateWorktree",
         ]);
         return Promise.resolve();

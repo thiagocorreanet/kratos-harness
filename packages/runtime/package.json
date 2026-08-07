@@ -14,7 +14,8 @@
     "./infra/fake": "./src/infra/fake/index.ts",
     "./infra/node": "./src/infra/node/index.ts",
     "./composition": "./src/composition/index.ts",
-    "./composition/cli": "./src/composition/cli.ts"
+    "./composition/cli": "./src/composition/cli.ts",
+    "./composition/discovery": "./src/composition/discovery.ts"
   },
   "dependencies": {
     "@mestre-yoda/contracts": "0.0.0-development"

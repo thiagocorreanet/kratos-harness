@@ -80,6 +80,7 @@ export interface Output {
 /** Read-only filesystem and Git facts available before a project root exists. */
 export interface Workspace {
   canonicalize(path: string, base: string): Promise<string | null>;
+  inspect(path: string): Promise<DirectoryProbe>;
   ancestors(start: string): Promise<readonly DirectoryProbe[]>;
   locateWorktree(start: string): Promise<WorktreeLocation | null>;
 }

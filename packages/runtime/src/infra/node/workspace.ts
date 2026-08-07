@@ -146,6 +146,11 @@ export function nodeWorkspace(): Workspace {
 
   return {
     canonicalize,
+    inspect: async (path) => {
+      const canonical = await canonicalize(path, path);
+      if (canonical === null) throw new Error("Workspace path is unusable");
+      return probe(canonical);
+    },
     ancestors: async (start) => {
       const canonical = await canonicalize(start, start);
       if (canonical === null) return [];
