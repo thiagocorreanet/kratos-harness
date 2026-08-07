@@ -86,6 +86,39 @@ describe("schema-derived contract declarations", () => {
             messageType: "response",
             payload: { ref: "snapshot.json", sha256: "${"a".repeat(64)}" },
           }) satisfies AdapterMessageV1;
+          ({
+            ...common,
+            messageType: "response",
+            payload: {
+              contractVersion: "1.0.0",
+              status: "failure",
+              exitCode: 0,
+              reasonCode: "runtime.internal_failure",
+              summary: "The operation stopped.",
+              why: ["A contract condition was not satisfied."],
+              evidence: [],
+              stateChanged: false,
+              retryable: true,
+              recovery: "Retry the operation.",
+            },
+          }) satisfies AdapterMessageV1;
+          ({
+            ...common,
+            messageType: "response",
+            payload: {
+              contractVersion: "1.0.0",
+              status: "failure",
+              exitCode: 1,
+              reasonCode: "runtime.internal_failure",
+              summary: "The operation stopped.",
+              why: ["A contract condition was not satisfied."],
+              evidence: [],
+              stateChanged: false,
+              retryable: false,
+              recovery: "Retry the operation.",
+              unexpected: true,
+            },
+          }) satisfies AdapterMessageV1;
         `,
         "utf8",
       );
@@ -107,9 +140,15 @@ describe("schema-derived contract declarations", () => {
         { cwd: repositoryRoot, encoding: "utf8" },
       );
       expect(result.status).not.toBe(0);
-      expect(result.stdout).toContain("unexpected");
       expect(result.stdout).toContain(
-        "not assignable to type 'MestreYodaUniversalResultV1'",
+        "'unexpected' does not exist in type 'RequestMessage'",
+      );
+      expect(result.stdout).toContain(
+        "'ref' does not exist in type 'MestreYodaUniversalResultV1'",
+      );
+      expect(result.stdout).toContain("Type '0' is not assignable");
+      expect(result.stdout).toContain(
+        "'unexpected' does not exist in type '{ contractVersion:",
       );
     } finally {
       await rm(directory, { force: true, recursive: true });

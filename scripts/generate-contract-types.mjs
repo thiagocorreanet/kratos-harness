@@ -31,6 +31,56 @@ function indent(source) {
     .join("\n");
 }
 
+function mergeConstraint(base, constraint) {
+  if (
+    constraint.$ref !== undefined ||
+    (base.oneOf !== undefined && constraint.type !== undefined)
+  ) {
+    return constraint;
+  }
+  return { ...base, ...constraint };
+}
+
+function conditionalUnion(schema) {
+  if (
+    !Array.isArray(schema.allOf) ||
+    schema.allOf.length === 0 ||
+    schema.properties === undefined ||
+    !Array.isArray(schema.required)
+  ) {
+    throw new Error("conditional schema cannot produce a generated union");
+  }
+  const variants = schema.allOf.map((rule) => {
+    const exitConstraint = rule.if?.properties?.exitCode;
+    const thenProperties = rule.then?.properties;
+    if (exitConstraint === undefined || thenProperties === undefined) {
+      throw new Error("conditional schema branch is incomplete");
+    }
+    const constraints = { exitCode: exitConstraint, ...thenProperties };
+    const properties = Object.fromEntries(
+      Object.entries(schema.properties).map(([name, definition]) => [
+        name,
+        constraints[name] === undefined
+          ? definition
+          : mergeConstraint(definition, constraints[name]),
+      ]),
+    );
+    return {
+      type: schema.type,
+      additionalProperties: schema.additionalProperties,
+      required: schema.required,
+      properties,
+    };
+  });
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: variants,
+    $defs: schema.$defs,
+  };
+}
+
 export async function generateContractTypes({
   outputPath = generatedContractsPath,
 } = {}) {
@@ -40,6 +90,13 @@ export async function generateContractTypes({
   ]);
   const headers = [];
   const declarations = [];
+  const resultSchema = JSON.parse(resultSchemaText);
+  const generatedResultSchemaText = JSON.stringify(
+    conditionalUnion(resultSchema),
+  );
+  headers.push(
+    `// dependency: ${resultSchema.$id} sha256:${createHash("sha256").update(resultSchemaText).digest("hex")}`,
+  );
 
   for (const entry of manifest.schemas) {
     const schemaPath = join(repositoryRoot, entry.path);
@@ -61,7 +118,7 @@ export async function generateContractTypes({
           universalResult: {
             order: 1,
             canRead: /^https:\/\/mestre-yoda\.dev\/schemas\/result\/v1$/u,
-            read: resultSchemaText,
+            read: generatedResultSchemaText,
           },
         },
       },

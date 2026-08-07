@@ -1,4 +1,5 @@
 // Generated from registered JSON Schemas. Do not edit.
+// dependency: https://mestre-yoda.dev/schemas/result/v1 sha256:9cef7d89f7783a87c172e79cd024bc46195e12e73f53ad8fb9418ff99adecfd3
 // source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:58e71d3742ef50904aa6b1b8d848e7455ad0305d70e9e809e1ddf901fc6c4cb2
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:841fd2dd3ba3abf8ff4bfda6571b2be4ddbcf544e3551c55677fbf4243dba13b
 // source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:e803d6e14b50675a6bbd3f7b39df0a50b6d6fd1f90017d6a9f74a6b6848ca878
@@ -15,20 +16,49 @@ export namespace AdapterMessageV1Contract {
   export type PayloadContract = string;
   export type Reference = string;
   export type Sha256 = string;
-  export type MestreYodaUniversalResultV1 = {
-    [k: string]: unknown | undefined;
-  } & {
-    contractVersion: "1.0.0";
-    status: "success" | "failure" | "blocked";
-    exitCode: number;
-    reasonCode: string;
-    summary: string;
-    why: string[];
-    evidence: Evidence[];
-    stateChanged: boolean;
-    retryable: boolean;
-    recovery: string | null;
-  };
+  export type MestreYodaUniversalResultV1 =
+    | {
+        contractVersion: "1.0.0";
+        status: "success";
+        exitCode: 0;
+        reasonCode: string;
+        summary: string;
+        why: string[];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: false;
+        recovery: null;
+      }
+    | {
+        contractVersion: "1.0.0";
+        status: "failure";
+        exitCode: 1 | 2;
+        reasonCode: string;
+        summary: string;
+        /**
+         * @minItems 1
+         */
+        why: [string, ...string[]];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: boolean;
+        recovery: string;
+      }
+    | {
+        contractVersion: "1.0.0";
+        status: "blocked";
+        exitCode: 3 | 4 | 5;
+        reasonCode: string;
+        summary: string;
+        /**
+         * @minItems 1
+         */
+        why: [string, ...string[]];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: boolean;
+        recovery: string;
+      };
 
   export interface RequestMessage {
     contractVersion: "1.0.0";
