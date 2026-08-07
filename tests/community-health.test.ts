@@ -54,7 +54,9 @@ describe("community health policies", () => {
     expect(contributing).toContain(
       "Signed-off-by: Your Name <your.email@example.com>",
     );
-    expect(contributing).toContain("Intellectual-property provenance checklist");
+    expect(contributing).toContain(
+      "Intellectual-property provenance checklist",
+    );
     expect(contributing).toContain("behavioral clean-room");
     expect(contributing).toContain("Unclear provenance blocks merge");
     expect(policies.DCO).toContain("Developer's Certificate of Origin 1.1");
@@ -98,7 +100,9 @@ describe("community health policies", () => {
 
     for (const path of requiredPolicyPaths) {
       for (const marker of unfinishedMarkers) {
-        expect(policies[path], `${path} contains ${marker}`).not.toContain(marker);
+        expect(policies[path], `${path} contains ${marker}`).not.toContain(
+          marker,
+        );
       }
     }
   });

@@ -32,7 +32,7 @@
 - Consumes: repository root resolved from `import.meta.url`.
 - Produces: executable expectations for `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, `SECURITY.md`, `SUPPORT.md`, `DCO`, `.github/CODEOWNERS`, and README navigation.
 
-- [ ] **Step 1: Write the missing-file and policy-contract tests**
+- [x] **Step 1: Write the missing-file and policy-contract tests**
 
 Use `readFile` from `node:fs/promises` and Vitest. Assert all required paths can
 be read, then assert:
@@ -54,13 +54,13 @@ template instructions, and missing enforcement contacts. Assert the DCO
 identifies version 1.1 and the code of conduct identifies/attributes Contributor
 Covenant 3.0.
 
-- [ ] **Step 2: Run the focused test and confirm RED**
+- [x] **Step 2: Run the focused test and confirm RED**
 
 Run: `npm test -- tests/community-health.test.ts`
 
 Expected: FAIL with `ENOENT` for `CONTRIBUTING.md`.
 
-- [ ] **Step 3: Commit only after the policy implementation makes this test GREEN**
+- [x] **Step 3: Commit only after the policy implementation makes this test GREEN**
 
 The failing test remains uncommitted until Tasks 2–3 add the required policies;
 then commit it with the policy set so every commit on the branch remains usable.
@@ -79,12 +79,12 @@ then commit it with the policy set so every commit on the branch remains usable.
 - Consumes: DCO 1.1 official text, pinned toolchain guide, architecture/ADR rules, verified owner `@thiagocorreanet`.
 - Produces: signed contribution workflow, IP provenance gate, decision model, maintainer roles, and review ownership.
 
-- [ ] **Step 1: Add DCO 1.1 verbatim**
+- [x] **Step 1: Add DCO 1.1 verbatim**
 
 Copy the official DCO 1.1 text from `https://developercertificate.org/` without
 editing its terms, including its copyright/copy permission and clauses (a)–(d).
 
-- [ ] **Step 2: Write the operational contribution guide**
+- [x] **Step 2: Write the operational contribution guide**
 
 Include prerequisites, issue selection, Superpowers feature/bug paths, branch
 and scope rules, `npm ci`/`npm run verify`, English, DCO sign-off and amendment,
@@ -94,18 +94,18 @@ mandatory checklist:
 ```markdown
 ### Intellectual-property provenance checklist
 
-- [ ] I identified every legacy or third-party source used by this change.
-- [ ] I recorded whether each source is public or private and its owner/license.
-- [ ] I classified the contribution as original, behavioral clean-room, adapted, or verbatim.
-- [ ] Adapted/verbatim material has reviewable MIT-compatible publication authority.
-- [ ] Required notices and attribution are preserved.
-- [ ] No secrets, credentials, customer/personal data, private infrastructure, or confidential business information are included.
+- [x] I identified every legacy or third-party source used by this change.
+- [x] I recorded whether each source is public or private and its owner/license.
+- [x] I classified the contribution as original, behavioral clean-room, adapted, or verbatim.
+- [x] Adapted/verbatim material has reviewable MIT-compatible publication authority.
+- [x] Required notices and attribution are preserved.
+- [x] No secrets, credentials, customer/personal data, private infrastructure, or confidential business information are included.
 ```
 
 State that unclear provenance blocks merge and that private legacy access alone
 is not relicensing permission.
 
-- [ ] **Step 3: Write governance roles and decision rules**
+- [x] **Step 3: Write governance roles and decision rules**
 
 Define Project Lead `@thiagocorreanet`, explicitly appointed maintainers, and
 contributors; lazy consensus for routine changes; design/ADR plus explicit owner
@@ -113,7 +113,7 @@ approval for contracts/security/compatibility/migration/governance; private
 security/conduct decisions; documented tie-breaking; public governance PRs;
 least-privilege access and no automatic role transfer.
 
-- [ ] **Step 4: Add secure default ownership**
+- [x] **Step 4: Add secure default ownership**
 
 Create `.github/CODEOWNERS` with:
 
@@ -143,7 +143,7 @@ The `.github/` rule protects CODEOWNERS itself and later automation.
 - Consumes: Contributor Covenant 3.0, GitHub private-reporting URL, issue/support boundaries.
 - Produces: recognized community policies and one-click README entrypoints.
 
-- [ ] **Step 1: Adopt Contributor Covenant 3.0**
+- [x] **Step 1: Adopt Contributor Covenant 3.0**
 
 Use the official 3.0 Markdown and replace its reporting note with a confidential
 route to `https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new`.
@@ -151,7 +151,7 @@ Require title prefix `CODE OF CONDUCT`, allow GitHub platform reporting for
 hosted-content violations, preserve confidentiality and the CC BY-SA 4.0
 attribution.
 
-- [ ] **Step 2: Write the security policy**
+- [x] **Step 2: Write the security policy**
 
 List only `main` as supported before releases; exclude the private predecessor
 and forks. Require private GitHub reporting, forbid public pre-triage details,
@@ -159,21 +159,21 @@ request safe reproduction/impact/version, define prohibited testing, set 3/7/14
 business-day response targets and feasible critical/high remediation targets,
 and explain coordinated disclosure, credit, advisories, and CVEs.
 
-- [ ] **Step 3: Write support boundaries**
+- [x] **Step 3: Write support boundaries**
 
 Route public reproducible bugs/features to Issues, security and conduct to their
 confidential routes, and explicitly exclude proprietary BetaUp/MWTC/customer
 systems. State experimental status, no SLA/production support, English, and no
 secrets/private data.
 
-- [ ] **Step 4: Replace provisional README policy text**
+- [x] **Step 4: Replace provisional README policy text**
 
 Make the Contributing section link `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
 `GOVERNANCE.md`, and `SUPPORT.md`. Make Security link `SECURITY.md` and its
 private report path. A contributor reaches every policy directly or through the
 contribution guide within two clicks.
 
-- [ ] **Step 5: Run the focused contract and confirm GREEN**
+- [x] **Step 5: Run the focused contract and confirm GREEN**
 
 ```bash
 npm test -- tests/community-health.test.ts
@@ -183,7 +183,7 @@ npm run lint
 
 Expected: all community-health tests pass; static checks exit 0 without warnings.
 
-- [ ] **Step 6: Commit the tested policy graph**
+- [x] **Step 6: Commit the tested policy graph**
 
 ```bash
 git add DCO CONTRIBUTING.md CODE_OF_CONDUCT.md GOVERNANCE.md SECURITY.md SUPPORT.md README.md .github/CODEOWNERS tests/community-health.test.ts
@@ -202,7 +202,7 @@ git commit -m "docs: add open-source governance policies"
 - Consumes: merged/pushed policy files and GitHub repository administration API.
 - Produces: reproducible local/API evidence without a fake vulnerability or project commit.
 
-- [ ] **Step 1: Enable private vulnerability reporting**
+- [x] **Step 1: Enable private vulnerability reporting**
 
 Run the GitHub API operation that enables private vulnerability reporting for
 `thiagocorreanet/mestre-yoda`, then verify read-only state:
@@ -215,7 +215,7 @@ gh api repos/thiagocorreanet/mestre-yoda/private-vulnerability-reporting
 Expected JSON: `{"enabled":true}`. This setting is the only external mutation in
 the issue and is required to make the documented confidential route real.
 
-- [ ] **Step 2: Dry-run DCO and navigation locally**
+- [x] **Step 2: Dry-run DCO and navigation locally**
 
 Parse, without committing, a sample trailer:
 
@@ -227,14 +227,14 @@ Expected: the identical valid trailer. Follow every README/policy relative link
 with Lychee and record the resolved contribution, conduct, governance, support,
 and security paths.
 
-- [ ] **Step 3: Record pre-merge evidence**
+- [x] **Step 3: Record pre-merge evidence**
 
 Document date, branch/commit, private-reporting enabled state, sample DCO parse,
 test counts, Markdown/link results, and that the reporting page was opened
 without submitting a report. Mark post-merge community-profile and CODEOWNERS
 recognition as a required closure check rather than claiming it early.
 
-- [ ] **Step 4: Run complete verification**
+- [x] **Step 4: Run complete verification**
 
 ```bash
 npm run verify
