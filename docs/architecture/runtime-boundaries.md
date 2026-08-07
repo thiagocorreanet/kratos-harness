@@ -17,9 +17,17 @@ allow it fails CI.
 | `infra` | `packages/runtime/src/infra/` | `ports`, `domain`, `node:*` |
 | `composition` | `packages/runtime/src/composition/` | everything above |
 
-`domain` and `ports` must not import `node:*` at all. A contributor adding
-`import { readFile } from "node:fs/promises"` to a policy module fails CI rather
-than review.
+`domain` and `ports` must not import a Node builtin at all. A contributor
+adding `import { readFile } from "node:fs/promises"` to a policy module fails CI
+rather than review.
+
+A builtin is recognized by resolving against Node's own builtin list, not by the
+`node:` prefix. `import { readFileSync } from "fs"` is legal Node and resolves
+fine, so a prefix check would let four dropped characters walk through the rule.
+`require()` is matched too: it has no place in this ESM package, which is
+exactly why it must not be an unwatched way out. A relative specifier is
+resolved against the importing module, so a layer cannot reach a builtin
+indirectly by importing an entry module.
 
 **Only an entry point may import composition.** That is what keeps the
 composition root a root instead of a service locator any module can reach into.
@@ -65,9 +73,10 @@ that imports it, which is what the layering exists to prevent.
 `Git` and `Locks` ship deliberately thin implementations. `RUN-08` owns
 repository classification and approved scope deltas; `RUN-07` owns lease expiry,
 renewal, and recovery of an abandoned lease. This issue fixes their shape so
-those issues implement against a settled interface instead of inventing one, and
-their contract suites run against the fake only rather than asserting semantics
-that have not been designed.
+those issues implement against a settled interface instead of inventing one.
+Both still run the shared contract suite against both implementations —
+narrowing an exception to the assertions those issues own, rather than excusing
+the whole port.
 
 ### One contract suite per port
 
@@ -76,8 +85,13 @@ proves the Node implementation is the same suite run against the fake, so a fake
 that quietly diverges fails immediately instead of letting in-memory tests pass
 while the real runtime misbehaves.
 
-Where a difference is genuine it is a named exception, never a silently skipped
-case.
+Where a difference is genuine it is a named exception on a specific
+**assertion**, never on a whole port. Excusing an entire port is how two
+implementations end up disagreeing on a field's units or the sign of a timestamp
+while a document claims they agree.
+
+`Git` and `Locks` run the shared suite against both implementations; only the
+semantics `RUN-07` and `RUN-08` own are left for those issues to assert.
 
 ### Path safety
 
@@ -93,10 +107,16 @@ A space is legal in a real project path and is not refused. Rejecting it would
 be a restriction the runtime would have to walk back the first time it read a
 user's repository.
 
-The Node implementation additionally resolves the real parent directory and
-requires it below the project root before any mutation. Lexical normalization is
-not enough on its own: a symlink can point outside the project while the path
-reaching it looks perfectly safe.
+The Node implementation additionally resolves the real path and requires it
+below the project root before any mutation. Lexical normalization is not enough
+on its own: a symlink can point outside the project while the path reaching it
+looks perfectly safe.
+
+Both the parent **and the final component** are resolved. Checking only the
+parent misses the case where the last segment is itself a symlink — the parent
+is then perfectly legitimate and the whole redirect lives in that one segment.
+A symlink that stays inside the root is still followed normally; the refusal is
+about escaping, not about symlinks.
 
 An escaping path throws from `stat` rather than returning `null`, because a
 refusal is not an absence and flattening the two would let a rejected path read
@@ -124,6 +144,11 @@ createRuntime({
 });
 ```
 
+A **partial** override is not a deterministic runtime. `createRuntime({ clock })`
+keeps the real filesystem rooted at `process.cwd()`, so applying a plan through
+it would write into the working tree. Override every port whose effects a test
+must not perform.
+
 ## Effect plans
 
 The domain does not call ports. It returns an ordered `EffectPlan` describing
@@ -133,9 +158,10 @@ That separation is what makes a dry run the same decision with the plan rendered
 instead of applied, rather than a parallel code path that can drift from the
 real one.
 
-`applyPlan` switches exhaustively over the effect kinds, so adding a variant
-without handling it fails the type check rather than being silently skipped.
-Effects are applied in declared order.
+`applyPlan` switches exhaustively over the effect kinds. Exhaustiveness is
+enforced by assigning the default case to `never`: because the function returns
+`void`, the switch would otherwise carry no obligation at all and a new variant
+would be silently no-op'd. Effects are applied in declared order.
 
 A failing effect **stops** the run rather than being stepped over. The
 already-applied prefix is not rolled back: atomicity is `RUN-05`'s transaction
