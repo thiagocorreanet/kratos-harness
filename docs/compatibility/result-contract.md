@@ -17,7 +17,9 @@ Version 1 is owned by four checked artifact families:
 - [`reason-catalog.v1.schema.json`](../../schemas/reason-catalog.v1.schema.json)
   closes reason policy entries;
 - [`reason-codes.v1.json`](../../packages/contracts/catalogs/reason-codes.v1.json)
-  assigns policy to every supported reason;
+  preserves the immutable 76-reason revision 1.0 policy;
+- [`reason-codes.v1.1.json`](../../packages/contracts/catalogs/reason-codes.v1.1.json)
+  adds six contract-family compatibility reasons;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.
 
@@ -72,8 +74,8 @@ and directs callers to the explicit migration command.
 
 ## Reason catalog
 
-The catalog contains all 71 frozen Go v3 reason names unchanged plus five
-TypeScript runtime reasons:
+Catalog revision 1.0 contains all 71 frozen Go v3 reason names unchanged plus
+five TypeScript runtime reasons:
 
 - `runtime.internal_failure`;
 - `runtime.state_corrupt`;
@@ -91,6 +93,12 @@ Catalog versioning is independent of package versioning. Published v1 reason
 meaning cannot be silently reassigned. A breaking field, status, exit, or reason
 semantic change requires a new contract version; additive package work may keep
 using contract `1.0.0` when its existing meaning remains unchanged.
+
+Catalog revision 1.1 preserves those 76 entries byte-for-byte and adds six
+`contract.*_version_invalid` or `contract.*_version_unsupported` reasons for
+the independently versioned plugin, state, and host families. Their exact
+compatibility windows and recovery policy are documented in the
+[contract versioning guide](contract-versioning.md).
 
 ## Evidence references
 
