@@ -314,7 +314,7 @@ git commit -s -m "docs: map exhaustive Go v3 parity contracts"
 - Produces: `npm run parity:check` and optional `--source`/`--dist-source` source revalidation.
 - Consumes: validated catalogs and functions from `scripts/lib/parity-inventory.mjs`.
 
-- [ ] **Step 1: Write CLI RED tests**
+- [x] **Step 1: Write CLI RED tests**
 
 Spawn the future checker and require exact offline output containing discovery
 counts plus `overall 0 / N (0.00%)`, `P0 0 / N (0.00%)`, and
@@ -325,13 +325,13 @@ row, missing case reference, duplicate coverage key, unsafe path, unknown field,
 and false parity claim. Verify exit 2 for unknown/malformed options. Verify
 stderr never includes a caller-supplied private path.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- tests/parity-inventory-checker.test.ts
 ```
 
-- [ ] **Step 3: Implement the thin CLI**
+- [x] **Step 3: Implement the thin CLI**
 
 Support only documented option/value pairs:
 
@@ -346,7 +346,7 @@ Require source and distribution together for private discovery. Catch every
 exception at the entrypoint and render only a catalog ID or generic private
 input failure. Never execute an argument derived from either catalog.
 
-- [ ] **Step 4: Integrate the offline gate**
+- [x] **Step 4: Integrate the offline gate**
 
 Add:
 
@@ -357,7 +357,7 @@ Add:
 Insert `npm run parity:check` after `oracle:verify` and before build in `verify`.
 No dependency or lockfile package change is expected.
 
-- [ ] **Step 5: Run the failure campaign and commit**
+- [x] **Step 5: Run the failure campaign and commit**
 
 ```bash
 npm run parity:check
