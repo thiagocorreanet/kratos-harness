@@ -1,9 +1,10 @@
 # Yoda Observable Architecture Specification
 
-Status: Approved  
-Decision date: 2026-08-06  
-Scope: TypeScript rewrite of Mestre Yoda  
-Tracking issue: [#2](https://github.com/thiagocorreanet/mestre-yoda/issues/2)
+- Status: Approved
+- Decision date: 2026-08-06
+- Scope: TypeScript rewrite of Mestre Yoda
+- Tracking issue: [#2](https://github.com/thiagocorreanet/mestre-yoda/issues/2)
+- Approval basis: Maintainer-authorized autonomous design approval
 
 ## 1. Purpose and authority
 
@@ -507,3 +508,17 @@ adapters and a shared conformance contract. The Go v3 SDD process—especially
 PRD discovery, structured output, lineage, independent review, and human
 approval—remains the compatibility baseline. Distribution and observability
 change; workflow meaning does not.
+
+## 17. Architecture decision records
+
+This specification defines the system as a whole. The following records preserve
+the context, decision, consequences, and rejected alternatives for each
+foundational structural choice:
+
+- [ADR 0001: Event-Sourced Project History](../../adr/0001-event-sourced-project-history.md)
+- [ADR 0002: Embedded Self-Contained ESM Runtime](../../adr/0002-embedded-esm-runtime.md)
+- [ADR 0003: Project-Local Brain State](../../adr/0003-project-local-brain-state.md)
+- [ADR 0004: Host-Neutral Core and Thin Adapters](../../adr/0004-host-adapter-boundary.md)
+
+The required host-to-decision-to-event-to-response trace is recorded in the
+[architecture verification evidence](../../architecture/verification.md).
