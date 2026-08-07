@@ -60,8 +60,8 @@ Using Node.js `v24.18.0` and npm `11.16.0`:
 | `npm run test:coverage` | Pass, 100% configured runtime statements/branches/functions/lines |
 | `npm run build` | Pass, one 386-byte ESM artifact |
 | `npm run package:verify` | Pass, isolated exact help/version |
-| markdownlint | Pass, 21 Markdown files and zero errors |
-| Lychee | Pass, 86 links and zero errors |
+| markdownlint | Pass, 22 Markdown files and zero errors |
+| Lychee | Pass, 90 links and zero errors |
 | `git diff --check` | Pass |
 
 The community-health contract specifically checks seven policy/navigation
