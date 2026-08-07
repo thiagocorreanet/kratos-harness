@@ -19,9 +19,10 @@
     "typecheck": "tsc6 --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "oracle:verify": "node scripts/verify-go-v3-oracle.mjs",
     "build": "node scripts/build.mjs",
     "package:verify": "node scripts/verify-package.mjs",
-    "verify": "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify"
+    "verify": "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run build && npm run package:verify"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

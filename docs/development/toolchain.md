@@ -37,6 +37,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | `npm run typecheck` | Run strict TypeScript 6 compatibility checking without emit |
 | `npm test` | Run unit and clean-room bundle tests once |
 | `npm run test:coverage` | Enforce 100% coverage on the initial CLI decision surface |
+| `npm run oracle:verify` | Validate the public metadata-only Go v3 oracle catalog offline |
 | `npm run build` | Rebuild the standalone runtime artifact |
 | `npm run package:verify` | Inspect and execute the staged artifact outside the checkout |
 | `npm run verify` | Run the complete offline validation chain in dependency order |
@@ -94,6 +95,21 @@ it is absent from the embedded runtime bundle.
 Ajv `8.20.0` validates Issue Forms against a content-hash-verified schema
 snapshot. That explicit online evidence command is separate from the offline
 `verify` chain; both validation dependencies remain absent from the runtime.
+
+## Frozen compatibility oracle
+
+The [Go v3 baseline](../compatibility/go-v3-v0.6.5-baseline.md) freezes private
+release `v0.6.5` by immutable Git identities, SHA-256 digests, counts, command
+outputs, release binaries, and independently hashed PRD anchors. The public
+catalog contains metadata only; it does not publish predecessor source, prompts,
+schemas, fixtures, help prose, or binaries.
+
+The normal offline verification chain validates this catalog without access to
+the predecessor. Authorized maintainers can additionally give the verifier
+explicit source, distribution, binary, and plugin-cache paths to recompute every
+applicable digest. It never searches a home directory or downloads private
+material. A frozen oracle establishes measurement identity; it does not claim
+that TypeScript parity has already been implemented.
 
 ## Runtime artifact
 
