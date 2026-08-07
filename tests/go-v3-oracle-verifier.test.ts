@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +78,45 @@ describe("Go v3 oracle verifier", () => {
           "ssh://private.invalid/oracle";
       },
     ],
+    [
+      "unknown payload field",
+      (manifest: Record<string, unknown>) => {
+        manifest.notes = "customer payload";
+      },
+    ],
+    [
+      "Windows path",
+      (manifest: Record<string, unknown>) => {
+        (manifest.source as Record<string, unknown>).repository_slug =
+          "C:\\private\\oracle";
+      },
+    ],
+    [
+      "command arguments",
+      (manifest: Record<string, unknown>) => {
+        const command = (
+          manifest.command_outputs as Record<string, unknown>[]
+        )[0];
+        if (command === undefined) throw new Error("missing test command");
+        command.arguments = ["migrate", "--force"];
+      },
+    ],
+    [
+      "PRD path",
+      (manifest: Record<string, unknown>) => {
+        const anchor = (manifest.prd_anchors as Record<string, unknown>[])[0];
+        if (anchor === undefined) throw new Error("missing test anchor");
+        anchor.source_path = "agents/other.md";
+      },
+    ],
+    [
+      "PRD byte count",
+      (manifest: Record<string, unknown>) => {
+        const anchor = (manifest.prd_anchors as Record<string, unknown>[])[0];
+        if (anchor === undefined) throw new Error("missing test anchor");
+        anchor.bytes = 1;
+      },
+    ],
   ])("rejects a changed %s", async (_name, mutate) => {
     const path = await writeMutation(mutate);
     expect(() => verify("--manifest", path)).toThrow();
@@ -85,5 +124,51 @@ describe("Go v3 oracle verifier", () => {
 
   it("rejects a checkout that is not the frozen source", () => {
     expect(() => verify("--source", repositoryRoot)).toThrow();
+  });
+
+  it("does not disclose a missing private binary path", () => {
+    const privatePath = join(tmpdir(), "customer-secret", "missing-yoda");
+    const result = spawnSync(
+      process.execPath,
+      [verifier, "--binary", privatePath],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe(
+      "Go v3 oracle verification failed: private input could not be verified\n",
+    );
+    expect(result.stderr).not.toContain(privatePath);
+  });
+
+  it("does not disclose a mismatched private plugin path", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yoda-private-projection-"));
+    const distribution = join(directory, "distribution");
+    const cache = join(directory, "cache");
+    const privateRelativePath = "customers/acme-secret.txt";
+    await mkdir(join(distribution, "customers"), { recursive: true });
+    await mkdir(join(cache, "customers"), { recursive: true });
+    await writeFile(join(distribution, privateRelativePath), "expected");
+    await writeFile(join(cache, privateRelativePath), "different");
+    execFileSync("git", ["init", "--quiet", distribution]);
+    execFileSync("git", ["-C", distribution, "add", privateRelativePath]);
+
+    const script = [
+      `import { verifyPluginCache } from ${JSON.stringify(verifier)};`,
+      `const manifest = ${JSON.stringify(canonical)};`,
+      `try { verifyPluginCache(${JSON.stringify(cache)}, ${JSON.stringify(distribution)}, manifest); }`,
+      `catch (error) { console.error(error.message); process.exitCode = 1; }`,
+    ].join("\n");
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", script],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe(
+      "Go v3 oracle verification failed: plugin projection contents do not match\n",
+    );
+    expect(result.stderr).not.toContain(privateRelativePath);
   });
 });

@@ -39,6 +39,9 @@ archives and release assets:
 The Linux result was also byte-identical to the installed `0.6.5` binary. Its
 Go build metadata reported the frozen revision, release commit time,
 `vcs.modified=false`, `linux/amd64`, `CGO_ENABLED=0`, and Go `1.23.4`.
+The Windows and Darwin values are identities of two clean, byte-identical
+rebuilds using the frozen release procedure; no separately downloaded asset or
+native execution comparison is claimed for those targets.
 
 Release builds used a clean Git checkout because Go embeds VCS metadata. A build
 from `git archive` is deterministic but intentionally has different bytes and

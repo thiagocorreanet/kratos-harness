@@ -1,21 +1,89 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
 );
+
+process.on("uncaughtException", (error) => {
+  const safeMessage =
+    error instanceof Error &&
+    error.message.startsWith("Go v3 oracle verification failed:")
+      ? error.message
+      : "Go v3 oracle verification failed: private input could not be verified";
+  console.error(safeMessage);
+  process.exitCode = 1;
+});
+
 const defaultManifest = join(
   repositoryRoot,
   "compatibility/oracles/go-v3/v0.6.5/manifest.json",
 );
 const expected = {
+  catalogSemanticSha256:
+    "17d8fa49a3b498c38490970276584ecce18f35348dc31f683f8a812fef498a44",
   commit: "632f1e9bb283cf83412ef3e9e0b642daefdb0784",
   id: "go-v3-v0.6.5",
   tag: "v0.6.5",
   tagObject: "720f0a35074451208a0673324d223803add249e0",
+};
+const provenanceId = "private-go-v3-hash-only";
+const expectedPrdAnchors = [
+  {
+    id: "prd-researcher",
+    source_path: "agents/prd-researcher.md",
+    bytes: 6876,
+    sha256: "b032604100e7f54f6a78259d3e3df6e907f651eee62a85f39b7f8cb3569009dc",
+    provenance_id: provenanceId,
+  },
+  {
+    id: "prd-output-schema",
+    source_path: "schemas/prd-output.schema.json",
+    bytes: 4855,
+    sha256: "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e",
+    provenance_id: provenanceId,
+  },
+  {
+    id: "problem-discovery",
+    source_path: "references/problem-discovery.md",
+    bytes: 5670,
+    sha256: "360c231c9156d39872f82de6fe65fd2c454e5abbbd8c5ff52cf6a0d2570d7e96",
+    provenance_id: provenanceId,
+  },
+  {
+    id: "prd-template",
+    source_path: "templates/brain/02-features/_template/00-prd.md",
+    bytes: 2578,
+    sha256: "75485f0049e38644cdb9c00db976a4d1c730a03bbf81d4e949a3bd58449453c3",
+    provenance_id: provenanceId,
+  },
+];
+const expectedCommands = [
+  {
+    id: "version-output",
+    arguments: ["version"],
+    exit_code: 0,
+    stdout_bytes: 6,
+    stderr_empty: true,
+    sha256: "34bf52562bae401de106933a7565c9d3a5c8dc83c04b0b29492dd3f6f3983b7a",
+    provenance_id: provenanceId,
+  },
+  {
+    id: "help-output",
+    arguments: ["--help"],
+    exit_code: 0,
+    stdout_bytes: 1058,
+    stderr_empty: true,
+    sha256: "8fe918223dc75b5fc644f2769fa38456077c1b0467e5bc2394597a77431414b6",
+    provenance_id: provenanceId,
+  },
+];
+const expectedLinuxBinary = {
+  bytes: 5443736,
+  sha256: "da4ec4a2394ae90a94722f633bcb9157ddc5ee0133f46540b7c2c700abe378b8",
 };
 const surfacePaths = {
   source: ["."],
@@ -109,7 +177,198 @@ function assertDigest(value, context) {
   }
 }
 
+function assertOnlyKeys(value, allowed, context) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    fail(`${context} is not an object`);
+  }
+  const actual = Object.keys(value).sort();
+  const expectedKeys = [...allowed].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(expectedKeys)) {
+    fail(`${context} fields changed`);
+  }
+}
+
+function assertSafeStrings(value) {
+  if (typeof value === "string") {
+    const forbidden = [
+      /[a-z][a-z0-9+.-]*:\/\//iu,
+      /(?:^|[\s"'=])\/(?:home|Users|private|tmp|var|etc|opt|srv|mnt)\//u,
+      /[a-z]:[\\/]/iu,
+      /\\\\[a-z0-9._-]+[\\/]/iu,
+      /\b[^\s@]+@[^\s:]+:[^\s]+/u,
+      /(?:github_pat_|gh[pousr]_)[a-z0-9_]{20,}/iu,
+      /AKIA[0-9A-Z]{16}/u,
+      /BEGIN [A-Z ]*PRIVATE KEY/iu,
+    ];
+    if (forbidden.some((pattern) => pattern.test(value))) {
+      fail("catalog contains a URL, local path, or credential marker");
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) assertSafeStrings(entry);
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const entry of Object.values(value)) assertSafeStrings(entry);
+  }
+}
+
+function validateShape(manifest) {
+  assertOnlyKeys(
+    manifest,
+    [
+      "schema_version",
+      "oracle_id",
+      "version",
+      "source",
+      "distribution",
+      "surfaces",
+      "prd_anchors",
+      "command_outputs",
+      "release_binaries",
+      "plugin_projection",
+      "provenance",
+      "verification",
+    ],
+    "catalog",
+  );
+  assertOnlyKeys(
+    manifest.source,
+    [
+      "repository_slug",
+      "visibility",
+      "tag",
+      "tag_object",
+      "commit",
+      "commit_timestamp",
+      "go_version",
+      "file_count",
+      "archive_sha256",
+      "provenance_id",
+    ],
+    "source",
+  );
+  assertOnlyKeys(
+    manifest.distribution,
+    [
+      "repository_slug",
+      "visibility",
+      "tag",
+      "commit",
+      "file_count",
+      "archive_sha256",
+      "provenance_id",
+    ],
+    "distribution",
+  );
+  for (const [name, collection, fields] of [
+    [
+      "surface",
+      manifest.surfaces,
+      ["id", "file_count", "sha256", "provenance_id"],
+    ],
+    [
+      "PRD anchor",
+      manifest.prd_anchors,
+      ["id", "source_path", "bytes", "sha256", "provenance_id"],
+    ],
+    [
+      "command output",
+      manifest.command_outputs,
+      [
+        "id",
+        "arguments",
+        "exit_code",
+        "stdout_bytes",
+        "stderr_empty",
+        "sha256",
+        "provenance_id",
+      ],
+    ],
+    [
+      "release binary",
+      manifest.release_binaries,
+      ["id", "asset", "goos", "goarch", "bytes", "sha256", "provenance_id"],
+    ],
+  ]) {
+    if (!Array.isArray(collection)) fail(`${name} collection is missing`);
+    for (const item of collection) assertOnlyKeys(item, fields, name);
+  }
+  assertOnlyKeys(
+    manifest.plugin_projection,
+    ["id", "file_count", "sha256", "provenance_id"],
+    "plugin projection",
+  );
+  assertOnlyKeys(manifest.provenance, [provenanceId], "provenance");
+  assertOnlyKeys(
+    manifest.provenance[provenanceId],
+    [
+      "owner",
+      "source_visibility",
+      "license_status",
+      "classification",
+      "public_representation",
+      "content_publication",
+    ],
+    "provenance record",
+  );
+  assertOnlyKeys(
+    manifest.verification,
+    [
+      "status",
+      "verified_at",
+      "host",
+      "source_rebuilds",
+      "binary_rebuilds",
+      "source_archives_identical",
+      "release_binaries_identical",
+      "installed_linux_binary_identical",
+      "go",
+      "cross_builds",
+      "python",
+      "skill_cap",
+      "tmpdir_outside_checkout",
+      "native_windows_execution",
+      "native_darwin_execution",
+    ],
+    "verification",
+  );
+  assertOnlyKeys(
+    manifest.verification.go,
+    [
+      "version",
+      "module_verification",
+      "build",
+      "race_suite",
+      "coverage_gate",
+      "total_coverage_percent",
+    ],
+    "Go verification",
+  );
+  assertOnlyKeys(
+    manifest.verification.cross_builds,
+    ["windows_amd64", "darwin_arm64"],
+    "cross-build verification",
+  );
+  assertOnlyKeys(
+    manifest.verification.python,
+    ["version", "gap_bench_tests", "spec_v2_tests"],
+    "Python verification",
+  );
+  assertOnlyKeys(
+    manifest.verification.skill_cap,
+    ["limit", "observed_lines", "status"],
+    "skill-cap verification",
+  );
+}
+
 function validateManifest(manifest, raw) {
+  validateShape(manifest);
+  assertSafeStrings(manifest);
+  if (hash(JSON.stringify(manifest)) !== expected.catalogSemanticSha256) {
+    fail("immutable catalog metadata changed");
+  }
   if (
     manifest.schema_version !== 1 ||
     manifest.oracle_id !== expected.id ||
@@ -120,16 +379,7 @@ function validateManifest(manifest, raw) {
   ) {
     fail("immutable oracle identity changed");
   }
-  if (
-    /https?:\/\/|ssh:\/\/|git@|file:\/\/|\/home\/|BEGIN [A-Z ]*PRIVATE KEY/iu.test(
-      raw,
-    )
-  ) {
-    fail("catalog contains a private URL, local path, or credential marker");
-  }
-  if (/"(?:content|payload|stdout|stderr|text)"/u.test(raw)) {
-    fail("catalog contains a private payload field");
-  }
+  if (raw.includes("\u0000")) fail("catalog contains an invalid marker");
   const provenance = manifest.provenance?.["private-go-v3-hash-only"];
   if (
     provenance?.license_status !== "no-mit-publication-grant-established" ||
@@ -181,6 +431,17 @@ function validateManifest(manifest, raw) {
     manifest.verification?.status !== "passed"
   ) {
     fail("required evidence is incomplete");
+  }
+  if (
+    JSON.stringify(manifest.prd_anchors) !== JSON.stringify(expectedPrdAnchors)
+  ) {
+    fail("PRD anchors changed");
+  }
+  if (
+    JSON.stringify(manifest.command_outputs) !==
+    JSON.stringify(expectedCommands)
+  ) {
+    fail("command outputs changed");
   }
 }
 
@@ -258,18 +519,15 @@ function verifyDistribution(distribution, manifest) {
   console.log(`distribution ${commit}: verified`);
 }
 
-function verifyBinary(binary, manifest) {
-  const expectedBinary = manifest.release_binaries.find(
-    ({ id }) => id === "linux-amd64",
-  );
+function verifyBinary(binary) {
   const bytes = readFileSync(binary);
   if (
-    hash(bytes) !== expectedBinary.sha256 ||
-    bytes.length !== expectedBinary.bytes
+    hash(bytes) !== expectedLinuxBinary.sha256 ||
+    bytes.length !== expectedLinuxBinary.bytes
   ) {
     fail("Linux binary does not match");
   }
-  for (const output of manifest.command_outputs) {
+  for (const output of expectedCommands) {
     const result = spawnSync(binary, output.arguments, { encoding: null });
     if (
       result.status !== output.exit_code ||
@@ -280,7 +538,7 @@ function verifyBinary(binary, manifest) {
       fail(`binary command ${output.id} does not match`);
     }
   }
-  console.log(`binary ${expectedBinary.sha256}: verified`);
+  console.log(`binary ${expectedLinuxBinary.sha256}: verified`);
 }
 
 function projection(checkout, paths) {
@@ -290,7 +548,7 @@ function projection(checkout, paths) {
   return hash(lines.join(""));
 }
 
-function verifyPluginCache(cache, distribution, manifest) {
+export function verifyPluginCache(cache, distribution, manifest) {
   if (distribution === undefined) fail("--plugin-cache requires --dist-source");
   const paths = git(distribution, ["ls-files", "-z"])
     .split("\0")
@@ -301,7 +559,7 @@ function verifyPluginCache(cache, distribution, manifest) {
       hash(readFileSync(join(cache, path))) !==
         hash(readFileSync(join(distribution, path)))
     ) {
-      fail(`plugin projection differs at ${path}`);
+      fail("plugin projection contents do not match");
     }
   }
   if (
@@ -315,17 +573,30 @@ function verifyPluginCache(cache, distribution, manifest) {
   );
 }
 
-const options = parseArguments(process.argv.slice(2));
-const manifestPath = options.manifest ?? defaultManifest;
-const rawManifest = readFileSync(manifestPath, "utf8");
-const manifest = JSON.parse(rawManifest);
-validateManifest(manifest, rawManifest);
-console.log(
-  `oracle ${manifest.oracle_id}: public catalog verified (${manifest.surfaces.length} surfaces, ${manifest.prd_anchors.length} PRD anchors, ${manifest.release_binaries.length} binaries)`,
-);
-if (options.source !== undefined) verifySource(options.source, manifest);
-if (options["dist-source"] !== undefined)
-  verifyDistribution(options["dist-source"], manifest);
-if (options.binary !== undefined) verifyBinary(options.binary, manifest);
-if (options["plugin-cache"] !== undefined)
-  verifyPluginCache(options["plugin-cache"], options["dist-source"], manifest);
+function main(argv) {
+  const options = parseArguments(argv);
+  const manifestPath = options.manifest ?? defaultManifest;
+  const rawManifest = readFileSync(manifestPath, "utf8");
+  const manifest = JSON.parse(rawManifest);
+  validateManifest(manifest, rawManifest);
+  console.log(
+    `oracle ${manifest.oracle_id}: public catalog verified (${manifest.surfaces.length} surfaces, ${manifest.prd_anchors.length} PRD anchors, ${manifest.release_binaries.length} binaries)`,
+  );
+  if (options.source !== undefined) verifySource(options.source, manifest);
+  if (options["dist-source"] !== undefined)
+    verifyDistribution(options["dist-source"], manifest);
+  if (options.binary !== undefined) verifyBinary(options.binary);
+  if (options["plugin-cache"] !== undefined)
+    verifyPluginCache(
+      options["plugin-cache"],
+      options["dist-source"],
+      manifest,
+    );
+}
+
+if (
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main(process.argv.slice(2));
+}

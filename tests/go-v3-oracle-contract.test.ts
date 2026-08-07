@@ -136,11 +136,39 @@ describe("frozen Go v3 oracle catalog", () => {
   });
 
   it("locks the four independent PRD anchors", () => {
-    expect(manifest.prd_anchors.map(({ id }) => id)).toEqual([
-      "prd-researcher",
-      "prd-output-schema",
-      "problem-discovery",
-      "prd-template",
+    expect(manifest.prd_anchors).toEqual([
+      {
+        id: "prd-researcher",
+        source_path: "agents/prd-researcher.md",
+        bytes: 6876,
+        sha256:
+          "b032604100e7f54f6a78259d3e3df6e907f651eee62a85f39b7f8cb3569009dc",
+        provenance_id: "private-go-v3-hash-only",
+      },
+      {
+        id: "prd-output-schema",
+        source_path: "schemas/prd-output.schema.json",
+        bytes: 4855,
+        sha256:
+          "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e",
+        provenance_id: "private-go-v3-hash-only",
+      },
+      {
+        id: "problem-discovery",
+        source_path: "references/problem-discovery.md",
+        bytes: 5670,
+        sha256:
+          "360c231c9156d39872f82de6fe65fd2c454e5abbbd8c5ff52cf6a0d2570d7e96",
+        provenance_id: "private-go-v3-hash-only",
+      },
+      {
+        id: "prd-template",
+        source_path: "templates/brain/02-features/_template/00-prd.md",
+        bytes: 2578,
+        sha256:
+          "75485f0049e38644cdb9c00db976a4d1c730a03bbf81d4e949a3bd58449453c3",
+        provenance_id: "private-go-v3-hash-only",
+      },
     ]);
     for (const artifact of manifest.prd_anchors) {
       expect(artifact.sha256, artifact.id).toMatch(sha256);
@@ -150,12 +178,6 @@ describe("frozen Go v3 oracle catalog", () => {
         "private-go-v3-hash-only",
       );
     }
-    expect(manifest.prd_anchors.map(({ sha256 }) => sha256)).toEqual([
-      "b032604100e7f54f6a78259d3e3df6e907f651eee62a85f39b7f8cb3569009dc",
-      "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e",
-      "360c231c9156d39872f82de6fe65fd2c454e5abbbd8c5ff52cf6a0d2570d7e96",
-      "75485f0049e38644cdb9c00db976a4d1c730a03bbf81d4e949a3bd58449453c3",
-    ]);
   });
 
   it("fixes command outputs, binaries, and installed plugin projection", () => {
