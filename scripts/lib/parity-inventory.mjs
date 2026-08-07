@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 const provenanceId = "private-go-v3-hash-only";
 const expectedIdentity = {
@@ -41,8 +41,16 @@ function assertOnlyKeys(value, allowed, context) {
   }
 }
 
-function assertSafeStrings(value) {
+function assertSafeStrings(value, allowApprovalUrl = false) {
   if (typeof value === "string") {
+    if (
+      allowApprovalUrl &&
+      /^https:\/\/github\.com\/thiagocorreanet\/mestre-yoda\/(?:issues|pull)\/\d+$/u.test(
+        value,
+      )
+    ) {
+      return;
+    }
     const forbidden = [
       /[a-z][a-z0-9+.-]*:\/\//iu,
       /(?:^|[\s"'=])\/(?:home|Users|private|tmp|var|etc|opt|srv|mnt)\//u,
@@ -60,11 +68,12 @@ function assertSafeStrings(value) {
     return;
   }
   if (Array.isArray(value)) {
-    for (const entry of value) assertSafeStrings(entry);
+    for (const entry of value) assertSafeStrings(entry, allowApprovalUrl);
     return;
   }
   if (value !== null && typeof value === "object") {
-    for (const entry of Object.values(value)) assertSafeStrings(entry);
+    for (const entry of Object.values(value))
+      assertSafeStrings(entry, allowApprovalUrl);
   }
 }
 
@@ -227,4 +236,226 @@ export function loadCatalogs({ discoveryPath, matrixPath }) {
   } catch {
     fail("catalog input could not be read");
   }
+}
+
+const verificationKinds = ["unit", "differential", "integration", "e2e"];
+const verificationPrefixes = {
+  unit: "UNIT",
+  differential: "DIFF",
+  integration: "INT",
+  e2e: "E2E",
+};
+const rowStatuses = [
+  "not_started",
+  "in_progress",
+  "parity",
+  "intentional_difference",
+];
+const owners = [
+  "@mestre-yoda/contracts",
+  "@mestre-yoda/runtime",
+  "@mestre-yoda/adapters",
+  "plugin",
+];
+
+function assertEvidencePath(repositoryRoot, evidence, context) {
+  if (evidence.status === "planned") {
+    if (evidence.path !== null) fail(`${context} planned evidence has a path`);
+    return;
+  }
+  if (evidence.status !== "passed" || typeof evidence.path !== "string") {
+    fail(`${context} evidence status is invalid`);
+  }
+  if (isAbsolute(evidence.path)) fail(`${context} evidence path is absolute`);
+  const resolvedRoot = resolve(repositoryRoot);
+  const resolvedPath = resolve(resolvedRoot, evidence.path);
+  const offset = relative(resolvedRoot, resolvedPath);
+  if (
+    offset.startsWith("..") ||
+    isAbsolute(offset) ||
+    !existsSync(resolvedPath)
+  ) {
+    fail(`${context} evidence path is missing or outside the repository`);
+  }
+}
+
+export function validateMatrix(discovery, matrix, repositoryRoot) {
+  assertOnlyKeys(
+    matrix,
+    ["schema_version", "oracle_id", "discovery_algorithm_version", "rows"],
+    "matrix",
+  );
+  if (
+    matrix.schema_version !== 1 ||
+    matrix.oracle_id !== "go-v3-v0.6.5" ||
+    matrix.discovery_algorithm_version !== discovery.algorithm_version ||
+    !Array.isArray(matrix.rows) ||
+    matrix.rows.length === 0
+  ) {
+    fail("matrix identity or rows changed");
+  }
+  assertSafeStrings(matrix, true);
+
+  const discoveredKeys = Object.values(discovery.namespaces)
+    .flat()
+    .map(({ key }) => key)
+    .toSorted();
+  const allowedReferences = new Set(
+    Object.values(discovery.namespaces)
+      .flat()
+      .flatMap(({ legacy_refs: references }) => references),
+  );
+  const rowIds = [];
+  const caseIds = [];
+  const coveredKeys = [];
+
+  for (const row of matrix.rows) {
+    assertOnlyKeys(
+      row,
+      [
+        "id",
+        "category",
+        "title",
+        "legacy_refs",
+        "covers",
+        "expected_behavior",
+        "priority",
+        "typescript_owner",
+        "verification",
+        "status",
+        "intentional_difference",
+      ],
+      "matrix row",
+    );
+    if (
+      typeof row.id !== "string" ||
+      !/^[A-Z][A-Z0-9-]+$/u.test(row.id) ||
+      typeof row.category !== "string" ||
+      row.category.length === 0 ||
+      typeof row.title !== "string" ||
+      row.title.length === 0 ||
+      typeof row.expected_behavior !== "string" ||
+      !["P0", "P1", "P2"].includes(row.priority) ||
+      !owners.includes(row.typescript_owner) ||
+      !rowStatuses.includes(row.status) ||
+      !Array.isArray(row.legacy_refs) ||
+      row.legacy_refs.length === 0 ||
+      !Array.isArray(row.covers) ||
+      row.covers.length === 0
+    ) {
+      fail("matrix row is incomplete");
+    }
+    if (
+      row.legacy_refs.some(
+        (reference) =>
+          typeof reference !== "string" || !allowedReferences.has(reference),
+      )
+    ) {
+      fail(`${row.id} has an unknown legacy reference`);
+    }
+    if (
+      row.covers.some((key) => typeof key !== "string") ||
+      new Set(row.covers).size !== row.covers.length
+    ) {
+      fail(`${row.id} has invalid discovery coverage`);
+    }
+    if (
+      row.priority !== "P2" &&
+      (!row.expected_behavior.startsWith("Normal:") ||
+        !row.expected_behavior.includes(" Failure:") ||
+        !row.expected_behavior.includes(" Edge:"))
+    ) {
+      fail(`${row.id} lacks explicit verification requirements`);
+    }
+    assertOnlyKeys(
+      row.verification,
+      verificationKinds,
+      `${row.id} verification`,
+    );
+    let everyCasePassed = true;
+    for (const kind of verificationKinds) {
+      const evidence = row.verification[kind];
+      assertOnlyKeys(evidence, ["id", "status", "path"], `${row.id} ${kind}`);
+      if (
+        typeof evidence.id !== "string" ||
+        evidence.id !== `${verificationPrefixes[kind]}-${row.id}`
+      ) {
+        fail(`${row.id} ${kind} evidence ID changed`);
+      }
+      assertEvidencePath(repositoryRoot, evidence, `${row.id} ${kind}`);
+      everyCasePassed &&= evidence.status === "passed";
+      caseIds.push(evidence.id);
+    }
+    if (row.status === "parity") {
+      if (!everyCasePassed || row.intentional_difference !== null) {
+        fail(`${row.id} makes an unsupported parity claim`);
+      }
+    } else if (row.status === "intentional_difference") {
+      assertOnlyKeys(
+        row.intentional_difference,
+        ["adr", "migration_note", "replacement_behavior", "approval"],
+        `${row.id} intentional difference`,
+      );
+      const decision = row.intentional_difference;
+      if (
+        !everyCasePassed ||
+        typeof decision.adr !== "string" ||
+        typeof decision.migration_note !== "string" ||
+        typeof decision.replacement_behavior !== "string" ||
+        decision.replacement_behavior.length === 0 ||
+        typeof decision.approval !== "string"
+      ) {
+        fail(`${row.id} intentional difference is incomplete`);
+      }
+      for (const path of [decision.adr, decision.migration_note]) {
+        assertEvidencePath(
+          repositoryRoot,
+          { status: "passed", path },
+          `${row.id} approval`,
+        );
+      }
+    } else if (row.intentional_difference !== null) {
+      fail(`${row.id} has an inactive intentional difference`);
+    }
+    rowIds.push(row.id);
+    coveredKeys.push(...row.covers);
+  }
+
+  if (
+    new Set(rowIds).size !== rowIds.length ||
+    JSON.stringify(rowIds) !== JSON.stringify(rowIds.toSorted())
+  ) {
+    fail("matrix row IDs are duplicated or unsorted");
+  }
+  if (new Set(caseIds).size !== caseIds.length) {
+    fail("verification case IDs are duplicated");
+  }
+  if (
+    JSON.stringify(coveredKeys.toSorted()) !== JSON.stringify(discoveredKeys)
+  ) {
+    fail("matrix discovery coverage is incomplete or duplicated");
+  }
+  return matrix;
+}
+
+function parityFor(rows) {
+  const credited = rows.filter(({ status }) =>
+    ["parity", "intentional_difference"].includes(status),
+  ).length;
+  const basisPoints = Math.round((credited * 10_000) / rows.length);
+  return {
+    credited,
+    total: rows.length,
+    percent: `${Math.floor(basisPoints / 100)}.${String(
+      basisPoints % 100,
+    ).padStart(2, "0")}`,
+  };
+}
+
+export function calculateParity(matrix) {
+  return {
+    overall: parityFor(matrix.rows),
+    P0: parityFor(matrix.rows.filter(({ priority }) => priority === "P0")),
+    P1: parityFor(matrix.rows.filter(({ priority }) => priority === "P1")),
+  };
 }

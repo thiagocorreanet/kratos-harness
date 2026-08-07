@@ -211,7 +211,7 @@ git commit -s -m "feat: capture Go v3 parity discovery"
 - Produces: `validateMatrix(discovery, matrix)` and `calculateParity(matrix)`.
 - Consumes: every stable discovery key from Task 2.
 
-- [ ] **Step 1: Write matrix completeness and parity RED tests**
+- [x] **Step 1: Write matrix completeness and parity RED tests**
 
 Require every discovery key to occur exactly once across row `covers` arrays.
 Require globally unique row IDs, verification IDs, and legacy references within
@@ -231,7 +231,7 @@ matrix.rows[0].status = "parity"; // evidence remains planned
 Assert the untouched initial result is `{ credited: 0, total: rows.length,
 percent: "0.00" }`, with separate P0 and P1 results computed by the same rule.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- tests/parity-inventory-matrix.test.ts
@@ -239,7 +239,7 @@ npm test -- tests/parity-inventory-matrix.test.ts
 
 Expected: FAIL because matrix validation and the complete catalog are absent.
 
-- [ ] **Step 3: Add every compatibility row**
+- [x] **Step 3: Add every compatibility row**
 
 Populate the matrix in these audited groups:
 
@@ -266,7 +266,7 @@ Every row uses one of the approved owners, assigns P0/P1/P2 from user impact,
 names deterministic four-case IDs derived from the row ID, starts
 `not_started`, and carries no intentional-difference waiver.
 
-- [ ] **Step 4: Implement validation and calculation**
+- [x] **Step 4: Implement validation and calculation**
 
 `validateMatrix` returns a validated matrix or throws one concise public error.
 It checks exact keys, enum values, safety, coverage equality, case uniqueness,
@@ -287,7 +287,7 @@ return {
 
 Return overall, P0, and P1 results. No partial or weighted credit is allowed.
 
-- [ ] **Step 5: Make matrix tests GREEN and commit**
+- [x] **Step 5: Make matrix tests GREEN and commit**
 
 ```bash
 npm test -- tests/parity-inventory-contract.test.ts tests/parity-inventory-discovery.test.ts tests/parity-inventory-matrix.test.ts
