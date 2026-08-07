@@ -408,8 +408,8 @@ Pin documentation and package assertions for:
 - provenance refs that are safe to render;
 - the schema-registry seam owned by `RUN-04`;
 - no change to the shipped command surface;
-- bundle import of the discovery API with no runtime asset outside the three
-  allowed plugin files.
+- workspace-package import of the discovery API, while the CLI bundle keeps
+  exactly the three allowed plugin files and exposes no new command.
 
 Run the focused documentation, bundle, and package tests. Expected: FAIL until
 the docs and bundle contract are updated.
@@ -470,4 +470,3 @@ After merge:
 5. preserve the externally managed worktree registration rather than removing
    it from the host;
 6. continue to the next open executable issue.
-

@@ -116,6 +116,10 @@ The project-owned `.brain/` state lives inside the project. Host instructions li
 in `.claude/` and `.codex/`. The embedded ESM runtime remains owned by the
 installed plugin.
 
+The internal [project discovery contract](docs/architecture/project-discovery.md)
+now fixes root, worktree, migration, and configuration precedence. It adds no new runnable command
+to the current bundle.
+
 ### No global Yoda binary
 
 The new runtime is developed in TypeScript and distributed as a self-contained JavaScript ESM bundle inside the plugin. This avoids a separately installed global binary, PATH problems, and runtime/plugin version drift.

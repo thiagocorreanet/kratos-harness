@@ -11,22 +11,70 @@ let readme: string;
 let schemaIndex: string;
 let fixtureIndex: string;
 let resultContract: string;
+let projectDiscovery: string;
+let runtimeBoundaries: string;
 
 beforeAll(async () => {
-  [guide, readme, schemaIndex, fixtureIndex, resultContract] =
-    await Promise.all([
-      readFile(
-        join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
-        "utf8",
-      ),
-      readFile(join(repositoryRoot, "README.md"), "utf8"),
-      readFile(join(repositoryRoot, "schemas/README.md"), "utf8"),
-      readFile(join(repositoryRoot, "fixtures/README.md"), "utf8"),
-      readFile(
-        join(repositoryRoot, "docs/compatibility/result-contract.md"),
-        "utf8",
-      ),
-    ]);
+  [
+    guide,
+    readme,
+    schemaIndex,
+    fixtureIndex,
+    resultContract,
+    projectDiscovery,
+    runtimeBoundaries,
+  ] = await Promise.all([
+    readFile(
+      join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
+      "utf8",
+    ),
+    readFile(join(repositoryRoot, "README.md"), "utf8"),
+    readFile(join(repositoryRoot, "schemas/README.md"), "utf8"),
+    readFile(join(repositoryRoot, "fixtures/README.md"), "utf8"),
+    readFile(
+      join(repositoryRoot, "docs/compatibility/result-contract.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/project-discovery.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+      "utf8",
+    ),
+  ]);
+});
+
+describe("project discovery documentation", () => {
+  it("publishes the root, worktree, and migration precedence", () => {
+    for (const token of [
+      "explicit `--root`",
+      "nearest ancestor",
+      "linked Git worktree",
+      "principal checkout",
+      "migration-only",
+      "project-owned `.brain/`",
+    ]) {
+      expect(projectDiscovery).toContain(token);
+    }
+  });
+
+  it("publishes configuration safety and ownership boundaries", () => {
+    for (const token of [
+      "no environment-variable configuration layer",
+      "safe to render",
+      "RUN-04",
+      "ConfigurationValidator",
+      "does not add a command",
+      "0 / 400",
+    ]) {
+      expect(projectDiscovery).toContain(token);
+    }
+    expect(projectDiscovery).not.toContain("mestre-yoda-old");
+    expect(runtimeBoundaries).toContain("Workspace");
+    expect(runtimeBoundaries).toContain("project discovery");
+  });
 });
 
 describe("contract versioning documentation", () => {
