@@ -6,7 +6,7 @@
 
 **Architecture:** Root community health files form a linked policy graph entered from README, while `.github/CODEOWNERS` protects repository ownership and GitHub private vulnerability reporting supplies the confidential channel. A Vitest contract prevents missing files, placeholders, or drift in critical policy clauses; manual API checks prove GitHub recognition and reporting state.
 
-**Tech Stack:** Markdown, GitHub-recognized Contributor Covenant 2.0 template, Developer Certificate of Origin 1.1, GitHub community health/private vulnerability reporting/CODEOWNERS APIs, Vitest 4.1.10, markdownlint, Lychee.
+**Tech Stack:** Markdown, GitHub-bundled Contributor Covenant 2.0 template, Developer Certificate of Origin 1.1, GitHub community health/private vulnerability reporting/CODEOWNERS APIs, Vitest 4.1.10, markdownlint, Lychee.
 
 ## Global Constraints
 
@@ -52,7 +52,7 @@ expect(codeowners).toContain("/.github/CODEOWNERS @thiagocorreanet");
 Scan the six policy documents for common unfinished-work markers, unfilled
 template instructions, and missing enforcement contacts. Assert the DCO
 identifies version 1.1 and the code of conduct identifies/attributes GitHub's
-recognized Contributor Covenant 2.0 template.
+bundled Contributor Covenant 2.0 template.
 
 - [x] **Step 2: Run the focused test and confirm RED**
 
@@ -143,7 +143,7 @@ The `.github/` rule protects CODEOWNERS itself and later automation.
 - Consumes: GitHub's Contributor Covenant 2.0 template, private-reporting URL, independent GitHub abuse reporting, and support boundaries.
 - Produces: recognized community policies and one-click README entrypoints.
 
-- [x] **Step 1: Adopt GitHub's recognized Contributor Covenant template**
+- [x] **Step 1: Adopt GitHub's bundled Contributor Covenant template**
 
 Use the Contributor Covenant 2.0 body returned by GitHub's
 `codes_of_conduct/contributor_covenant` API and replace its contact placeholder.
@@ -248,7 +248,7 @@ git diff --check
 Expected: toolchain suite passes; all policy tests pass; Markdown has zero
 errors; links have zero failures; diff check is empty.
 
-- [ ] **Step 5: Review, publish, and close**
+- [x] **Step 5: Review, publish, and close**
 
 Request independent review against issue #4 and IP/security risks. Resolve
 validated findings, rerun verification, push `docs/issue-4-governance`, and open

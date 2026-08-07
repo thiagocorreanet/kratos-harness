@@ -74,7 +74,7 @@ describe("community health policies", () => {
 
   it("adopts attributed conduct rules and explicit governance", () => {
     expect(policies["CODE_OF_CONDUCT.md"]).toContain(
-      "GitHub's recognized Contributor Covenant template",
+      "based on GitHub's bundled Contributor Covenant template",
     );
     expect(policies["CODE_OF_CONDUCT.md"]).toContain("version 2.0");
     expect(policies["CODE_OF_CONDUCT.md"]).toMatch(
