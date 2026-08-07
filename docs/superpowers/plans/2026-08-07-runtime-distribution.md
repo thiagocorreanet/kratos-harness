@@ -316,7 +316,7 @@ git commit -s -m "feat: gate the interpreter before loading the runtime"
 - Produces: manifest fields `contractVersion`, `pluginVersion`, `runtime.entry`, `runtime.core`, `runtime.coreSha256`, `runtime.minimumNode`, and `contracts` holding the result, reason-catalog, state, and host versions read from `contract-families.v1.json`.
 - Consumes: the Task 2 preflight template and its four placeholders.
 
-- [ ] **Step 1: Write the failing distribution test**
+- [x] **Step 1: Write the failing distribution test**
 
 ```ts
 import { createHash } from "node:crypto";
@@ -365,7 +365,7 @@ describe("runtime distribution", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm run build && npm test -- tests/runtime-distribution.test.ts
@@ -373,7 +373,7 @@ npm run build && npm test -- tests/runtime-distribution.test.ts
 
 Expected: FAIL because the build emits a single `runtime/yoda.mjs` bundle and no manifest.
 
-- [ ] **Step 3: Split the build output**
+- [x] **Step 3: Split the build output**
 
 Change `outfile` to `dist/plugin/runtime/yoda.core.mjs`, drop the shebang banner
 from the bundle (the preflight owns the shebang now), then read the preflight
@@ -384,7 +384,7 @@ Write `runtime/manifest.json` last so it can record the core digest.
 Substitute with `JSON.stringify(value).slice(1, -1)` so a quote or backslash in
 catalog text cannot break out of the emitted string literal.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm run build

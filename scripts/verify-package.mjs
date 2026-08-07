@@ -4,6 +4,7 @@ import {
   chmod,
   copyFile,
   lstat,
+  mkdir,
   mkdtemp,
   readFile,
   readdir,
@@ -19,7 +20,13 @@ const repositoryRoot = dirname(
 );
 const pluginDirectory = join(repositoryRoot, "dist/plugin");
 const artifact = join(pluginDirectory, "runtime/yoda.mjs");
-const expectedInventory = ["runtime/yoda.mjs"];
+const core = join(pluginDirectory, "runtime/yoda.core.mjs");
+// The exact set of files a plugin install contains. Anything else fails.
+const expectedInventory = [
+  "runtime/manifest.json",
+  "runtime/yoda.core.mjs",
+  "runtime/yoda.mjs",
+];
 const expectedDirectories = new Set(["runtime"]);
 const expectedHelp = "Usage: yoda [--help | --version]\n";
 const expectedVersion = "0.0.0-development\n";
@@ -120,9 +127,26 @@ if (process.platform !== "win32" && (artifactDetails.mode & 0o111) === 0) {
   fail("runtime/yoda.mjs is not executable");
 }
 
-const bundle = await readFile(artifact, "utf8");
-if (!bundle.startsWith("#!/usr/bin/env node\n")) {
+const entrySource = await readFile(artifact, "utf8");
+if (!entrySource.startsWith("#!/usr/bin/env node\n")) {
   fail("runtime/yoda.mjs does not begin with the Node shebang");
+}
+if (/__[A-Z_]+__/u.test(entrySource)) {
+  fail("runtime/yoda.mjs retains an unsubstituted placeholder");
+}
+
+const coreBytes = await readFile(core);
+const bundle = coreBytes.toString("utf8");
+if (bundle.startsWith("#!")) {
+  fail("runtime/yoda.core.mjs must not carry a shebang");
+}
+
+const distributionManifest = JSON.parse(
+  await readFile(join(pluginDirectory, "runtime/manifest.json"), "utf8"),
+);
+const recordedDigest = createHash("sha256").update(coreBytes).digest("hex");
+if (distributionManifest.runtime.coreSha256 !== recordedDigest) {
+  fail("runtime/manifest.json does not record the built core digest");
 }
 
 const forbiddenReferences = [
@@ -133,6 +157,9 @@ const forbiddenReferences = [
 ];
 for (const reference of forbiddenReferences) {
   if (bundle.includes(reference)) {
+    fail(`runtime/yoda.core.mjs contains forbidden reference: ${reference}`);
+  }
+  if (entrySource.includes(reference)) {
     fail(`runtime/yoda.mjs contains forbidden reference: ${reference}`);
   }
 }
@@ -150,8 +177,14 @@ for (const output of Object.values(metadata.outputs)) {
 
 const cleanRoom = await mkdtemp(join(tmpdir(), "mestre-yoda-package-"));
 try {
-  const isolatedArtifact = join(cleanRoom, "yoda.mjs");
-  await copyFile(artifact, isolatedArtifact);
+  // Copy the whole runtime directory, so the isolated run exercises the real
+  // two-file boot rather than an entry point with nothing to import.
+  const isolatedRuntime = join(cleanRoom, "runtime");
+  await mkdir(isolatedRuntime, { recursive: true });
+  for (const staged of expectedInventory) {
+    await copyFile(join(pluginDirectory, staged), join(cleanRoom, staged));
+  }
+  const isolatedArtifact = join(isolatedRuntime, "yoda.mjs");
   if (process.platform !== "win32") {
     await chmod(isolatedArtifact, 0o755);
   }
@@ -168,11 +201,14 @@ try {
     expectedVersion,
     cleanRoom,
   );
-  const hash = createHash("sha256").update(bundle).digest("hex");
-
   console.log(`inventory: ${stagedFiles.join(", ")}`);
-  console.log(`sha256: ${hash}`);
-  console.log(`bytes: ${String(artifactDetails.size)}`);
+  console.log(
+    `entry: runtime/yoda.mjs (${String(artifactDetails.size)} bytes)`,
+  );
+  console.log(
+    `core: runtime/yoda.core.mjs (${String(coreBytes.byteLength)} bytes, sha256 ${recordedDigest})`,
+  );
+  console.log(`minimum node: ${distributionManifest.runtime.minimumNode}`);
   console.log(`help: ${help.trimEnd()}`);
   console.log(`version: ${version.trimEnd()}`);
 } finally {

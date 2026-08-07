@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
-const sourceArtifact = join(repositoryRoot, "dist/plugin/runtime/yoda.mjs");
+const sourceRuntime = join(repositoryRoot, "dist/plugin/runtime");
+// The runtime boots in two files, so an isolated copy needs both.
+const stagedFiles = ["manifest.json", "yoda.core.mjs", "yoda.mjs"];
 let cleanRoom = "";
 let isolatedArtifact = "";
 
@@ -31,8 +33,12 @@ beforeAll(async () => {
     stdio: "pipe",
   });
   cleanRoom = await mkdtemp(join(tmpdir(), "mestre-yoda-bundle-test-"));
-  isolatedArtifact = join(cleanRoom, "yoda.mjs");
-  await copyFile(sourceArtifact, isolatedArtifact);
+  const runtime = join(cleanRoom, "runtime");
+  await mkdir(runtime, { recursive: true });
+  for (const staged of stagedFiles) {
+    await copyFile(join(sourceRuntime, staged), join(runtime, staged));
+  }
+  isolatedArtifact = join(runtime, "yoda.mjs");
 });
 
 afterAll(async () => {
