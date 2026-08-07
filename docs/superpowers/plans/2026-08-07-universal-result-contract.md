@@ -390,7 +390,7 @@ git diff --check
 
 Expected: zero spelling, Markdown, link, and whitespace findings.
 
-- [ ] **Step 4: Run full verification and independent review**
+- [x] **Step 4: Run full verification and independent review**
 
 ```bash
 npm ci
