@@ -89,10 +89,11 @@ Each entry has a stable discovery key such as `commands.objective` or
 references. Names and paths are metadata permitted by the issue #9 publication
 boundary; private file contents remain denied.
 
-The checker supports an optional `--source <checkout>` mode. It verifies the
-annotated tag object and commit, reruns deterministic discovery, compares the
-sets, and emits only category counts and pass/fail status. The default public
-mode is offline and never searches for a private checkout.
+The checker supports an optional paired `--source <checkout> --dist-source
+<checkout>` mode. It verifies both immutable commits, reruns deterministic
+source and distribution discovery, compares the sets, and emits only category
+counts and pass/fail status. The default public mode is offline and never
+searches for a private checkout.
 
 ## 5. Matrix row contract
 
@@ -235,13 +236,16 @@ npm run parity:check
 Optional authorized revalidation is:
 
 ```text
-node scripts/check-parity-inventory.mjs --source <authorized-source-checkout>
+node scripts/check-parity-inventory.mjs \
+  --source <authorized-source-checkout> \
+  --dist-source <authorized-distribution-checkout>
 ```
 
-`--matrix` and `--discovery` accept explicit files for mutation tests. Options
-must be option/value pairs and unknown options fail with exit 2. Validation
-failures use exit 1 and concise public IDs; successful checks use exit 0. The
-checker never prints private file contents or caller-supplied paths.
+`--matrix` and `--discovery` accept explicit files for mutation tests. Private
+source and distribution options must appear together. Options must be
+option/value pairs and unknown options fail with exit 2. Validation failures
+use exit 1 and concise public IDs; successful checks use exit 0. The checker
+never prints private file contents or caller-supplied paths.
 
 ## 11. Testing strategy
 
