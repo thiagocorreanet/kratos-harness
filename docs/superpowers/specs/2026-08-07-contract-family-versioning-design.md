@@ -73,8 +73,9 @@ profile. Type declarations are generated from the schemas and checked into the
 contracts package. Legacy payloads remain byte-preserving nested inputs to
 versioned envelopes until differential migration work proves conversion.
 
-This approach satisfies the issue without preimplementing later runtime
-services, and it protects the PRD process without publishing private content.
+This approach satisfies the issue without implementing later runtime services
+ahead of schedule, and it protects the PRD process without publishing private
+content.
 
 ## 4. Version identities
 

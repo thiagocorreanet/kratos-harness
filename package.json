@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "format:check": "prettier --check .",
-    "spellcheck": "cspell --no-progress --show-suggestions \"**/*.md\"",
+    "spellcheck": "cspell --gitignore-root . --no-progress --show-suggestions \"**/*.md\"",
     "templates:validate": "node scripts/validate-github-templates.mjs",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc6 --noEmit",
