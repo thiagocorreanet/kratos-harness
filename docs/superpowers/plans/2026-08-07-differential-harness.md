@@ -427,7 +427,7 @@ git status --short
 Expected: all public gates PASS, live mismatch remains honest evidence, no
 unsupported parity claim, and only intended changes remain.
 
-- [ ] **Step 5: Commit and review**
+- [x] **Step 5: Commit and review**
 
 ```bash
 git add .github/workflows/ci.yml README.md fixtures/README.md schemas/README.md docs tests/readme-honesty.test.ts tests/parity-inventory-matrix.test.ts
@@ -436,6 +436,24 @@ git commit -s -m "docs: publish differential harness workflow"
 
 Use `requesting-code-review` against `main...HEAD`; resolve every Critical and
 Important finding with `receiving-code-review`, then rerun Step 4.
+
+Two review rounds ran. The first round found a vacuous pass on an empty
+selection, a disclosure leak through structured values, an unprotected result
+`exitCode`, and a bounded-output capture that retained nothing.
+
+The second round found one Critical defect and eight Important ones, all fixed:
+an unhandled stdin `EPIPE` that leaked the sandbox and returned the mismatch
+exit code for a harness crash; capture converting a missing artifact, an unborn
+`HEAD`, and a created repository into harness errors or silent equality;
+protection that ignored the parents of protected fields; and the planned
+source-immutability, special-file, and entry-limit assertions that were never
+written. The plan's oracle-versus-candidate comparison was deliberately not
+added: equality with the golden is a total recursive relation, so it already
+implies mutual equality, and the invariant this depends on is now documented.
+
+One Minor finding is deferred: `packages/differential/src` is not yet under the
+repository's 100% coverage gate. Adding it requires exhaustive error-path tests
+beyond this issue's scope.
 
 - [ ] **Step 6: Deliver and close #13**
 

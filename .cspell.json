@@ -21,6 +21,7 @@
     "CSpell",
     "divergente",
     "ENOENT",
+    "EPIPE",
     "esbuild",
     "ESM",
     "evented",
