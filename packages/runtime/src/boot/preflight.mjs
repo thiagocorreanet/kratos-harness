@@ -30,7 +30,19 @@ function atLeast(actual, minimum) {
 }
 
 if (atLeast(process.versions.node, MINIMUM)) {
-  import("__CORE__").catch(function () {
+  import("__CORE__").catch(function (error) {
+    // Only a genuinely missing or unloadable core is reported here. Anything
+    // the core threw while running is re-raised, because swallowing it would
+    // leave a real crash with no diagnostic at all.
+    if (
+      error === null ||
+      typeof error !== "object" ||
+      (error.code !== "ERR_MODULE_NOT_FOUND" &&
+        error.code !== "ERR_UNSUPPORTED_DIR_IMPORT" &&
+        !(error instanceof SyntaxError))
+    ) {
+      throw error;
+    }
     process.stderr.write("The Yoda runtime could not be loaded.\n");
     process.exitCode = 2;
   });
