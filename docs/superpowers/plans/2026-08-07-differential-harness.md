@@ -244,7 +244,7 @@ git commit -s -m "feat: capture isolated differential workspaces"
 - Produces `runScenario(scenario, oracle, candidate): Promise<DifferentialReport>`.
 - `RunSideOptions` accepts an executable path and never a command string.
 
-- [ ] **Step 1: Write failing runner tests**
+- [x] **Step 1: Write failing runner tests**
 
 The original driver supports `equal`, `normalize`, `unexpected-file`,
 `timeout`, `crash`, `partial-mutation`, `state`, and `git`. Assert independent
@@ -252,7 +252,7 @@ equal seeds, retained mutations after failures, signal/timeout classification,
 child termination, isolated HOME/TMPDIR/Git config, dropped `NODE_OPTIONS` and
 secret variables, source immutability, and cleanup on every path.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/differential-runner.test.ts
@@ -260,7 +260,7 @@ npm test -- tests/differential-runner.test.ts
 
 Expected: FAIL because runner orchestration does not exist.
 
-- [ ] **Step 3: Implement bounded direct execution**
+- [x] **Step 3: Implement bounded direct execution**
 
 Use this spawn shape:
 
@@ -281,7 +281,7 @@ wait 250 ms, then SIGKILL to the POSIX group with direct-child fallback. Always
 await close, capture after-state, and clean nested roots in `finally`. Hash
 runners before materialization and run independent sides sequentially.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/differential-runner.test.ts tests/differential-capture.test.ts tests/differential-comparator.test.ts
