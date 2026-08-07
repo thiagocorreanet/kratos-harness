@@ -171,10 +171,16 @@ async function main() {
 
   const corpusPath = resolve(options.corpus);
   const corpusDirectory = dirname(corpusPath);
-  let corpus;
+  let rowIds;
   try {
     const matrix = JSON.parse(await readFile(parityMatrix, "utf8"));
-    const rowIds = new Set(matrix.rows.map(({ id }) => id));
+    rowIds = new Set(matrix.rows.map(({ id }) => id));
+  } catch {
+    // Distinguish a broken repository install from a bad corpus.
+    throw new Error("Differential parity matrix is unreadable");
+  }
+  let corpus;
+  try {
     corpus = validateCorpus(
       JSON.parse(await readFile(corpusPath, "utf8")),
       rowIds,

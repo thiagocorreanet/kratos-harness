@@ -15,6 +15,17 @@ function escapePointer(segment: string): string {
   return segment.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
+/**
+ * Manifest and artifact paths are validated safe relative names and, for public
+ * fixtures, are public by construction. Naming them is what makes a report
+ * actionable; their contents stay digested.
+ */
+function isDisclosablePath(pointer: string): boolean {
+  return /^\/(?:filesystem\/(?:before|after|mutations)\/\d+|structured\/\d+)\/(?:path|id)$/u.test(
+    pointer,
+  );
+}
+
 function safeSummary(value: unknown, pointer: string): unknown {
   if (
     value === null ||
@@ -27,6 +38,7 @@ function safeSummary(value: unknown, pointer: string): unknown {
     if (pointer.endsWith("/sha256") && /^[a-f0-9]{64}$/u.test(value)) {
       return value;
     }
+    if (isDisclosablePath(pointer)) return value;
     return {
       type: "string",
       bytes: Buffer.byteLength(value),
@@ -39,6 +51,11 @@ function safeSummary(value: unknown, pointer: string): unknown {
     typeof value.sha256 === "string"
   ) {
     return { bytes: value.bytes, sha256: value.sha256 };
+  }
+  // A whole manifest entry that appeared or vanished is only actionable if the
+  // report says which path it was.
+  if (isRecord(value) && typeof value.path === "string") {
+    return { path: value.path };
   }
   return { type: Array.isArray(value) ? "array" : typeof value };
 }
