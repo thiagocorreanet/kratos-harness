@@ -1,0 +1,155 @@
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  classifyLayer,
+  collectImports,
+  violations,
+  type SourceModule,
+} from "./support/architecture.js";
+
+const repositoryRoot = join(import.meta.dirname, "..");
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
+  );
+});
+
+describe("import extraction", () => {
+  it("finds static, type-only, side-effect, and dynamic imports", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-architecture-"));
+    roots.push(root);
+    const file = join(root, "sample.ts");
+    await writeFile(
+      file,
+      [
+        'import { a } from "node:fs/promises";',
+        'import type { B } from "../ports/clock.js";',
+        'import "./side-effect.js";',
+        'export { c } from "@mestre-yoda/contracts";',
+        'const d = await import("node:crypto");',
+        '// import { ignored } from "node:net";',
+        'const text = "import { alsoIgnored } from \\"node:tls\\";";',
+        "void d;",
+        "void text;",
+      ].join("\n"),
+      "utf8",
+    );
+
+    expect(await collectImports(file)).toEqual([
+      "node:fs/promises",
+      "../ports/clock.js",
+      "./side-effect.js",
+      "@mestre-yoda/contracts",
+      "node:crypto",
+    ]);
+  });
+});
+
+describe("layer classification", () => {
+  it.each([
+    ["packages/runtime/src/domain/effects.ts", "domain"],
+    ["packages/runtime/src/ports/clock.ts", "ports"],
+    ["packages/runtime/src/infra/node/clock.ts", "infra"],
+    ["packages/runtime/src/infra/fake/clock.ts", "infra"],
+    ["packages/runtime/src/composition/runtime.ts", "composition"],
+    ["packages/runtime/src/cli.ts", "entry"],
+    ["packages/contracts/src/index.ts", "contracts"],
+  ])("classifies %s as %s", (path, layer) => {
+    expect(classifyLayer(path)).toBe(layer);
+  });
+});
+
+describe("dependency direction", () => {
+  it("rejects a domain module importing a Node builtin", () => {
+    const modules: SourceModule[] = [
+      {
+        path: "packages/runtime/src/domain/policy.ts",
+        imports: ["node:fs/promises"],
+      },
+    ];
+
+    expect(violations(modules)).toEqual([
+      {
+        path: "packages/runtime/src/domain/policy.ts",
+        specifier: "node:fs/promises",
+        reason: "domain must not import Node.js builtins",
+      },
+    ]);
+  });
+
+  it.each([
+    [
+      "packages/runtime/src/domain/policy.ts",
+      "../infra/node/clock.js",
+      "domain must not import infra",
+    ],
+    [
+      "packages/runtime/src/ports/clock.ts",
+      "node:crypto",
+      "ports must not import Node.js builtins",
+    ],
+    [
+      "packages/runtime/src/domain/policy.ts",
+      "../composition/runtime.js",
+      "only an entry point may import composition",
+    ],
+    [
+      "packages/runtime/src/infra/node/clock.ts",
+      "../../composition/runtime.js",
+      "only an entry point may import composition",
+    ],
+  ])("rejects %s importing %s", (path, specifier, reason) => {
+    expect(violations([{ path, imports: [specifier] }])).toEqual([
+      { path, specifier, reason },
+    ]);
+  });
+
+  it.each([
+    ["packages/runtime/src/domain/policy.ts", "../ports/clock.js"],
+    ["packages/runtime/src/domain/policy.ts", "./effects.js"],
+    ["packages/runtime/src/domain/policy.ts", "@mestre-yoda/contracts"],
+    ["packages/runtime/src/ports/clock.ts", "../domain/effects.js"],
+    ["packages/runtime/src/infra/node/clock.ts", "node:fs/promises"],
+    ["packages/runtime/src/infra/node/clock.ts", "../../ports/clock.js"],
+    ["packages/runtime/src/composition/runtime.ts", "../infra/node/clock.js"],
+    ["packages/runtime/src/cli.ts", "./composition/runtime.js"],
+  ])("allows %s importing %s", (path, specifier) => {
+    expect(violations([{ path, imports: [specifier] }])).toEqual([]);
+  });
+});
+
+describe("the repository obeys its own rules", () => {
+  it("has no dependency-direction violation", async () => {
+    const modules = await sourceModules();
+    // Prove the sweep actually looked at the layered source, so an empty glob
+    // cannot report a clean repository.
+    expect(modules.some(({ path }) => path.includes("/domain/"))).toBe(true);
+    expect(modules.some(({ path }) => path.includes("/ports/"))).toBe(true);
+    expect(violations(modules)).toEqual([]);
+  });
+});
+
+async function sourceModules(): Promise<SourceModule[]> {
+  const entries = await readdir(join(repositoryRoot, "packages"), {
+    recursive: true,
+    withFileTypes: true,
+  });
+  const collected: SourceModule[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+    if (entry.name.endsWith(".test.ts")) continue;
+    const absolute = join(entry.parentPath, entry.name);
+    const path = absolute
+      .slice(repositoryRoot.length + 1)
+      .split("\\")
+      .join("/");
+    collected.push({ path, imports: await collectImports(absolute) });
+  }
+  return collected;
+}
