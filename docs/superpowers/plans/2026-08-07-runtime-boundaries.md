@@ -65,7 +65,7 @@ it saw `domain` and `ports` files, so an empty glob cannot report success.
 - Produces `describeClockContract`, `describeIdsContract`, `describeFileSystemContract`, `describeGitContract`, `describeLocksContract`, `describeEnvironmentContract`, `describeOutputContract`, each taking `(label: string, factory: () => Port)`.
 - Consumes the port interfaces from Task 1.
 
-- [ ] **Step 1: Write the failing contract suites**
+- [x] **Step 1: Write the failing contract suites**
 
 Each suite states behavior every implementation must share. The filesystem suite
 is the substantial one:
@@ -192,7 +192,7 @@ export function describeIdsContract(label: string, factory: () => Ids): void {
 
 Then invoke each suite against the fake in `tests/ports-contract.test.ts`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/ports-contract.test.ts
@@ -200,7 +200,7 @@ npm test -- tests/ports-contract.test.ts
 
 Expected: FAIL because `infra/fake` does not exist.
 
-- [ ] **Step 3: Implement the fakes**
+- [x] **Step 3: Implement the fakes**
 
 `memoryFileSystem` stores a `Map<string, string>` of normalized project-relative
 paths plus a `Set<string>` of directories. Normalization rejects absolute paths
@@ -215,7 +215,7 @@ provider's instant. `sequentialIds(prefix = "id")` returns `` `${prefix}-1` ``,
 otherwise, incrementing a fencing token per grant. `recordingOutput` appends to
 two arrays a test can read.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/ports-contract.test.ts tests/architecture.test.ts
