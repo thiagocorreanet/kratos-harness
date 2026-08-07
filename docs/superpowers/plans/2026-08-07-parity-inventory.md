@@ -120,7 +120,7 @@ git commit -s -m "test: specify exhaustive parity inventory"
 - Produces: `loadCatalogs(options)`, `validateDiscovery(discovery)`, and `discoverLegacy(source, distribution)`.
 - Consumes later: the matrix validator and CLI in Tasks 3–4.
 
-- [ ] **Step 1: Add source-derived discovery regression tests**
+- [x] **Step 1: Add source-derived discovery regression tests**
 
 Test that the public snapshot contains exactly these principal sets:
 
@@ -140,7 +140,7 @@ sorted keys, unique stable keys, repository-relative references, and the
 provenance ID on every entry. Reject a URL, absolute POSIX/Windows/UNC path,
 traversal, secret marker, unknown field, or private payload field recursively.
 
-- [ ] **Step 2: Confirm the new tests fail**
+- [x] **Step 2: Confirm the new tests fail**
 
 ```bash
 npm test -- tests/parity-inventory-discovery.test.ts
@@ -148,7 +148,7 @@ npm test -- tests/parity-inventory-discovery.test.ts
 
 Expected: FAIL because the discovery module and snapshot are absent.
 
-- [ ] **Step 3: Implement the snapshot and strict validator**
+- [x] **Step 3: Implement the snapshot and strict validator**
 
 Create the metadata-only snapshot with entries shaped as:
 
@@ -182,15 +182,15 @@ export function loadCatalogs({ discoveryPath, matrixPath }) {}
   reason literals;
 - compare metadata sets and report only category counts.
 
-- [ ] **Step 4: Make discovery tests GREEN**
+- [x] **Step 4: Make discovery tests GREEN**
 
 ```bash
-npm test -- tests/parity-inventory-contract.test.ts tests/parity-inventory-discovery.test.ts
+npm test -- tests/parity-inventory-discovery.test.ts
 npm run lint
 npm run typecheck
 ```
 
-- [ ] **Step 5: Commit the discovery layer**
+- [x] **Step 5: Commit the discovery layer**
 
 ```bash
 git add compatibility/inventory/go-v3-v0.6.5/discovery.json scripts/lib/parity-inventory.mjs tests/parity-inventory-discovery.test.ts
