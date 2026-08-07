@@ -82,12 +82,12 @@ Rejection emits one `result.v1` document on stdout and exits `2`:
 writing. The rejected version is never echoed back, and no local path or stack
 trace appears.
 
-The reason belongs to catalog revision `1.2.0`. The preflight cannot import the
-contracts package — that package is bundled with modern syntax, which is exactly
-the situation the preflight exists to survive — so the build injects the
-catalog's summary and recovery text into the entry point. A test compares the
-injected literals against the catalog, so a drifting copy fails the build rather
-than shipping.
+The reason was introduced in catalog revision `1.2.0` and remains unchanged in
+the current catalog. The preflight cannot import the contracts package — that
+package is bundled with modern syntax, which is exactly the situation the
+preflight exists to survive — so the build injects the catalog's summary and
+recovery text into the entry point. A test compares the injected literals
+against the catalog, so a drifting copy fails the build rather than shipping.
 
 ## Two roots
 

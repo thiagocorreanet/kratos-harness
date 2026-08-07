@@ -67,10 +67,13 @@ catalog preserves all 82 entries from revision 1.1 and adds:
 | --- | --- | --- |
 | `runtime.node_unsupported` | 2 | The interpreter running the plugin runtime is older than the supported minimum |
 
-`runtime.node_unsupported` is the current catalog revision, `1.2.0`. It is the
-one reason a caller can receive before the runtime bundle has loaded at all, so
-the plugin entry point embeds its summary and recovery text verbatim from this
-catalog. It is documented in full by the [runtime distribution contract](runtime-distribution.md).
+Revision `1.3.0` preserves those 83 entries and adds
+[`runtime.orientation_ok`](../../packages/contracts/catalogs/reason-codes.v1.3.json)
+for successful read-only orientation output. The
+`runtime.node_unsupported` reason remains the one reason a caller can receive
+before the runtime bundle has loaded at all, so the plugin entry point embeds
+its summary and recovery text verbatim from the catalog. It is documented in
+full by the [runtime distribution contract](runtime-distribution.md).
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,

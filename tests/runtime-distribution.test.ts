@@ -71,7 +71,7 @@ describe("runtime distribution", () => {
   it("records the contract versions the bundle carries", () => {
     expect(manifest.contracts).toEqual({
       result: "1.0.0",
-      reasonCatalog: "1.2.0",
+      reasonCatalog: "1.3.0",
       state: "1.0.0",
       host: "1.0.0",
     });

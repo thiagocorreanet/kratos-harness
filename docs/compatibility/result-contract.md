@@ -21,7 +21,9 @@ Version 1 is owned by four checked artifact families:
 - [`reason-codes.v1.1.json`](../../packages/contracts/catalogs/reason-codes.v1.1.json)
   adds six contract-family compatibility reasons;
 - [`reason-codes.v1.2.json`](../../packages/contracts/catalogs/reason-codes.v1.2.json)
-  is the current revision and adds `runtime.node_unsupported`;
+  adds `runtime.node_unsupported`;
+- [`reason-codes.v1.3.json`](../../packages/contracts/catalogs/reason-codes.v1.3.json)
+  is the current revision and adds `runtime.orientation_ok`;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.
 
@@ -107,6 +109,12 @@ Catalog revision 1.2 preserves those 82 entries byte-for-byte and adds
 runtime is older than the supported minimum. It is the only reason emitted
 before the runtime bundle loads, so the plugin entry point embeds its text
 verbatim; see the [runtime distribution contract](runtime-distribution.md).
+
+Catalog revision 1.3 preserves those 83 entries byte-for-byte and adds
+`runtime.orientation_ok`, reported when an operation publishes orientation
+output such as usage text or a version identifier. No frozen reason described a
+successful read-only operation: `trail.ok` requires evidence and represents a
+committed mutation, so orientation output had no truthful reason to report.
 
 ## Evidence references
 
