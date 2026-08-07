@@ -9,6 +9,7 @@
     "./ports": "./src/ports/index.ts",
     "./domain/effects": "./src/domain/effects.ts",
     "./domain/cli": "./src/domain/cli/index.ts",
+    "./domain/project": "./src/domain/project/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
     "./infra/fake": "./src/infra/fake/index.ts",
     "./infra/node": "./src/infra/node/index.ts",
