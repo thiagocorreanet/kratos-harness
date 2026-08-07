@@ -1,0 +1,91 @@
+name: Compatibility regression
+description: Report a measurable Go-v3, contract, fixture, or host parity difference.
+title: "[COMPATIBILITY] "
+labels:
+  - type:research
+  - area:compatibility
+  - english-only
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use normative English and only publish clean-room behavioral observations that you are authorized to disclose.
+        Do not copy private predecessor prose/source or include secrets, customer or personal data, or private data. Report security-sensitive differences through [private vulnerability reporting](https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new).
+  - type: input
+    id: oracle
+    attributes:
+      label: Oracle and compared build
+      description: Identify the authorized Go-v3 oracle snapshot and exact TypeScript/host commit or artifact.
+      placeholder: Go oracle inventory ID ... versus commit 012345...
+    validations:
+      required: true
+  - type: dropdown
+    id: provenance
+    attributes:
+      label: Evidence provenance
+      description: Select how the published evidence was produced.
+      multiple: false
+      options:
+        - Original public fixture
+        - Behavioral clean-room observation
+        - Public third-party source with compatible license
+        - Publication-authorized adapted material
+    validations:
+      required: true
+  - type: textarea
+    id: exact-input
+    attributes:
+      label: Exact normalized input and pre-state
+      description: Provide the smallest authorized input, configuration, state identity, and ordering needed for comparison.
+      placeholder: Operation, arguments, state version, artifact hashes...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-result
+    attributes:
+      label: Expected oracle result
+      description: Record observable status, exit/reason codes, output, state effects, and event ordering without private implementation text.
+      placeholder: The frozen oracle returns...
+    validations:
+      required: true
+  - type: textarea
+    id: observed-result
+    attributes:
+      label: Observed rewrite or host result
+      description: Record the corresponding observable result and exact divergence.
+      placeholder: The compared build instead returns...
+    validations:
+      required: true
+  - type: dropdown
+    id: classification
+    attributes:
+      label: Compatibility classification
+      description: Classify impact using the public parity campaign vocabulary.
+      multiple: false
+      options:
+        - P0 - safety, integrity, or authorization
+        - P1 - required workflow or public contract
+        - P2 - important non-blocking behavior
+        - Unclassified - maintainer triage required
+    validations:
+      required: true
+  - type: textarea
+    id: differential-evidence
+    attributes:
+      label: Redacted differential evidence
+      description: Provide a failing fixture/test or exact commands and sanitized output that reproduce both sides.
+      placeholder: Focused differential command and redacted output...
+    validations:
+      required: true
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Compatibility evidence confirmations
+      description: Every confirmation is required before this public issue is created.
+      options:
+        - label: I am authorized to publish this behavioral evidence and recorded its provenance accurately.
+          required: true
+        - label: This report uses normative English and contains no copied private source or prose.
+          required: true
+        - label: This report contains no suspected vulnerability, exploit detail, secret, private data, or confidential infrastructure.
+          required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability privately
+    url: https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new
+    about: Do not disclose vulnerabilities, exploits, or secrets in a public issue.
+  - name: Read the support policy
+    url: https://github.com/thiagocorreanet/mestre-yoda/blob/main/SUPPORT.md
+    about: Choose the correct public or confidential support path before filing.

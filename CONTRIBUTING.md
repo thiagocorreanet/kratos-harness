@@ -33,6 +33,10 @@ in English.
    and applicable [ADRs](docs/adr/README.md). Structural decisions require an
    ADR or approved design; they cannot live only in a commit message.
 
+The [contribution workflow and work taxonomy](docs/contributing/workflow.md)
+defines Issue Forms, label meanings, milestone ownership, stable work IDs, and
+the proposed branch/release flow.
+
 ## Development workflow
 
 Use Node.js `24.18.0` and npm `11.16.0` exactly. The complete environment and

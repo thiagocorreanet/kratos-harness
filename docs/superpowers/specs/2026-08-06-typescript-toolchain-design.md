@@ -157,11 +157,16 @@ an exactly pinned root `devDependency`:
 - `vitest@4.1.10`;
 - `@vitest/coverage-v8@4.1.10`;
 - `cspell@10.0.1`;
+- `ajv@8.20.0`;
+- `yaml@2.9.0`;
 - `esbuild@0.28.1`.
 
 Version ranges are not permitted in manifests. The lockfile is the complete
 transitive resolution. Automated dependency updates must change one logical
 tool family at a time and run the entire verification suite.
+
+Ajv and YAML are development-only and validate repository configuration against
+reviewed schemas; they cannot enter the embedded runtime artifact.
 
 npm's strict lifecycle-script allowlist permits only the exactly pinned
 `esbuild@0.28.1` installer, which selects its locked native binary. The optional

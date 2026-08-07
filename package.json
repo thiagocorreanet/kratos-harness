@@ -14,6 +14,7 @@
   "scripts": {
     "format:check": "prettier --check .",
     "spellcheck": "cspell --no-progress --show-suggestions \"**/*.md\"",
+    "templates:validate": "node scripts/validate-github-templates.mjs",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc6 --noEmit",
     "test": "vitest run",
@@ -26,13 +27,15 @@
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
     "@vitest/coverage-v8": "4.1.10",
+    "ajv": "8.20.0",
     "cspell": "10.0.1",
     "esbuild": "0.28.1",
     "eslint": "10.8.0",
     "prettier": "3.9.6",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.66.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "yaml": "2.9.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
