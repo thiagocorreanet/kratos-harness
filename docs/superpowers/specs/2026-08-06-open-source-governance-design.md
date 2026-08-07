@@ -34,8 +34,9 @@ The repository adopts:
   in supported root locations;
 - [Developer Certificate of Origin 1.1](https://developercertificate.org/)
   verbatim in `DCO`;
-- [Contributor Covenant 3.0](https://www.contributor-covenant.org/version/3/0/code_of_conduct/)
-  in `CODE_OF_CONDUCT.md`, with its required attribution;
+- GitHub's recognized Contributor Covenant 2.0 template, obtained from the
+  `codes_of_conduct/contributor_covenant` API and adapted only for actionable
+  enforcement routes, in `CODE_OF_CONDUCT.md` with required attribution;
 - [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository)
   as the primary confidential channel;
 - `.github/CODEOWNERS`, the location GitHub recommends for protecting ownership
@@ -170,11 +171,14 @@ out-of-scope reports receive a private explanation.
 
 ## 9. Conduct and support
 
-Contributor Covenant 3.0 applies to repository spaces and official project
-representation. Conduct incidents use a confidential maintainer channel: the
-same GitHub private reporting form with a `CODE OF CONDUCT` title when private
-contact is needed, or GitHub's platform reporting tools for content governed by
-GitHub. Conduct reports and vulnerability reports remain separately triaged.
+Contributor Covenant 2.0 applies to repository spaces and official project
+representation. When the Project Lead is not involved, conduct incidents use
+the GitHub private reporting form with a `CODE OF CONDUCT` title and remain
+separately triaged from vulnerabilities. A report involving the Project Lead
+must bypass repository administrators from the outset: GitHub-hosted conduct is
+reported directly to GitHub Support, and other official spaces use their
+independent platform/event moderation channel. The project does not advertise
+an internal independent route until a moderator is publicly appointed.
 
 `SUPPORT.md` distinguishes:
 

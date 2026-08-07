@@ -74,9 +74,12 @@ describe("community health policies", () => {
 
   it("adopts attributed conduct rules and explicit governance", () => {
     expect(policies["CODE_OF_CONDUCT.md"]).toContain(
-      "Contributor Covenant 3.0",
+      "GitHub's recognized Contributor Covenant template",
     );
-    expect(policies["CODE_OF_CONDUCT.md"]).toContain("CC BY-SA 4.0");
+    expect(policies["CODE_OF_CONDUCT.md"]).toContain("version 2.0");
+    expect(policies["CODE_OF_CONDUCT.md"]).toMatch(
+      /do not use the repository private\s+reporting form/,
+    );
     expect(policies["GOVERNANCE.md"]).toContain(
       "Project Lead: `@thiagocorreanet`",
     );
