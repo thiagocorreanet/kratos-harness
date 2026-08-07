@@ -1,3 +1,10 @@
+import { posix } from "node:path";
+
+import type {
+  ConfigurationObservation,
+  DirectoryProbe,
+  WorktreeLocation,
+} from "../../domain/project/index.js";
 import type {
   Clock,
   Environment,
@@ -9,6 +16,7 @@ import type {
   Locks,
   Output,
   RepositoryState,
+  Workspace,
 } from "../../ports/index.js";
 
 /**
@@ -256,5 +264,146 @@ export function recordingOutput(): RecordingOutput {
     human: (text) => humanLines.push(text),
     structured_: structuredLines,
     human_: humanLines,
+  };
+}
+
+export interface MemoryWorkspaceSeed {
+  readonly directories?: readonly string[];
+  readonly files?: Readonly<Record<string, string>>;
+  readonly symlinks?: Readonly<Record<string, string>>;
+  readonly gitRoots?: readonly string[];
+  readonly worktrees?: readonly WorktreeLocation[];
+}
+
+function unsafeWorkspacePath(path: string): boolean {
+  let control = false;
+  for (const character of path) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) control = true;
+  }
+  return (
+    path.length === 0 ||
+    path.includes("\\") ||
+    /^[A-Za-z]:/u.test(path) ||
+    control
+  );
+}
+
+/** Deterministic read-only workspace observations over an inert POSIX tree. */
+export function memoryWorkspace(seed: MemoryWorkspaceSeed = {}): Workspace {
+  const directories = new Set<string>(["/"]);
+  const files = new Map<string, string>();
+  const symlinks = new Map<string, string>();
+  const gitRoots = new Set(
+    (seed.gitRoots ?? []).map((path) => posix.resolve(path)),
+  );
+  const worktrees = [...(seed.worktrees ?? [])];
+
+  function addParents(path: string): void {
+    let current = posix.dirname(path);
+    for (;;) {
+      directories.add(current);
+      const parent = posix.dirname(current);
+      if (parent === current) return;
+      current = parent;
+    }
+  }
+
+  for (const path of seed.directories ?? []) {
+    const absolute = posix.resolve(path);
+    directories.add(absolute);
+    addParents(absolute);
+  }
+  for (const [path, content] of Object.entries(seed.files ?? {})) {
+    const absolute = posix.resolve(path);
+    files.set(absolute, content);
+    addParents(absolute);
+  }
+  for (const [path, target] of Object.entries(seed.symlinks ?? {})) {
+    const absolute = posix.resolve(path);
+    symlinks.set(absolute, posix.resolve(posix.dirname(absolute), target));
+    addParents(absolute);
+  }
+
+  function canonicalize(path: string, base: string): string | null {
+    if (unsafeWorkspacePath(path) || unsafeWorkspacePath(base)) return null;
+    const absolute = posix.resolve(base, path);
+    const target = symlinks.get(absolute) ?? absolute;
+    return directories.has(target) ? target : null;
+  }
+
+  function inside(root: string, candidate: string): boolean {
+    const relative = posix.relative(root, candidate);
+    return (
+      relative === "" || (!relative.startsWith("../") && relative !== "..")
+    );
+  }
+
+  function configuration(
+    marker: string,
+    brain: DirectoryProbe["brain"],
+  ): ConfigurationObservation {
+    if (brain !== "directory") return { kind: "absent" };
+    const target = symlinks.get(marker) ?? marker;
+    const config = posix.join(target, "config.json");
+    const text = files.get(config);
+    if (text !== undefined) return { kind: "file", text };
+    return directories.has(config) ? { kind: "other" } : { kind: "absent" };
+  }
+
+  function inspect(path: string): DirectoryProbe {
+    const marker = posix.join(path, ".brain");
+    const linked = symlinks.get(marker);
+    let brain: DirectoryProbe["brain"];
+    if (linked !== undefined) {
+      brain = !inside(path, linked)
+        ? "escaping"
+        : directories.has(linked)
+          ? "directory"
+          : "other";
+    } else if (directories.has(marker)) {
+      brain = "directory";
+    } else if (files.has(marker)) {
+      brain = "other";
+    } else {
+      brain = "absent";
+    }
+    const legacy = posix.join(
+      posix.dirname(path),
+      `${posix.basename(path)}-brain`,
+      ".brain",
+    );
+    return {
+      path,
+      brain,
+      git: gitRoots.has(path) ? "present" : "absent",
+      legacyBrain: directories.has(legacy),
+      configuration: configuration(marker, brain),
+    };
+  }
+
+  return {
+    canonicalize: (path, base) => Promise.resolve(canonicalize(path, base)),
+    ancestors: (start) => {
+      const canonical = canonicalize(start, start);
+      if (canonical === null) return Promise.resolve([]);
+      const probes: DirectoryProbe[] = [];
+      let current = canonical;
+      for (;;) {
+        probes.push(inspect(current));
+        const parent = posix.dirname(current);
+        if (parent === current) break;
+        current = parent;
+      }
+      return Promise.resolve(probes);
+    },
+    locateWorktree: (start) => {
+      const canonical = canonicalize(start, start);
+      if (canonical === null) return Promise.resolve(null);
+      const location = worktrees
+        .filter(({ topLevel }) => inside(topLevel, canonical))
+        .sort((left, right) => right.topLevel.length - left.topLevel.length)[0];
+      return Promise.resolve(location ?? null);
+    },
   };
 }
