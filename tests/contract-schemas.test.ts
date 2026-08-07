@@ -86,9 +86,12 @@ describe("versioned state and host schemas", () => {
     }
   });
 
-  it("ships exactly the eight registered payload fixtures", async () => {
+  it("ships eight payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
-      artifacts.map(([, fixtureName]) => fixtureName).sort(),
+      [
+        ...artifacts.map(([, fixtureName]) => fixtureName),
+        "version-cases.json",
+      ].sort(),
     );
   });
 });
