@@ -515,7 +515,7 @@ git commit -s -m "feat: answer the contract handshake and pin the plugin version
 - Produces: a project denylist rejecting `node_modules`, `packages`, `runtime`, `*.ts`, and `*.map` anywhere under a project the runtime operated on.
 - Produces: a black-box run whose `PATH` contains a failing decoy `yoda`, from a project directory whose name contains a space and a non-ASCII character.
 
-- [ ] **Step 1: Write the failing boundary tests**
+- [x] **Step 1: Write the failing boundary tests**
 
 ```ts
 import { execFileSync } from "node:child_process";
@@ -578,7 +578,7 @@ describe("distribution boundaries", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm run build && npm test -- tests/package-boundaries.test.ts
@@ -586,7 +586,7 @@ npm run build && npm test -- tests/package-boundaries.test.ts
 
 Expected: the first two cases FAIL because the built entry is still a single bundle whose name and content changed in Task 3, and the third passes trivially until the allowlist below is enforced.
 
-- [ ] **Step 3: Enforce both inventories**
+- [x] **Step 3: Enforce both inventories**
 
 Set `expectedInventory` to the three-file allowlist sorted lexicographically.
 Keep the forbidden-reference and external-import checks and apply them to
@@ -599,7 +599,7 @@ the isolated execution exercises the real two-file boot.
 Add a project-denylist check that runs the built entry inside a temporary
 project and fails if any denied pattern appears afterward.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm run build

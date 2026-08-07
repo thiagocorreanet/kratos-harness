@@ -28,6 +28,13 @@ const expectedInventory = [
   "runtime/yoda.mjs",
 ];
 const expectedDirectories = new Set(["runtime"]);
+// Patterns a project the plugin operated on must never contain.
+const projectDenylist = [
+  /(^|\/)node_modules(\/|$)/u,
+  /(^|\/)packages(\/|$)/u,
+  /(^|\/)runtime(\/|$)/u,
+  /\.(ts|map)$/u,
+];
 const expectedHelp =
   "Usage: yoda [--expect <version>] [--help | --version | handshake]\n";
 const expectedVersion = "0.0.0-development\n";
@@ -188,6 +195,21 @@ try {
   const isolatedArtifact = join(isolatedRuntime, "yoda.mjs");
   if (process.platform !== "win32") {
     await chmod(isolatedArtifact, 0o755);
+  }
+
+  // A project the runtime operated on receives state surfaces only. It must
+  // never receive the runtime, its sources, or a dependency tree.
+  const projectRoot = join(cleanRoom, "project");
+  await mkdir(projectRoot, { recursive: true });
+  executeIsolated(isolatedArtifact, "--help", expectedHelp, projectRoot);
+  const projectEntries = await readdir(projectRoot, { recursive: true });
+  for (const found of projectEntries) {
+    const normalized = found.split(sep).join("/");
+    for (const pattern of projectDenylist) {
+      if (pattern.test(normalized)) {
+        fail(`project install contains a denied entry: ${normalized}`);
+      }
+    }
   }
 
   const help = executeIsolated(
