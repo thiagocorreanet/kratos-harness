@@ -1,0 +1,17 @@
+# Force source and documentation to be treated as text.
+#
+# A stray control byte in a source file makes Git classify it as binary, and
+# every diff then renders as "Binary files differ" — which hides the file from
+# review entirely. That is how a defect in a test's own logic can survive to a
+# commit unnoticed.
+*.ts text
+*.mts text
+*.cts text
+*.tsx text
+*.js text
+*.mjs text
+*.cjs text
+*.json text
+*.md text
+*.yml text
+*.yaml text

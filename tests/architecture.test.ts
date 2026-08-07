@@ -148,6 +148,29 @@ describe("dependency direction", () => {
       "node:crypto",
       "ports must not import Node.js builtins",
     ],
+    // A bare builtin specifier is legal Node and resolves fine, so matching
+    // only the `node:` prefix would let four dropped characters walk through
+    // the rule this whole issue exists to enforce.
+    [
+      "packages/runtime/src/domain/policy.ts",
+      "fs",
+      "domain must not import Node.js builtins",
+    ],
+    [
+      "packages/runtime/src/domain/policy.ts",
+      "fs/promises",
+      "domain must not import Node.js builtins",
+    ],
+    [
+      "packages/runtime/src/domain/policy.ts",
+      "crypto",
+      "domain must not import Node.js builtins",
+    ],
+    [
+      "packages/runtime/src/ports/clock.ts",
+      "path",
+      "ports must not import Node.js builtins",
+    ],
     [
       "packages/runtime/src/domain/policy.ts",
       "../composition/runtime.js",
@@ -175,6 +198,37 @@ describe("dependency direction", () => {
     ["packages/runtime/src/cli.ts", "./composition/runtime.js"],
   ])("allows %s importing %s", (path, specifier) => {
     expect(violations([{ path, imports: [specifier] }])).toEqual([]);
+  });
+
+  it("resolves a relative specifier against the importing module", () => {
+    // `../handshake.js` from domain lands on an entry module. Classifying by
+    // the specifier text alone would leave `entry` unreachable, making those
+    // rules dead code and allowing domain to reach a builtin indirectly.
+    expect(
+      violations([
+        {
+          path: "packages/runtime/src/domain/policy.ts",
+          imports: ["../handshake.js"],
+        },
+      ]),
+    ).toEqual([
+      {
+        path: "packages/runtime/src/domain/policy.ts",
+        specifier: "../handshake.js",
+        reason: "domain must not import entry",
+      },
+    ]);
+  });
+
+  it("treats require as an import", () => {
+    expect(
+      violations([
+        {
+          path: "packages/runtime/src/domain/policy.ts",
+          imports: ["fs"],
+        },
+      ]).map(({ reason }) => reason),
+    ).toEqual(["domain must not import Node.js builtins"]);
   });
 });
 
@@ -235,7 +289,8 @@ async function sourceModules(): Promise<SourceModule[]> {
   });
   const collected: SourceModule[] = [];
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+    if (!entry.isFile()) continue;
+    if (!/\.(ts|mts|cts|tsx|js|mjs|cjs)$/u.test(entry.name)) continue;
     if (entry.name.endsWith(".test.ts")) continue;
     const absolute = join(entry.parentPath, entry.name);
     const path = absolute
