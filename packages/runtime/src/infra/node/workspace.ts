@@ -129,6 +129,12 @@ async function gitOutput(
   }
 }
 
+function principalFromWorktreeList(output: string): string | null {
+  const field = output.split("\0", 1)[0];
+  const prefix = "worktree ";
+  return field?.startsWith(prefix) === true ? field.slice(prefix.length) : null;
+}
+
 /** Real read-only workspace observations before a project root is trusted. */
 export function nodeWorkspace(): Workspace {
   const canonicalize = async (
@@ -139,8 +145,9 @@ export function nodeWorkspace(): Workspace {
     try {
       const candidate = await realpath(resolve(base, path));
       return (await stat(candidate)).isDirectory() ? candidate : null;
-    } catch {
-      return null;
+    } catch (error) {
+      if (absent(error)) return null;
+      throw error;
     }
   };
 
@@ -167,32 +174,37 @@ export function nodeWorkspace(): Workspace {
     locateWorktree: async (start): Promise<WorktreeLocation | null> => {
       const canonical = await canonicalize(start, start);
       if (canonical === null) return null;
-      const [topLevelText, commonText, gitDirText] = await Promise.all([
+      const [topLevelText, commonText, worktreesText] = await Promise.all([
         gitOutput(canonical, ["rev-parse", "--show-toplevel"]),
         gitOutput(canonical, [
           "rev-parse",
           "--path-format=absolute",
           "--git-common-dir",
         ]),
-        gitOutput(canonical, [
-          "rev-parse",
-          "--path-format=absolute",
-          "--git-dir",
-        ]),
+        gitOutput(canonical, ["worktree", "list", "--porcelain", "-z"]),
       ]);
-      if (topLevelText === null || commonText === null || gitDirText === null) {
+      const principalText =
+        worktreesText === null
+          ? null
+          : principalFromWorktreeList(worktreesText);
+      if (
+        topLevelText === null ||
+        commonText === null ||
+        principalText === null
+      ) {
         return null;
       }
-      const [topLevel, common, gitDirectory] = await Promise.all([
+      const [topLevel, common, principal] = await Promise.all([
         realpath(topLevelText),
         realpath(commonText),
-        realpath(gitDirText),
+        realpath(principalText),
       ]);
-      const linked = common !== gitDirectory;
+      if (principal === common) return null;
+      const linked = topLevel !== principal;
       return {
         kind: linked ? "linked" : "principal",
         topLevel,
-        principal: linked ? dirname(common) : topLevel,
+        principal,
       };
     },
   };

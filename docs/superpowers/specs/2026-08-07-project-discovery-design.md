@@ -129,7 +129,8 @@ interface WorktreeLocation {
 }
 
 interface Workspace {
-  canonicalize(path: string): Promise<string | null>;
+  canonicalize(path: string, base: string): Promise<string | null>;
+  inspect(path: string): Promise<DirectoryProbe>;
   ancestors(start: string): Promise<readonly DirectoryProbe[]>;
   locateWorktree(start: string): Promise<WorktreeLocation | null>;
 }
@@ -429,9 +430,9 @@ decisions and claim no row.
 | `domain/project/config.ts` | Layered configuration and `Resolved<T>` |
 | `domain/project/validation.ts` | Pure validator seam consumed by discovery and implemented by `RUN-04` |
 | `domain/project/reasons.ts` | Resolution variant to reason-code mapping |
-| `ports/index.ts` | `Workspace` interface added to `RuntimePorts` |
+| `ports/index.ts` | Pre-root `Workspace` interface, separate from `RuntimePorts` |
 | `infra/node/workspace.ts` | Ancestor walk, canonicalization, worktree query |
-| `infra/fake/workspace.ts` | In-memory tree honouring the same contract |
+| `infra/fake/index.ts` | In-memory tree honouring the same contract |
 | `composition/discovery.ts` | `observeWorkspace` and the two-phase wiring |
 
 `domain/project/**` imports no Node builtin and calls no port, so the
@@ -445,6 +446,7 @@ architecture test already in place covers it without a new rule.
 | `--root` absent, unreadable, or not a directory | `resolveProject` | `trail.uso` | 2 |
 | `--root` cannot be canonicalized | `observeWorkspace` | `trail.uso` | 2 |
 | No `.brain` and no Git top level | `resolveProject` | `guard.config_missing` | 2 |
+| `.git` exists but topology is invalid or ambiguous | `resolveProject` | `guard.project_marker_corrupt` | 2 |
 | `.brain` is a file or escapes the root | `resolveProject` | `guard.project_marker_corrupt` | 2 |
 | Legacy sibling Brain present | `resolveProject` | `brain_migration_pending` | 1 |
 | `.brain/config.json` absent | `resolveProject` | `guard.config_missing` | 2 |

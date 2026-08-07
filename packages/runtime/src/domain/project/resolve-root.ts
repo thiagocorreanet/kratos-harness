@@ -95,7 +95,11 @@ export function resolveRoot(
   }
   const gitRoot = observation.ancestors.find(({ git }) => git === "present");
   if (gitRoot !== undefined) {
-    return { kind: "root-only", root: gitRoot.path };
+    return {
+      kind: "marker-unusable",
+      root: gitRoot.path,
+      reasonCode: "guard.project_marker_corrupt",
+    };
   }
   return { kind: "not-found", reasonCode: "guard.config_missing" };
 }

@@ -12,6 +12,8 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { nodeWorkspace } from "@mestre-yoda/runtime/infra/node";
+import { discoverProject } from "@mestre-yoda/runtime/composition/discovery";
+import { fixedEnvironment } from "@mestre-yoda/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
 
 import { describeWorkspaceContract } from "./support/workspace-contract.js";
@@ -73,6 +75,17 @@ describe("node workspace edge classifications", () => {
         configuration: { kind: "absent" },
       });
       expect(await workspace.canonicalize("missing", root)).toBeNull();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("propagates unexpected canonicalization failures", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-workspace-error-"));
+    try {
+      await expect(
+        nodeWorkspace().canonicalize("x".repeat(5_000), root),
+      ).rejects.toMatchObject({ code: "ENAMETOOLONG" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -146,6 +159,64 @@ describe("node workspace edge classifications", () => {
         kind: "principal",
         topLevel: root,
         principal: root,
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses ambiguous principal topology when Git metadata is stored separately", async () => {
+    const base = await mkdtemp(join(tmpdir(), "yoda-workspace-separated-"));
+    const principal = join(base, "principal");
+    const metadata = join(base, "metadata", "project.git");
+    const linked = join(base, "linked");
+    try {
+      await mkdir(principal, { recursive: true });
+      await mkdir(dirname(metadata), { recursive: true });
+      await git(principal, ["init", "--separate-git-dir", metadata]);
+      await writeFile(join(principal, "README.md"), "fixture\n");
+      await git(principal, ["add", "README.md"]);
+      await git(principal, [
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.test",
+        "commit",
+        "-m",
+        "fixture",
+      ]);
+      await git(principal, ["worktree", "add", "-b", "separated", linked]);
+
+      expect(await nodeWorkspace().locateWorktree(linked)).toBeNull();
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a malformed Git marker instead of selecting it as a root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-workspace-malformed-git-"));
+    try {
+      await writeFile(
+        join(root, ".git"),
+        "gitdir: /missing/private/location\n",
+      );
+      await expect(
+        discoverProject(
+          {
+            workingDirectory: root,
+            explicitRoot: null,
+            worktreeMode: "principal",
+          },
+          {
+            workspace: nodeWorkspace(),
+            environment: fixedEnvironment({}, root),
+          },
+          () => ({ kind: "invalid" }),
+        ),
+      ).resolves.toEqual({
+        kind: "marker-unusable",
+        root,
+        reasonCode: "guard.project_marker_corrupt",
       });
     } finally {
       await rm(root, { recursive: true, force: true });

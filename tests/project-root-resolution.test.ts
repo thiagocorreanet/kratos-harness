@@ -257,7 +257,7 @@ describe("project root resolution", () => {
     ).toEqual({ kind: "root-only", root: "/work/project" });
   });
 
-  it("uses an ancestor Git marker when topology lookup is unavailable", () => {
+  it("refuses an ancestor Git marker when topology lookup is unavailable", () => {
     expect(
       resolveRoot(
         request(),
@@ -269,7 +269,11 @@ describe("project root resolution", () => {
           worktree: null,
         }),
       ),
-    ).toEqual({ kind: "root-only", root: "/work/project" });
+    ).toEqual({
+      kind: "marker-unusable",
+      root: "/work/project",
+      reasonCode: "guard.project_marker_corrupt",
+    });
   });
 
   it("returns a stable not-found result outside a project", () => {

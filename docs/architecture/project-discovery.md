@@ -30,6 +30,12 @@ Canonicalization, marker containment, and Git topology are observations made by
 the `Workspace` port. The pure resolver receives those observations and cannot
 read the filesystem, invoke Git, or mutate a project.
 
+A `.git` marker is not sufficient evidence by itself. If Git cannot validate
+its topology, or a separate metadata layout does not expose an unambiguous
+principal checkout, discovery refuses that marker. Unexpected filesystem errors
+propagate to the composition boundary as internal failures; only expected
+absence or a non-directory path is classified as unavailable.
+
 ## State locations and migration
 
 The supported location is the project-owned `.brain/` directory. A legacy
