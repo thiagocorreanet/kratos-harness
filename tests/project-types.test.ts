@@ -30,6 +30,7 @@ const observation: WorkspaceObservation = {
   canonicalWorkingDirectory: "/workspace/project/src",
   canonicalExplicitRoot: null,
   ancestors: [probe],
+  principalAncestors: [],
   worktree: {
     kind: "principal",
     topLevel: "/workspace/project",

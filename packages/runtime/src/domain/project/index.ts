@@ -6,6 +6,8 @@ export type {
   WorktreeLocation,
 } from "./observation.js";
 export type { DiscoveryRequest, WorktreeMode } from "./request.js";
+export { resolveRoot } from "./resolve-root.js";
+export type { RootSelection } from "./resolve-root.js";
 export type { ProjectResolution } from "./resolution.js";
 export type {
   ConfigurationValidation,

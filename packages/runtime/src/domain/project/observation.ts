@@ -27,5 +27,7 @@ export interface WorkspaceObservation {
   readonly canonicalWorkingDirectory: string | null;
   readonly canonicalExplicitRoot: string | null;
   readonly ancestors: readonly DirectoryProbe[];
+  /** Principal-worktree chain, populated only for linked worktrees. */
+  readonly principalAncestors: readonly DirectoryProbe[];
   readonly worktree: WorktreeLocation | null;
 }
