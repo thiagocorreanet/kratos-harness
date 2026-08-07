@@ -4,7 +4,7 @@
 - Tracking issue: [#5](https://github.com/thiagocorreanet/mestre-yoda/issues/5)
 - Branch: `docs/issue-5-readme-roadmap`
 - Reviewed implementation commit: `d246120`
-- Status: Ready for pull request
+- Status: Complete
 
 ## Command honesty
 
@@ -70,3 +70,10 @@ Minor findings.
 
 No unavailable install or SDD command is presented as executable. Every
 promotion criterion requires current reproducible evidence and cannot be waived.
+
+## Post-merge closure
+
+PR [#74](https://github.com/thiagocorreanet/mestre-yoda/pull/74) merged as
+`d111f4515545d1d50d6497ec92340665a9b23469` and closed issue #5. The real
+Documentation workflow then passed on `main` in
+[run 31142846699](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31142846699).
