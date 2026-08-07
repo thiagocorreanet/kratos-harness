@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -30,7 +31,7 @@ beforeAll(async () => {
 function invoke(
   operation: "json" | "human",
   result: JsonObject,
-): ReturnType<typeof spawnSync> {
+): SpawnSyncReturns<string> {
   const source = `
     import { canonicalResultJson, renderHumanResult } from ${JSON.stringify(libraryUrl)};
     const value = JSON.parse(process.argv[1]);

@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import Ajv2020 from "ajv/dist/2020.js";
 
@@ -34,6 +36,9 @@ const RUNTIME_CODES = [
   "runtime.revision_conflict",
   "runtime.state_corrupt",
 ];
+const repositoryRoot = dirname(
+  fileURLToPath(new URL("../../package.json", import.meta.url)),
+);
 
 function validationFailure(detail) {
   return new Error(`Result contract validation failed: ${detail}`);
@@ -72,6 +77,8 @@ function assertSafeStrings(value) {
       /[a-z][a-z0-9+.-]*:\/\//iu,
       /(?:github_pat_|gh[pousr]_)/iu,
       /(?:token|secret|password)\s*[:=]/iu,
+      /(?:^|\s)\/(?:etc|home|private|tmp|Users|var)\//u,
+      /(?:^|\s)[A-Za-z]:[\\/]/u,
       /[\u0000-\u001f\u007f]/u,
     ];
     if (unsafe.some((pattern) => pattern.test(value))) {
@@ -191,6 +198,44 @@ function validateExamples(examples, catalog, validateResult) {
   }
 }
 
+function validateResultAgainstReason(result, reason, validateResult) {
+  assertSchema(validateResult, result, "result");
+  assertSafeStrings(result);
+  if (!sameKeys(result, RESULT_KEYS)) {
+    throw validationFailure("result properties are not in canonical order");
+  }
+  for (const evidence of result.evidence) {
+    const expectedKeys =
+      evidence.sha256 === undefined ? EVIDENCE_KEYS.slice(0, 2) : EVIDENCE_KEYS;
+    if (!sameKeys(evidence, expectedKeys)) {
+      throw validationFailure("evidence properties are not in canonical order");
+    }
+  }
+  if (reason === undefined) {
+    throw validationFailure("result uses an unknown reason code");
+  }
+  for (const property of ["status", "exitCode", "retryable", "recovery"]) {
+    if (result[property] !== reason[property]) {
+      throw validationFailure(`result ${property} conflicts with its reason`);
+    }
+  }
+  if (!reason.stateChanged && result.stateChanged) {
+    throw validationFailure("result makes a false state mutation claim");
+  }
+  if (reason.evidence === "required" && result.evidence.length === 0) {
+    throw validationFailure("required evidence is absent");
+  }
+  if (reason.evidence === "forbidden" && result.evidence.length !== 0) {
+    throw validationFailure("forbidden evidence is present");
+  }
+  assertUnique(result.why, "why entries");
+  assertUnique(
+    result.evidence.map((item) => JSON.stringify(item)),
+    "evidence entries",
+  );
+  return result;
+}
+
 export function validateResultContract(input) {
   try {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -221,6 +266,93 @@ export function validateResultContract(input) {
     }
     throw validationFailure("contract artifacts could not be verified");
   }
+}
+
+let canonicalRendererContract;
+
+function rendererContract() {
+  if (canonicalRendererContract !== undefined) return canonicalRendererContract;
+  try {
+    const resultSchema = JSON.parse(
+      readFileSync(
+        join(repositoryRoot, "schemas/result.v1.schema.json"),
+        "utf8",
+      ),
+    );
+    const catalog = JSON.parse(
+      readFileSync(
+        join(
+          repositoryRoot,
+          "packages/contracts/catalogs/reason-codes.v1.json",
+        ),
+        "utf8",
+      ),
+    );
+    const validateResult = new Ajv2020({
+      allErrors: true,
+      strict: true,
+    }).compile(resultSchema);
+    canonicalRendererContract = {
+      validateResult,
+      reasons: new Map(catalog.reasons.map((reason) => [reason.code, reason])),
+    };
+    return canonicalRendererContract;
+  } catch {
+    throw validationFailure("canonical renderer contract is unavailable");
+  }
+}
+
+function validateRenderableResult(result) {
+  try {
+    const contract = rendererContract();
+    return validateResultAgainstReason(
+      result,
+      contract.reasons.get(result?.reasonCode),
+      contract.validateResult,
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Result contract validation failed:")
+    ) {
+      throw error;
+    }
+    throw validationFailure("result could not be rendered safely");
+  }
+}
+
+export function canonicalResultJson(result) {
+  return `${JSON.stringify(validateRenderableResult(result))}\n`;
+}
+
+export function renderHumanResult(result) {
+  const validated = validateRenderableResult(result);
+  if (validated.exitCode === 0) {
+    return {
+      stdout: `${validated.summary}\n`,
+      stderr: "",
+      exitCode: validated.exitCode,
+    };
+  }
+  const lines = [
+    `Summary: ${validated.summary}`,
+    ...validated.why.map((why) => `Why: ${why}`),
+    `Reason: ${validated.reasonCode}`,
+    ...validated.evidence.map(
+      (evidence) =>
+        `Evidence: ${evidence.kind} ${evidence.ref}${
+          evidence.sha256 === undefined ? "" : ` sha256=${evidence.sha256}`
+        }`,
+    ),
+    `State changed: ${String(validated.stateChanged)}`,
+    `Retryable: ${String(validated.retryable)}`,
+    `Recovery: ${validated.recovery}`,
+  ];
+  return {
+    stdout: "",
+    stderr: `${lines.join("\n")}\n`,
+    exitCode: validated.exitCode,
+  };
 }
 
 export { CONTRACT_VERSION, RESULT_KEYS };

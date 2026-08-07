@@ -324,7 +324,7 @@ npm test -- --run tests/result-contract-rendering.test.ts
 
 Expected: fail until renderer behavior is complete.
 
-- [ ] **Step 3: Implement renderer return types**
+- [x] **Step 3: Implement renderer return types**
 
 `canonicalResultJson(result)` returns `${JSON.stringify(result)}\n` after full
 validation. `renderHumanResult(result)` returns:
@@ -337,7 +337,7 @@ Success uses `${summary}\n` on stdout. Failure/blocked uses labeled, newline-
 terminated stderr and empty stdout. Never sort semantic arrays; preserve their
 validated order. Never render `recovery: null`.
 
-- [ ] **Step 4: Make renderer tests GREEN and commit**
+- [x] **Step 4: Make renderer tests GREEN and commit**
 
 ```bash
 npm test -- --run tests/result-contract-rendering.test.ts tests/result-contract-checker.test.ts
