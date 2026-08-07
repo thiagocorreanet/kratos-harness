@@ -38,6 +38,8 @@ describe("differential harness documentation", () => {
       "Exit `0`",
       "Exit `1`",
       "Exit `2`",
+      "no runnable scenario",
+      "retained prefix",
     ]) {
       expect(text.guide).toContain(required);
     }
@@ -57,6 +59,7 @@ describe("differential harness documentation", () => {
     ]) {
       expect(text.guide).toContain(required);
     }
+    expect(text.guide).toMatch(/opaque|single digest/u);
     expect(text.guide).toMatch(/does\s+not modify the source checkout/u);
     expect(text.parity).toContain("0 / 400 (0.00%)");
     expect(text.parity).toContain("differential harness");

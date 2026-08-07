@@ -54,7 +54,8 @@ nonzero until both sides satisfy the same golden observation.
 - Exit `1`: at least one field differs; output contains scenario IDs, parity
   contract IDs, mismatch kinds, and JSON Pointers.
 - Exit `2`: usage, corpus/schema, runner provenance, unsafe path, or internal
-  harness validation failed.
+  harness validation failed. Selecting no runnable scenario is also Exit `2`,
+  because an empty run proves nothing and must never be reported as a pass.
 
 JSON is the default deterministic renderer. `--format human` prints one concise
 line per scenario and mismatch pointer. Normal comparison failures use stdout;
@@ -70,10 +71,14 @@ isolated. Executables are spawned directly with a literal argument vector and
 and proxy configuration are not inherited.
 
 Wall time and stdout/stderr bytes are bounded. Timeout or output overflow first
-terminates the process group and then escalates to a forced kill. Capture still
-runs after a nonzero exit, signal, timeout, crash, or partial mutation. Both
-temporary roots are removed in `finally`, and cleanup failure is a harness
-failure.
+terminates the process group and then escalates to a forced kill 250 ms later;
+the escalation is measured from that signal, so an overflowing run does not wait
+out the full scenario timeout. Overflow keeps the retained prefix that fits
+within the declared bound and classifies the run as `output_limit`; the reported
+byte count, SHA-256, and any disclosed content always describe that same
+retained prefix. Capture still runs after a nonzero exit, signal, timeout,
+crash, or partial mutation. Both temporary roots are removed in `finally`, and
+cleanup failure is a harness failure.
 
 The canonical observation includes:
 
@@ -94,10 +99,19 @@ operations are selected CRLF-to-LF conversion, workspace-token replacement,
 explicit JSON value tokens, keyed array sorting, and justified removal of one
 field. Wildcards and regular-expression rewriting are unavailable.
 
-Normalization cannot target process outcome/exit, result status/reason,
-filesystem mutations/unexpected files, or Git effects. Reports default to
-digest-only stream and artifact summaries. A digest field may show its digest;
-arbitrary string content is represented only by byte count and SHA-256.
+Normalization cannot target process outcome/exit, result `status`, `exitCode`,
+or `reasonCode`, filesystem mutations/unexpected files, or Git effects. These
+are the decision-bearing fields of the universal result contract; rewriting one
+would let a real behavioral difference be normalized away.
+
+Reports default to digest-only stream and artifact summaries. A digest field may
+show its digest; arbitrary string content is represented only by byte count and
+SHA-256. When `disclosure.artifacts` is `digest`, each captured structured value
+is compared as a single opaque digest rather than field by field, so a mismatch
+names only the artifact pointer. Neither private key names nor private scalar
+values from predecessor output can reach a report. Setting
+`disclosure.artifacts` to `content` is the explicit opt-in that enables
+field-level pointers, and it is reserved for original public fixtures.
 
 Every mismatch names the affected parity contract IDs. A seeded difference
 returns Exit `1`; there is no “expected difference means success” mode.
