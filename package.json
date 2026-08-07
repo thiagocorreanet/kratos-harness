@@ -13,18 +13,20 @@
   ],
   "scripts": {
     "format:check": "prettier --check .",
+    "spellcheck": "cspell --no-progress --show-suggestions \"**/*.md\"",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc6 --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build": "node scripts/build.mjs",
     "package:verify": "node scripts/verify-package.mjs",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify"
+    "verify": "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
     "@vitest/coverage-v8": "4.1.10",
+    "cspell": "10.0.1",
     "esbuild": "0.28.1",
     "eslint": "10.8.0",
     "prettier": "3.9.6",

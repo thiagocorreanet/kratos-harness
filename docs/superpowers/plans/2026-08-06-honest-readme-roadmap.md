@@ -33,7 +33,7 @@
 - Consumes: `README.md`, future `ROADMAP.md`, and `package.json` as text.
 - Produces: assertions for real badges, availability boundaries, working commands, architecture ownership, maturity gates, and acknowledgements.
 
-- [ ] **Step 1: Write the failing reader tests**
+- [x] **Step 1: Write the failing reader tests**
 
 Read the three files from the repository root. Assert README contains these exact
 boundaries:
@@ -54,7 +54,7 @@ roadmap contains all four stages, `Promotion to Preview`, `Promotion to Beta`,
 `Promotion to Stable`, every epic #1/#8/#15/#24/#34/#40/#48/#57, regression/
 rollback rules, pilots, P0/P1 parity, and predecessor retirement.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: `npm test -- tests/readme-honesty.test.ts`
 
@@ -75,13 +75,13 @@ Expected: FAIL because `ROADMAP.md` does not exist.
 - Consumes: npm 11.16.0 strict install policy and tracked Markdown.
 - Produces: `npm run spellcheck` and a `verify` chain that fails on unknown documentation words.
 
-- [ ] **Step 1: Pin CSpell and add scripts**
+- [x] **Step 1: Pin CSpell and add scripts**
 
 Add exact dev dependency `"cspell": "10.0.1"`, script
 `"spellcheck": "cspell --no-progress --show-suggestions \"**/*.md\""`, and run
 `npm run spellcheck` between formatting and lint in `verify`.
 
-- [ ] **Step 2: Configure narrow project vocabulary**
+- [x] **Step 2: Configure narrow project vocabulary**
 
 Create `.cspell.json` with version `0.2`, language `en,en-GB,en-US`,
 `useGitignore: true`, explicit ignores for `node_modules`, `dist`, `coverage`,
@@ -89,7 +89,7 @@ and a sorted words list containing legitimate names such as `BetaUp`, `CODEOWNER
 `esbuild`, `metafile`, `MWTC`, `relicensing`, `TypeScript`, and `Vitest`. Do not
 ignore README, ROADMAP, or all-uppercase words broadly.
 
-- [ ] **Step 3: Regenerate and verify the strict lockfile**
+- [x] **Step 3: Regenerate and verify the strict lockfile**
 
 Using exact Node/npm:
 
@@ -103,7 +103,7 @@ Expected: clean installation succeeds under strict lifecycle-script policy; the
 spellcheck initially reports only genuine vocabulary/configuration gaps, which
 are corrected narrowly until it passes.
 
-- [ ] **Step 4: Update toolchain documentation**
+- [x] **Step 4: Update toolchain documentation**
 
 List CSpell `10.0.1` in the exact development dependencies and add `spellcheck`
 to the command tables and clean verification sequence. State it scans tracked
@@ -121,21 +121,21 @@ Markdown and remains absent from the runtime bundle.
 - Consumes: issue #5 design, phase epic exit criteria, real Documentation workflow, current smoke CLI.
 - Produces: one entrypoint with truthful availability and one evidence-based maturity model.
 
-- [ ] **Step 1: Add the real workflow badge and current-state warning**
+- [x] **Step 1: Add the real workflow badge and current-state warning**
 
 Link the badge image
 `https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml/badge.svg?branch=main`
 to the real workflow page. Near the top state no installation/production/usable
 SDD commands and smoke-only help/version.
 
-- [ ] **Step 2: Add Installation and Usage preview sections**
+- [x] **Step 2: Add Installation and Usage preview sections**
 
 Installation contains no install command. Describe only the planned embedded
 plugin model and issue #61 gate. Usage preview lists planned operations in prose
 and labels them not runnable. Explicitly reject old private distribution
 instructions for this public rewrite.
 
-- [ ] **Step 3: Expand Development with only working commands**
+- [x] **Step 3: Expand Development with only working commands**
 
 Show one shell block:
 
@@ -149,21 +149,21 @@ npm run package:verify
 
 Explain artifact path and that help/version prove packaging, not product readiness.
 
-- [ ] **Step 4: Write ROADMAP objective gates**
+- [x] **Step 4: Write ROADMAP objective gates**
 
 Create current Experimental status and promotion sections for Preview, Beta, and
 Stable exactly as approved. Link the phase epics, define no-calendar/evidence-
 only policy, regression rollback/degradation, known release gates, and Go oracle
 retirement. Separate stage entry from promotion evidence.
 
-- [ ] **Step 5: Add acknowledgements and align FAQ/roadmap copy**
+- [x] **Step 5: Add acknowledgements and align FAQ/roadmap copy**
 
 Credit the predecessor as behavioral oracle subject to provenance, the agent
 hosts without endorsement implication, and Node/TypeScript/esbuild/ESLint/
 Prettier/Vitest/CSpell plus Contributor Covenant/DCO. Ensure FAQ repeats no
 installation and roadmap section links `[Objective maturity gates](ROADMAP.md)`.
 
-- [ ] **Step 6: Confirm GREEN and commit**
+- [x] **Step 6: Confirm GREEN and commit**
 
 ```bash
 npm test -- tests/readme-honesty.test.ts
@@ -188,7 +188,7 @@ Expected: reader contract, spelling, typecheck, and lint pass.
 - Consumes: final README/ROADMAP and verification results.
 - Produces: clean-room reader evidence and issue closure.
 
-- [ ] **Step 1: Run complete local verification**
+- [x] **Step 1: Run complete local verification**
 
 ```bash
 npm run verify

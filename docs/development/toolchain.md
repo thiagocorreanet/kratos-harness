@@ -31,6 +31,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | Command | Responsibility |
 | --- | --- |
 | `npm run format:check` | Check supported source and configuration formatting |
+| `npm run spellcheck` | Check tracked English Markdown with the project dictionary |
 | `npm run lint` | Run typed ESLint with zero warnings |
 | `npm run typecheck` | Run strict TypeScript 6 compatibility checking without emit |
 | `npm test` | Run unit and clean-room bundle tests once |
@@ -57,7 +58,8 @@ scripts/             deterministic build and package verification
 
 All npm packages are private ESM workspaces. The root has no production
 dependencies. Its exactly pinned development dependencies are compilers,
-linters, formatters, test/coverage tools, type declarations, and the bundler.
+linters, formatters, the CSpell documentation checker, test/coverage tools, type
+declarations, and the bundler.
 Only the exactly pinned esbuild installer is allowed to run a dependency
 lifecycle script. npm treats uncovered scripts as installation errors and
 explicitly denies the optional fsevents script recorded for macOS compatibility.

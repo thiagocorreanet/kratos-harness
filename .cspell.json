@@ -1,0 +1,43 @@
+{
+  "version": "0.2",
+  "language": "en,en-GB,en-US",
+  "useGitignore": true,
+  "ignorePaths": [
+    "coverage/**",
+    "dist/**",
+    "node_modules/**",
+    "package-lock.json"
+  ],
+  "words": [
+    "abertos",
+    "aceitacao",
+    "aprovacao",
+    "BetaUp",
+    "CODEOWNERS",
+    "Codex",
+    "CSpell",
+    "ENOENT",
+    "esbuild",
+    "ESM",
+    "evented",
+    "lockfiles",
+    "Lychee",
+    "lycheeverse",
+    "markdownlint",
+    "metafile",
+    "Mestre",
+    "mktemp",
+    "MWTC",
+    "oneline",
+    "particionamento",
+    "previewable",
+    "regenerable",
+    "relicensing",
+    "rhysd",
+    "thiagocorreanet",
+    "TypeScript",
+    "Vitest",
+    "worktree",
+    "Yoda"
+  ]
+}
