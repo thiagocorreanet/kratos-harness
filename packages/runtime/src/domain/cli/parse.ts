@@ -24,9 +24,13 @@ export function parseGlobals(argv: readonly string[]): GlobalParse {
   let json = false;
   let expect: string | null = null;
   let orientation: Globals["orientation"] = null;
+  let skip = false;
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
+  for (const [index, token] of argv.entries()) {
+    if (skip) {
+      skip = false;
+      continue;
+    }
     if (token === "--json") {
       json = true;
     } else if (token === "--help" || token === "-h") {
@@ -43,8 +47,8 @@ export function parseGlobals(argv: readonly string[]): GlobalParse {
         return failed(USAGE_WHY.conflictingFlag, globals);
       }
       expect = value;
-      index += 1;
-    } else if (token !== undefined) {
+      skip = true;
+    } else {
       rest.push(token);
     }
   }
@@ -101,10 +105,13 @@ export function parseArguments(
 ): ArgumentParse {
   const flags = new Map<string, string | true>();
   const positionals: string[] = [];
+  let skip = false;
 
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (token === undefined) continue;
+  for (const [index, token] of tokens.entries()) {
+    if (skip) {
+      skip = false;
+      continue;
+    }
     if (!token.startsWith("-") || token.length === 1) {
       positionals.push(token);
       continue;
@@ -120,7 +127,7 @@ export function parseArguments(
       return argumentFailure(USAGE_WHY.missingValue);
     }
     flags.set(flag.name, value);
-    index += 1;
+    skip = true;
   }
 
   if (

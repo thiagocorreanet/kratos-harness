@@ -180,6 +180,35 @@ describe("composed command line", () => {
     expect(output.human_.join("")).toContain("Reason: trail.uso");
   });
 
+  it("uses a successful result summary when a command owns no human text", async () => {
+    const output = recordingOutput();
+    const summarized = [
+      {
+        path: ["summarized"],
+        summary: "Return a summary.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok", {
+            summary: "Summary fallback.",
+          }),
+          plan: planOf(),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+    expect(
+      await runCommandLine(
+        ["summarized"],
+        createRuntime({ output }),
+        summarized,
+      ),
+    ).toBe(0);
+    expect(output.structured_.join("")).toBe("Summary fallback.\n");
+  });
+
   it("fails closed when a non-result command has no payload", async () => {
     const output = recordingOutput();
     const absent = [
