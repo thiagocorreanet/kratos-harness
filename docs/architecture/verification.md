@@ -129,3 +129,13 @@ git diff --check origin/main...HEAD
 
 Expected result: zero lint issues, zero actionlint findings, zero failed links,
 no placeholder matches, and no whitespace errors.
+
+## Rendered document review
+
+The integration PR's first Documentation workflow completed successfully. The
+two Mermaid blocks were also parsed and rendered with the official Mermaid CLI
+11.16.0 into a sequence-diagram image and a state-diagram image. Manual image
+inspection confirmed that participants, transitions, labels, branches, and
+terminal states are visible and preserve the source order without a syntax or
+layout failure. An independent read-only review then reported no remaining
+Critical, Important, or Minor findings.
