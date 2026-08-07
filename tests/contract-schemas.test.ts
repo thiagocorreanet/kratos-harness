@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import Ajv2020 from "ajv/dist/2020.js";
+import { Ajv2020 } from "ajv/dist/2020.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -26,12 +26,12 @@ async function readJson(path: string): Promise<JsonObject> {
 }
 
 let resultSchema: JsonObject;
-let loaded: Array<{
+let loaded: {
   readonly schema: JsonObject;
   readonly fixture: JsonObject;
   readonly family: "state" | "host";
   readonly fixtureName: string;
-}>;
+}[];
 
 beforeAll(async () => {
   resultSchema = await readJson(join(schemaRoot, "result.v1.schema.json"));
@@ -75,8 +75,9 @@ describe("versioned state and host schemas", () => {
         "contractVersion",
         versionKey,
       ]);
-      const missing = structuredClone(fixture);
-      delete missing[versionKey];
+      const missing = Object.fromEntries(
+        Object.entries(fixture).filter(([key]) => key !== versionKey),
+      );
       expect(validate(missing), `${fixtureName}: missing`).toBe(false);
       expect(
         validate({ ...fixture, [versionKey]: "2.0.0" }),
