@@ -26,7 +26,7 @@ The project is being built for **Claude Code** and **OpenAI Codex**, with a host
 > Mestre Yoda is an **experimental rewrite under active development**. There is
 > no supported installation method, public distribution, production runtime, or
 > usable SDD command today. The checked-in embedded ESM runtime is internal
-> foundation infrastructure: it supports only `--help`, `--version`, and `handshake` to prove
+> foundation infrastructure: it supports only `help`, `version`, and `handshake` to prove
 > the deterministic toolchain and standalone bundle. The project is not ready for production.
 > Contract schemas and compatibility checks are available, but they are
 > foundation artifacts only. **The harness runtime is not usable yet.**

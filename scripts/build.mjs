@@ -64,7 +64,7 @@ await writeFile(
 const [template, catalogText, familiesText] = await Promise.all([
   readFile(preflightTemplate, "utf8"),
   readFile(
-    join(repositoryRoot, "packages/contracts/catalogs/reason-codes.v1.2.json"),
+    join(repositoryRoot, "packages/contracts/catalogs/reason-codes.v1.3.json"),
     "utf8",
   ),
   readFile(

@@ -19,6 +19,10 @@ const catalogV12Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.2.json",
 );
+const catalogV13Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.3.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -51,19 +55,24 @@ const additions = new Map([
 let catalogV1: Catalog;
 let catalogV11: Catalog;
 let catalogV12: Catalog;
+let catalogV13: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
+let catalogV13Text: string;
 
 beforeAll(async () => {
-  [catalogV1Text, catalogV11Text, catalogV12Text] = await Promise.all([
-    readFile(catalogV1Path, "utf8"),
-    readFile(catalogV11Path, "utf8"),
-    readFile(catalogV12Path, "utf8"),
-  ]);
+  [catalogV1Text, catalogV11Text, catalogV12Text, catalogV13Text] =
+    await Promise.all([
+      readFile(catalogV1Path, "utf8"),
+      readFile(catalogV11Path, "utf8"),
+      readFile(catalogV12Path, "utf8"),
+      readFile(catalogV13Path, "utf8"),
+    ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
   catalogV12 = JSON.parse(catalogV12Text) as Catalog;
+  catalogV13 = JSON.parse(catalogV13Text) as Catalog;
 });
 
 describe("contract reason catalog revision", () => {
@@ -115,6 +124,35 @@ describe("contract reason catalog revision", () => {
     });
     // The recovery text is what the preflight embeds, so it must name the floor.
     expect(reason?.recovery).toContain("24.0.0");
+  });
+
+  it("preserves revision 1.2 and appends the orientation reason", () => {
+    expect(createHash("sha256").update(catalogV13Text).digest("hex")).toBe(
+      "1cb81629cbd8aa2867314d5309715b1fba9f95250aa714d98b81951e991c17fa",
+    );
+    expect(catalogV13.contractVersion).toBe("1.0.0");
+    expect(catalogV13.reasons.slice(0, catalogV12.reasons.length)).toEqual(
+      catalogV12.reasons,
+    );
+    expect(catalogV13.reasons).toHaveLength(84);
+    expect(
+      catalogV13.reasons
+        .slice(catalogV12.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["runtime.orientation_ok"]);
+  });
+
+  it("lets orientation output succeed without claiming evidence or mutation", () => {
+    expect(
+      catalogV13.reasons.find(({ code }) => code === "runtime.orientation_ok"),
+    ).toMatchObject({
+      status: "success",
+      exitCode: 0,
+      evidence: "optional",
+      stateChanged: false,
+      retryable: false,
+      recovery: null,
+    });
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

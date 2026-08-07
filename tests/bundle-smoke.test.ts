@@ -52,9 +52,12 @@ describe("standalone runtime bundle", () => {
     const result = execute("--help");
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe(
-      "Usage: yoda [--expect <version>] [--help | --version | handshake]\n",
+    expect(result.stdout.split("\n")[0]).toBe(
+      "Usage: yoda [--expect <version>] [--json] <command>",
     );
+    for (const command of ["handshake", "help", "version"]) {
+      expect(result.stdout).toContain(`  ${command}`);
+    }
     expect(result.stderr).toBe("");
   });
 

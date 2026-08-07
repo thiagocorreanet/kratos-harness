@@ -38,7 +38,7 @@ afterAll(() => {
 async function corruptCore(replacement: string): Promise<void> {
   const bundle = await readFile(core, "utf8");
   const corrupted = bundle.replace(
-    "Usage: yoda [--expect <version>] [--help | --version | handshake]",
+    "Usage: yoda [--expect <version>] [--json] <command>",
     replacement,
   );
   expect(corrupted).not.toBe(bundle);
@@ -78,12 +78,32 @@ describe("package verifier", () => {
   });
 
   it("rejects a fake node-prefixed external import", async () => {
-    const metadata = await readFile(metadataFile, "utf8");
-    const importsMarker = '"imports": []';
-    const outputImportsIndex = metadata.lastIndexOf(importsMarker);
-    expect(outputImportsIndex).toBeGreaterThan(-1);
-    const corruptedMetadata = `${metadata.slice(0, outputImportsIndex)}"imports": [{"external":true,"kind":"dynamic-import","path":"node:not-a-real-builtin"}]${metadata.slice(outputImportsIndex + importsMarker.length)}`;
-    await writeFile(metadataFile, corruptedMetadata, "utf8");
+    const metadata = JSON.parse(await readFile(metadataFile, "utf8")) as {
+      outputs: Record<
+        string,
+        {
+          imports: {
+            external: boolean;
+            kind: string;
+            path: string;
+          }[];
+        }
+      >;
+    };
+    const output = Object.values(metadata.outputs)[0];
+    expect(output).toBeDefined();
+    if (output === undefined)
+      throw new Error("Build output metadata is absent");
+    output.imports.push({
+      external: true,
+      kind: "dynamic-import",
+      path: "node:not-a-real-builtin",
+    });
+    await writeFile(
+      metadataFile,
+      `${JSON.stringify(metadata, null, 2)}\n`,
+      "utf8",
+    );
 
     expect(verify).toThrow();
   });

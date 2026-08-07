@@ -10,6 +10,8 @@ export type {
   ContractFailureResult,
   ContractFamily,
 } from "./compatibility.js";
+export { REASON_CATALOG, reasonPolicy } from "./reasons.js";
+export type { ReasonPolicy } from "./reasons.js";
 export type {
   AdapterMessageV1,
   ApprovalV1,

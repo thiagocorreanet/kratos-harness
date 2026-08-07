@@ -207,8 +207,12 @@ function validateResultAgainstReason(result, reason, validateResult) {
       throw validationFailure(`result ${property} conflicts with its reason`);
     }
   }
-  if (!reason.stateChanged && result.stateChanged) {
-    throw validationFailure("result makes a false state mutation claim");
+  if (result.stateChanged !== reason.stateChanged) {
+    throw validationFailure(
+      result.stateChanged
+        ? "result makes a false state mutation claim"
+        : "result state mutation claim conflicts with its reason",
+    );
   }
   if (reason.evidence === "required" && result.evidence.length === 0) {
     throw validationFailure("required evidence is absent");
@@ -271,7 +275,7 @@ function rendererContract() {
       readFileSync(
         join(
           repositoryRoot,
-          "packages/contracts/catalogs/reason-codes.v1.2.json",
+          "packages/contracts/catalogs/reason-codes.v1.3.json",
         ),
         "utf8",
       ),

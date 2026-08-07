@@ -10,17 +10,23 @@ let guide: string;
 let readme: string;
 let schemaIndex: string;
 let fixtureIndex: string;
+let resultContract: string;
 
 beforeAll(async () => {
-  [guide, readme, schemaIndex, fixtureIndex] = await Promise.all([
-    readFile(
-      join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
-      "utf8",
-    ),
-    readFile(join(repositoryRoot, "README.md"), "utf8"),
-    readFile(join(repositoryRoot, "schemas/README.md"), "utf8"),
-    readFile(join(repositoryRoot, "fixtures/README.md"), "utf8"),
-  ]);
+  [guide, readme, schemaIndex, fixtureIndex, resultContract] =
+    await Promise.all([
+      readFile(
+        join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, "README.md"), "utf8"),
+      readFile(join(repositoryRoot, "schemas/README.md"), "utf8"),
+      readFile(join(repositoryRoot, "fixtures/README.md"), "utf8"),
+      readFile(
+        join(repositoryRoot, "docs/compatibility/result-contract.md"),
+        "utf8",
+      ),
+    ]);
 });
 
 describe("contract versioning documentation", () => {
@@ -41,7 +47,10 @@ describe("contract versioning documentation", () => {
     expect(guide).toContain("byte-preserving");
     expect(guide).toContain("reason-codes.v1.1.json");
     expect(guide).toContain("reason-codes.v1.2.json");
+    expect(guide).toContain("reason-codes.v1.3.json");
     expect(guide).toContain("runtime.node_unsupported");
+    expect(resultContract).toContain("reason-codes.v1.3.json");
+    expect(resultContract).toContain("runtime.orientation_ok");
   });
 
   it("keeps README status honest while publishing contract infrastructure", () => {
