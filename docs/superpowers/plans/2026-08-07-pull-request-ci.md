@@ -224,7 +224,7 @@ Document the use of `pull_request`, read-only permissions, no secret references,
 no persisted credentials, standard hosted runner, and the relevant GitHub event
 contract. Include the implementation and test pull requests plus all run URLs.
 
-- [ ] **Step 8: Merge the evidence pull request and close issue #7**
+- [x] **Step 8: Merge the evidence pull request and close issue #7**
 
 Use an automatic closure keyword only in this final evidence pull request.
 Confirm the issue is closed after merge and then inspect the next sequential issue.
