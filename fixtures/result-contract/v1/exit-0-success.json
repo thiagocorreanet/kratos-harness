@@ -1,0 +1,18 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "success",
+  "exitCode": 0,
+  "reasonCode": "trail.ok",
+  "summary": "The current specification was approved and advanced to implementation.",
+  "why": [],
+  "evidence": [
+    {
+      "kind": "event",
+      "ref": ".brain/runs/0001-login/events.jsonl",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "stateChanged": true,
+  "retryable": false,
+  "recovery": null
+}
