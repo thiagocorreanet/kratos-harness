@@ -179,7 +179,7 @@ git commit -s -m "docs: publish Go v3 baseline evidence"
 - Consumes: Tasks 1–3.
 - Produces: reviewed green pull request, closed issue #9, and updated epic #8 child status.
 
-- [ ] **Step 1: Run full public verification**
+- [x] **Step 1: Run full public verification**
 
 ```bash
 npm ci
@@ -189,13 +189,13 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.y
 git diff --check
 ```
 
-- [ ] **Step 2: Run private read-only verification**
+- [x] **Step 2: Run private read-only verification**
 
 Verify source, distribution, installed binary, and plugin projection from
 explicit paths. Confirm `git status` remains clean in both public and legacy
 repositories.
 
-- [ ] **Step 3: Obtain independent review**
+- [x] **Step 3: Obtain independent review**
 
 Review acceptance coverage, hash correctness, command safety, privacy,
 provenance, PRD locking, and claim accuracy. Resolve all valid findings and
