@@ -1,1 +1,3 @@
-const intentionallyUnused = "lint failure probe";
+const expectedNumber: number = "type failure probe";
+
+export { expectedNumber };
