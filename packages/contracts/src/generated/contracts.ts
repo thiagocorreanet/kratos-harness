@@ -1,10 +1,10 @@
 // Generated from registered JSON Schemas. Do not edit.
-// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:b0e61944a2eb93215c46d23bdae08a0e9905a43ccf8edd91eef63f76fc63fafe
+// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:d68edbd041f1f6f3d6783008714d4b2dd201b698fd61644811109dd5fd0f1719
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:44c6490092a4effd67783f79ff19882be82059dc6b7b6524bb4417200a2ea73e
-// source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:06bf5fd6429b6bdd373bbb24e3cfa14e3d87a7797281cec9b1c1da46dbb2e38a
-// source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:471159581ca5b7ad791587723f938f3fa9befff2ebe6b1a0fc1e9b5427cec72c
+// source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:159ef49a1893419d1f391bfef785b0473f9fa42cb61a954fc74de0a4cd4aa120
+// source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:469d406fd413d6af7cea1b03415663674795dadf3ba48af749af999be648028c
 // source: https://mestre-yoda.dev/schemas/state/lock/v1 sha256:04891b0af102b4c71ad1fade1413e0729bd6d0367540453d2fe997270ac236a4
-// source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:698bcf9534ba820e0e807182c2d82dd0f1bd25031c79a6b7774a1674398c7cb6
+// source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:4fcb9a1341e7ee52dd33bed1b3a2b497ff9b3fc0573733ab7a23c100ca3b188e
 // source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:78fc5822e1cbf79b0185ceb8d40b64394acfcbb2fc2050526c702c3dc62efebb
 // source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:6792451a6fb91370c8ca25e2943608837e9287d463f8d5377c8adaa8e1427677
 

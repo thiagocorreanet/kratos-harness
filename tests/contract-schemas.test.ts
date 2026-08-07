@@ -97,6 +97,39 @@ describe("versioned state and host schemas", () => {
     });
   });
 
+  it.each(["\\Windows\\secret", "..\\secret", "foo\\..\\secret"])(
+    "rejects Windows-rooted and backslash-traversal reference %s",
+    (unsafeReference) => {
+      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      ajv.addSchema(resultSchema);
+      for (const { schema, fixture, fixtureName } of loaded.filter(
+        ({ fixtureName }) =>
+          [
+            "adapter-message.json",
+            "event.json",
+            "evidence.json",
+            "migration.json",
+          ].includes(fixtureName),
+      )) {
+        const candidate = structuredClone(fixture);
+        if (fixtureName === "adapter-message.json") {
+          candidate.payload = {
+            ...(candidate.payload as JsonObject),
+            ref: unsafeReference,
+          };
+        } else if (fixtureName === "event.json") {
+          candidate.artifactRefs = [unsafeReference];
+        } else if (fixtureName === "evidence.json") {
+          candidate.ref = unsafeReference;
+        } else {
+          candidate.authorizationRef = unsafeReference;
+        }
+        const validate = ajv.compile(schema);
+        expect(validate(candidate), fixtureName).toBe(false);
+      }
+    },
+  );
+
   it("ships eight payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [
