@@ -66,8 +66,10 @@ names, counts, and a provenance ID.
 
 The discovery namespaces are:
 
-- `commands`: active top-level commands, nested command forms, help/version
-  aliases, global flags, and intentionally retired phase commands;
+- `commands`, `command_forms`, `aliases`, `global_flags`, `flags`,
+  `io_contracts`, `exit_codes`, and `retired_commands`: the exhaustive CLI
+  grammar, command-scoped options, stream boundaries, process outcomes, and
+  intentionally unavailable phase commands;
 - `packages`: every non-test Go package in the frozen module, including both
   binaries and embedded-data packages;
 - `schemas`: every embedded schema filename;
@@ -90,10 +92,13 @@ references. Names and paths are metadata permitted by the issue #9 publication
 boundary; private file contents remain denied.
 
 The checker supports an optional paired `--source <checkout> --dist-source
-<checkout>` mode. It verifies both immutable commits, reruns deterministic
-source and distribution discovery, compares the sets, and emits only category
-counts and pass/fail status. The default public mode is offline and never
-searches for a private checkout.
+<checkout>` mode. It requires clean detached checkouts at both immutable
+commits, reruns deterministic source and distribution discovery, verifies all
+catalog references against those trees, compares the sets, and emits only
+category counts and pass/fail status. The default public mode is offline and
+never searches for a private checkout. A pinned semantic digest makes the
+published discovery snapshot immutable and prevents its own references from
+becoming a self-authorizing allowlist.
 
 ## 5. Matrix row contract
 
@@ -254,9 +259,10 @@ Tests are contract-first:
 1. a matrix contract test fails while catalogs are absent, then proves required
    coverage, exact identity, PRD priority, verification shapes, and initial
    zero-percent status;
-2. checker mutation tests remove a row, remove a verification case, duplicate a
-   discovery mapping, falsify a passed evidence path, weaken a P0 requirement,
-   and inject an unsafe source path; every mutation must fail;
+2. checker mutation tests remove a row or verification case, duplicate a
+   discovery mapping or legacy reference, falsify a passed evidence path,
+   weaken a P0 requirement, remove a priority population, invent a source
+   reference, and inject Unix or Windows absolute paths; every mutation fails;
 3. an authorized private run cross-checks command/package/schema/plugin/file
    discovery at the frozen tag;
 4. the repository verification chain runs the offline checker before build and
@@ -269,7 +275,7 @@ The PR records the private cross-check only as identities, counts, and status.
 This change is additive and changes no current runtime behavior. It freezes the
 worklist that subsequent issues must satisfy. Issue #11 owns universal result,
 reason, and exit-code semantics; issue #12 owns versioned runtime schemas; issue
-#13 owns executable golden payloads and differential execution. This issue
+Issue #13 owns executable golden payloads and differential execution. This issue
 names those requirements without preempting their contract designs.
 
 All public implementation, tests, catalog organization, and prose are original.

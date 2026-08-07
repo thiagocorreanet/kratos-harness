@@ -5,6 +5,7 @@ import {
   calculateParity,
   discoverLegacy,
   loadCatalogs,
+  validatePrivateReferences,
   validateDiscovery,
   validateMatrix,
 } from "./lib/parity-inventory.mjs";
@@ -76,7 +77,7 @@ function printReport(discovery, matrix) {
   const totalKeys = Object.values(discovery.namespaces).flat().length;
   const parity = calculateParity(matrix);
   console.log(
-    `discovery ${discovery.oracle_id}: verified (${totalKeys} keys; ${discovery.namespaces.commands.length} commands; ${discovery.namespaces.packages.length} packages; ${discovery.namespaces.schemas.length} schemas; ${discovery.namespaces.plugin_files.length} plugin files; ${discovery.namespaces.workflows.length} workflows; ${discovery.namespaces.reason_codes.length} reason codes)`,
+    `discovery ${discovery.oracle_id}: verified (${totalKeys} keys; ${discovery.namespaces.commands.length} commands; ${discovery.namespaces.command_forms.length} command forms; ${discovery.namespaces.flags.length} command flags; ${discovery.namespaces.io_contracts.length} I/O contracts; ${discovery.namespaces.exit_codes.length} exit classes; ${discovery.namespaces.packages.length} packages; ${discovery.namespaces.schemas.length} schemas; ${discovery.namespaces.plugin_files.length} plugin files; ${discovery.namespaces.workflows.length} workflows; ${discovery.namespaces.reason_codes.length} reason codes)`,
   );
   for (const label of ["overall", "P0", "P1"]) {
     const value = parity[label];
@@ -96,6 +97,11 @@ function main(argv) {
   validateMatrix(discovery, matrix, repositoryRoot);
   if (options.source !== undefined) {
     const actual = discoverLegacy(options.source, options["dist-source"]);
+    validatePrivateReferences(
+      discovery,
+      options.source,
+      options["dist-source"],
+    );
     assertPrivateDiscovery(discovery, actual);
   }
   printReport(discovery, matrix);

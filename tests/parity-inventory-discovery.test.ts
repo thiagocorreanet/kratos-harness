@@ -209,8 +209,104 @@ const reasonCodes = [
   "run.resuming",
 ];
 
+const commandForms = [
+  "ac.check",
+  "ac.flip",
+  "bench.gaps",
+  "gen.codex-agents",
+  "guard.check",
+  "guardrails.init",
+  "migrate.brain",
+  "partition.check",
+  "unlock.stop-loss",
+  "views.sync",
+];
+
+const flags = [
+  "ac.check.--root",
+  "ac.flip.--from-eval",
+  "ac.flip.--root",
+  "bench.gaps.--date",
+  "bench.gaps.--detect",
+  "bench.gaps.--fixtures",
+  "bench.gaps.--force",
+  "bench.gaps.--model",
+  "bench.gaps.--out",
+  "bench.gaps.--runs",
+  "bench.gaps.--timeout",
+  "bench.gaps.--yes",
+  "budgets.--root",
+  "complete.--root",
+  "continue.--approve",
+  "continue.--gate",
+  "continue.--refuse",
+  "continue.--revise",
+  "continue.--root",
+  "dashboard.--json",
+  "dashboard.--root",
+  "doctor.--init",
+  "doctor.--root",
+  "doctor.--worktree-local",
+  "done.--root",
+  "evidence.--root",
+  "gaps-sync.--root",
+  "gen.codex-agents.--root",
+  "guard.check.--root",
+  "guardrails.init.--root",
+  "handoff.--root",
+  "hook.--host",
+  "hook.--root",
+  "init.--answers",
+  "init.--detect-root",
+  "init.--force",
+  "init.--host",
+  "init.--merge",
+  "init.--root",
+  "init.--worktree-local",
+  "judge.--executor-agent",
+  "judge.--judge-agent",
+  "judge.--root",
+  "migrate.--root",
+  "migrate.brain.--root",
+  "migrate.brain.--yes",
+  "objective.--replace",
+  "objective.--root",
+  "partition.check.--root",
+  "start.--root",
+  "stats.--root",
+  "stats.--write",
+  "status.--root",
+  "step.--maintenance",
+  "step.--rebaseline",
+  "step.--root",
+  "unlock.stop-loss.--root",
+  "unlock.stop-loss.--run",
+  "views.sync.--root",
+];
+
 describe("Go v3 discovery snapshot", () => {
   it("captures exact source and distribution sets", () => {
+    expect(discovery.namespaces.command_forms?.map(({ name }) => name)).toEqual(
+      commandForms,
+    );
+    expect(discovery.namespaces.flags?.map(({ name }) => name)).toEqual(flags);
+    expect(discovery.namespaces.io_contracts?.map(({ name }) => name)).toEqual([
+      "stderr.errors-and-reasons",
+      "stdin.bench-gaps-detect",
+      "stdin.hook-payload",
+      "stdin.init-answers",
+      "stdin.migrate-brain-confirmation",
+      "stdin.step-maintenance",
+      "stdin.unlock-confirmation",
+      "stdin.validate-dash",
+      "stdout.success-and-echo",
+    ]);
+    expect(discovery.namespaces.exit_codes?.map(({ name }) => name)).toEqual([
+      "0.success-or-hook-continue",
+      "1-domain-or-validation-failure",
+      "2-usage-or-contract-failure",
+      "3-gate-or-judge-refusal",
+    ]);
     expect(discovery.namespaces.packages?.map(({ name }) => name)).toEqual(
       packages,
     );
@@ -294,5 +390,24 @@ describe("Go v3 discovery snapshot", () => {
       expect(result.stderr).toMatch(/^Parity inventory validation failed:/u);
     },
   );
+
+  it("rejects a private checkout that is not clean, detached, and pinned", () => {
+    const script = [
+      `import { validatePrivateCheckoutIdentity } from ${JSON.stringify(inventoryLibrary)};`,
+      `try { validatePrivateCheckoutIdentity({ sourceTagObject: "720f0a35074451208a0673324d223803add249e0", sourceTagCommit: "632f1e9bb283cf83412ef3e9e0b642daefdb0784", distributionTagCommit: "e6e6803c9329a53d362217a8f829a2801c83609d", sourceHead: "wrong", distributionHead: "e6e6803c9329a53d362217a8f829a2801c83609d", sourceBranch: "main", distributionBranch: "HEAD", sourceStatus: " M cmd/yoda/help.go", distributionStatus: "" }); }`,
+      `catch (error) { console.error(error.message); process.exitCode = 1; }`,
+    ].join("\n");
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", script],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe(
+      "Parity inventory validation failed: private discovery identity does not match\n",
+    );
+    expect(result.stderr).not.toContain("cmd/yoda/help.go");
+  });
 });
 import { spawnSync } from "node:child_process";

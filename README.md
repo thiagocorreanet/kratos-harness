@@ -35,6 +35,7 @@ This repository is intentionally public from the beginning so that its architect
 | --- | --- |
 | Architecture and implementation backlog | Available |
 | Go compatibility baseline | [Frozen at v0.6.5](docs/compatibility/go-v3-v0.6.5-baseline.md) |
+| Go-to-TypeScript parity inventory | [Complete; parity evidence at 0.00%](docs/compatibility/parity-inventory.md) |
 | TypeScript deterministic runtime | [Foundation available](docs/development/toolchain.md) |
 | Claude Code integration | Planned |
 | OpenAI Codex integration | Planned |

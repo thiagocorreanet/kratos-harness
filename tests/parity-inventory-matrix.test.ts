@@ -121,6 +121,30 @@ describe("living Go v3 parity matrix", () => {
       "explicit P0 behavior",
       "matrix.rows.find((row) => row.priority === 'P0').expected_behavior = 'Works like legacy.';",
     ],
+    [
+      "specific P0 behavior",
+      "matrix.rows.find((row) => row.priority === 'P0').expected_behavior = `Normal: preserve the frozen contract with deterministic observable results. Failure: reject invalid, unavailable, or inconsistent inputs without unauthorized state mutation and expose the contract's stable failure class. Edge: verify empty, repeated, malformed, concurrency-sensitive, and platform-sensitive inputs.`;",
+    ],
+    [
+      "domain-specific P0 behavior",
+      "{ const row = matrix.rows.find((candidate) => candidate.priority === 'P0' && candidate.category !== 'prd'); const name = Object.values(discovery.namespaces).flat().find((entry) => entry.key === row.covers[0]).name; row.expected_behavior = `Normal: ${name} works like the predecessor for ordinary inputs and produces deterministic observable results across supported hosts. Failure: invalid, unavailable, or inconsistent inputs fail safely without unauthorized mutation and retain a stable failure class. Edge: empty, repeated, malformed, concurrency-sensitive, and platform-sensitive inputs remain compatible.`; }",
+    ],
+    [
+      "unique legacy references",
+      "matrix.rows[0].legacy_refs.push(matrix.rows[0].legacy_refs[0]);",
+    ],
+    [
+      "nonempty P0 population",
+      "for (const row of matrix.rows) if (row.priority === 'P0') row.priority = 'P2';",
+    ],
+    [
+      "nonempty P1 population",
+      "for (const row of matrix.rows) if (row.priority === 'P1') row.priority = 'P2';",
+    ],
+    [
+      "related evidence",
+      "{ const row = matrix.rows[0]; row.status = 'parity'; for (const evidence of Object.values(row.verification)) { evidence.status = 'passed'; evidence.path = 'package.json'; } }",
+    ],
     ["false parity", "matrix.rows[0].status = 'parity';"],
   ])("rejects a matrix without %s", (_name, mutation) => {
     const result = runValidation(mutation);

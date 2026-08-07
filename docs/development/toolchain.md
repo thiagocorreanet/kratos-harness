@@ -38,6 +38,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | `npm test` | Run unit and clean-room bundle tests once |
 | `npm run test:coverage` | Enforce 100% coverage on the initial CLI decision surface |
 | `npm run oracle:verify` | Validate the public metadata-only Go v3 oracle catalog offline |
+| `npm run parity:check` | Validate exhaustive legacy coverage and report objective TypeScript parity |
 | `npm run build` | Rebuild the standalone runtime artifact |
 | `npm run package:verify` | Inspect and execute the staged artifact outside the checkout |
 | `npm run verify` | Run the complete offline validation chain in dependency order |
@@ -110,6 +111,13 @@ explicit source, distribution, binary, and plugin-cache paths to recompute every
 applicable digest. It never searches a home directory or downloads private
 material. A frozen oracle establishes measurement identity; it does not claim
 that TypeScript parity has already been implemented.
+
+The [parity inventory](../compatibility/parity-inventory.md) maps 386 frozen
+discovery keys into 384 owned and independently verifiable compatibility rows.
+`npm run parity:check` rejects missing or duplicate coverage, incomplete P0/P1
+requirements, invalid evidence references, and unsupported parity claims. It
+currently reports `0 / 384 (0.00%)`: the worklist is complete, while behavior
+implementation and differential evidence remain future work.
 
 ## Runtime artifact
 

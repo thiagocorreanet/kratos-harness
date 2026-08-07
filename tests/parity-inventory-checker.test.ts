@@ -73,10 +73,10 @@ describe("parity inventory completeness CLI", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
       [
-        "discovery go-v3-v0.6.5: verified (304 keys; 30 commands; 49 packages; 14 schemas; 59 plugin files; 5 workflows; 55 reason codes)",
-        "parity overall: 0 / 302 (0.00%)",
-        "parity P0: 0 / 122 (0.00%)",
-        "parity P1: 0 / 165 (0.00%)",
+        "discovery go-v3-v0.6.5: verified (386 keys; 30 commands; 10 command forms; 59 command flags; 9 I/O contracts; 4 exit classes; 49 packages; 14 schemas; 59 plugin files; 5 workflows; 55 reason codes)",
+        "parity overall: 0 / 384 (0.00%)",
+        "parity P0: 0 / 195 (0.00%)",
+        "parity P1: 0 / 174 (0.00%)",
         "",
       ].join("\n"),
     );
@@ -121,6 +121,57 @@ describe("parity inventory completeness CLI", () => {
         const command = namespaces.commands?.[0];
         if (command === undefined) throw new Error("missing test command");
         command.legacy_refs = ["C:\\private\\source.go"];
+      },
+    ],
+    [
+      "Unix absolute path",
+      (discovery: Record<string, unknown>) => {
+        const namespaces = discovery.namespaces as Record<
+          string,
+          Record<string, unknown>[]
+        >;
+        const command = namespaces.commands?.[0];
+        if (command === undefined) throw new Error("missing test command");
+        command.legacy_refs = ["/root/customer-source.go"];
+      },
+    ],
+    [
+      "invented legacy reference",
+      (discovery: Record<string, unknown>) => {
+        const namespaces = discovery.namespaces as Record<
+          string,
+          Record<string, unknown>[]
+        >;
+        const command = namespaces.commands?.[0];
+        if (command === undefined) throw new Error("missing test command");
+        command.legacy_refs = ["does/not/exist.go#invented"];
+      },
+    ],
+    [
+      "duplicate discovery reference",
+      (discovery: Record<string, unknown>) => {
+        const namespaces = discovery.namespaces as Record<
+          string,
+          Record<string, unknown>[]
+        >;
+        const command = namespaces.commands?.[0];
+        if (command === undefined) throw new Error("missing test command");
+        const references = command.legacy_refs as string[];
+        references.push(references[0] ?? "cmd/yoda/help.go");
+      },
+    ],
+    [
+      "duplicate discovery name",
+      (discovery: Record<string, unknown>) => {
+        const namespaces = discovery.namespaces as Record<
+          string,
+          Record<string, unknown>[]
+        >;
+        const commands = namespaces.commands;
+        if (commands?.[0] === undefined || commands[1] === undefined) {
+          throw new Error("missing test commands");
+        }
+        commands[1].name = commands[0].name;
       },
     ],
     [

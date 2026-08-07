@@ -54,10 +54,7 @@ interface MatrixRow {
     VerificationCase
   >;
   readonly status:
-    | "not_started"
-    | "in_progress"
-    | "parity"
-    | "intentional_difference";
+    "not_started" | "in_progress" | "parity" | "intentional_difference";
   readonly intentional_difference: null | Record<string, unknown>;
 }
 
@@ -119,9 +116,13 @@ describe("Go v3 parity inventory catalog", () => {
       },
       provenance_id: "private-go-v3-hash-only",
     });
-    expect(
-      discovery.namespaces.commands?.map(({ name }) => name),
-    ).toEqual(activeCommands);
+    expect(discovery.namespaces.commands?.map(({ name }) => name)).toEqual(
+      activeCommands,
+    );
+    expect(discovery.namespaces.command_forms).toHaveLength(10);
+    expect(discovery.namespaces.flags).toHaveLength(59);
+    expect(discovery.namespaces.io_contracts).toHaveLength(9);
+    expect(discovery.namespaces.exit_codes).toHaveLength(4);
     expect(discovery.namespaces.retired_commands).toHaveLength(8);
     expect(discovery.namespaces.packages).toHaveLength(49);
     expect(discovery.namespaces.schemas).toHaveLength(14);
@@ -132,11 +133,15 @@ describe("Go v3 parity inventory catalog", () => {
       [
         "aliases",
         "benchmarks",
+        "command_forms",
         "commands",
         "documentation",
+        "exit_codes",
+        "flags",
         "generated_files",
         "global_flags",
         "human_gates",
+        "io_contracts",
         "packages",
         "phases",
         "plugin_files",

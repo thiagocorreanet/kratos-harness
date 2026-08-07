@@ -385,7 +385,7 @@ git commit -s -m "test: enforce parity inventory completeness"
 
 - Produces: contributor workflow, reproducible evidence, reviewed PR, closed issue #10, and updated epic #8.
 
-- [ ] **Step 1: Document the matrix workflow**
+- [x] **Step 1: Document the matrix workflow**
 
 Explain discovery versus matrix authority, every row field, evidence state
 transitions, parity formula, intentional-difference approval, public/private
@@ -394,7 +394,7 @@ renumbering contract IDs. Publish current overall/P0/P1 counts directly from
 the checker output and clearly state that inventory completion is not runtime
 parity.
 
-- [ ] **Step 2: Add discoverability and focused documentation checks**
+- [x] **Step 2: Add discoverability and focused documentation checks**
 
 Link the inventory from README status and the toolchain guide. Run:
 
@@ -405,7 +405,7 @@ lychee --config .lychee.toml docs/compatibility/parity-inventory.md
 git diff --check
 ```
 
-- [ ] **Step 3: Run authorized private discovery**
+- [x] **Step 3: Run authorized private discovery**
 
 ```bash
 node scripts/check-parity-inventory.mjs \
@@ -413,11 +413,13 @@ node scripts/check-parity-inventory.mjs \
   --dist-source <authorized-distribution-checkout>
 ```
 
-Expected: immutable source identity, 30 commands, 49 packages, 14 schemas, 59
-plugin files, five workflows, and all closed reason codes match without private
-payload output. Confirm both source repositories remain clean.
+Expected: clean detached immutable source identity; 30 top-level commands, 10
+nested forms, 59 command flags, nine stream contracts, four exit classes, 49
+packages, 14 schemas, 59 plugin files, five workflows, and all closed reason
+codes match without private payload output. Confirm both repositories remain
+clean.
 
-- [ ] **Step 4: Run full verification and independent review**
+- [x] **Step 4: Run full verification and independent review**
 
 ```bash
 npm ci
@@ -444,4 +446,4 @@ git commit -s -m "docs: publish parity inventory workflow"
 Open a PR with `Closes #10`, design rationale, compatibility impact, exact
 public/private verification results, failure evidence, and the complete
 provenance checklist. Merge only after CI and documentation checks pass. Confirm
-#10 closed, mark it complete in epic #8, sync `main`, and begin issue #11.
+issue #10 closed, mark it complete in epic #8, sync `main`, and begin issue #11.
