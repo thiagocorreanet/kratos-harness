@@ -53,4 +53,3 @@ file, and case-collision attacks.
   installation assets and prevents portable project-level backup.
 - **Use a mandatory remote database:** breaks offline use and adds privacy,
   tenancy, authentication, and availability dependencies.
-

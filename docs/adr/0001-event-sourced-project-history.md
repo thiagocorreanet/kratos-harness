@@ -51,4 +51,3 @@ rebuilt only through an explicit audit or repair operation.
   makes workflow correctness depend on user commit behavior.
 - **A remote event service:** conflicts with local-first, offline operation and
   introduces privacy, availability, and tenancy requirements before beta.
-

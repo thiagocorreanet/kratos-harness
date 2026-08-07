@@ -49,4 +49,3 @@ model-reported identity.
   and makes conformance difficult to prove.
 - **Restrict all hosts to the weakest capability set:** sacrifices preventive
   controls without improving the authoritative runtime checks.
-

@@ -22,4 +22,3 @@ Accepted ADRs are immutable historical records. A changed structural decision
 adds a new ADR that supersedes the old one, and both records link to each other.
 Implementation pull requests that change a structural boundary cite the
 governing ADR and explain compatibility, state, migration, and security impact.
-

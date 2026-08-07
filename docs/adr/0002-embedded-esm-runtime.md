@@ -50,4 +50,3 @@ rejects accidental dynamic loads from the development workspace.
 - **Install a global Node CLI:** repeats the PATH and version-drift problem.
 - **Ship an unbundled npm workspace:** requires runtime `node_modules`, expands
   the supply-chain surface, and weakens artifact coherence.
-

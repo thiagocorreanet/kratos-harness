@@ -507,4 +507,3 @@ adapters and a shared conformance contract. The Go v3 SDD process—especially
 PRD discovery, structured output, lineage, independent review, and human
 approval—remains the compatibility baseline. Distribution and observability
 change; workflow meaning does not.
-
