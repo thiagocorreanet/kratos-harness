@@ -6,9 +6,10 @@ Preview, Beta, or Stable. The linked issues remain the detailed source of scope;
 this document is the promotion contract.
 
 No calendar date or feature demo promotes the project. Every criterion for the
-next stage must be backed by current, reproducible evidence. A waived criterion
-requires a public governance decision that explains the risk; marketing language
-cannot waive a safety or compatibility gate.
+next stage must be backed by current, reproducible evidence. Promotion criteria
+cannot be waived. If equivalent evidence does not exist, the project remains at
+its current maturity stage while maintainers revise scope or close the gap through
+a separately reviewed public change.
 
 ## Experimental
 

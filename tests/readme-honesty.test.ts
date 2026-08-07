@@ -8,14 +8,19 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 let readme: string;
 let roadmap: string;
-let packageManifest: string;
+let packageManifest: { scripts: Record<string, string> };
 
 beforeAll(async () => {
-  [readme, roadmap, packageManifest] = await Promise.all([
+  const [readmeText, roadmapText, packageText] = await Promise.all([
     readFile(join(repositoryRoot, "README.md"), "utf8"),
     readFile(join(repositoryRoot, "ROADMAP.md"), "utf8"),
     readFile(join(repositoryRoot, "package.json"), "utf8"),
   ]);
+  readme = readmeText;
+  roadmap = roadmapText;
+  packageManifest = JSON.parse(packageText) as {
+    scripts: Record<string, string>;
+  };
 });
 
 describe("README honesty", () => {
@@ -38,19 +43,35 @@ describe("README honesty", () => {
   });
 
   it("shows only executable clean-checkout development commands", () => {
-    const shellBlocks = [...readme.matchAll(/```bash\n([\s\S]*?)```/g)];
-    expect(shellBlocks).toHaveLength(1);
-    expect(shellBlocks[0]?.[1]?.trim().split("\n")).toEqual([
+    const shellBlocks = [
+      ...readme.matchAll(/```(?:bash|sh|console)\n([\s\S]*?)```/g),
+    ];
+    const commands = [
       "npm ci",
       "npm run spellcheck",
       "npm run verify",
       "npm run build",
       "npm run package:verify",
-    ]);
+    ];
+    expect(shellBlocks).toHaveLength(1);
+    expect(shellBlocks[0]?.[1]?.trim().split("\n")).toEqual(commands);
 
-    for (const script of ["spellcheck", "verify", "build", "package:verify"]) {
-      expect(packageManifest).toContain(`"${script}"`);
-    }
+    const documentedNpmCommands = new Set(
+      readme.match(/npm (?:ci|run [a-z:-]+)/g) ?? [],
+    );
+    expect([...documentedNpmCommands].sort()).toEqual([...commands].sort());
+
+    expect(packageManifest.scripts).toMatchObject({
+      spellcheck: 'cspell --no-progress --show-suggestions "**/*.md"',
+      build: "node scripts/build.mjs",
+      "package:verify": "node scripts/verify-package.mjs",
+      verify:
+        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify",
+    });
+    expect(commands.indexOf("npm run build")).toBeLessThan(
+      commands.indexOf("npm run package:verify"),
+    );
+    expect(readme).toContain("it requires the preceding build");
   });
 
   it("preserves the approved state and runtime boundaries", () => {

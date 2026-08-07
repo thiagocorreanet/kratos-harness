@@ -6,7 +6,7 @@
 
 > **A deterministic, observable Spec-Driven Development harness for AI coding agents.**
 
-**The model proposes. The runtime decides. The event log proves.**
+**The model will propose. The runtime will decide. The event log will prove.**
 
 [![Project Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
 [![Documentation](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml)
@@ -15,7 +15,7 @@
 
 Mestre Yoda is an open-source **Spec-Driven Development (SDD) harness** designed to make AI-assisted software delivery more reliable, explainable, and auditable.
 
-Instead of trusting an AI coding agent to remember every rule, infer every gate, and declare its own work complete, Mestre Yoda places a deterministic runtime around the development workflow. Agents can propose actions, but the harness validates state, enforces policies, records evidence, requires human approval where necessary, and explains why work may or may not continue.
+Instead of trusting an AI coding agent to remember every rule, infer every gate, and declare its own work complete, Mestre Yoda is designed to place a deterministic runtime around the development workflow. In the target architecture, agents propose actions while the harness validates state, enforces policies, records evidence, requires human approval where necessary, and explains why work may or may not continue.
 
 The project is being built for **Claude Code** and **OpenAI Codex**, with a host-neutral core designed to support additional coding agents in the future.
 
@@ -84,9 +84,12 @@ Long-running engineering work introduces problems that conversational memory can
 - plugin and runtime versions can drift when distributed separately;
 - completion claims may not be backed by reproducible evidence.
 
-Mestre Yoda addresses these problems with a robust SDD workflow in which state transitions, gates, approvals, migrations, and recovery rules are enforced by software rather than left entirely to model behavior.
+The Mestre Yoda design addresses these problems with an SDD workflow in which state transitions, gates, approvals, migrations, and recovery rules will be enforced by software rather than left entirely to model behavior.
 
 ## Core principles
+
+These principles are target invariants for the rewrite, not claims that the
+current smoke bundle implements them.
 
 ### Deterministic decisions
 
@@ -114,9 +117,10 @@ The new runtime is developed in TypeScript and distributed as a self-contained J
 
 A workflow is not complete because an agent says it is complete. Required tests, gates, evidence, handoff information, and human acceptance must agree with the current state.
 
-## How the SDD trail works
+## How the planned SDD trail will work
 
-Mestre Yoda follows one agent-driven trail from intent to accepted delivery:
+Mestre Yoda is designed to follow one agent-driven trail from intent to accepted
+delivery:
 
 ```mermaid
 flowchart LR
@@ -132,19 +136,22 @@ flowchart LR
     A -->|Approved| D[Done]
 ```
 
-The runtime is expected to support the primary trail operations `objective`, `start`, `continue`, and `done`, together with operational capabilities such as `status`, `doctor`, `explain`, `evidence`, `handoff`, `stats`, and `budgets`.
+The future runtime is expected to support the primary trail operations `objective`, `start`, `continue`, and `done`, together with operational capabilities such as `status`, `doctor`, `explain`, `evidence`, `handoff`, `stats`, and `budgets`.
 
-Manual phase jumping is not part of the design. The runtime determines which transition is valid from the current state and explains any blocked transition.
+Manual phase jumping is not part of the design. Once implemented, the runtime
+will determine which transition is valid from the current state and explain any
+blocked transition.
 
 ## Architecture
 
-Mestre Yoda separates the portable decision engine from host-specific integration and project-specific state.
+The target Mestre Yoda architecture separates the portable decision engine from
+host-specific integration and project-specific state.
 
 The canonical [Yoda Observable Architecture Specification](docs/superpowers/specs/2026-08-06-yoda-observable-architecture-design.md) defines the runtime, state, security, migration, testing, and rollout contracts. Structural choices and their consequences are indexed in the [Architecture Decision Records](docs/adr/README.md), and the required end-to-end architecture trace is recorded in [verification evidence](docs/architecture/verification.md).
 
 ```mermaid
 flowchart TB
-    subgraph Plugin[Installed plugin]
+    subgraph Plugin[Future plugin package]
         CC[Claude Code adapter]
         CX[Codex adapter]
         RT[Bundled runtime/yoda.mjs]
@@ -170,7 +177,7 @@ flowchart TB
 The central boundary is deliberate:
 
 ```text
-installed plugin/
+future plugin package/
 ├── runtime/yoda.mjs       # self-contained deterministic runtime
 ├── adapters/              # host-specific integration
 ├── skills/                # agent-facing workflows
@@ -184,7 +191,8 @@ user project/
 └── ...                    # the user's application
 ```
 
-The plugin contains the motor. The project contains only the memory and configuration required for that project.
+The future plugin will contain the motor. The project will contain only the
+memory and configuration required for that project.
 
 ## Planned capabilities
 
@@ -283,7 +291,7 @@ validation, tests with coverage, and a standalone bundle smoke check. Follow the
 [deterministic toolchain guide](docs/development/toolchain.md) to reproduce the
 complete validation sequence from a clean checkout.
 
-Every command below works from a clean checkout using Node.js `24.18.0` and npm
+Run this block in order from a clean checkout using Node.js `24.18.0` and npm
 `11.16.0`:
 
 ```bash
@@ -297,6 +305,14 @@ npm run package:verify
 The build creates `dist/plugin/runtime/yoda.mjs`; package verification copies
 only that file outside the checkout and exercises help/version. Passing these
 commands proves the repository foundation, not SDD product readiness.
+
+- `npm ci` reproduces the exactly locked development dependencies.
+- `npm run spellcheck` checks the tracked English Markdown.
+- `npm run verify` runs formatting, spelling, lint, typecheck, tests, coverage,
+  build, and package verification in order.
+- `npm run build` creates the internal standalone smoke bundle.
+- `npm run package:verify` validates its inventory, hash, and exact help/version
+  behavior outside the checkout; it requires the preceding build.
 
 ## Contributing
 
@@ -335,7 +351,9 @@ after they pass against versioned release artifacts.
 
 ### Is this just a prompt collection?
 
-No. Skills and prompts guide agent behavior, but deterministic state transitions, gates, validation, concurrency, migrations, and recovery belong to the runtime.
+No. Skills and prompts will guide agent behavior, but the target architecture
+assigns deterministic state transitions, gates, validation, concurrency,
+migrations, and recovery to the future runtime.
 
 ### Why TypeScript and JavaScript instead of Go?
 
@@ -343,7 +361,10 @@ TypeScript provides a productive development model while a bundled JavaScript ru
 
 ### Will Mestre Yoda modify my source code automatically?
 
-AI coding agents may propose and perform project work under their own host permissions. Mestre Yoda's role is to control and explain the SDD workflow, validate transitions, preserve evidence, and enforce delivery gates. Exact permissions and managed paths will be documented before release.
+AI coding agents may propose and perform project work under their own host
+permissions. The future Mestre Yoda runtime is designed to control and explain
+the SDD workflow, validate transitions, preserve evidence, and enforce delivery
+gates. Exact permissions and managed paths will be documented before release.
 
 ### Where does project state live?
 
