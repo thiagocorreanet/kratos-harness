@@ -3,14 +3,23 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { Ajv2020 } from "ajv/dist/2020.js";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+const repositoryRoot = join(import.meta.dirname, "..");
 const stub = join(import.meta.dirname, "fixtures/runtime/old-node.mjs");
 const template = join(
-  import.meta.dirname,
-  "../packages/runtime/src/boot/preflight.mjs",
+  repositoryRoot,
+  "packages/runtime/src/boot/preflight.mjs",
 );
 const roots: string[] = [];
+
+beforeAll(() => {
+  execFileSync(process.execPath, ["scripts/build.mjs"], {
+    cwd: repositoryRoot,
+    stdio: "pipe",
+  });
+});
 
 afterEach(async () => {
   await Promise.all(
@@ -117,6 +126,39 @@ describe("runtime preflight", () => {
     expect(result.stdout).not.toContain(entry);
     expect(result.stdout).not.toContain(tmpdir());
     expect(result.stderr).toBe("");
+  });
+
+  it("rejects an old interpreter in the built artifact, not just the template", async () => {
+    // The cases above exercise the template. This one runs the file that
+    // actually ships, validated against the published result schema rather than
+    // an inline literal that a schema change could silently orphan.
+    const entry = join(repositoryRoot, "dist/plugin/runtime/yoda.mjs");
+    const result = run(entry, "18.20.0");
+
+    expect(result.status).toBe(2);
+    const [schemaText, catalogText] = await Promise.all([
+      readFile(join(repositoryRoot, "schemas/result.v1.schema.json"), "utf8"),
+      readFile(
+        join(
+          repositoryRoot,
+          "packages/contracts/catalogs/reason-codes.v1.2.json",
+        ),
+        "utf8",
+      ),
+    ]);
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      JSON.parse(schemaText) as object,
+    );
+    const rendered = JSON.parse(result.stdout) as { reasonCode: string };
+
+    expect(validate(rendered), JSON.stringify(validate.errors)).toBe(true);
+    expect(rendered.reasonCode).toBe("runtime.node_unsupported");
+    const reason = (
+      JSON.parse(catalogText) as {
+        reasons: { code: string; recovery: string }[];
+      }
+    ).reasons.find(({ code }) => code === "runtime.node_unsupported");
+    expect(rendered).toMatchObject({ recovery: reason?.recovery });
   });
 
   it("reports a load failure without a stack trace", async () => {

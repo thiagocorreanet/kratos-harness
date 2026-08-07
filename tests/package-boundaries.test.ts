@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import {
   chmod,
+  copyFile,
   mkdir,
   mkdtemp,
   readdir,
@@ -88,6 +89,29 @@ describe("distribution boundaries", () => {
 
     // One installed plugin must serve any number of unrelated projects.
     expect(run(first, ["--version"])).toBe(run(second, ["--version"]));
+  });
+
+  it("runs from a plugin root containing spaces and non-ASCII characters", async () => {
+    const root = await mkdtemp(join(tmpdir(), "yoda-plugin-root-"));
+    roots.push(root);
+    // The entry resolves its core through a relative dynamic import, so a
+    // percent-encodable plugin path is exactly what could break it.
+    const runtime = join(root, "plúg in dir ç ü", "runtime");
+    await mkdir(runtime, { recursive: true });
+    for (const staged of ["manifest.json", "yoda.core.mjs", "yoda.mjs"]) {
+      await copyFile(
+        join(repositoryRoot, "dist/plugin/runtime", staged),
+        join(runtime, staged),
+      );
+    }
+    const cwd = await project();
+
+    const stdout = execFileSync(
+      process.execPath,
+      [join(runtime, "yoda.mjs"), "--version"],
+      { cwd, encoding: "utf8" },
+    );
+    expect(stdout.trim()).toBe("0.0.0-development");
   });
 
   it("never consults a global yoda on PATH", async () => {

@@ -48,6 +48,13 @@ function fail(message) {
   throw new Error(`Package verification failed: ${message}`);
 }
 
+/** Entries a project must never contain, normalized to POSIX separators. */
+function deniedEntries(entries) {
+  return entries
+    .map((entry) => entry.split(sep).join("/"))
+    .filter((entry) => projectDenylist.some((pattern) => pattern.test(entry)));
+}
+
 async function inventory(directory) {
   const entries = await readdir(directory, {
     recursive: true,
@@ -202,14 +209,25 @@ try {
   const projectRoot = join(cleanRoom, "project");
   await mkdir(projectRoot, { recursive: true });
   executeIsolated(isolatedArtifact, "--help", expectedHelp, projectRoot);
-  const projectEntries = await readdir(projectRoot, { recursive: true });
-  for (const found of projectEntries) {
-    const normalized = found.split(sep).join("/");
-    for (const pattern of projectDenylist) {
-      if (pattern.test(normalized)) {
-        fail(`project install contains a denied entry: ${normalized}`);
-      }
-    }
+  const denied = deniedEntries(await readdir(projectRoot, { recursive: true }));
+  if (denied.length > 0) {
+    fail(`project install contains denied entries: ${denied.join(", ")}`);
+  }
+
+  // Prove the denylist actually rejects something. The runtime writes nothing
+  // today, so without this the check above would pass just as happily if every
+  // pattern were wrong, and the "deny" half would be a guard nobody tested.
+  const probe = deniedEntries([
+    "node_modules/left-pad/index.js",
+    "packages/runtime/src/cli.ts",
+    "runtime/yoda.mjs",
+    "src/thing.ts",
+    "dist/thing.map",
+  ]);
+  if (probe.length !== 5) {
+    fail(
+      `project denylist does not reject its own probe: matched ${String(probe.length)} of 5`,
+    );
   }
 
   const help = executeIsolated(
