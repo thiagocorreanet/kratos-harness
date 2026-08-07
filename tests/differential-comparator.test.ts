@@ -115,12 +115,22 @@ describe("differential observation comparison", () => {
   it("does not disclose private structured keys or scalar values in digest mode", () => {
     const expected = observation();
     expected.structured = [
-      { id: "result", path: "result.json", value: { privateField: 123 } },
+      {
+        id: "result",
+        path: "result.json",
+        state: "valid",
+        value: { privateField: 123 },
+      },
     ];
     const candidate: DifferentialObservation = {
       ...structuredClone(expected),
       structured: [
-        { id: "result", path: "result.json", value: { privateField: 456 } },
+        {
+          id: "result",
+          path: "result.json",
+          state: "valid",
+          value: { privateField: 456 },
+        },
       ],
     };
 
@@ -172,6 +182,7 @@ describe("differential observation comparison", () => {
       {
         id: "result",
         path: "result.json",
+        state: "valid",
         value: {
           timestamp: "2026-08-07T00:00:00Z",
           entries: [{ id: "b" }, { id: "a" }],
@@ -205,19 +216,99 @@ describe("differential observation comparison", () => {
     );
 
     expect(normalized.process.stdout.content).toBe("<WORKSPACE>/a\n");
-    expect(normalized.structured[0]?.value).toEqual({
+    const artifact = normalized.structured[0];
+    expect(artifact?.state).toBe("valid");
+    expect(artifact?.state === "valid" ? artifact.value : undefined).toEqual({
       timestamp: "<TIMESTAMP>",
       entries: [{ id: "a" }, { id: "b" }],
     });
     expect(input.process.stdout.content).toContain("\r\n");
   });
 
+  it("skips artifact rules when a side produced no artifact", () => {
+    const input = observation();
+    input.structured = [{ id: "state", path: "state.json", state: "absent" }];
+
+    // A side that produced nothing is a behavioral difference to report, not a
+    // normalization failure that would surface as a harness error.
+    const normalized = normalizeObservation(
+      input,
+      [
+        {
+          operation: "replace_json_value",
+          pointer: "/structured/0/value/generatedAt",
+          token: "<TIMESTAMP>",
+        },
+      ],
+      "/tmp/oracle-root",
+    );
+    expect(normalized.structured[0]).toEqual({
+      id: "state",
+      path: "state.json",
+      state: "absent",
+    });
+  });
+
+  it("still rejects a rule whose pointer is missing from a valid artifact", () => {
+    const input = observation();
+    input.structured = [
+      { id: "state", path: "state.json", state: "valid", value: { a: 1 } },
+    ];
+    expect(() =>
+      normalizeObservation(
+        input,
+        [
+          {
+            operation: "replace_json_value",
+            pointer: "/structured/0/value/typo",
+            token: "<TIMESTAMP>",
+          },
+        ],
+        "/tmp/oracle-root",
+      ),
+    ).toThrow("Differential normalization pointer does not exist");
+  });
+
+  it("recomputes stream digests after normalizing disclosed content", () => {
+    const input = observation();
+    input.process.stdout = {
+      bytes: 3,
+      sha256: emptyDigest,
+      content: "a\r\n",
+    };
+
+    const normalized = normalizeObservation(
+      input,
+      [{ operation: "line_endings", pointer: "/process/stdout/content" }],
+      "/tmp/oracle-root",
+    );
+
+    // A stream summary must never describe a buffer other than the one it
+    // reports, or a normalized scenario could never match on digest.
+    expect(normalized.process.stdout).toEqual({
+      bytes: 2,
+      sha256:
+        "87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7",
+      content: "a\n",
+    });
+  });
+
   it.each([
+    "/process",
     "/process/exitCode",
     "/process/outcome",
+    "/process/signal",
+    "/process/stdout",
+    "/structured/0",
+    "/structured/0/state",
+    "/structured/0/value",
     "/structured/0/value/status",
     "/structured/0/value/exitCode",
     "/structured/0/value/reasonCode",
+    "/structured/0/value/result/status",
+    "/structured/0/value/result/stateChanged",
+    "/structured/0/value/result/retryable",
+    "/filesystem",
     "/filesystem/mutations",
     "/git",
   ])("rejects normalization of protected field %s", (pointer) => {

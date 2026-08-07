@@ -6,6 +6,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,6 +29,24 @@ async function root(): Promise<string> {
   const value = await mkdtemp(join(tmpdir(), "yoda-differential-runner-test-"));
   roots.push(value);
   return value;
+}
+
+/**
+ * Digest the tracked state of the real repository so a harness run can be
+ * proven not to touch the developer checkout.
+ */
+async function snapshotSourceCheckout(): Promise<string> {
+  const repository = join(import.meta.dirname, "..");
+  const status = execFileSync("git", ["status", "--porcelain"], {
+    cwd: repository,
+    encoding: "utf8",
+  });
+  const tree = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repository,
+    encoding: "utf8",
+  });
+  const driver = await readFile(fixtureDriver, "utf8");
+  return `${tree}${status}${driver}`;
 }
 
 async function scenario(mode: string): Promise<DifferentialScenario> {
@@ -171,6 +190,62 @@ describe("isolated differential runner", () => {
     expect(await readdir(temporaryParent)).toEqual([]);
   });
 
+  it("survives a child that never drains a large stdin", async () => {
+    const temporaryParent = await root();
+    const fixture = await scenario("ignore-stdin");
+    // Larger than the operating-system pipe buffer, so the unread write fails
+    // with EPIPE once the child exits.
+    fixture.invocation.stdin = "x".repeat(400_000);
+
+    const result = await runScenarioSide({
+      side: "candidate",
+      executable: process.execPath,
+      scenario: fixture,
+      temporaryParent,
+    });
+
+    expect(result.observation.process).toMatchObject({
+      outcome: "exit",
+      exitCode: 0,
+      stdout: { content: "ignored\n" },
+    });
+    expect(await readdir(temporaryParent)).toEqual([]);
+  });
+
+  it("records a created Git repository even when Git capture is disabled", async () => {
+    const temporaryParent = await root();
+    const fixture = await scenario("git-create");
+    expect(fixture.capture.git).toBe(false);
+
+    const result = await runScenarioSide({
+      side: "candidate",
+      executable: process.execPath,
+      scenario: fixture,
+      temporaryParent,
+    });
+
+    // A side that creates a repository must never be byte-identical to a side
+    // that does nothing.
+    expect(result.observation.filesystem.mutations).toContainEqual({
+      path: ".git",
+      kind: "added",
+    });
+    expect(await readdir(temporaryParent)).toEqual([]);
+  });
+
+  it("leaves the source checkout byte-identical", async () => {
+    const temporaryParent = await root();
+    const before = await snapshotSourceCheckout();
+    await runScenario(
+      await scenario("unexpected-file"),
+      process.execPath,
+      process.execPath,
+      temporaryParent,
+    );
+    expect(await snapshotSourceCheckout()).toEqual(before);
+    expect(await readdir(temporaryParent)).toEqual([]);
+  });
+
   it("uses isolated environment roots and drops unrelated secrets", async () => {
     process.env.YODA_TEST_SECRET = "must-not-leak";
     const temporaryParent = await root();
@@ -180,7 +255,9 @@ describe("isolated differential runner", () => {
       scenario: await scenario("state"),
       temporaryParent,
     });
-    const value = result.observation.structured[0]?.value;
+    const artifact = result.observation.structured[0];
+    expect(artifact?.state).toBe("valid");
+    const value = artifact?.state === "valid" ? artifact.value : undefined;
     expect(value).toMatchObject({ leakedSecret: null });
     expect(value).toHaveProperty("home");
     expect(value).toHaveProperty("temporary");

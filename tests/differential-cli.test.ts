@@ -50,7 +50,10 @@ describe("differential harness CLI", () => {
       class: "self-test",
       equal: true,
       planned: 12,
-      scenarios: [{ id: "self-test-equality", equal: true, mismatches: [] }],
+      scenarios: [
+        { id: "self-test-equality", equal: true, mismatches: [] },
+        { id: "self-test-normalized-state", equal: true, mismatches: [] },
+      ],
     });
   });
 
@@ -58,7 +61,9 @@ describe("differential harness CLI", () => {
     const result = invoke(["--format", "human"]);
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      "Differential corpus self-test: PASS (1 scenario; 12 planned)\nPASS self-test-equality\n",
+      "Differential corpus self-test: PASS (2 scenarios; 12 planned)\n" +
+        "PASS self-test-equality\n" +
+        "PASS self-test-normalized-state\n",
     );
     expect(result.stderr).toBe("");
   });

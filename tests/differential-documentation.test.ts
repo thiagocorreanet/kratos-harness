@@ -40,6 +40,11 @@ describe("differential harness documentation", () => {
       "Exit `2`",
       "no runnable scenario",
       "retained prefix",
+      "post-normalization",
+      "absent",
+      "unreadable",
+      "invalid",
+      "self-test-normalized-state",
     ]) {
       expect(text.guide).toContain(required);
     }

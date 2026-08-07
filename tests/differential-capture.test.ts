@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   lstat,
   mkdtemp,
@@ -22,6 +23,10 @@ import { afterEach, describe, expect, it } from "vitest";
 const emptyDigest =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const temporaryRoots: string[] = [];
+
+function digestOf(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 const processObservation: ProcessObservation = {
   outcome: "exit",
   exitCode: 0,
@@ -99,6 +104,7 @@ describe("differential workspace capture", () => {
       {
         id: "state",
         path: ".brain/state.json",
+        state: "valid",
         value: { revision: 2, stateContract: "1.0.0" },
       },
     ]);
@@ -189,7 +195,7 @@ describe("differential workspace capture", () => {
     ).rejects.toThrow("Differential structured capture path is unsafe");
   });
 
-  it("fails explicitly for malformed selected JSON", async () => {
+  it("observes malformed selected JSON as a comparable digest", async () => {
     const root = await temporaryRoot();
     const project = await materializeWorkspace(root, [
       {
@@ -204,10 +210,157 @@ describe("differential workspace capture", () => {
       git: false,
     };
     const baseline = await captureBefore(project, capture);
-    await expect(
-      captureAfter(project, capture, baseline, processObservation, "digest"),
-    ).rejects.toThrow(
-      "Differential structured capture state contains invalid JSON",
+    const result = await captureAfter(
+      project,
+      capture,
+      baseline,
+      processObservation,
+      "digest",
+    );
+
+    // Invalid structured output is a behavioral difference the harness must be
+    // able to compare, not a harness failure.
+    expect(result.structured).toEqual([
+      {
+        id: "state",
+        path: "state.json",
+        state: "invalid",
+        bytes: 9,
+        sha256: digestOf("{invalid\n"),
+      },
+    ]);
+  });
+
+  it("observes a missing selected artifact instead of failing", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      {
+        type: "file",
+        path: "keep.txt",
+        content: "keep\n",
+        executable: false,
+      },
+    ]);
+    const capture = {
+      structured: [{ id: "result", path: "result.json" }],
+      git: false,
+    };
+    const baseline = await captureBefore(project, capture);
+    const result = await captureAfter(
+      project,
+      capture,
+      baseline,
+      processObservation,
+      "digest",
+    );
+
+    // "The candidate produced no artifact" is the single most important
+    // comparison; it must be a field-level mismatch, not an opaque exit 2.
+    expect(result.structured).toEqual([
+      { id: "result", path: "result.json", state: "absent" },
+    ]);
+  });
+
+  it("observes a selected path that is not a regular file", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      { type: "directory", path: "result.json" },
+    ]);
+    const capture = {
+      structured: [{ id: "result", path: "result.json" }],
+      git: false,
+    };
+    const baseline = await captureBefore(project, capture);
+    const result = await captureAfter(
+      project,
+      capture,
+      baseline,
+      processObservation,
+      "digest",
+    );
+
+    expect(result.structured).toEqual([
+      { id: "result", path: "result.json", state: "unreadable" },
+    ]);
+  });
+
+  it("captures an unborn HEAD as a null identity", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      {
+        type: "file",
+        path: "untracked.txt",
+        content: "new\n",
+        executable: false,
+      },
+    ]);
+    execFileSync("git", ["init", "-q", "--initial-branch=main"], {
+      cwd: project,
+    });
+    const capture = { structured: [], git: true };
+    const baseline = await captureBefore(project, capture);
+
+    const result = await captureAfter(
+      project,
+      capture,
+      baseline,
+      processObservation,
+      "digest",
+    );
+
+    // "Did the tool initialize a repository?" must be observable.
+    expect(result.git).not.toBeNull();
+    expect(result.git?.head).toBeNull();
+    expect(result.git?.refs).toEqual([]);
+  });
+
+  it("fails closed when Git is required but unavailable", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      { type: "file", path: "keep.txt", content: "keep\n", executable: false },
+    ]);
+    const capture = { structured: [], git: true };
+    const baseline = await captureBefore(project, capture);
+    const originalPath = process.env.PATH;
+    process.env.PATH = join(root, "empty-path");
+    try {
+      // A missing Git binary must not be silently recorded as "not a
+      // repository" on both sides, which would be a vacuous equality.
+      await expect(
+        captureAfter(project, capture, baseline, processObservation, "digest"),
+      ).rejects.toThrow("Differential Git capture cannot run git");
+    } finally {
+      process.env.PATH = originalPath;
+    }
+  });
+
+  it("rejects a workspace containing a special file", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      { type: "file", path: "keep.txt", content: "keep\n", executable: false },
+    ]);
+    execFileSync("mkfifo", [join(project, "pipe")]);
+    const capture = { structured: [], git: false };
+
+    await expect(captureBefore(project, capture)).rejects.toThrow(
+      "Differential filesystem capture found a special file",
+    );
+  });
+
+  it("rejects a workspace that exceeds the manifest entry limit", async () => {
+    const root = await temporaryRoot();
+    const project = await materializeWorkspace(root, [
+      { type: "file", path: "keep.txt", content: "keep\n", executable: false },
+    ]);
+    await Promise.all(
+      Array.from({ length: 4_100 }, (_unused, index) =>
+        writeFile(join(project, `f${String(index)}.txt`), "x", "utf8"),
+      ),
+    );
+    const capture = { structured: [], git: false };
+
+    await expect(captureBefore(project, capture)).rejects.toThrow(
+      "Differential filesystem capture exceeds the entry limit",
     );
   });
 });
