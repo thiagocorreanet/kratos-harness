@@ -434,7 +434,7 @@ requirements, PRD locking, objective percentage, failure mutations, command
 safety, and private-public provenance. Resolve every valid finding and rerun
 affected checks.
 
-- [ ] **Step 5: Commit documentation**
+- [x] **Step 5: Commit documentation**
 
 ```bash
 git add README.md docs/compatibility/parity-inventory.md docs/development/toolchain.md docs/superpowers/plans/2026-08-07-parity-inventory.md
