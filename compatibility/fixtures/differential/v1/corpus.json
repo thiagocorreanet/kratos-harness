@@ -3,6 +3,10 @@
   "oracleId": "go-v3-v0.6.5",
   "entries": [
     { "class": "self-test", "path": "scenarios/self-test-equality.json" },
+    {
+      "class": "self-test",
+      "path": "scenarios/self-test-normalized-state.json"
+    },
     { "class": "live", "path": "scenarios/live-version.json" },
     { "class": "live", "path": "scenarios/live-help.json" },
     {

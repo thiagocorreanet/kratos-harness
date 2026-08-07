@@ -19,6 +19,11 @@ if (mode === "equal") {
 } else if (mode === "partial-mutation") {
   await writeFile("partial.txt", "before failure\n", "utf8");
   process.exitCode = 1;
+} else if (mode === "ignore-stdin") {
+  process.stdout.write("ignored\n");
+} else if (mode === "git-create") {
+  await mkdir(".git", { recursive: true });
+  await writeFile(".git/HEAD", "ref: refs/heads/main\n", "utf8");
 } else if (mode === "state") {
   await mkdir(".brain", { recursive: true });
   await writeFile(
