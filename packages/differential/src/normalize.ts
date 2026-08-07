@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { DifferentialObservation, NormalizationRule } from "./types.ts";
 
 function decodePointer(pointer: string): string[] {
@@ -14,17 +16,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Fields of the universal result contract that decide an outcome. Rewriting one
+ * at any depth of a captured artifact would normalize away the very difference
+ * the harness exists to detect.
+ */
+const decisionFields = new Set([
+  "status",
+  "exitCode",
+  "reasonCode",
+  "stateChanged",
+  "retryable",
+]);
+
+/**
+ * Protection is prefix-symmetric: a rule is rejected both when it targets a
+ * protected field and when it targets an ancestor of one, because removing the
+ * ancestor removes the protected field with it.
+ */
 function isProtected(pointer: string): boolean {
+  // The only normalizable parts of a stream are the disclosed content bodies.
+  if (
+    pointer === "/process/stdout/content" ||
+    pointer === "/process/stderr/content"
+  ) {
+    return false;
+  }
+  for (const root of ["/process", "/filesystem", "/git"]) {
+    if (
+      pointer === root ||
+      pointer.startsWith(`${root}/`) ||
+      root.startsWith(`${pointer}/`)
+    ) {
+      return true;
+    }
+  }
+  const structured = /^\/structured(?:\/(\d+)(?:\/(.*))?)?$/u.exec(pointer);
+  if (structured === null) return false;
+  const rest = structured[2];
+  // `/structured`, `/structured/N`, and `/structured/N/value` are all ancestors
+  // of a decision field.
+  if (rest === undefined) return true;
+  const segments = rest.split("/");
+  if (segments[0] !== "value") return true;
   return (
-    pointer === "/process/exitCode" ||
-    pointer === "/process/outcome" ||
-    pointer === "/filesystem" ||
-    pointer.startsWith("/filesystem/") ||
-    pointer === "/git" ||
-    pointer.startsWith("/git/") ||
-    /^\/structured\/\d+\/value\/(?:status|exitCode|reasonCode)(?:\/|$)/u.test(
-      pointer,
-    )
+    segments.length === 1 ||
+    segments.slice(1).some((s) => decisionFields.has(s))
   );
 }
 
@@ -98,6 +135,36 @@ function identity(value: unknown, key: string): string {
   return `${typeof candidate}:${String(candidate)}`;
 }
 
+/**
+ * Keep a stream's `bytes` and `sha256` describing the content they accompany
+ * after that content is normalized.
+ */
+function resynchronizeStream(
+  parent: Record<string, unknown> | unknown[],
+  key: string,
+): void {
+  if (key !== "content" || Array.isArray(parent)) return;
+  const content = parent[key];
+  if (typeof content !== "string") return;
+  parent.bytes = Buffer.byteLength(content);
+  parent.sha256 = createHash("sha256").update(content).digest("hex");
+}
+
+/**
+ * A rule that reaches into an artifact a side never produced is skipped, so the
+ * missing artifact is reported as the behavioral difference it is instead of
+ * failing the whole run. A missing pointer inside a `valid` artifact remains an
+ * error, so a mistyped rule is still caught.
+ */
+function targetsAbsentArtifact(
+  observation: DifferentialObservation,
+  pointer: string,
+): boolean {
+  const match = /^\/structured\/(\d+)\/value(?:\/|$)/u.exec(pointer);
+  if (match?.[1] === undefined) return false;
+  return observation.structured[Number(match[1])]?.state !== "valid";
+}
+
 export function normalizeObservation(
   observation: DifferentialObservation,
   rules: readonly NormalizationRule[],
@@ -108,6 +175,7 @@ export function normalizeObservation(
     if (isProtected(rule.pointer)) {
       throw new Error("Differential normalization targets a protected field");
     }
+    if (targetsAbsentArtifact(normalized, rule.pointer)) continue;
     const { parent, key } = locateParent(normalized, rule.pointer);
     const value = readValue(parent, key);
     switch (rule.operation) {
@@ -116,6 +184,7 @@ export function normalizeObservation(
           throw new Error("Differential normalization requires a string");
         }
         writeValue(parent, key, value.replaceAll("\r\n", "\n"));
+        resynchronizeStream(parent, key);
         break;
       }
       case "workspace_path": {
@@ -125,6 +194,7 @@ export function normalizeObservation(
           );
         }
         writeValue(parent, key, value.replaceAll(workspace, "<WORKSPACE>"));
+        resynchronizeStream(parent, key);
         break;
       }
       case "replace_json_value": {
