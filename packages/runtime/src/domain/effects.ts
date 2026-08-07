@@ -24,22 +24,6 @@ export interface EffectPlan {
   readonly effects: readonly Effect[];
 }
 
-export const emptyPlan: EffectPlan = { effects: [] };
-
 export function planOf(...effects: readonly Effect[]): EffectPlan {
   return { effects };
-}
-
-/** Concatenate plans in order, so composing decisions cannot reorder work. */
-export function concatPlans(...plans: readonly EffectPlan[]): EffectPlan {
-  return { effects: plans.flatMap(({ effects }) => effects) };
-}
-
-/** Paths a plan would touch, in first-touch order and without duplicates. */
-export function touchedPaths(plan: EffectPlan): readonly string[] {
-  const seen = new Set<string>();
-  for (const effect of plan.effects) {
-    if ("path" in effect) seen.add(effect.path);
-  }
-  return [...seen];
 }

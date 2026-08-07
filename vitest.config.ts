@@ -6,6 +6,8 @@ export default defineConfig({
       include: [
         "packages/runtime/src/cli.ts",
         "packages/runtime/src/handshake.ts",
+        "packages/runtime/src/domain/**",
+        "packages/runtime/src/composition/**",
       ],
       provider: "v8",
       reporter: ["text", "json-summary"],

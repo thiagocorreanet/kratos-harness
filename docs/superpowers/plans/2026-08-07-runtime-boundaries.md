@@ -38,7 +38,7 @@ completed so the plan describes the whole change rather than only its remainder.
 **Interfaces:**
 
 - Produces `collectImports(file)`, `classifyLayer(path)`, and `violations(modules)`.
-- Produces `Effect`, `EffectPlan`, `planOf`, `concatPlans`, `touchedPaths`.
+- Produces `Effect`, `EffectPlan`, `planOf`. `concatPlans` and `touchedPaths` were dropped: they had no consumer, and a test written only to satisfy the coverage gate would have kept speculative code alive.
 - Produces `Clock`, `Ids`, `FileSystem`, `Git`, `Locks`, `Environment`, `Output`, `RuntimePorts`.
 
 - [x] **Step 1: Write the failing architecture tests**
@@ -310,7 +310,7 @@ git commit -s -m "feat: add Node-backed port implementations"
 - Produces `applyPlan(plan: EffectPlan, ports: RuntimePorts): Promise<void>`.
 - Produces `Decision` binding a `result.v1` document to an `EffectPlan`.
 
-- [ ] **Step 1: Write the failing composition tests**
+- [x] **Step 1: Write the failing composition tests**
 
 ```ts
 it("uses Node implementations when nothing is overridden", () => {
@@ -362,7 +362,7 @@ it("applies effects in declared order", async () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/runtime-composition.test.ts
@@ -370,7 +370,7 @@ npm test -- tests/runtime-composition.test.ts
 
 Expected: FAIL because `composition/runtime.ts` does not exist.
 
-- [ ] **Step 3: Implement composition and plan application**
+- [x] **Step 3: Implement composition and plan application**
 
 `createRuntime` builds the Node ports and spreads `overrides` over them, so an
 absent key keeps the real implementation and a present key replaces exactly
@@ -383,7 +383,7 @@ effects sequentially in declared order.
 Add `packages/runtime/src/domain/**` and `packages/runtime/src/composition/**`
 to the `vitest.config.ts` coverage `include` array. Leave `infra` out.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/runtime-composition.test.ts
