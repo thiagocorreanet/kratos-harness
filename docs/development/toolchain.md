@@ -136,22 +136,32 @@ canonical ordering, and public-output safety offline.
 
 ## Runtime artifact
 
-The build stages exactly one plugin file:
+The build stages exactly three plugin files:
 
 ```text
+dist/plugin/runtime/manifest.json
+dist/plugin/runtime/yoda.core.mjs
 dist/plugin/runtime/yoda.mjs
 ```
 
-It is an executable ESM bundle with no runtime `node_modules`, global Yoda
-binary, checkout-relative import, source map, or network requirement. Package
-verification checks the file inventory, shebang, executable mode, forbidden
-references, external imports, size, and SHA-256. It then copies only the bundle
-to a temporary directory and executes `--help` and `--version` with module lookup
-influences cleared.
+`runtime/yoda.mjs` is the executable entry point: a small interpreter gate that
+dynamically imports `runtime/yoda.core.mjs`, the ESM bundle. Neither has a
+runtime `node_modules`, global Yoda binary, checkout-relative import, source
+map, or network requirement.
 
-The minimal help/version surface exists only to prove the toolchain. Workflow
-commands, schemas, state, host behavior, and legacy compatibility arrive in
-their dedicated backlog issues.
+Package verification checks the file inventory, shebang, executable mode,
+unsubstituted placeholders, forbidden references, external imports, and the core
+digest recorded in the manifest. It then copies the whole `runtime` directory to
+a temporary directory and executes `--help` and `--version` with module lookup
+influences cleared, and asserts that a project the runtime operated on contains
+no denied entry.
+
+The [runtime distribution contract](../compatibility/runtime-distribution.md)
+explains why the boot is split and what each inventory guarantees.
+
+The minimal help/version/handshake surface exists only to prove the toolchain.
+Workflow commands, schemas, state, host behavior, and legacy compatibility
+arrive in their dedicated backlog issues.
 
 ## Recovery
 

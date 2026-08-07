@@ -35,7 +35,9 @@ describe("README honesty", () => {
 
   it("makes current availability impossible to mistake", () => {
     expect(readme).toContain("There is no supported installation method");
-    expect(readme).toContain("supports only `--help` and `--version`");
+    expect(readme).toContain(
+      "supports only `--help`, `--version`, and `handshake`",
+    );
     expect(readme).toContain("not runnable in the current bundle");
     expect(readme).toContain("not ready for production");
     expect(readme).not.toMatch(
@@ -85,6 +87,8 @@ describe("README honesty", () => {
     expect(readme).toContain("project-owned `.brain/`");
     expect(readme).toContain("`.claude/` and `.codex/`");
     expect(readme).toContain("embedded ESM runtime");
+    expect(readme).toContain("runtime/yoda.mjs");
+    expect(readme).toContain("Node.js 24");
   });
 
   it("links every required public path", () => {

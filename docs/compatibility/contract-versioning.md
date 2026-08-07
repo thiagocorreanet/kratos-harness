@@ -70,7 +70,7 @@ catalog preserves all 82 entries from revision 1.1 and adds:
 `runtime.node_unsupported` is the current catalog revision, `1.2.0`. It is the
 one reason a caller can receive before the runtime bundle has loaded at all, so
 the plugin entry point embeds its summary and recovery text verbatim from this
-catalog. It is documented in full by the runtime distribution contract.
+catalog. It is documented in full by the [runtime distribution contract](runtime-distribution.md).
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,

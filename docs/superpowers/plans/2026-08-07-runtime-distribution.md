@@ -627,7 +627,7 @@ git commit -s -m "test: prove the plugin and project installation boundaries"
 
 - Publishes the plugin layout, the two-file boot rationale, the interpreter floor, the two-root rule, both inventories, the handshake contract, and honest unchanged parity.
 
-- [ ] **Step 1: Write documentation RED tests**
+- [x] **Step 1: Write documentation RED tests**
 
 Extend `tests/readme-honesty.test.ts` to require the README to name the
 plugin-owned runtime and to state that no global executable is installed. Add a
@@ -636,7 +636,7 @@ guide test requiring `docs/compatibility/runtime-distribution.md` to contain
 `--expect`, `handshake`, `import.meta.url`, `process.cwd()`, and both the words
 `allowlist` and `denylist`. Assert parity still reads `0 / 400 (0.00%)`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/readme-honesty.test.ts
@@ -644,7 +644,7 @@ npm test -- tests/readme-honesty.test.ts
 
 Expected: FAIL because the distribution guide does not exist.
 
-- [ ] **Step 3: Publish exact documentation**
+- [x] **Step 3: Publish exact documentation**
 
 Document the three-file plugin layout; why the boot is split and what a
 single-file guard cannot do; the Node 24.0.0 floor and the Node 12 syntax floor
@@ -655,7 +655,7 @@ maps are deliberately excluded. Record catalog revision `1.2.0` in the result
 contract and contract versioning guides and in `schemas/README.md`. Check
 completed plan steps in this file.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 ```bash
 export PATH=/tmp/tmp.qb2rcwG3r2/node-v24.18.0-linux-x64/bin:$PATH
@@ -670,7 +670,7 @@ git status --short
 
 Expected: all gates PASS, parity unchanged, and only intended changes remain.
 
-- [ ] **Step 5: Commit and review**
+- [x] **Step 5: Commit and review**
 
 ```bash
 git add docs README.md schemas/README.md tests/readme-honesty.test.ts

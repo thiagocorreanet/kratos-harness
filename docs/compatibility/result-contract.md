@@ -106,7 +106,7 @@ Catalog revision 1.2 preserves those 82 entries byte-for-byte and adds
 `runtime.node_unsupported`, reported when the interpreter running the plugin
 runtime is older than the supported minimum. It is the only reason emitted
 before the runtime bundle loads, so the plugin entry point embeds its text
-verbatim; see the runtime distribution contract.
+verbatim; see the [runtime distribution contract](runtime-distribution.md).
 
 ## Evidence references
 

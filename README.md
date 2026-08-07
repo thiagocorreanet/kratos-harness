@@ -26,7 +26,7 @@ The project is being built for **Claude Code** and **OpenAI Codex**, with a host
 > Mestre Yoda is an **experimental rewrite under active development**. There is
 > no supported installation method, public distribution, production runtime, or
 > usable SDD command today. The checked-in embedded ESM runtime is internal
-> foundation infrastructure: it supports only `--help` and `--version` to prove
+> foundation infrastructure: it supports only `--help`, `--version`, and `handshake` to prove
 > the deterministic toolchain and standalone bundle. The project is not ready for production.
 > Contract schemas and compatibility checks are available, but they are
 > foundation artifacts only. **The harness runtime is not usable yet.**
@@ -119,6 +119,11 @@ installed plugin.
 ### No global Yoda binary
 
 The new runtime is developed in TypeScript and distributed as a self-contained JavaScript ESM bundle inside the plugin. This avoids a separately installed global binary, PATH problems, and runtime/plugin version drift.
+
+Hosts invoke `runtime/yoda.mjs` inside the installed plugin, against whatever
+project directory they are working in. It requires Node.js 24 or newer and
+answers an older interpreter with a structured result rather than a parser
+error. See the [runtime distribution contract](docs/compatibility/runtime-distribution.md).
 
 ### Evidence before completion
 

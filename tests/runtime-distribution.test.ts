@@ -96,3 +96,47 @@ describe("runtime distribution", () => {
     expect(core.toString("utf8").startsWith("#!")).toBe(false);
   });
 });
+
+describe("runtime distribution documentation", () => {
+  let guide = "";
+  let toolchain = "";
+
+  beforeAll(async () => {
+    [guide, toolchain] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "docs/compatibility/runtime-distribution.md"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, "docs/development/toolchain.md"), "utf8"),
+    ]);
+  });
+
+  it.each([
+    "runtime/yoda.mjs",
+    "runtime/yoda.core.mjs",
+    "runtime/manifest.json",
+    "24.0.0",
+    "runtime.node_unsupported",
+    "--expect",
+    "handshake",
+    "import.meta.url",
+    "process.cwd()",
+    "allowlist",
+    "denylist",
+    "SyntaxError",
+  ])("publishes %s", (required) => {
+    expect(guide).toContain(required);
+  });
+
+  it("states that an absent interpreter is the host adapter's responsibility", () => {
+    expect(guide).toMatch(/absent[\s\S]{0,200}host adapter/u);
+  });
+
+  it("states that source maps are excluded deliberately", () => {
+    expect(guide).toContain("source map");
+  });
+
+  it("names the built entry point in the toolchain guide", () => {
+    expect(toolchain).toContain("runtime/yoda.mjs");
+  });
+});
