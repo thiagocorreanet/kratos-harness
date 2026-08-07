@@ -133,6 +133,8 @@ describe("universal result rendering", () => {
       { summary: "diagnostic_path=/var/customer/error.log" },
     ],
     ["Windows path", { summary: "Inspect C:\\Users\\customer\\private.json" }],
+    ["Windows rooted path", { summary: "Inspect \\Windows\\secret" }],
+    ["Windows traversal", { summary: "Inspect foo\\..\\secret" }],
     ["control character", { summary: "Invalid\u0000summary" }],
     [
       "inline evidence payload",

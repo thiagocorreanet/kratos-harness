@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "format:check": "prettier --check .",
-    "spellcheck": "cspell --no-progress --show-suggestions \"**/*.md\"",
+    "spellcheck": "cspell --gitignore-root . --no-progress --show-suggestions \"**/*.md\"",
     "templates:validate": "node scripts/validate-github-templates.mjs",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc6 --noEmit",
@@ -22,9 +22,11 @@
     "oracle:verify": "node scripts/verify-go-v3-oracle.mjs",
     "parity:check": "node scripts/check-parity-inventory.mjs",
     "result:check": "node scripts/check-result-contract.mjs",
+    "contracts:generate": "node scripts/generate-contract-types.mjs",
+    "contracts:check": "node scripts/check-contracts.mjs",
     "build": "node scripts/build.mjs",
     "package:verify": "node scripts/verify-package.mjs",
-    "verify": "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run build && npm run package:verify"
+    "verify": "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run build && npm run package:verify"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -34,6 +36,7 @@
     "cspell": "10.0.1",
     "esbuild": "0.28.1",
     "eslint": "10.8.0",
+    "json-schema-to-typescript": "15.0.4",
     "prettier": "3.9.6",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.66.0",

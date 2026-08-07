@@ -90,6 +90,7 @@ function assertSafeStrings(value) {
       /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/u,
       /(?:^|[^A-Za-z0-9_.-])\/(?!\/)(?:[^\s/'")\]}]+\/)*[^\s/'")\]}]+/u,
       /(?:^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]/u,
+      /\\/u,
     ];
     const hasControlCharacter = [...value].some((character) => {
       const code = character.codePointAt(0);
@@ -270,7 +271,7 @@ function rendererContract() {
       readFileSync(
         join(
           repositoryRoot,
-          "packages/contracts/catalogs/reason-codes.v1.json",
+          "packages/contracts/catalogs/reason-codes.v1.1.json",
         ),
         "utf8",
       ),

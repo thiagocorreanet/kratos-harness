@@ -28,6 +28,8 @@ The project is being built for **Claude Code** and **OpenAI Codex**, with a host
 > usable SDD command today. The checked-in embedded ESM runtime is internal
 > foundation infrastructure: it supports only `--help` and `--version` to prove
 > the deterministic toolchain and standalone bundle. The project is not ready for production.
+> Contract schemas and compatibility checks are available, but they are
+> foundation artifacts only. **The harness runtime is not usable yet.**
 
 This repository is intentionally public from the beginning so that its architecture, compatibility decisions, tests, and trade-offs can evolve in the open.
 
@@ -37,6 +39,7 @@ This repository is intentionally public from the beginning so that its architect
 | Go compatibility baseline | [Frozen at v0.6.5](docs/compatibility/go-v3-v0.6.5-baseline.md) |
 | Go-to-TypeScript parity inventory | [Complete; parity evidence at 0.00%](docs/compatibility/parity-inventory.md) |
 | Universal result contract | [Version 1 published and verified](docs/compatibility/result-contract.md) |
+| Plugin, state, and host contracts | [Version 1 schemas and compatibility checks available](docs/compatibility/contract-versioning.md) |
 | TypeScript deterministic runtime | [Foundation available](docs/development/toolchain.md) |
 | Claude Code integration | Planned |
 | OpenAI Codex integration | Planned |

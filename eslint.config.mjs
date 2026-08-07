@@ -4,7 +4,12 @@ import tseslint from "typescript-eslint";
 
 export default defineConfig(
   {
-    ignores: ["coverage/**", "dist/**", "node_modules/**"],
+    ignores: [
+      "coverage/**",
+      "dist/**",
+      "node_modules/**",
+      "packages/contracts/src/generated/**",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked.map((config) => ({
