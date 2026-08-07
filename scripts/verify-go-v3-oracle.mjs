@@ -143,6 +143,15 @@ function validateManifest(manifest, raw) {
   if (JSON.stringify(surfaceIds) !== JSON.stringify(requiredSurfaces)) {
     fail("captured surface inventory changed");
   }
+  const sourceSurface = manifest.surfaces.find(({ id }) => id === "source");
+  if (
+    manifest.source.provenance_id !== "private-go-v3-hash-only" ||
+    manifest.distribution.provenance_id !== "private-go-v3-hash-only" ||
+    manifest.source.archive_sha256 !== sourceSurface.sha256 ||
+    manifest.source.file_count !== sourceSurface.file_count
+  ) {
+    fail("source or distribution provenance and archive identity diverged");
+  }
   const collections = [
     manifest.surfaces,
     manifest.prd_anchors,

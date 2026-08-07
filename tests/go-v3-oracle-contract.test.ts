@@ -104,6 +104,35 @@ describe("frozen Go v3 oracle catalog", () => {
         "private-go-v3-hash-only",
       );
     }
+    expect(
+      Object.fromEntries(
+        manifest.surfaces.map(({ id, sha256 }) => [id, sha256]),
+      ),
+    ).toEqual({
+      agents:
+        "390d56fa01d3af732ad0207c23734cf5735c1fa64b1ddfd7f00857615653d37e",
+      benchmarks:
+        "11b79efdc0e08211a2810cab7ad4c1df7637b638ef1b1e7550bab80115b17dfd",
+      "go-inputs":
+        "7182371e0e5a23bb1ae1f24b51e156b3de87396163f856788cdf75a2a121d9ad",
+      hooks: "9f357297871a157d2aeb07f5604e389abd613d7d2d03ecf54ea6e8c919e5f46f",
+      "init-templates":
+        "c0bc812195f1ac714152a652eb052edf7bcd4e5d345529f6955fe18d4e36f730",
+      migration:
+        "c96b561e1b289cc4619675ff1597a234937071a0f4c177c241dabbf60055e2ce",
+      "plugin-manifests":
+        "f491b25a0ab48f97e544935afb707a7a9188f3d55fe4189af2638648c1d6ac76",
+      "prd-contract":
+        "f213095d91c8da81faff4d8ef0ec3bd1c10097f1ddb513d19a91793740775974",
+      "release-contract":
+        "029673cb911a3469deb30d770d5b263239b4f3fba3ca5095f6a1f834760100e1",
+      schemas:
+        "13994d61e989d72ee74a640243738c45f6ee1d32545e396ce9b049670455a503",
+      skills:
+        "7aafdb22f482184f407b030859cb97dedd20e62e3d3264325068b5595558c507",
+      source:
+        "637a0b0acd89666c2a8cac5f9a0af8e1b5a56b9eeca8a145af3a0c0f66badfc4",
+    });
   });
 
   it("locks the four independent PRD anchors", () => {
@@ -121,6 +150,12 @@ describe("frozen Go v3 oracle catalog", () => {
         "private-go-v3-hash-only",
       );
     }
+    expect(manifest.prd_anchors.map(({ sha256 }) => sha256)).toEqual([
+      "b032604100e7f54f6a78259d3e3df6e907f651eee62a85f39b7f8cb3569009dc",
+      "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e",
+      "360c231c9156d39872f82de6fe65fd2c454e5abbbd8c5ff52cf6a0d2570d7e96",
+      "75485f0049e38644cdb9c00db976a4d1c730a03bbf81d4e949a3bd58449453c3",
+    ]);
   });
 
   it("fixes command outputs, binaries, and installed plugin projection", () => {
@@ -135,6 +170,10 @@ describe("frozen Go v3 oracle catalog", () => {
       expect(output.exit_code, output.id).toBe(0);
       expect(output.stderr_empty, output.id).toBe(true);
     }
+    expect(manifest.command_outputs.map(({ sha256 }) => sha256)).toEqual([
+      "34bf52562bae401de106933a7565c9d3a5c8dc83c04b0b29492dd3f6f3983b7a",
+      "8fe918223dc75b5fc644f2769fa38456077c1b0467e5bc2394597a77431414b6",
+    ]);
 
     expect(
       manifest.release_binaries.map(({ asset, goarch, goos }) => ({
@@ -155,12 +194,20 @@ describe("frozen Go v3 oracle catalog", () => {
       expect(binary.sha256, binary.id).toMatch(sha256);
       expect(binary.bytes, binary.id).toBeGreaterThan(1_000_000);
     }
+    expect(manifest.release_binaries.map(({ sha256 }) => sha256)).toEqual([
+      "da4ec4a2394ae90a94722f633bcb9157ddc5ee0133f46540b7c2c700abe378b8",
+      "14ba51351606cb2706729027258ed5408a5d0bf592ccf78dc20360fb127fe645",
+      "bf6a721aec8de8076330ce1e72308a60f3a351e216b307201a0987d48f1ff88d",
+    ]);
     expect(manifest.plugin_projection).toMatchObject({
       id: "codex-cache-dist-projection",
       file_count: 59,
       provenance_id: "private-go-v3-hash-only",
     });
     expect(manifest.plugin_projection.sha256).toMatch(sha256);
+    expect(manifest.plugin_projection.sha256).toBe(
+      "0ac3c54c2f0932eb2c60f13e4522cfcca8f4218000fe2d68a589dcf3fa0b0dc3",
+    );
   });
 
   it("records passed build and complete test evidence", () => {
