@@ -212,7 +212,7 @@ Document branch/commit, test/spell/link counts, real badge URL/status, all
 presented command executions, and both review outcomes. Include a table mapping
 each reader answer to the exact README/ROADMAP evidence.
 
-- [ ] **Step 4: Publish, merge, and close**
+- [x] **Step 4: Publish, merge, and close**
 
 Push `docs/issue-5-readme-roadmap`, open a DCO-signed PR with `Closes #5`, design/
 compatibility impact, failure evidence, and exact results. Wait for the real
