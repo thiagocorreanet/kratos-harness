@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "oracleId": "go-v3-v0.6.5",
+  "entries": [
+    { "class": "self-test", "path": "scenarios/self-test-equality.json" },
+    {
+      "class": "self-test",
+      "path": "scenarios/self-test-normalized-state.json"
+    },
+    { "class": "live", "path": "scenarios/live-version.json" },
+    { "class": "live", "path": "scenarios/live-help.json" },
+    {
+      "class": "planned",
+      "id": "prd-sufficient-context",
+      "parityContractIds": [
+        "PRD-RESEARCHER",
+        "PRD-OUTPUT-SCHEMA",
+        "PRD-TEMPLATE"
+      ],
+      "requirements": [
+        "Complete sufficient context produces a completed structured result and one WHAT/WHY PRD artifact."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-insufficient-context",
+      "parityContractIds": [
+        "PRD-RESEARCHER",
+        "PRD-OUTPUT-SCHEMA",
+        "PRD-TEMPLATE"
+      ],
+      "requirements": [
+        "Insufficient context produces needs_input with blocking questions and no PRD artifact."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-blocking-and-deferred-questions",
+      "parityContractIds": ["PRD-RESEARCHER", "PRD-OUTPUT-SCHEMA"],
+      "requirements": [
+        "Blocking questions prevent publication while deferred open questions remain explicit without inventing answers."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-five-whys-applied",
+      "parityContractIds": ["PRD-PROBLEM-DISCOVERY", "PRD-TEMPLATE"],
+      "requirements": [
+        "5 Whys is applied adaptively when causal discovery is useful and its conclusion remains WHAT/WHY context."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-five-whys-skipped",
+      "parityContractIds": ["PRD-PROBLEM-DISCOVERY", "PRD-TEMPLATE"],
+      "requirements": [
+        "5 Whys is skipped when it adds no value without fabricating a causal chain."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-probable-root-cause",
+      "parityContractIds": ["PRD-PROBLEM-DISCOVERY", "PRD-TEMPLATE"],
+      "requirements": [
+        "A probable root cause is labeled with appropriate uncertainty and retained in the generated PRD."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-five-w-two-h-applied",
+      "parityContractIds": ["PRD-PROBLEM-DISCOVERY", "PRD-TEMPLATE"],
+      "requirements": [
+        "5W2H is applied adaptively when it clarifies problem context without adding implementation architecture."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-five-w-two-h-skipped",
+      "parityContractIds": ["PRD-PROBLEM-DISCOVERY", "PRD-TEMPLATE"],
+      "requirements": [
+        "5W2H is skipped when existing context is already sufficient and no empty ceremony is emitted."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-invalid-structured-output",
+      "parityContractIds": ["PRD-RESEARCHER", "PRD-OUTPUT-SCHEMA"],
+      "requirements": [
+        "Invalid structured researcher output fails closed and creates no authoritative PRD artifact."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-lineage-drift",
+      "parityContractIds": [
+        "PRD-RESEARCHER",
+        "PRD-OUTPUT-SCHEMA",
+        "PRD-TEMPLATE"
+      ],
+      "requirements": [
+        "Changed source lineage invalidates stale derived approval and requires a traceable revision."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-spec-revision",
+      "parityContractIds": ["PRD-OUTPUT-SCHEMA", "PRD-TEMPLATE"],
+      "requirements": [
+        "A PRD revision preserves lineage, explicit open questions, and the WHAT/WHY boundary."
+      ]
+    },
+    {
+      "class": "planned",
+      "id": "prd-content-bound-approval",
+      "parityContractIds": [
+        "PRD-RESEARCHER",
+        "PRD-OUTPUT-SCHEMA",
+        "PRD-TEMPLATE"
+      ],
+      "requirements": [
+        "Approval binds to exact reviewed PRD content and does not authorize a later changed artifact."
+      ]
+    }
+  ]
+}

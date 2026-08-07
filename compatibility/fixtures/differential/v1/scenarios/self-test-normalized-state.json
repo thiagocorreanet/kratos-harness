@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "id": "self-test-normalized-state",
+  "parityContractIds": ["CLI-VERSION"],
+  "workspace": {
+    "entries": [
+      {
+        "type": "file",
+        "path": "driver.mjs",
+        "content": "import { mkdir, writeFile } from \"node:fs/promises\";\n\nawait mkdir(\".brain\", { recursive: true });\nawait writeFile(\n  \".brain/state.json\",\n  `${JSON.stringify({\n    generatedAt: \"2026-08-07T00:00:00.000Z\",\n    entries: [{ id: \"b\" }, { id: \"a\" }],\n    revision: 1,\n  })}\\n`,\n  \"utf8\",\n);\nprocess.stdout.write(\"state written\\r\\n\");\n",
+        "executable": false
+      }
+    ]
+  },
+  "invocation": {
+    "args": ["driver.mjs"],
+    "stdin": "",
+    "environment": {},
+    "timeoutMs": 2000,
+    "maxStdoutBytes": 1048576,
+    "maxStderrBytes": 1048576
+  },
+  "capture": {
+    "structured": [
+      {
+        "id": "state",
+        "path": ".brain/state.json"
+      },
+      {
+        "id": "result",
+        "path": "result.json"
+      }
+    ],
+    "git": false
+  },
+  "normalization": [
+    {
+      "operation": "line_endings",
+      "pointer": "/process/stdout/content"
+    },
+    {
+      "operation": "replace_json_value",
+      "pointer": "/structured/0/value/generatedAt",
+      "token": "<TIMESTAMP>"
+    },
+    {
+      "operation": "sort_json_array",
+      "pointer": "/structured/0/value/entries",
+      "identityKey": "id"
+    }
+  ],
+  "disclosure": {
+    "stdout": "content",
+    "stderr": "digest",
+    "artifacts": "content"
+  },
+  "expected": {
+    "process": {
+      "outcome": "exit",
+      "exitCode": 0,
+      "signal": null,
+      "stdout": {
+        "bytes": 14,
+        "sha256": "b025c45f10a6a71e4b59cf5e89bc260539ddd2036e69d0a6acfec94c286b5430",
+        "content": "state written\n"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "filesystem": {
+      "before": [
+        {
+          "path": "driver.mjs",
+          "type": "file",
+          "mode": "file",
+          "size": 329,
+          "sha256": "166cbfec137aebfb953b358e6757af6c451989ebfcfc96cf0635687e220fc4cf"
+        }
+      ],
+      "after": [
+        {
+          "path": ".brain",
+          "type": "directory",
+          "mode": "directory",
+          "size": 0
+        },
+        {
+          "path": ".brain/state.json",
+          "type": "file",
+          "mode": "file",
+          "size": 90,
+          "sha256": "57f1976e6669ebab33e7bda300c6007fb4859380a6f91dedd4daf72644b1d3f5"
+        },
+        {
+          "path": "driver.mjs",
+          "type": "file",
+          "mode": "file",
+          "size": 329,
+          "sha256": "166cbfec137aebfb953b358e6757af6c451989ebfcfc96cf0635687e220fc4cf"
+        }
+      ],
+      "mutations": [
+        {
+          "path": ".brain",
+          "kind": "added"
+        },
+        {
+          "path": ".brain/state.json",
+          "kind": "added"
+        }
+      ]
+    },
+    "structured": [
+      {
+        "id": "state",
+        "path": ".brain/state.json",
+        "state": "valid",
+        "value": {
+          "entries": [
+            {
+              "id": "a"
+            },
+            {
+              "id": "b"
+            }
+          ],
+          "generatedAt": "<TIMESTAMP>",
+          "revision": 1
+        }
+      },
+      {
+        "id": "result",
+        "path": "result.json",
+        "state": "absent"
+      }
+    ],
+    "git": null
+  }
+}

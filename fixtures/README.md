@@ -22,3 +22,10 @@ Its `version-cases.json` table covers current, previous, future, malformed,
 untrimmed, non-string, and missing family identities. These fixtures are
 independently authored public examples; they do not reproduce private Go v3
 payloads.
+
+The executable golden corpus lives at
+[`compatibility/fixtures/differential/v1`](../compatibility/fixtures/differential/v1).
+It contains one public synthetic self-test, digest-only live help/version
+scenarios, and requirement-only PRD plans. Planned entries have no executable
+path or invented golden output. See the
+[differential harness guide](../docs/compatibility/differential-harness.md).

@@ -51,6 +51,7 @@ describe("README honesty", () => {
       "npm ci",
       "npm run spellcheck",
       "npm run verify",
+      "npm run differential:check",
       "npm run build",
       "npm run package:verify",
     ];
@@ -67,10 +68,11 @@ describe("README honesty", () => {
         'cspell --gitignore-root . --no-progress --show-suggestions "**/*.md"',
       "parity:check": "node scripts/check-parity-inventory.mjs",
       "result:check": "node scripts/check-result-contract.mjs",
+      "differential:check": "node scripts/run-differential.mjs",
       build: "node scripts/build.mjs",
       "package:verify": "node scripts/verify-package.mjs",
       verify:
-        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run build && npm run package:verify",
+        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify",
     });
     expect(commands.indexOf("npm run build")).toBeLessThan(
       commands.indexOf("npm run package:verify"),

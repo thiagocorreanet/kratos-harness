@@ -40,6 +40,7 @@ This repository is intentionally public from the beginning so that its architect
 | Go-to-TypeScript parity inventory | [Complete; parity evidence at 0.00%](docs/compatibility/parity-inventory.md) |
 | Universal result contract | [Version 1 published and verified](docs/compatibility/result-contract.md) |
 | Plugin, state, and host contracts | [Version 1 schemas and compatibility checks available](docs/compatibility/contract-versioning.md) |
+| Go-to-TypeScript differential harness | [Public self-test available; live bootstrap differences measured](docs/compatibility/differential-harness.md) |
 | TypeScript deterministic runtime | [Foundation available](docs/development/toolchain.md) |
 | Claude Code integration | Planned |
 | OpenAI Codex integration | Planned |
@@ -312,6 +313,7 @@ Run this block in order from a clean checkout using Node.js `24.18.0` and npm
 npm ci
 npm run spellcheck
 npm run verify
+npm run differential:check
 npm run build
 npm run package:verify
 ```

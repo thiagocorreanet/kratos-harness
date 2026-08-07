@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "live-version",
+  "parityContractIds": ["CLI-ALIAS-VERSION", "CLI-VERSION"],
+  "workspace": { "entries": [] },
+  "invocation": {
+    "args": ["--version"],
+    "stdin": "",
+    "environment": {},
+    "timeoutMs": 5000,
+    "maxStdoutBytes": 1048576,
+    "maxStderrBytes": 1048576
+  },
+  "capture": { "structured": [], "git": false },
+  "normalization": [],
+  "disclosure": {
+    "stdout": "digest",
+    "stderr": "digest",
+    "artifacts": "digest"
+  },
+  "expected": {
+    "process": {
+      "outcome": "exit",
+      "exitCode": 0,
+      "signal": null,
+      "stdout": {
+        "bytes": 6,
+        "sha256": "34bf52562bae401de106933a7565c9d3a5c8dc83c04b0b29492dd3f6f3983b7a"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "filesystem": { "before": [], "after": [], "mutations": [] },
+    "structured": [],
+    "git": null
+  }
+}

@@ -21,6 +21,7 @@
     "CSpell",
     "divergente",
     "ENOENT",
+    "EPIPE",
     "esbuild",
     "ESM",
     "evented",
@@ -34,6 +35,8 @@
     "Mestre",
     "mktemp",
     "MWTC",
+    "NOSYSTEM",
+    "objectname",
     "oneline",
     "particionamento",
     "previewable",
@@ -48,6 +51,7 @@
     "uninspectable",
     "Vitest",
     "worktree",
+    "worktrees",
     "worklist",
     "Yoda"
   ]
