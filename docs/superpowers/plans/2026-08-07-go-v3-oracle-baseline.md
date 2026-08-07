@@ -31,7 +31,7 @@
 - Consumes: the approved design and issue #9 acceptance criteria.
 - Produces: executable assertions for immutable identity, required captures, provenance, PRD anchors, release matrix, test evidence, and publication safety.
 
-- [ ] **Step 1: Write the failing manifest contract**
+- [x] **Step 1: Write the failing manifest contract**
 
 Parse the future JSON manifest and assert exact tag/commit/toolchain identity,
 all required surface IDs, 64-character lowercase SHA-256 values, positive counts,
@@ -39,7 +39,7 @@ three release targets, two command outputs, four PRD anchors, complete provenanc
 fields, and successful Go/Python/build evidence. Recursively reject URLs,
 credentials, local absolute paths, copied content, and unresolved decisions.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- tests/go-v3-oracle-contract.test.ts
@@ -47,7 +47,7 @@ npm test -- tests/go-v3-oracle-contract.test.ts
 
 Expected: FAIL because the manifest does not exist.
 
-- [ ] **Step 3: Commit the failing contract**
+- [x] **Step 3: Commit the failing contract**
 
 ```bash
 git add tests/go-v3-oracle-contract.test.ts
@@ -69,40 +69,40 @@ git commit -s -m "test: specify frozen Go v3 oracle catalog"
 - Consumes: immutable identifiers and hashes measured from the authorized private release.
 - Produces: `npm run oracle:verify` and the canonical metadata-only catalog.
 
-- [ ] **Step 1: Add the measured metadata-only manifest**
+- [x] **Step 1: Add the measured metadata-only manifest**
 
 Record source/dist identities, deterministic archive groups, command-output
 hashes, all three release binary hashes, installed plugin projection evidence,
 PRD anchors, environment, test results, and a provenance object on every private
 artifact. Store no private payload or private clone URL.
 
-- [ ] **Step 2: Make the contract GREEN**
+- [x] **Step 2: Make the contract GREEN**
 
 ```bash
 npm test -- tests/go-v3-oracle-contract.test.ts
 ```
 
-- [ ] **Step 3: Write failing verifier tests**
+- [x] **Step 3: Write failing verifier tests**
 
 Require offline validation to reject a changed tag, malformed digest, missing
 provenance, public-content decision, URL, absolute path, unknown surface, or
 duplicated identifier. Require explicit source verification to detect a wrong
 commit and a changed archive group without printing file contents.
 
-- [ ] **Step 4: Implement the minimal verifier**
+- [x] **Step 4: Implement the minimal verifier**
 
 Validate the committed manifest by default. Support explicit `--source`,
 `--dist-source`, `--binary`, and `--plugin-cache` options. Recompute immutable
 Git object/archive hashes and file projections with argument-safe child
 processes. Emit only concise IDs, hashes, counts, and pass/fail status.
 
-- [ ] **Step 5: Integrate the offline gate**
+- [x] **Step 5: Integrate the offline gate**
 
 Add `oracle:verify` to the root scripts and the offline `verify` chain before
 the build. Regenerate the lockfile only if the root manifest changes its lock
 metadata; add no dependency.
 
-- [ ] **Step 6: Run focused checks and commit**
+- [x] **Step 6: Run focused checks and commit**
 
 ```bash
 npm run oracle:verify
@@ -129,32 +129,32 @@ git commit -s -m "test: freeze Go v3 oracle metadata"
 - Consumes: authorized local source/dist checkouts and installed oracle binary.
 - Produces: reproducible evidence and contributor instructions without private bytes.
 
-- [ ] **Step 1: Recompute source and distribution captures**
+- [x] **Step 1: Recompute source and distribution captures**
 
 Run the verifier with explicit paths. Confirm the source tag/commit, twelve
 archive groups, four PRD anchors, source archive, dist archive, tracked plugin
 projection, command outputs, and installed Linux binary.
 
-- [ ] **Step 2: Record the two-build campaign**
+- [x] **Step 2: Record the two-build campaign**
 
 Document two clean detached checkouts, exact Go release flags, byte-identical
 Linux/Windows/Darwin results, source archive identity, help/version output
 identity, and installed Linux binary match.
 
-- [ ] **Step 3: Record the complete legacy suite**
+- [x] **Step 3: Record the complete legacy suite**
 
 Document `go mod verify`, build, race/coverage test command, coverage gate,
 cross-builds, both Python suites, and skill cap. Include the required external
 `TMPDIR` boundary and distinguish cross-build from native execution.
 
-- [ ] **Step 4: Complete the provenance audit**
+- [x] **Step 4: Complete the provenance audit**
 
 Explicitly answer every contribution checklist item. State that all new public
 code/prose is original, all predecessor material is hash-only behavioral-oracle
 metadata, no adapted/verbatim material is present, and no private payload was
 staged.
 
-- [ ] **Step 5: Add discoverability and commit**
+- [x] **Step 5: Add discoverability and commit**
 
 Link the frozen baseline from README and the development guide without claiming
 that differential parity is already implemented.
