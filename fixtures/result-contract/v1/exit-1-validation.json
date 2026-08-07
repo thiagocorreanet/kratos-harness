@@ -1,0 +1,18 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "failure",
+  "exitCode": 1,
+  "reasonCode": "dashboard.estado_ilegivel",
+  "summary": "The dashboard could not read the canonical trail status.",
+  "why": ["The stored trail status did not satisfy the dashboard reader."],
+  "evidence": [
+    {
+      "kind": "observation",
+      "ref": ".brain/status.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "stateChanged": false,
+  "retryable": true,
+  "recovery": "Resolve dashboard rendering cannot read the canonical trail status, reload the authoritative project state, and repeat the operation."
+}

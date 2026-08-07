@@ -107,6 +107,14 @@ describe("result contract completeness CLI", () => {
       (catalog: JsonObject) => reasons(catalog).shift(),
     ],
     [
+      "duplicate reason",
+      (catalog: JsonObject) => {
+        const first = reasons(catalog)[0];
+        if (first === undefined) throw new Error("missing first reason");
+        reasons(catalog)[1] = structuredClone(first);
+      },
+    ],
+    [
       "wrong reason exit",
       (catalog: JsonObject) => {
         const reason = reasons(catalog).find(
@@ -117,11 +125,35 @@ describe("result contract completeness CLI", () => {
       },
     ],
     [
+      "wrong result status",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const blocked = examples.find(({ exitCode }) => exitCode === 3);
+        if (blocked === undefined) throw new Error("missing blocked example");
+        blocked.status = "failure";
+      },
+    ],
+    [
+      "forbidden evidence",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const failure = examples.find(({ exitCode }) => exitCode === 2);
+        if (failure === undefined) throw new Error("missing failure example");
+        failure.evidence = [{ kind: "test", ref: "reports/unit.xml" }];
+      },
+    ],
+    [
       "false mutation claim",
       (_catalog: JsonObject, examples: JsonObject[]) => {
         const blocked = examples.find(({ exitCode }) => exitCode === 3);
         if (blocked === undefined) throw new Error("missing blocked example");
         blocked.stateChanged = true;
+      },
+    ],
+    [
+      "false retry claim",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const failure = examples.find(({ exitCode }) => exitCode === 2);
+        if (failure === undefined) throw new Error("missing failure example");
+        failure.retryable = true;
       },
     ],
     [
@@ -147,6 +179,41 @@ describe("result contract completeness CLI", () => {
         if (blocked === undefined) throw new Error("missing blocked example");
         const why = blocked.why as string[];
         why.push(why[0] ?? "duplicate");
+      },
+    ],
+    [
+      "duplicate evidence",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const blocked = examples.find(({ exitCode }) => exitCode === 3);
+        if (blocked === undefined) throw new Error("missing blocked example");
+        const evidence = blocked.evidence as JsonObject[];
+        const first = evidence[0];
+        if (first === undefined) throw new Error("missing first evidence");
+        evidence.push(structuredClone(first));
+      },
+    ],
+    [
+      "unknown result property",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const example = examples[0];
+        if (example === undefined) throw new Error("missing first example");
+        example.details = "inline payload";
+      },
+    ],
+    [
+      "credential text",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const example = examples[0];
+        if (example === undefined) throw new Error("missing first example");
+        example.summary = "token=customer-value";
+      },
+    ],
+    [
+      "evidence traversal",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const blocked = examples.find(({ exitCode }) => exitCode === 5);
+        if (blocked === undefined) throw new Error("missing conflict example");
+        blocked.evidence = [{ kind: "observation", ref: "../lease.json" }];
       },
     ],
     [

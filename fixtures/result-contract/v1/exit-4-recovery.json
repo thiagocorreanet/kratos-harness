@@ -1,0 +1,18 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "blocked",
+  "exitCode": 4,
+  "reasonCode": "runtime.state_corrupt",
+  "summary": "Canonical state integrity validation failed.",
+  "why": ["The snapshot did not agree with the verified event chain."],
+  "evidence": [
+    {
+      "kind": "event",
+      "ref": ".brain/runs/0001-login/events.jsonl",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "stateChanged": false,
+  "retryable": true,
+  "recovery": "Preserve the rejected state, run the explicit integrity audit, and retry only after verified repair or rebuild."
+}

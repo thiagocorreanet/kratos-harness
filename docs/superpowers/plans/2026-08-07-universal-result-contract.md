@@ -239,7 +239,7 @@ npm test -- --run tests/result-contract-checker.test.ts
 
 Expected: fail because checker and examples are absent.
 
-- [ ] **Step 3: Author six canonical examples**
+- [x] **Step 3: Author six canonical examples**
 
 Use these reason/exit pairs:
 
@@ -253,7 +253,7 @@ Use these reason/exit pairs:
 All examples use contract version `1.0.0`, safe English prose, canonical field
 order, unique ordered why/evidence, and 64-character lowercase fixture digests.
 
-- [ ] **Step 4: Implement reusable validation**
+- [x] **Step 4: Implement reusable validation**
 
 In `scripts/lib/result-contract.mjs`, export `loadResultContract(paths)` returning
 the four parsed artifacts plus sorted examples;
@@ -267,7 +267,7 @@ exit/status rules, evidence/state/retry policy, safe recursive strings,
 canonical property order, six exact exits, and duplicate why/evidence. Return
 validated data; throw only sanitized prefixed errors.
 
-- [ ] **Step 5: Implement the thin CLI and verify chain**
+- [x] **Step 5: Implement the thin CLI and verify chain**
 
 Support documented `--result-schema`, `--catalog-schema`, `--catalog`, and
 `--examples` option/value pairs for mutation tests. Default to repository paths.
@@ -280,7 +280,7 @@ Add:
 Insert `npm run result:check` after `npm run parity:check` in `verify`, and update
 the README-honesty script assertion.
 
-- [ ] **Step 6: Make the checker GREEN and commit**
+- [x] **Step 6: Make the checker GREEN and commit**
 
 ```bash
 npm test -- --run tests/result-contract-checker.test.ts tests/readme-honesty.test.ts
