@@ -1,5 +1,9 @@
 # Mestre Yoda
 
+<p align="center">
+  <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWt1aXNhOWp6eHdjZGY4aHkxNGU4MGh0Mjk4bG0xeDR6dnp1emZidSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/1UcgtCJEYigq4/giphy.gif" alt="Mestre Yoda" width="480">
+</p>
+
 > **A deterministic, observable Spec-Driven Development harness for AI coding agents.**
 
 **The model proposes. The runtime decides. The event log proves.**
