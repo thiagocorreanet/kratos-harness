@@ -158,7 +158,9 @@ The catalog is a closed, sorted array. Each entry contains:
 }
 ```
 
-`evidence` is `required`, `optional`, or `forbidden`. `stateChanged` is a
+`evidence` is `required`, `optional`, or `forbidden`. `recovery` is `null` for
+exit-0 reasons and a nonempty instruction for every other reason.
+`stateChanged` is a
 boolean maximum: `false` forbids claiming mutation; `true` allows it only when
 the concrete operation actually committed state. Codes are lowercase ASCII
 tokens separated by dots/underscores and are never renamed or reused.
@@ -173,8 +175,8 @@ five original universal-runtime codes:
 - `runtime.revision_conflict` (5): state changed since the decision input.
 
 Every entry has a condition-specific description, evidence policy, retry rule,
-and recovery instruction. Group templates may aid authoring but cannot replace
-entry-specific meaning.
+and, when non-successful, recovery instruction. Group templates may aid
+authoring but cannot replace entry-specific meaning.
 
 ## 8. Human and JSON rendering
 

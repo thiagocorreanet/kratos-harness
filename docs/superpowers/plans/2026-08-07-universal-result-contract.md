@@ -82,8 +82,9 @@ expect(catalog.reasons).toHaveLength(76);
 
 For every entry assert exact keys `code`, `description`, `status`, `exitCode`,
 `evidence`, `stateChanged`, `retryable`, `recovery`; nonempty condition-specific
-description/recovery; lowercase stable code; exit/status consistency; sorted
-unique codes; and no description/recovery duplicated across entries.
+description and non-success recovery; null success recovery; lowercase stable
+code; exit/status consistency; sorted unique codes; and no description or
+non-null recovery duplicated across entries.
 
 - [ ] **Step 3: Confirm RED**
 
@@ -147,7 +148,8 @@ and string recovery. Make summary/why safe nonempty single-line strings with a
 
 Require exact top-level fields `contractVersion` and `reasons`. Each closed
 reason entry uses the eight fields from Task 1. Enforce the stable code regex,
-description/recovery safe-line rules, status/exit conditionals, evidence enum
+description/recovery safe-line rules, null success recovery, status/exit
+conditionals, evidence enum
 `required|optional|forbidden`, and a minimum of 76 entries.
 
 - [ ] **Step 3: Author all 76 reason entries**
