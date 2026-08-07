@@ -208,26 +208,26 @@ Expected: all contract tests and focused static checks pass.
 - Consumes: final templates, checks, independent review, GitHub APIs.
 - Produces: reproducible local and platform discovery evidence and issue closure.
 
-- [ ] **Step 1: Run complete local verification**
+- [x] **Step 1: Run complete local verification**
 
 ```bash
 npm run verify
 npm run templates:validate
 npx --yes markdownlint-cli2@0.20.0 "README.md" "*.md" "docs/**/*.md"
-lychee --config .lychee.toml './**/*.md'
+lychee --config .lychee.toml README.md ROADMAP.md CONTRIBUTING.md CODE_OF_CONDUCT.md GOVERNANCE.md SECURITY.md SUPPORT.md .github/pull_request_template.md docs
 git diff --check
 ```
 
 Expected: full suite, hash-verified pinned Issue Forms schema, spelling,
 Markdown, links, package, and whitespace pass.
 
-- [ ] **Step 2: Request independent review**
+- [x] **Step 2: Request independent review**
 
 Review issue/design/plan acceptance, YAML schema fidelity, security routing,
 command truth, label/milestone/ID rules, and proposed-vs-active branch wording.
 Resolve every finding and rerun affected plus complete checks.
 
-- [ ] **Step 3: Record pre-merge evidence**
+- [x] **Step 3: Record pre-merge evidence**
 
 Record exact versions, test/file/link counts, local temporary draft inventory,
 form labels/required fields, review outcome, DCO trailers, and no production
