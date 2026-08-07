@@ -86,6 +86,17 @@ describe("versioned state and host schemas", () => {
     }
   });
 
+  it("binds project configuration to all three independent identities", () => {
+    const projectConfig = loaded.find(
+      ({ fixtureName }) => fixtureName === "project-config.json",
+    )?.fixture;
+    expect(projectConfig).toMatchObject({
+      pluginVersion: "0.0.0-development",
+      stateContract: "1.0.0",
+      hostContract: "1.0.0",
+    });
+  });
+
   it("ships eight payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [

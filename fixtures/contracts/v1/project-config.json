@@ -2,6 +2,7 @@
   "contractVersion": "1.0.0",
   "stateContract": "1.0.0",
   "pluginVersion": "0.0.0-development",
+  "hostContract": "1.0.0",
   "language": "en",
   "policyMode": "strict",
   "managedState": {

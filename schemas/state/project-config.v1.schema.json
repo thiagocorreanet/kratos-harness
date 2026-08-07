@@ -8,6 +8,7 @@
     "contractVersion",
     "stateContract",
     "pluginVersion",
+    "hostContract",
     "language",
     "policyMode",
     "managedState"
@@ -16,6 +17,7 @@
     "contractVersion": { "const": "1.0.0" },
     "stateContract": { "const": "1.0.0" },
     "pluginVersion": { "const": "0.0.0-development" },
+    "hostContract": { "const": "1.0.0" },
     "language": { "enum": ["en", "pt-BR"] },
     "policyMode": { "enum": ["standard", "strict"] },
     "managedState": {

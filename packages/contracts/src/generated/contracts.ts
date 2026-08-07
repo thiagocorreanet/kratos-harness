@@ -5,7 +5,7 @@
 // source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:471159581ca5b7ad791587723f938f3fa9befff2ebe6b1a0fc1e9b5427cec72c
 // source: https://mestre-yoda.dev/schemas/state/lock/v1 sha256:04891b0af102b4c71ad1fade1413e0729bd6d0367540453d2fe997270ac236a4
 // source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:698bcf9534ba820e0e807182c2d82dd0f1bd25031c79a6b7774a1674398c7cb6
-// source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:1498aa456a230d3e5fbc8712687f3948bab374e9c8c971c8a3965f81c2d8de2e
+// source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:78fc5822e1cbf79b0185ceb8d40b64394acfcbb2fc2050526c702c3dc62efebb
 // source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:6792451a6fb91370c8ca25e2943608837e9287d463f8d5377c8adaa8e1427677
 
 export namespace AdapterMessageV1Contract {
@@ -189,6 +189,7 @@ export namespace ProjectConfigV1Contract {
     contractVersion: "1.0.0";
     stateContract: "1.0.0";
     pluginVersion: "0.0.0-development";
+    hostContract: "1.0.0";
     language: "en" | "pt-BR";
     policyMode: "standard" | "strict";
     managedState: {
