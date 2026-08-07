@@ -113,7 +113,7 @@ git commit -s -m "feat: define differential scenario contracts"
 - Produces `compareGolden(side, expected, actual): readonly Mismatch[]`.
 - Produces `compareObservations(scenario, oracle, candidate): DifferentialReport`.
 
-- [ ] **Step 1: Write failing comparator tests**
+- [x] **Step 1: Write failing comparator tests**
 
 Cover exact equality, missing/unexpected/type/value differences, unexpected
 file, timeout, crash, partial mutation, and side-specific golden failure. Assert
@@ -129,7 +129,7 @@ expect(report.mismatches.map(({ pointer, kind }) => [pointer, kind])).toEqual([
 Prove LF/workspace/JSON-token/keyed-sort rules work, while rules targeting
 exit/status/reason/filesystem mutation/Git fail closed.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/differential-comparator.test.ts
@@ -137,7 +137,7 @@ npm test -- tests/differential-comparator.test.ts
 
 Expected: FAIL because comparator modules do not exist.
 
-- [ ] **Step 3: Implement normalization and comparison**
+- [x] **Step 3: Implement normalization and comparison**
 
 Use `structuredClone` and exact RFC 6901 traversal. Protect these prefixes and
 their parents from remove/replace operations:
@@ -159,7 +159,7 @@ partial_mutation`, scenario ID, real contract IDs, and disclosure-safe value
 summaries. Compare each side to the golden observation and then both sides,
 deduplicating only exact mismatch tuples.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/differential-comparator.test.ts tests/differential-contract.test.ts
