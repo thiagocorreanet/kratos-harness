@@ -220,7 +220,7 @@ the issue and is required to make the documented confidential route real.
 Parse, without committing, a sample trailer:
 
 ```bash
-printf '%s\n' 'Signed-off-by: Example Contributor <contributor@example.com>' | git interpret-trailers --parse
+printf '%s\n' 'Example commit' '' 'Signed-off-by: Example Contributor <contributor@example.com>' | git interpret-trailers --parse
 ```
 
 Expected: the identical valid trailer. Follow every README/policy relative link

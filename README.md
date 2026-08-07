@@ -250,23 +250,27 @@ complete validation sequence from a clean checkout.
 
 Mestre Yoda is being developed in the open, and thoughtful contributions are welcome.
 
-The project is still establishing its foundation. The best way to participate today is to:
+Start with the [Contribution guide](CONTRIBUTING.md), then use the
+[Code of Conduct](CODE_OF_CONDUCT.md), [Governance](GOVERNANCE.md), and
+[Support policy](SUPPORT.md) for their respective paths.
+
+The best way to participate today is to:
 
 1. Read the relevant [epic and implementation issues](https://github.com/thiagocorreanet/mestre-yoda/issues).
 2. Join an existing design or compatibility discussion before implementing a public contract.
 3. Keep changes focused on one issue and include reproducible test evidence.
 4. Preserve deterministic behavior and document compatibility, state, migration, and security impact.
 5. Use English for source code, comments, tests, fixtures, errors, documentation, issues, commits, and pull requests.
-
-Contribution guidelines, governance, the code of conduct, and the security policy are tracked in [the open-source foundation issue](https://github.com/thiagocorreanet/mestre-yoda/issues/4).
+6. Sign every commit under DCO 1.1 and complete the legacy/third-party IP provenance checklist when applicable.
 
 The planned development flow uses short-lived `feature/*`, `fix/*`, `docs/*`, and `refactor/*` branches targeting `developer`. Approved release changes then move from `developer` to the protected `main` branch. This policy is tracked in [issue #60](https://github.com/thiagocorreanet/mestre-yoda/issues/60).
 
 ## Security
 
-Please do not publish suspected vulnerabilities, secrets, or exploit details in a public issue. A private disclosure process will be published as part of the repository foundation. Until that policy is available, avoid sharing sensitive vulnerability details in this repository.
-
-Security policy implementation is tracked in [issue #4](https://github.com/thiagocorreanet/mestre-yoda/issues/4).
+Read the [Security policy](SECURITY.md) and use GitHub's private
+[Report a vulnerability](https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new)
+form. Do not publish suspected vulnerabilities, secrets, or exploit details in a
+public issue, pull request, discussion, or paste before coordinated disclosure.
 
 ## Frequently asked questions
 
