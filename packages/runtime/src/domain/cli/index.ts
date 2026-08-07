@@ -1,6 +1,18 @@
 export { renderHelp, usageLine } from "./help.js";
-export { parseArguments, parseGlobals, resolveCommand } from "./parse.js";
-export type { ArgumentParse, GlobalParse, Resolution } from "./parse.js";
+export { DEFAULT_REGISTRY } from "./commands.js";
+export { dispatch } from "./dispatch.js";
+export {
+  parseArguments,
+  parseGlobals,
+  parseInvocation,
+  resolveCommand,
+} from "./parse.js";
+export type {
+  ArgumentParse,
+  GlobalParse,
+  ParseOutcome,
+  Resolution,
+} from "./parse.js";
 export { GLOBAL_FLAGS } from "./spec.js";
 export type {
   CommandHandler,

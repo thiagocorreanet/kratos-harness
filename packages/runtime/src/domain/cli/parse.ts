@@ -1,6 +1,12 @@
 import { USAGE_WHY, usageFailure, type Result } from "../result/index.js";
+import { classifyExpectedVersion } from "../handshake.js";
 
-import type { CommandRegistry, CommandSpec, Globals } from "./spec.js";
+import type {
+  CommandRegistry,
+  CommandSpec,
+  Globals,
+  Invocation,
+} from "./spec.js";
 
 export interface GlobalParse {
   readonly globals: Globals;
@@ -124,4 +130,61 @@ export function parseArguments(
     return argumentFailure(USAGE_WHY.arity);
   }
   return { flags, positionals, failure: null };
+}
+
+export type ParseOutcome =
+  | { readonly kind: "invocation"; readonly invocation: Invocation }
+  | {
+      readonly kind: "result";
+      readonly result: Result;
+      readonly json: boolean;
+    };
+
+/** Turn argv into either a validated invocation or the result ending the run. */
+export function parseInvocation(
+  argv: readonly string[],
+  registry: CommandRegistry,
+): ParseOutcome {
+  const parsed = parseGlobals(argv);
+  if (parsed.failure !== null) {
+    return {
+      kind: "result",
+      result: parsed.failure,
+      json: parsed.globals.json,
+    };
+  }
+  if (parsed.globals.expect !== null) {
+    const drift = classifyExpectedVersion(parsed.globals.expect);
+    if (drift !== null) {
+      return { kind: "result", result: drift, json: parsed.globals.json };
+    }
+  }
+  const tokens =
+    parsed.globals.orientation !== null
+      ? [parsed.globals.orientation]
+      : parsed.rest.length === 0
+        ? ["help"]
+        : parsed.rest;
+  const resolved = resolveCommand(tokens, registry);
+  if (resolved === null) {
+    return {
+      kind: "result",
+      result: usageFailure(USAGE_WHY.unknownCommand),
+      json: parsed.globals.json,
+    };
+  }
+  const args = parseArguments(resolved.command, resolved.rest);
+  if (args.failure !== null) {
+    return { kind: "result", result: args.failure, json: parsed.globals.json };
+  }
+  return {
+    kind: "invocation",
+    invocation: {
+      command: resolved.command,
+      globals: parsed.globals,
+      flags: args.flags,
+      positionals: args.positionals,
+      registry,
+    },
+  };
 }
