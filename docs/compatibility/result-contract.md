@@ -26,7 +26,7 @@ Version 1 is owned by four checked artifact families:
   one canonical example for every exit class.
 
 Run `npm run result:check` to validate the schemas, the frozen predecessor
-inventory, all 83 reason entries, the six examples, canonical ordering, and
+inventory, the frozen revision-1.0 inventory of 76 reason entries, the six examples, canonical ordering, and
 output-safety rules without network access.
 
 ## Result fields

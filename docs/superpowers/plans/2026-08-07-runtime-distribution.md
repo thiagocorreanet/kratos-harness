@@ -680,6 +680,24 @@ git commit -s -m "docs: publish the runtime distribution contract"
 Use `requesting-code-review` against `main...HEAD`; resolve every Critical and
 Important finding with `receiving-code-review`, then rerun Step 4.
 
+The review found no Critical defect and six Important ones, all fixed: the guide
+published host-version rejection the runtime never performs; the result-contract
+guide stated a reason count the checker does not produce; the
+unrecognized-argument path echoed caller-supplied text, which a misordered
+`--expect` could reach; the project denylist had no demonstrated failing case;
+the plugin root was documented as exercised with spaces and non-ASCII characters
+but only the project root was; and the entry point swallowed every core error
+alike, leaving a genuine crash undiagnosable.
+
+Four Minor findings were also fixed: sequential placeholder substitution was
+order-dependent, the preflight tests exercised the template rather than the
+shipped artifact, the Node syntax floor was imprecise, and the spec listed a
+`version.ts` that deliberately does not exist.
+
+One Minor is deferred: `runtime/manifest.json` has no JSON Schema, unlike every
+other contract artifact here. It belongs with release packaging in `BET-02`
+(#59), where the archive format is decided.
+
 - [ ] **Step 6: Deliver and close #14**
 
 Push, open an English PR with `Closes #14`, include the exact commands and the

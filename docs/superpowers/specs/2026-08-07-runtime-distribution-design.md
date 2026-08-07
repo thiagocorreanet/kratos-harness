@@ -54,8 +54,9 @@ possibly run. A guard that lives in the same file as the code it guards cannot
 protect that code.
 
 Splitting the boot is the only way to produce a structured result instead of a
-parser stack trace. `yoda.mjs` restricts itself to syntax valid since Node 12,
-so the guard runs on anything a user plausibly has installed. Below that the
+parser stack trace. `yoda.mjs` restricts itself to syntax valid since Node 12.17.0,
+the first release with unflagged ESM and dynamic `import()`, so the guard runs
+on anything a user plausibly has installed. Below that the
 runtime cannot report anything, and the design documents that boundary rather
 than pretending to cover it.
 
@@ -128,8 +129,15 @@ Two roots exist and must never be confused:
 
 The runtime resolves its own assets relative to `import.meta.url` and never
 relative to the working directory. This is what lets one installed plugin serve
-any number of projects. Both roots are exercised from paths containing spaces
-and non-ASCII characters, because that is where naive path handling breaks.
+any number of projects.
+
+This is a rule the layout must keep rather than a body of resolution code: no
+plugin asset exists to load yet, so the only module-relative resolution today is
+the entry point importing its core. Stating and testing the rule now means the
+asset issues that follow inherit it instead of retrofitting it. Both roots are
+tested from paths containing spaces and non-ASCII characters, because a relative
+dynamic import through a percent-encodable `import.meta.url` is where naive path
+handling breaks.
 
 ### D5: Two inventories, because the plugin and the project receive different things
 
@@ -180,7 +188,9 @@ well-formed value outside the exact bundle version yields
 **Contract handshake.** `yoda.mjs handshake` writes an `adapter-message.v1`
 response reporting the plugin, result, state, and host contract versions the
 bundle carries. A host contract outside the accepted window yields
-`contract.host_version_invalid` or `contract.host_version_unsupported`.
+`contract.host_version_invalid` or `contract.host_version_unsupported` once a
+host hands the runtime an identity to judge. Nothing does yet, so this issue
+defines the clause and `ADP-01` wires it.
 
 Both reuse `classifyContractVersion` and `contractFailureResult`, already
 delivered by `CMP-04`. This issue wires the runtime to that classifier rather
@@ -195,7 +205,6 @@ the runtime answers correctly and refuses incompatible versions.
 | Unit | Responsibility | Depends on |
 | --- | --- | --- |
 | `packages/runtime/src/boot/preflight.mjs` | Node version gate, structured failure, dynamic import of the core | nothing but Node builtins |
-| `packages/runtime/src/boot/version.ts` | Minimum-version comparison, pure and independently testable | nothing |
 | `packages/runtime/src/handshake.ts` | Builds the handshake response and classifies `--expect` | `classifyContractVersion`, `contractFailureResult` |
 | `scripts/build.mjs` | Emits the two-file runtime and the distribution manifest | esbuild |
 | `scripts/verify-package.mjs` | Enforces both inventories and black-box behavior | built plugin |
@@ -204,6 +213,12 @@ The preflight ships as `.mjs` rather than TypeScript because it must not be
 transpiled: transpilation is exactly what would reintroduce modern syntax into
 the file whose entire purpose is to parse on old interpreters. It is small
 enough to review by eye and is covered by tests that execute it directly.
+
+The version comparison lives inside the preflight rather than in a separate
+`version.ts`, for the same reason: a TypeScript module would be transpiled into
+the bundle, and the comparison must run *before* the bundle loads. It is tested
+by executing the file under a stubbed interpreter version, which exercises the
+shipped artifact rather than a reimplementation.
 
 ## Data flow
 
@@ -229,9 +244,12 @@ host spawns:  node <plugin-root>/runtime/yoda.mjs <args>   (cwd = project root)
 | Node older than minimum | `result.v1`, `runtime.node_unsupported` | 2 |
 | `--expect` missing or malformed | `result.v1`, `contract.plugin_version_invalid` | 2 |
 | `--expect` outside bundle version | `result.v1`, `contract.plugin_version_unsupported` | 2 |
-| Host contract malformed | `result.v1`, `contract.host_version_invalid` | 2 |
-| Host contract outside window | `result.v1`, `contract.host_version_unsupported` | 2 |
 | Node absent entirely | nothing; the host adapter reports it | n/a |
+| Core missing or unloadable | one fixed line on stderr, no stack trace | 2 |
+
+A host contract version is deliberately absent from this table: the runtime is
+handed none to classify, so publishing those rows here would describe an
+unreachable path.
 
 Every failure occurs before any file is opened for writing, so all of them
 report `stateChanged: false`. None echoes a supplied version value, an absolute

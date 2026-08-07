@@ -37,10 +37,11 @@ inside that same file could possibly run. **A guard cannot protect the code it
 shares a file with.** Splitting the boot is the only way to answer an old
 interpreter with a structured result instead of a parser stack trace.
 
-`runtime/yoda.mjs` therefore restricts itself to syntax valid on Node 12, the
-first release with stable ESM, and is never transpiled. Below Node 12 an ESM
-entry point cannot load at all, so no guard placed inside one would help; that
-boundary is stated here rather than papered over.
+`runtime/yoda.mjs` therefore restricts itself to syntax valid on Node 12.17.0, the
+first release with unflagged ESM and dynamic `import()`, and is never
+transpiled. Below that an ESM entry point cannot load a core at all, so no guard
+placed inside one would help; that boundary is stated here rather than papered
+over.
 
 Both files ship inside the plugin and import nothing but Node builtins and each
 other, so the runtime stays self-contained: two files, one unit, zero
@@ -99,9 +100,17 @@ Two roots exist and must never be confused:
 
 The runtime resolves its own assets relative to `import.meta.url`, never
 relative to the working directory. That is what lets one installed plugin serve
-any number of unrelated projects. Both roots are exercised from paths containing
-spaces and non-ASCII characters, because that is where naive path handling
-breaks.
+any number of unrelated projects.
+
+This is currently a **rule the layout must keep**, not yet a body of resolution
+code: the only module-relative resolution in the distribution is the entry
+point's import of its core, because no plugin asset exists to load yet. The rule
+is stated and tested now so the asset issues that follow inherit it rather than
+having to retrofit it.
+
+Both roots are tested from paths containing spaces and non-ASCII characters,
+because a relative dynamic import through a percent-encodable `import.meta.url`
+is exactly where naive path handling breaks.
 
 ## Two inventories
 
@@ -169,12 +178,21 @@ for:
 result, reason-catalog, state, and host versions this bundle carries. Invoked
 directly it reports no observed host identity, because it was handed none and
 the contract requires stating the limitation rather than substituting a guess.
-An unacceptable host contract yields `contract.host_version_invalid` or
-`contract.host_version_unsupported`.
 
-Neither path reimplements version policy: both call the classifier published by
-the [contract versioning guide](contract-versioning.md), so a family is judged
-in exactly one place. Neither echoes the supplied value.
+The runtime does not yet classify a **host** contract version: nothing hands it
+one to judge. `contract.host_version_invalid` and
+`contract.host_version_unsupported` are defined by the
+[contract versioning guide](contract-versioning.md) and will be wired when the
+host adapter protocol delivers a request carrying that identity. They are not
+reachable through this contract, and this document does not claim otherwise.
+
+`--expect` does not reimplement version policy: it calls the same published
+classifier, so a family is judged in exactly one place. It never echoes the
+supplied value, and neither does the unrecognized-argument path — a misordered
+`--expect` lands there, so echoing would reopen the same disclosure hole.
+
+`--expect` must be the **first** argument. Anywhere else it is not recognized as
+a flag and the invocation is rejected without acting.
 
 The full request/response conversation belongs to the host adapter protocol.
 This contract covers the runtime's half of it.
