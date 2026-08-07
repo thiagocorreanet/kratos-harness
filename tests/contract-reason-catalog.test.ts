@@ -69,7 +69,9 @@ describe("contract reason catalog revision", () => {
     );
     expect(catalogV11.reasons).toHaveLength(82);
     expect(
-      catalogV11.reasons.slice(catalogV1.reasons.length).map(({ code }) => code),
+      catalogV11.reasons
+        .slice(catalogV1.reasons.length)
+        .map(({ code }) => code),
     ).toEqual([...additions.keys()]);
   });
 
