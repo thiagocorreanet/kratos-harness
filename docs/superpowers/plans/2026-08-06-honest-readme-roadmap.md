@@ -199,14 +199,14 @@ git diff --check
 
 Expected: all suites, spelling, Markdown, and links pass with zero errors.
 
-- [ ] **Step 2: Request two independent review lenses**
+- [x] **Step 2: Request two independent review lenses**
 
 The code review checks issue/spec acceptance and command truth. The clean-room
 reader receives only README/ROADMAP and answers: current maturity, whether/how it
 can be installed, what commands work, where state/runtime live, and what promotes
 each stage. Any answer that treats planned behavior as available is Important.
 
-- [ ] **Step 3: Record evidence**
+- [x] **Step 3: Record evidence**
 
 Document branch/commit, test/spell/link counts, real badge URL/status, all
 presented command executions, and both review outcomes. Include a table mapping
