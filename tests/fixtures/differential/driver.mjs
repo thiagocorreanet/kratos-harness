@@ -11,6 +11,9 @@ if (mode === "equal") {
 } else if (mode === "timeout") {
   await writeFile("partial.txt", "before timeout\n", "utf8");
   globalThis.setInterval(() => {}, 1_000);
+} else if (mode === "output-limit") {
+  process.stdout.write("abcdefghijklmnopqrstuvwxyz");
+  globalThis.setInterval(() => {}, 1_000);
 } else if (mode === "crash") {
   process.kill(process.pid, "SIGABRT");
 } else if (mode === "partial-mutation") {

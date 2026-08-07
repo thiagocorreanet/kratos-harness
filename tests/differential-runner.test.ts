@@ -146,6 +146,31 @@ describe("isolated differential runner", () => {
     expect(await readdir(temporaryParent)).toEqual([]);
   });
 
+  it("bounds captured output, hashes the retained prefix, and terminates promptly", async () => {
+    const temporaryParent = await root();
+    const fixture = await scenario("output-limit");
+    fixture.invocation.timeoutMs = 2_000;
+    fixture.invocation.maxStdoutBytes = 10;
+    const result = await runScenarioSide({
+      side: "candidate",
+      executable: process.execPath,
+      scenario: fixture,
+      temporaryParent,
+    });
+
+    expect(result.observation.process).toMatchObject({
+      outcome: "output_limit",
+      stdout: {
+        bytes: 10,
+        content: "abcdefghij",
+        sha256:
+          "72399361da6a7754fec986dca5b7cbaf1c810a28ded4abaf56b2106d06cb78b0",
+      },
+    });
+    expect(result.durationMs).toBeLessThan(1_000);
+    expect(await readdir(temporaryParent)).toEqual([]);
+  });
+
   it("uses isolated environment roots and drops unrelated secrets", async () => {
     process.env.YODA_TEST_SECRET = "must-not-leak";
     const temporaryParent = await root();

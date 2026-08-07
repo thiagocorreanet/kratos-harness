@@ -99,14 +99,17 @@ function terminate(child: ChildProcess, signal: NodeJS.Signals): void {
   }
 }
 
+/**
+ * Summarize the retained stream prefix. `bytes`, `sha256`, and `content` always
+ * describe the same buffer so a bounded capture stays internally consistent.
+ */
 function capturedStream(
   chunks: readonly Buffer[],
-  bytes: number,
   disclosure: "digest" | "content",
 ): CapturedStream {
   const value = Buffer.concat(chunks);
   return {
-    bytes,
+    bytes: value.byteLength,
     sha256: digest(value),
     ...(disclosure === "content" ? { content: value.toString("utf8") } : {}),
   };
@@ -134,19 +137,37 @@ async function execute(
     outcome: "exit",
   };
 
+  let escalation: NodeJS.Timeout | undefined;
+
+  /** Send SIGTERM once, then escalate to SIGKILL after a fixed grace period. */
+  function requestTermination(): void {
+    if (escalation !== undefined) return;
+    terminate(child, "SIGTERM");
+    escalation = setTimeout(() => {
+      terminate(child, "SIGKILL");
+    }, 250);
+  }
+
+  /**
+   * Retain only the prefix that fits within the declared bound, then stop the
+   * child. Dropping the whole overflowing chunk would discard evidence and
+   * leave the reported byte count describing data that was never hashed.
+   */
   function collect(
     chunk: Buffer,
     target: Buffer[],
     current: number,
     maximum: number,
   ): number {
-    const next = current + chunk.byteLength;
-    if (next <= maximum) target.push(chunk);
-    else {
-      termination.outcome = "output_limit";
-      terminate(child, "SIGTERM");
+    const remaining = maximum - current;
+    if (chunk.byteLength <= remaining) {
+      target.push(chunk);
+      return current + chunk.byteLength;
     }
-    return next;
+    if (remaining > 0) target.push(chunk.subarray(0, remaining));
+    termination.outcome = "output_limit";
+    requestTermination();
+    return maximum;
   }
 
   child.stdout.on("data", (chunk: Buffer) => {
@@ -172,16 +193,8 @@ async function execute(
 
   const timeout = setTimeout(() => {
     if (termination.outcome === "exit") termination.outcome = "timeout";
-    terminate(child, "SIGTERM");
+    requestTermination();
   }, scenario.invocation.timeoutMs);
-  const escalation = setTimeout(() => {
-    if (
-      termination.outcome === "timeout" ||
-      termination.outcome === "output_limit"
-    ) {
-      terminate(child, "SIGKILL");
-    }
-  }, scenario.invocation.timeoutMs + 250);
 
   const closed = await new Promise<{
     code: number | null;
@@ -192,7 +205,7 @@ async function execute(
     });
   });
   clearTimeout(timeout);
-  clearTimeout(escalation);
+  if (escalation !== undefined) clearTimeout(escalation);
 
   const outcome =
     termination.outcome === "exit" && closed.signal !== null
@@ -204,8 +217,8 @@ async function execute(
       outcome,
       exitCode: closed.code,
       signal: closed.signal,
-      stdout: capturedStream(stdout, stdoutBytes, scenario.disclosure.stdout),
-      stderr: capturedStream(stderr, stderrBytes, scenario.disclosure.stderr),
+      stdout: capturedStream(stdout, scenario.disclosure.stdout),
+      stderr: capturedStream(stderr, scenario.disclosure.stderr),
     },
   };
 }
