@@ -1,5 +1,18 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.1.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.2.json" with { type: "json" };
+
+/**
+ * The contract identities this bundle carries. Consumers report these rather
+ * than reading the manifest from disk, so a bundled runtime stays
+ * self-contained.
+ */
+export const CONTRACT_IDENTITIES = {
+  plugin: contractManifest.pluginVersion,
+  result: contractManifest.resultContract,
+  reasonCatalog: contractManifest.reasonCatalog,
+  state: contractManifest.stateContract.current,
+  host: contractManifest.hostContract.current,
+} as const;
 
 export type ContractFamily = "plugin" | "state" | "host";
 export type CompatibilityClass =

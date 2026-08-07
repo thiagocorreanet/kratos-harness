@@ -31,8 +31,9 @@
     "Lychee",
     "lycheeverse",
     "markdownlint",
-    "metafile",
     "Mestre",
+    "metafile",
+    "misordered",
     "mktemp",
     "MWTC",
     "NOSYSTEM",
@@ -45,14 +46,15 @@
     "rhysd",
     "Sistemas",
     "thiagocorreanet",
-    "trimpath",
     "trailcli",
+    "trimpath",
     "TypeScript",
     "uninspectable",
+    "unloadable",
     "Vitest",
+    "worklist",
     "worktree",
     "worktrees",
-    "worklist",
     "Yoda"
   ]
 }

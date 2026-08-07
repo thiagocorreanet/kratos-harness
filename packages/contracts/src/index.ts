@@ -1,5 +1,6 @@
 export { YODA_VERSION } from "./version.js";
 export {
+  CONTRACT_IDENTITIES,
   classifyContractVersion,
   contractFailureResult,
 } from "./compatibility.js";

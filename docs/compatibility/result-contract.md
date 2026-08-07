@@ -20,11 +20,13 @@ Version 1 is owned by four checked artifact families:
   preserves the immutable 76-reason revision 1.0 policy;
 - [`reason-codes.v1.1.json`](../../packages/contracts/catalogs/reason-codes.v1.1.json)
   adds six contract-family compatibility reasons;
+- [`reason-codes.v1.2.json`](../../packages/contracts/catalogs/reason-codes.v1.2.json)
+  is the current revision and adds `runtime.node_unsupported`;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.
 
 Run `npm run result:check` to validate the schemas, the frozen predecessor
-inventory, all 76 reason entries, the six examples, canonical ordering, and
+inventory, the frozen revision-1.0 inventory of 76 reason entries, the six examples, canonical ordering, and
 output-safety rules without network access.
 
 ## Result fields
@@ -99,6 +101,12 @@ Catalog revision 1.1 preserves those 76 entries byte-for-byte and adds six
 the independently versioned plugin, state, and host families. Their exact
 compatibility windows and recovery policy are documented in the
 [contract versioning guide](contract-versioning.md).
+
+Catalog revision 1.2 preserves those 82 entries byte-for-byte and adds
+`runtime.node_unsupported`, reported when the interpreter running the plugin
+runtime is older than the supported minimum. It is the only reason emitted
+before the runtime bundle loads, so the plugin entry point embeds its text
+verbatim; see the [runtime distribution contract](runtime-distribution.md).
 
 ## Evidence references
 

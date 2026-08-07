@@ -15,6 +15,10 @@ const catalogV11Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.1.json",
 );
+const catalogV12Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.2.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -46,16 +50,20 @@ const additions = new Map([
 
 let catalogV1: Catalog;
 let catalogV11: Catalog;
+let catalogV12: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
+let catalogV12Text: string;
 
 beforeAll(async () => {
-  [catalogV1Text, catalogV11Text] = await Promise.all([
+  [catalogV1Text, catalogV11Text, catalogV12Text] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
+    readFile(catalogV12Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
+  catalogV12 = JSON.parse(catalogV12Text) as Catalog;
 });
 
 describe("contract reason catalog revision", () => {
@@ -76,6 +84,37 @@ describe("contract reason catalog revision", () => {
         .slice(catalogV1.reasons.length)
         .map(({ code }) => code),
     ).toEqual([...additions.keys()]);
+  });
+
+  it("preserves revision 1.1 and appends the unsupported interpreter reason", () => {
+    expect(createHash("sha256").update(catalogV12Text).digest("hex")).toBe(
+      "84876592c47a4d80ccf833ebea8609d7e4f1cdfc7d1992ce17e05375990613ce",
+    );
+    expect(catalogV12.contractVersion).toBe("1.0.0");
+    expect(catalogV12.reasons.slice(0, catalogV11.reasons.length)).toEqual(
+      catalogV11.reasons,
+    );
+    expect(catalogV12.reasons).toHaveLength(83);
+    expect(
+      catalogV12.reasons
+        .slice(catalogV11.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["runtime.node_unsupported"]);
+  });
+
+  it("fails closed on an unsupported interpreter without publishing evidence", () => {
+    const reason = catalogV12.reasons.find(
+      ({ code }) => code === "runtime.node_unsupported",
+    );
+    expect(reason).toMatchObject({
+      status: "failure",
+      exitCode: 2,
+      evidence: "forbidden",
+      stateChanged: false,
+      retryable: false,
+    });
+    // The recovery text is what the preflight embeds, so it must name the floor.
+    expect(reason?.recovery).toContain("24.0.0");
   });
 
   it("defines safe fail-closed policy for every new reason", () => {
