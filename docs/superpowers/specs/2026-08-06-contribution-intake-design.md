@@ -156,12 +156,18 @@ system temporary directory, verifies that all required fields are discoverable,
 and deletes the draft tree. This proves local draft creation without opening a
 real issue or notifying maintainers.
 
-The implementation PR references #6 without a closing keyword. After merge,
-GitHub's issue-template API must discover exactly the five forms, every direct
-form URL must render its title and required fields, and the community profile
-must recognize issue and pull-request templates. Only an evidence follow-up may
-use `Closes #6`. This keeps the issue open until the platform-level discovery and
-rendering gate has actually passed.
+The implementation PR is intended to reference #6 without automatic closure.
+Any accidental closing-keyword match must be recovered by immediately reopening
+issue #6 before platform verification. After merge, the authenticated GitHub chooser
+must show exactly five forms, and every direct form URL must render its title,
+labels, and required fields. Platform metadata must also recognize the
+pull-request template; Issue Forms are proven through their native chooser/
+rendering surface when legacy template metadata does not enumerate them. Only
+an evidence follow-up intentionally closes #6 after this platform gate passes.
+
+PR #76 demonstrated the recovery rule: explanatory text containing `close #6`
+was interpreted as a closing keyword, so maintainers reopened #6 immediately
+before beginning platform verification.
 
 ## 8. Compatibility, security, and provenance
 

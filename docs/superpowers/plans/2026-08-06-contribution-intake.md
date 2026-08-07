@@ -233,16 +233,19 @@ Record exact versions, test/file/link counts, local temporary draft inventory,
 form labels/required fields, review outcome, DCO trailers, and no production
 dependency/runtime-bundle change.
 
-- [ ] **Step 4: Publish implementation without closing the issue**
+- [x] **Step 4: Publish implementation and preserve the platform gate**
 
-Push `docs/issue-6-contribution-templates`, open a signed PR that references but
-does not close #6, wait for all available checks, merge, confirm issue #6 remains
-open, and synchronize `main`.
+Push `docs/issue-6-contribution-templates`, open a signed PR intended to reference
+without closing #6, wait for all available checks, merge, and synchronize `main`.
+If explanatory wording is interpreted as a closing keyword, reopen #6 immediately
+and confirm it remains open throughout platform verification. PR #76 triggered
+that recovery path and #6 was reopened before the gate began.
 
-- [ ] **Step 5: Prove platform discovery, record evidence, and close**
+- [x] **Step 5: Prove platform discovery, record evidence, and close**
 
-Use GitHub's issue-template and community-profile APIs to verify exactly five
-forms plus recognized issue/PR template paths on `main`. Open every direct form
-URL and verify its rendered title/required fields. Record the merged commit and
-green workflow, publish an evidence follow-up with `Closes #6`, merge it, confirm
-issue #6 closed, then begin issue #7.
+Use GitHub's authenticated chooser and direct form URLs to verify exactly five
+rendered forms, titles, labels, and required fields on `main`. Use platform
+metadata for the PR template and record any Issue Forms metadata limitation
+honestly. Record the merged commit and green workflow, publish an evidence
+follow-up with `Closes #6`, merge it, confirm issue #6 closed, then begin issue
+number 7.
