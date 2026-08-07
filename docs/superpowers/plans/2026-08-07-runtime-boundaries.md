@@ -456,6 +456,27 @@ git commit -s -m "docs: publish the runtime boundary contract"
 Use `requesting-code-review` against `main...HEAD`; resolve every Critical and
 Important finding with `receiving-code-review`, then rerun Step 4.
 
+The review found three Critical defects and five Important ones, all fixed.
+
+Two Critical were holes in the rule this issue exists to enforce: a bare builtin
+specifier (`from "fs"`) bypassed it entirely, and `nodeFileSystem` followed a
+symlink in the final path component, letting a file outside the root be read and
+overwritten while the guide claimed refusal. The third was a raw NUL byte that
+made Git classify the rule engine as binary, so its diff was unreviewable --
+which is how an earlier defect in that same file reached a commit.
+
+The Important findings were a switch that claimed exhaustiveness it did not
+have, seven behavioral divergences between the two filesystem implementations,
+two more between the lock implementations, Git and Locks never executed by any
+test, and `append_event` truncating the log on any read failure.
+
+Four Minor findings were also fixed. Three remain open and are recorded rather
+than silently dropped: a second import after a semicolon on the same line is not
+matched (Prettier splits it, so this is defense in depth), `stat(".")` and
+`makeDirectory(".")` refuse the project root while `list(".")` accepts it, and
+the coverage text reporter prints no rows even though the JSON summary is
+correct.
+
 - [ ] **Step 6: Deliver and close #16**
 
 Push, open an English PR with `Closes #16`, include the exact commands and the

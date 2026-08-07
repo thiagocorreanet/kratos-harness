@@ -52,6 +52,7 @@
     "TypeScript",
     "uninspectable",
     "unloadable",
+    "unreviewable",
     "Vitest",
     "worklist",
     "worktree",
