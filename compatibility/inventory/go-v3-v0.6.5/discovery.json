@@ -1942,6 +1942,18 @@
         "provenance_id": "private-go-v3-hash-only"
       },
       {
+        "key": "reason_codes.dashboard.estado_ilegivel",
+        "name": "dashboard.estado_ilegivel",
+        "legacy_refs": ["cmd/yoda/dashboard.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.dashboard.telemetria_ilegivel",
+        "name": "dashboard.telemetria_ilegivel",
+        "legacy_refs": ["cmd/yoda/dashboard.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
         "key": "reason_codes.done.all_steps",
         "name": "done.all_steps",
         "legacy_refs": ["internal/decide/codes.go"],
@@ -2098,6 +2110,12 @@
         "provenance_id": "private-go-v3-hash-only"
       },
       {
+        "key": "reason_codes.no_git",
+        "name": "no_git",
+        "legacy_refs": ["internal/complete/git.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
         "key": "reason_codes.run.next_step",
         "name": "run.next_step",
         "legacy_refs": ["internal/decide/codes.go"],
@@ -2107,6 +2125,84 @@
         "key": "reason_codes.run.resuming",
         "name": "run.resuming",
         "legacy_refs": ["internal/decide/codes.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.aceite_incompleto",
+        "name": "trail.aceite_incompleto",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.gate_divergente",
+        "name": "trail.gate_divergente",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.maintenance_tty",
+        "name": "trail.maintenance_tty",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.nao_trilho",
+        "name": "trail.nao_trilho",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.objetivo_divergente",
+        "name": "trail.objetivo_divergente",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.ok",
+        "name": "trail.ok",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.output_invalido",
+        "name": "trail.output_invalido",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.prd_invalido",
+        "name": "trail.prd_invalido",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.sem_run",
+        "name": "trail.sem_run",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.spec_revision_invalid",
+        "name": "trail.spec_revision_invalid",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.use_done",
+        "name": "trail.use_done",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.uso",
+        "name": "trail.uso",
+        "legacy_refs": ["internal/trail/result.go"],
+        "provenance_id": "private-go-v3-hash-only"
+      },
+      {
+        "key": "reason_codes.trail.worktree_dirty",
+        "name": "trail.worktree_dirty",
+        "legacy_refs": ["internal/trail/result.go"],
         "provenance_id": "private-go-v3-hash-only"
       }
     ],

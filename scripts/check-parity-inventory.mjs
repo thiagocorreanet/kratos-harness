@@ -55,6 +55,10 @@ function names(discovery, namespace) {
 function assertPrivateDiscovery(discovery, actual) {
   const mappings = [
     ["commands", "commands"],
+    ["command_forms", "commandForms"],
+    ["flags", "flags"],
+    ["io_contracts", "ioContracts"],
+    ["exit_codes", "exitCodes"],
     ["packages", "packages"],
     ["schemas", "schemas"],
     ["plugin_files", "pluginFiles"],

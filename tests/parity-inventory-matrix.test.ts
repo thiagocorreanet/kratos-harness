@@ -29,6 +29,7 @@ interface VerificationCase {
 
 interface Row {
   readonly id: string;
+  readonly category: string;
   readonly covers: readonly string[];
   readonly expected_behavior: string;
   readonly priority: "P0" | "P1" | "P2";
@@ -91,6 +92,18 @@ describe("living Go v3 parity matrix", () => {
     }
   });
 
+  it("defines observable command results and flag type/default/effect contracts", () => {
+    for (const row of matrix.rows) {
+      if (row.category === "command") {
+        expect(row.expected_behavior, row.id).toContain("Observable contract:");
+      }
+      if (row.category === "flags") {
+        expect(row.expected_behavior, row.id).toContain("Type/default/effect:");
+        expect(row.expected_behavior, row.id).toContain("Parsing/precedence:");
+      }
+    }
+  });
+
   it("starts with objective zero-credit parity", () => {
     const result = runValidation();
     expect(result.status).toBe(0);
@@ -128,6 +141,10 @@ describe("living Go v3 parity matrix", () => {
     [
       "domain-specific P0 behavior",
       "{ const row = matrix.rows.find((candidate) => candidate.priority === 'P0' && candidate.category !== 'prd'); const name = Object.values(discovery.namespaces).flat().find((entry) => entry.key === row.covers[0]).name; row.expected_behavior = `Normal: ${name} works like the predecessor for ordinary inputs and produces deterministic observable results across supported hosts. Failure: invalid, unavailable, or inconsistent inputs fail safely without unauthorized mutation and retain a stable failure class. Edge: empty, repeated, malformed, concurrency-sensitive, and platform-sensitive inputs remain compatible.`; }",
+    ],
+    [
+      "typed flag behavior",
+      "{ const row = matrix.rows.find((candidate) => candidate.category === 'flags'); const name = Object.values(discovery.namespaces).flat().find((entry) => entry.key === row.covers[0]).name; row.expected_behavior = `Normal: ${name} preserves parsing and precedence for ordinary values with deterministic results. Failure: missing and malformed values are rejected without state mutation and produce stable stderr. Edge: repeated, empty, spaced, equals-form, and platform-sensitive values remain compatible with the predecessor contract.`; }",
     ],
     [
       "unique legacy references",

@@ -132,7 +132,10 @@ discovery keys only when they form one indivisible observable contract; every
 key must be covered exactly once.
 
 `expected_behavior` describes externally relevant behavior without copying
-private expression. `legacy_refs` identify the source of the observation.
+private expression. Command rows state observable output, state, failure, and
+edge results. Flag rows state type, default, exact effect, parsing, and
+precedence rather than deferring those facts to “legacy behavior.”
+`legacy_refs` identify the source of the observation.
 `typescript_owner` is one of `@mestre-yoda/contracts`,
 `@mestre-yoda/runtime`, `@mestre-yoda/adapters`, or `plugin`.
 

@@ -315,7 +315,7 @@
       "title": "command: ac",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.ac"],
-      "expected_behavior": "Normal: invoking `yoda ac` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda ac flip` imports or derives acceptance-criterion evidence and updates the active feature record, while `yoda ac check` reports whether every criterion is satisfied on stdout. Failure: an unknown action or unreadable evidence is reported on stderr with exit 2/1 and no partial record. Edge: replaying identical evidence is idempotent and check never mutates the record.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -451,7 +451,7 @@
       "title": "command: bench",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.bench"],
-      "expected_behavior": "Normal: invoking `yoda bench` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda bench gaps` evaluates the frozen PRD fixture corpus, optionally runs paid model detection, and writes deterministic dated benchmark results plus a stdout summary. Failure: invalid dates/options, unavailable fixtures, confirmation refusal, or run errors go to stderr and never publish a partial run as valid. Edge: completed cases resume or skip unless forced, and concurrent detect runs are locked.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -485,7 +485,7 @@
       "title": "command: budgets",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.budgets"],
-      "expected_behavior": "Normal: invoking `yoda budgets` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda budgets` reads the active project's run budget and stop-loss accounting and prints the stable human table on stdout without mutation. Failure: malformed Brain/run state is diagnosed on stderr with its stable nonzero class. Edge: no active run yields the frozen empty/orientation result and explicit roots do not change the current directory.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -519,7 +519,7 @@
       "title": "command: complete",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.complete"],
-      "expected_behavior": "Normal: invoking `yoda complete` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda complete` verifies the current code step against its Git baseline, declared changes, tests, acceptance criteria, and observed state before atomically marking that step complete. Failure: each invariant emits its exact `complete.*` reason on stderr and exit 3 without advancing. Edge: ignored removals, no-Git baselines, and repeated completion preserve the frozen decision order.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -553,7 +553,7 @@
       "title": "command: continue",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.continue"],
-      "expected_behavior": "Normal: invoking `yoda continue` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda continue` advances exactly one runnable trail step or presents the current gate on stdout; with `--gate` and one decision action it records that human decision and applies lineage/state changes. Failure: stale/wrong gates, invalid outputs, or conflicting actions emit the exact trail reason on stderr and exit 2/3 without skipping work. Edge: resume, revise-spec, gaps, partition, and final-acceptance boundaries remain deterministic.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -587,7 +587,7 @@
       "title": "command: dashboard",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.dashboard"],
-      "expected_behavior": "Normal: invoking `yoda dashboard` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda dashboard` is read-only and combines telemetry averages with the same trail status view as `yoda status`, using a human stdout view by default or structured JSON when selected. Failure: unreadable telemetry/state emits `dashboard.telemetria_ilegivel` or `dashboard.estado_ilegivel` on stderr and exit 1. Edge: a directory without `.brain` is a silent exit-0 no-op.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -621,7 +621,7 @@
       "title": "command: decide",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.decide"],
-      "expected_behavior": "Normal: invoking `yoda decide` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda decide <feature> [run-id]` validates the frozen plan/run state, selects the next runnable step or gate, and writes the stable structured decision to stdout without changing project files. Failure: malformed or inconsistent inputs return the exact blocked reason on stderr/nonzero output. Edge: empty plans, orphan current steps, multiple in-progress steps, stop-loss, and fully completed plans preserve decision precedence.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -655,7 +655,7 @@
       "title": "command: doctor",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.doctor"],
-      "expected_behavior": "Normal: invoking `yoda doctor` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda doctor` prints deterministic project/runtime diagnostics on stdout; `--init` checks initialized-project invariants and worktree mode controls which Brain is inspected. Failure: corrupt, conflicting, or missing required layout is listed as failed diagnostics and produces the frozen nonzero class on stderr. Edge: no project, linked worktrees, migration-pending layouts, and repeated read-only runs are stable.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -689,7 +689,7 @@
       "title": "command: done",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.done"],
-      "expected_behavior": "Normal: invoking `yoda done` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda done` accepts only a trail at the final acceptance gate, records final acceptance, closes the run/feature state atomically, and prints the completion echo on stdout. Failure: incomplete acceptance emits `trail.aceite_incompleto` or the applicable stable reason on stderr and does not close the feature. Edge: no active run degrades to orientation and repeated completion cannot duplicate acceptance events.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -723,7 +723,7 @@
       "title": "command: evidence",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.evidence"],
-      "expected_behavior": "Normal: invoking `yoda evidence` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda evidence` renders the active run's declared evidence and verification state on stdout without changing it. Failure: unreadable or inconsistent Brain/run data is reported on stderr with the frozen reason and exit class. Edge: missing active runs, empty evidence collections, explicit roots, and repeated reads preserve stable ordering and output.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -757,7 +757,7 @@
       "title": "command: gaps-sync",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.gaps-sync"],
-      "expected_behavior": "Normal: invoking `yoda gaps-sync` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda gaps-sync` reconciles discovered gaps into the active feature's canonical gaps state and emits the deterministic synchronization summary on stdout. Failure: corrupt gap/run inputs are reported on stderr and leave existing state intact. Edge: an empty set and repeated synchronization are idempotent, while already-known gap identities are not duplicated.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -791,7 +791,7 @@
       "title": "command: gen",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.gen"],
-      "expected_behavior": "Normal: invoking `yoda gen` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda gen codex-agents` deterministically renders the project Codex agent configuration from the active Yoda config and writes only its managed target files, reporting success on stdout. Failure: unsupported forms, invalid config, or render/write errors go to stderr without partial replacement. Edge: repeated generation is byte-stable and preserves unrelated project files.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -893,7 +893,7 @@
       "title": "command: guard",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.guard"],
-      "expected_behavior": "Normal: invoking `yoda guard` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda guard check <path>` evaluates the requested write path against project scope, approvals, guardrails, and active-feature state and prints the stable allow/block decision payload on stdout. Failure: malformed invocation exits 2 on stderr; uninspectable or denied paths retain their exact `guard.*` reason without mutation. Edge: symlinks, missing targets, external paths, and platform separators remain fail-closed.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -927,7 +927,7 @@
       "title": "command: guardrails",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.guardrails"],
-      "expected_behavior": "Normal: invoking `yoda guardrails` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda guardrails init` creates the canonical project guardrails from the initialized Brain/config and reports the managed artifact on stdout. Failure: invalid layout or unsafe existing content is reported on stderr without overwriting usable rules. Edge: repeated initialization is deterministic and missing/corrupt guardrails remain distinguishable.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -961,7 +961,7 @@
       "title": "command: handoff",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.handoff"],
-      "expected_behavior": "Normal: invoking `yoda handoff` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda handoff` renders the active trail handoff—objective, current step/gate, blockers, and next host action—in stable stdout text without changing state. Failure: unreadable project context is diagnosed on stderr with the matching reason. Edge: no active run, blocked runs, and completed steps retain deterministic orientation output.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -995,7 +995,7 @@
       "title": "command: help",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.help"],
-      "expected_behavior": "Normal: invoking `yoda help` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda help`, `--help`, and `-h` print the frozen English command sections, complete nested usages, and two global flags to stdout with exit 0 and empty stderr. Failure: help takes no mutating path and cannot dispatch a similarly named command. Edge: help remains available outside a project and with compatible global flags.",
       "priority": "P2",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1029,7 +1029,7 @@
       "title": "command: hook",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.hook"],
-      "expected_behavior": "Normal: invoking `yoda hook` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda hook <event> --host <host>` reads one host payload from stdin, applies the project guard protocol, and writes only the host response contract to stdout/stderr with the response exit code. Failure: malformed event/host/payload exits 2; pre-tool layout failures block while post/session events fail open as frozen. Edge: outside a Yoda project is an exit-0 no-op and stdin is consumed exactly once.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1063,7 +1063,7 @@
       "title": "command: init",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.init"],
-      "expected_behavior": "Normal: invoking `yoda init` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda init` validates answers and stack detection before atomically creating the `.brain` skeleton, config, guardrails, stack profile, host context/settings, and Codex agents, then reports the initialized root on stdout. Failure: invalid answers, existing/conflicting layout, renderer errors, or unsafe destinations go to stderr before commit. Edge: merge, force, linked-worktree anchoring, and multi-host rules preserve existing user content.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1097,7 +1097,7 @@
       "title": "command: judge",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.judge"],
-      "expected_behavior": "Normal: invoking `yoda judge` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda judge` reads the active validated eval output, compares executor/judge identity, records a new idempotent verdict and attempt, and emits only degraded/replay notices as applicable. Failure: model divergence or forbidden self-judgment emits the exact `judge.*` reason on stderr with exit 3 and no accepted verdict. Edge: identical evidence replay does not increment attempts.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1131,7 +1131,7 @@
       "title": "command: migrate",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.migrate"],
-      "expected_behavior": "Normal: invoking `yoda migrate` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda migrate` performs the frozen v2-to-v3 project migration, while `yoda migrate brain` relocates legacy Brain storage after explicit confirmation; successful stdout names the resulting layout. Failure: ambiguous/conflicting layouts, invalid source state, or refused noninteractive confirmation leave both layouts intact and report stderr. Edge: already-migrated projects and retried interrupted migrations are idempotent.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1165,7 +1165,7 @@
       "title": "command: objective",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.objective"],
-      "expected_behavior": "Normal: invoking `yoda objective` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda objective <text>` preserves the exact root demand, allocates/activates its feature identity, and prints the resulting orientation on stdout; `--replace` explicitly substitutes a divergent active objective. Failure: empty text or divergent text without replace emits `trail.uso`/`trail.objetivo_divergente` on stderr with no overwrite. Edge: identical repetition is idempotent and quoted Unicode text is preserved.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1199,7 +1199,7 @@
       "title": "command: partition",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.partition"],
-      "expected_behavior": "Normal: invoking `yoda partition` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda partition check` validates the pending partition proposal against parent feature, scope, dependencies, and frozen schema and prints the decision on stdout without applying an unapproved partition. Failure: malformed or inconsistent proposals emit the stable reason on stderr/nonzero exit. Edge: no proposal, already processed proposals, and multiple child slices preserve deterministic ordering.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1505,7 +1505,7 @@
       "title": "command: start",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.start"],
-      "expected_behavior": "Normal: invoking `yoda start` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda start` creates or repairs the active trail run from the preserved objective, writes the initial plan/state/event atomically, and prints the first host action on stdout. Failure: missing objective, unsafe existing run, invalid repair lineage, or write failure emits the stable reason on stderr without a half-created run. Edge: repeated start resumes/repairs only the frozen safe cases.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1539,7 +1539,7 @@
       "title": "command: stats",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.stats"],
-      "expected_behavior": "Normal: invoking `yoda stats` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda stats` reads run telemetry and prints deterministic phase/command aggregates on stdout; `--write` also updates the managed task-metrics view from the same data. Failure: malformed telemetry is reported on stderr without replacing the prior view. Edge: empty telemetry, no Brain, repeated writes, and explicit `--root=` remain stable.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1573,7 +1573,7 @@
       "title": "command: status",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.status"],
-      "expected_behavior": "Normal: invoking `yoda status` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda status` renders the active trail mode, feature/run, current step, pending gate, and stop-loss state in deterministic stdout text without mutation. Failure: unreadable required state is reported on stderr with the frozen class. Edge: no Brain/run, classic-mode projects, linked roots, and repeated reads preserve the documented empty/orientation behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1607,7 +1607,7 @@
       "title": "command: step",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.step"],
-      "expected_behavior": "Normal: invoking `yoda step` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda step --maintenance` executes the one TTY-only maintenance step, while `--rebaseline` explicitly rebuilds the safe code-step baseline; each emits its result on stdout. Failure: exactly one mode is required, non-TTY maintenance and unsafe rebaseline conditions emit stable stderr/exit 2 or 3 without advancement. Edge: interrupted/retried operations and non-code phases remain atomic.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1641,7 +1641,7 @@
       "title": "command: unlock",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.unlock"],
-      "expected_behavior": "Normal: invoking `yoda unlock` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda unlock stop-loss --run <id>` requires an interactive confirmation and clears only the named run's stop-loss lock, recording the unlock and reporting it on stdout. Failure: wrong/missing run identity, non-TTY stdin, or rejected confirmation leaves the lock set and emits stderr/nonzero status. Edge: already-unlocked and repeated requests are idempotent.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1675,7 +1675,7 @@
       "title": "command: validate",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.validate"],
-      "expected_behavior": "Normal: invoking `yoda validate` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda validate <kind> <file|->` reads JSON from the named file or stdin, validates the matching frozen schema plus semantic rules, and prints stable `label: path: message` violations on stdout. Failure: unknown kinds, read errors, or invalid schema invocation go to stderr with exit 2; valid documents exit 0 and contract violations exit 1. Edge: root-path violations use `(root)` and stdin is labeled `stdin`.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1709,7 +1709,7 @@
       "title": "command: version",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.version"],
-      "expected_behavior": "Normal: invoking `yoda version` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda version` and `--version` print exactly the linker-injected semantic version plus newline to stdout, exit 0, and leave stderr empty without project discovery. Failure: extra operands are usage errors on stderr/exit 2. Edge: the alias is normalized rather than becoming a separate command and works from any directory.",
       "priority": "P2",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1743,7 +1743,7 @@
       "title": "command: views",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.views"],
-      "expected_behavior": "Normal: invoking `yoda views` dispatches the frozen handler and preserves its stdout payload, filesystem/state effects, reason codes, and success exit class. Failure: malformed operands or unavailable project state are reported on stderr with the command's stable nonzero class and no unauthorized mutation. Edge: preserve explicit-root, empty-state, repeated-invocation, and worktree-sensitive behavior.",
+      "expected_behavior": "Normal: Observable contract: `yoda views sync` regenerates the managed project views from canonical Brain state, writes deterministic content, and reports synchronized paths on stdout. Failure: invalid state or write errors go to stderr without partially replacing the prior views. Edge: repeated synchronization is byte-stable and preserves nonmanaged files.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3603,7 +3603,7 @@
       "title": "flags: ac.check.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.ac.check.--root"],
-      "expected_behavior": "Normal: `ac.check.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `ac.check.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `ac check` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3637,7 +3637,7 @@
       "title": "flags: ac.flip.--from-eval",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.ac.flip.--from-eval"],
-      "expected_behavior": "Normal: `ac.flip.--from-eval` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `ac.flip.--from-eval`. Type/default/effect: optional file path, default absent; imports that validated eval-output as acceptance evidence before flipping the active record. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3671,7 +3671,7 @@
       "title": "flags: ac.flip.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.ac.flip.--root"],
-      "expected_behavior": "Normal: `ac.flip.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `ac.flip.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `ac flip` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3705,7 +3705,7 @@
       "title": "flags: bench.gaps.--date",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--date"],
-      "expected_behavior": "Normal: `bench.gaps.--date` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--date`. Type/default/effect: `YYYY-MM-DD` string, default current date; selects the result date and run directory, and any other format exits 2. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3739,7 +3739,7 @@
       "title": "flags: bench.gaps.--detect",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--detect"],
-      "expected_behavior": "Normal: `bench.gaps.--detect` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--detect`. Type/default/effect: boolean, default false; enables paid model-based gap detection instead of evaluation-only mode and activates confirmation/timeout handling. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3773,7 +3773,7 @@
       "title": "flags: bench.gaps.--fixtures",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--fixtures"],
-      "expected_behavior": "Normal: `bench.gaps.--fixtures` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--fixtures`. Type/default/effect: directory path, default materialized embedded fixtures; selects the frozen PRD inputs evaluated by the benchmark. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3807,7 +3807,7 @@
       "title": "flags: bench.gaps.--force",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--force"],
-      "expected_behavior": "Normal: `bench.gaps.--force` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--force`. Type/default/effect: boolean, default false; reruns otherwise completed matching detection cases instead of logging them as skipped. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3841,7 +3841,7 @@
       "title": "flags: bench.gaps.--model",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--model"],
-      "expected_behavior": "Normal: `bench.gaps.--model` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--model`. Type/default/effect: model identifier, default `gpt-5.6-sol`; records and invokes that model only during detect mode. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3875,7 +3875,7 @@
       "title": "flags: bench.gaps.--out",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--out"],
-      "expected_behavior": "Normal: `bench.gaps.--out` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--out`. Type/default/effect: directory path, default user cache `mestre-yoda/bench`; selects where benchmark reports and derived run directories are written. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3909,7 +3909,7 @@
       "title": "flags: bench.gaps.--runs",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--runs"],
-      "expected_behavior": "Normal: `bench.gaps.--runs` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--runs`. Type/default/effect: directory path, default embedded runs for evaluation or `<out>/runs/<date>` for detection; selects comparison/run evidence. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3943,7 +3943,7 @@
       "title": "flags: bench.gaps.--timeout",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--timeout"],
-      "expected_behavior": "Normal: `bench.gaps.--timeout` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--timeout`. Type/default/effect: positive Go duration, default `10m`; bounds each detect invocation and malformed durations exit 2 before a run starts. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -3977,7 +3977,7 @@
       "title": "flags: bench.gaps.--yes",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["flags.bench.gaps.--yes"],
-      "expected_behavior": "Normal: `bench.gaps.--yes` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `bench.gaps.--yes`. Type/default/effect: boolean, default false; bypasses the paid-run TTY word confirmation, enabling deliberate noninteractive detection. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4011,7 +4011,7 @@
       "title": "flags: budgets.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.budgets.--root"],
-      "expected_behavior": "Normal: `budgets.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `budgets.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `budgets` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4045,7 +4045,7 @@
       "title": "flags: complete.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.complete.--root"],
-      "expected_behavior": "Normal: `complete.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `complete.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `complete` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4079,7 +4079,7 @@
       "title": "flags: continue.--approve",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.continue.--approve"],
-      "expected_behavior": "Normal: `continue.--approve` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `continue.--approve`. Type/default/effect: boolean action, default absent; approves the gate named by `--gate` and is mutually exclusive with refuse/revise. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4113,7 +4113,7 @@
       "title": "flags: continue.--gate",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.continue.--gate"],
-      "expected_behavior": "Normal: `continue.--gate` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `continue.--gate`. Type/default/effect: nonempty gate name, default absent; identifies the currently pending gate for a decision and mismatches exit 3 without advancement. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4147,7 +4147,7 @@
       "title": "flags: continue.--refuse",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.continue.--refuse"],
-      "expected_behavior": "Normal: `continue.--refuse` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `continue.--refuse`. Type/default/effect: boolean action, default absent; records refusal for the gate named by `--gate` and is mutually exclusive with approve/revise. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4181,7 +4181,7 @@
       "title": "flags: continue.--revise",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.continue.--revise"],
-      "expected_behavior": "Normal: `continue.--revise` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `continue.--revise`. Type/default/effect: boolean action, default absent; requests spec revision and is valid only with `--gate aprovacao_spec`. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4215,7 +4215,7 @@
       "title": "flags: continue.--root",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.continue.--root"],
-      "expected_behavior": "Normal: `continue.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `continue.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `continue` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4249,7 +4249,7 @@
       "title": "flags: dashboard.--json",
       "legacy_refs": ["cmd/yoda/dashboard.go"],
       "covers": ["flags.dashboard.--json"],
-      "expected_behavior": "Normal: `dashboard.--json` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `dashboard.--json`. Type/default/effect: boolean, default false; switches the combined telemetry/status stdout from the human view to indented structured JSON. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4283,7 +4283,7 @@
       "title": "flags: dashboard.--root",
       "legacy_refs": ["cmd/yoda/dashboard.go"],
       "covers": ["flags.dashboard.--root"],
-      "expected_behavior": "Normal: `dashboard.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `dashboard.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `dashboard` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4317,7 +4317,7 @@
       "title": "flags: doctor.--init",
       "legacy_refs": ["cmd/yoda/doctor.go"],
       "covers": ["flags.doctor.--init"],
-      "expected_behavior": "Normal: `doctor.--init` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `doctor.--init`. Type/default/effect: boolean, default false; runs initialized-project invariant diagnostics in addition to the ordinary doctor report. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4351,7 +4351,7 @@
       "title": "flags: doctor.--root",
       "legacy_refs": ["cmd/yoda/doctor.go"],
       "covers": ["flags.doctor.--root"],
-      "expected_behavior": "Normal: `doctor.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `doctor.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `doctor` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4385,7 +4385,7 @@
       "title": "flags: doctor.--worktree-local",
       "legacy_refs": ["cmd/yoda/doctor.go"],
       "covers": ["flags.doctor.--worktree-local"],
-      "expected_behavior": "Normal: `doctor.--worktree-local` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `doctor.--worktree-local`. Type/default/effect: boolean, default false; inspects the linked worktree's own Brain rather than resolving to the principal worktree memory. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4419,7 +4419,7 @@
       "title": "flags: done.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.done.--root"],
-      "expected_behavior": "Normal: `done.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `done.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `done` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4453,7 +4453,7 @@
       "title": "flags: evidence.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.evidence.--root"],
-      "expected_behavior": "Normal: `evidence.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `evidence.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `evidence` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4487,7 +4487,7 @@
       "title": "flags: gaps-sync.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.gaps-sync.--root"],
-      "expected_behavior": "Normal: `gaps-sync.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `gaps-sync.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `gaps-sync` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4521,7 +4521,7 @@
       "title": "flags: gen.codex-agents.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.gen.codex-agents.--root"],
-      "expected_behavior": "Normal: `gen.codex-agents.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `gen.codex-agents.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `gen codex-agents` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4555,7 +4555,7 @@
       "title": "flags: guard.check.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.guard.check.--root"],
-      "expected_behavior": "Normal: `guard.check.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `guard.check.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `guard check` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4589,7 +4589,7 @@
       "title": "flags: guardrails.init.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.guardrails.init.--root"],
-      "expected_behavior": "Normal: `guardrails.init.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `guardrails.init.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `guardrails init` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4623,7 +4623,7 @@
       "title": "flags: handoff.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.handoff.--root"],
-      "expected_behavior": "Normal: `handoff.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `handoff.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `handoff` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4657,7 +4657,7 @@
       "title": "flags: hook.--host",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.hook.--host"],
-      "expected_behavior": "Normal: `hook.--host` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `hook.--host`. Type/default/effect: required enum `claude-code|codex`; selects the stdin/stdout host protocol for the named hook event. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4691,7 +4691,7 @@
       "title": "flags: hook.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.hook.--root"],
-      "expected_behavior": "Normal: `hook.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `hook.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `hook` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4725,7 +4725,7 @@
       "title": "flags: init.--answers",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--answers"],
-      "expected_behavior": "Normal: `init.--answers` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--answers`. Type/default/effect: optional JSON file path, default interactive stdin answers; supplies init choices that are validated before any write. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4759,7 +4759,7 @@
       "title": "flags: init.--detect-root",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--detect-root"],
-      "expected_behavior": "Normal: `init.--detect-root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--detect-root`. Type/default/effect: optional directory path, default project root/answer value; selects only stack detection, not where Brain memory is stored. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4793,7 +4793,7 @@
       "title": "flags: init.--force",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--force"],
-      "expected_behavior": "Normal: `init.--force` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--force`. Type/default/effect: boolean, default false; authorizes the frozen replacement path for eligible existing generated layout, never arbitrary user files. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4827,7 +4827,7 @@
       "title": "flags: init.--host",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--host"],
-      "expected_behavior": "Normal: `init.--host` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--host`. Type/default/effect: enum `claude|codex|both`, default resolved from answers; selects which host context/settings and agent files are rendered. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4861,7 +4861,7 @@
       "title": "flags: init.--merge",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--merge"],
-      "expected_behavior": "Normal: `init.--merge` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--merge`. Type/default/effect: boolean, default false; merges an eligible existing Brain/layout while preserving user content and rejects unsupported host expansion. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4895,7 +4895,7 @@
       "title": "flags: init.--root",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--root"],
-      "expected_behavior": "Normal: `init.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `init` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4929,7 +4929,7 @@
       "title": "flags: init.--worktree-local",
       "legacy_refs": ["cmd/yoda/init.go"],
       "covers": ["flags.init.--worktree-local"],
-      "expected_behavior": "Normal: `init.--worktree-local` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `init.--worktree-local`. Type/default/effect: boolean, default false; anchors new Brain memory beside the linked worktree instead of the principal worktree. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4963,7 +4963,7 @@
       "title": "flags: judge.--executor-agent",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.judge.--executor-agent"],
-      "expected_behavior": "Normal: `judge.--executor-agent` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `judge.--executor-agent`. Type/default/effect: optional agent identifier, default eval metadata/config; declares the executor identity used by the self-judge/divergence gate. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -4997,7 +4997,7 @@
       "title": "flags: judge.--judge-agent",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.judge.--judge-agent"],
-      "expected_behavior": "Normal: `judge.--judge-agent` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `judge.--judge-agent`. Type/default/effect: optional agent identifier, default judge metadata/config; declares the judge identity used by the self-judge/divergence gate. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5031,7 +5031,7 @@
       "title": "flags: judge.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.judge.--root"],
-      "expected_behavior": "Normal: `judge.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `judge.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `judge` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5065,7 +5065,7 @@
       "title": "flags: migrate.brain.--root",
       "legacy_refs": ["cmd/yoda/migrate.go"],
       "covers": ["flags.migrate.brain.--root"],
-      "expected_behavior": "Normal: `migrate.brain.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `migrate.brain.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `migrate brain` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5099,7 +5099,7 @@
       "title": "flags: migrate.brain.--yes",
       "legacy_refs": ["cmd/yoda/migrate.go"],
       "covers": ["flags.migrate.brain.--yes"],
-      "expected_behavior": "Normal: `migrate.brain.--yes` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `migrate.brain.--yes`. Type/default/effect: boolean, default false; confirms Brain relocation without a TTY prompt for deliberate automation. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5133,7 +5133,7 @@
       "title": "flags: migrate.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.migrate.--root"],
-      "expected_behavior": "Normal: `migrate.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `migrate.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `migrate` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5167,7 +5167,7 @@
       "title": "flags: objective.--replace",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.objective.--replace"],
-      "expected_behavior": "Normal: `objective.--replace` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `objective.--replace`. Type/default/effect: boolean, default false; explicitly permits replacing a divergent active objective and records the substitution lineage/event. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5201,7 +5201,7 @@
       "title": "flags: objective.--root",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.objective.--root"],
-      "expected_behavior": "Normal: `objective.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `objective.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `objective` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5235,7 +5235,7 @@
       "title": "flags: partition.check.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.partition.check.--root"],
-      "expected_behavior": "Normal: `partition.check.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `partition.check.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `partition check` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5269,7 +5269,7 @@
       "title": "flags: start.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.start.--root"],
-      "expected_behavior": "Normal: `start.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `start.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `start` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5303,7 +5303,7 @@
       "title": "flags: stats.--root",
       "legacy_refs": ["cmd/yoda/telemetry.go"],
       "covers": ["flags.stats.--root"],
-      "expected_behavior": "Normal: `stats.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `stats.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `stats` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5337,7 +5337,7 @@
       "title": "flags: stats.--write",
       "legacy_refs": ["cmd/yoda/telemetry.go"],
       "covers": ["flags.stats.--write"],
-      "expected_behavior": "Normal: `stats.--write` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `stats.--write`. Type/default/effect: boolean, default false; writes the managed `task_metrics.md` view in addition to printing the telemetry table. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5371,7 +5371,7 @@
       "title": "flags: status.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.status.--root"],
-      "expected_behavior": "Normal: `status.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `status.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `status` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5405,7 +5405,7 @@
       "title": "flags: step.--maintenance",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.step.--maintenance"],
-      "expected_behavior": "Normal: `step.--maintenance` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `step.--maintenance`. Type/default/effect: boolean mode, default false; runs one isolated human maintenance step and requires interactive stdin. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5439,7 +5439,7 @@
       "title": "flags: step.--rebaseline",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.step.--rebaseline"],
-      "expected_behavior": "Normal: `step.--rebaseline` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `step.--rebaseline`. Type/default/effect: boolean mode, default false; explicitly rebuilds the safe baseline for the current code step and is mutually exclusive with maintenance. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5473,7 +5473,7 @@
       "title": "flags: step.--root",
       "legacy_refs": ["cmd/yoda/trailcli.go"],
       "covers": ["flags.step.--root"],
-      "expected_behavior": "Normal: `step.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `step.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `step` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5507,7 +5507,7 @@
       "title": "flags: unlock.stop-loss.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.unlock.stop-loss.--root"],
-      "expected_behavior": "Normal: `unlock.stop-loss.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `unlock.stop-loss.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `unlock stop-loss` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5541,7 +5541,7 @@
       "title": "flags: unlock.stop-loss.--run",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.unlock.stop-loss.--run"],
-      "expected_behavior": "Normal: `unlock.stop-loss.--run` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `unlock.stop-loss.--run`. Type/default/effect: required run identifier string; targets the only stop-loss lock eligible for interactive release and rejects stale/mismatched IDs. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5575,7 +5575,7 @@
       "title": "flags: views.sync.--root",
       "legacy_refs": ["cmd/yoda/value_flags.go"],
       "covers": ["flags.views.sync.--root"],
-      "expected_behavior": "Normal: `views.sync.--root` is accepted only in the frozen command scope and retains its boolean/value parsing, precedence, and resulting state or output effect. Failure: missing values, malformed values, duplicates that are not allowed, or use on another command produce stable stderr and a nonzero exit without partial mutation. Edge: preserve explicit empty values, repeated flags, global-flag ordering, paths with spaces, and platform path separators.",
+      "expected_behavior": "Normal: flag `views.sync.--root`. Type/default/effect: nonempty directory path in spaced or `=` form, default current directory; runs `views sync` against the Brain/project rooted there without changing process cwd. Parsing/precedence: it is accepted only in that command scope; value forms are consumed before positionals and duplicate value flags are rejected rather than last-one-wins. Failure: missing/malformed values, conflicting modes, or use on another command prints actionable stderr and exits 2 before stdin reads or mutation. Edge: paths with spaces, `--flag=value`, global-flag ordering, and the `--` terminator retain frozen behavior.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5609,7 +5609,7 @@
       "title": "command forms: ac.check",
       "legacy_refs": ["cmd/yoda/ac.go"],
       "covers": ["command_forms.ac.check"],
-      "expected_behavior": "Normal: invoking the nested command form `ac.check` (`yoda ac check`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `ac.check` checks every stored acceptance criterion and exits successfully only when the active feature evidence satisfies them, without mutation. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5643,7 +5643,7 @@
       "title": "command forms: ac.flip",
       "legacy_refs": ["cmd/yoda/ac.go"],
       "covers": ["command_forms.ac.flip"],
-      "expected_behavior": "Normal: invoking the nested command form `ac.flip` (`yoda ac flip`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `ac.flip` imports optional evaluated evidence and updates the active feature acceptance-criterion record idempotently. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5677,7 +5677,7 @@
       "title": "command forms: bench.gaps",
       "legacy_refs": ["cmd/yoda/bench.go"],
       "covers": ["command_forms.bench.gaps"],
-      "expected_behavior": "Normal: invoking the nested command form `bench.gaps` (`yoda bench gaps`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `bench.gaps` evaluates the frozen PRD gap fixtures or runs confirmed model detection and publishes dated benchmark results. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5711,7 +5711,7 @@
       "title": "command forms: gen.codex-agents",
       "legacy_refs": ["cmd/yoda/gen.go"],
       "covers": ["command_forms.gen.codex-agents"],
-      "expected_behavior": "Normal: invoking the nested command form `gen.codex-agents` (`yoda gen codex-agents`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `gen.codex-agents` renders the managed Codex agent configuration deterministically from project config. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5745,7 +5745,7 @@
       "title": "command forms: guard.check",
       "legacy_refs": ["cmd/yoda/guard.go"],
       "covers": ["command_forms.guard.check"],
-      "expected_behavior": "Normal: invoking the nested command form `guard.check` (`yoda guard check`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `guard.check` evaluates one requested path and emits the stable allow/block payload and `guard.*` reason. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5779,7 +5779,7 @@
       "title": "command forms: guardrails.init",
       "legacy_refs": ["cmd/yoda/guardrails.go"],
       "covers": ["command_forms.guardrails.init"],
-      "expected_behavior": "Normal: invoking the nested command form `guardrails.init` (`yoda guardrails init`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `guardrails.init` creates the canonical project guardrails without overwriting unsafe existing rules. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5813,7 +5813,7 @@
       "title": "command forms: migrate.brain",
       "legacy_refs": ["cmd/yoda/migrate.go"],
       "covers": ["command_forms.migrate.brain"],
-      "expected_behavior": "Normal: invoking the nested command form `migrate.brain` (`yoda migrate brain`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `migrate.brain` moves legacy Brain storage to the v3 layout only after interactive or explicit confirmation. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5847,7 +5847,7 @@
       "title": "command forms: partition.check",
       "legacy_refs": ["cmd/yoda/partition.go"],
       "covers": ["command_forms.partition.check"],
-      "expected_behavior": "Normal: invoking the nested command form `partition.check` (`yoda partition check`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `partition.check` validates the pending partition proposal without applying an unapproved partition. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5881,7 +5881,7 @@
       "title": "command forms: unlock.stop-loss",
       "legacy_refs": ["cmd/yoda/guardrails.go"],
       "covers": ["command_forms.unlock.stop-loss"],
-      "expected_behavior": "Normal: invoking the nested command form `unlock.stop-loss` (`yoda unlock stop-loss`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `unlock.stop-loss` clears stop-loss only for the explicitly named run after TTY confirmation. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -5915,7 +5915,7 @@
       "title": "command forms: views.sync",
       "legacy_refs": ["cmd/yoda/views_sync.go"],
       "covers": ["command_forms.views.sync"],
-      "expected_behavior": "Normal: invoking the nested command form `views.sync` (`yoda views sync`) selects that exact frozen operation, including its stdout, state effects, and success exit class. Failure: missing or substituted form tokens produce usage/domain stderr and do not fall through to a sibling operation. Edge: preserve explicit roots, global flags, repeated invocation, and whitespace-separated argument boundaries.",
+      "expected_behavior": "Normal: nested command form `views.sync` regenerates only managed views from canonical Brain state with byte-stable output. Failure: missing/substituted action tokens print the exact usage on stderr with exit 2 and never fall through to a sibling action or mutate state. Edge: explicit roots, global flags, repeated invocation, and positional boundaries preserve the same result as the canonical separated spelling.",
       "priority": "P0",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -10854,6 +10854,74 @@
       "intentional_difference": null
     },
     {
+      "id": "REASON-DASHBOARD-ESTADO-ILEGIVEL",
+      "category": "reason_code",
+      "title": "reason code: dashboard.estado_ilegivel",
+      "legacy_refs": ["cmd/yoda/dashboard.go"],
+      "covers": ["reason_codes.dashboard.estado_ilegivel"],
+      "expected_behavior": "Normal: emit the exact stable reason code `dashboard.estado_ilegivel` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `dashboard.estado_ilegivel` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-DASHBOARD-ESTADO-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-DASHBOARD-ESTADO-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-DASHBOARD-ESTADO-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-DASHBOARD-ESTADO-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-DASHBOARD-TELEMETRIA-ILEGIVEL",
+      "category": "reason_code",
+      "title": "reason code: dashboard.telemetria_ilegivel",
+      "legacy_refs": ["cmd/yoda/dashboard.go"],
+      "covers": ["reason_codes.dashboard.telemetria_ilegivel"],
+      "expected_behavior": "Normal: emit the exact stable reason code `dashboard.telemetria_ilegivel` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `dashboard.telemetria_ilegivel` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-DASHBOARD-TELEMETRIA-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-DASHBOARD-TELEMETRIA-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-DASHBOARD-TELEMETRIA-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-DASHBOARD-TELEMETRIA-ILEGIVEL",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
       "id": "REASON-DONE-ALL-STEPS",
       "category": "reason_code",
       "title": "reason code: done.all_steps",
@@ -11738,6 +11806,40 @@
       "intentional_difference": null
     },
     {
+      "id": "REASON-NO-GIT",
+      "category": "reason_code",
+      "title": "reason code: no_git",
+      "legacy_refs": ["internal/complete/git.go"],
+      "covers": ["reason_codes.no_git"],
+      "expected_behavior": "Normal: emit the exact stable reason code `no_git` only for the domain condition where completion establishes that no Git repository/baseline is available, and carry that classification into completion evidence. Failure: Git command/read failures use their distinct error classification and must not masquerade as `no_git`. Edge: an intentionally repository-free project retains deterministic baseline and repeated-observation behavior.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-NO-GIT",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-NO-GIT",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-NO-GIT",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-NO-GIT",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
       "id": "REASON-RUN-NEXT-STEP",
       "category": "reason_code",
       "title": "reason code: run.next_step",
@@ -11798,6 +11900,448 @@
         },
         "e2e": {
           "id": "E2E-REASON-RUN-RESUMING",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-ACEITE-INCOMPLETO",
+      "category": "reason_code",
+      "title": "reason code: trail.aceite_incompleto",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.aceite_incompleto"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.aceite_incompleto` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.aceite_incompleto` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-ACEITE-INCOMPLETO",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-ACEITE-INCOMPLETO",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-ACEITE-INCOMPLETO",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-ACEITE-INCOMPLETO",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-GATE-DIVERGENTE",
+      "category": "reason_code",
+      "title": "reason code: trail.gate_divergente",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.gate_divergente"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.gate_divergente` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.gate_divergente` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-GATE-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-GATE-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-GATE-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-GATE-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-MAINTENANCE-TTY",
+      "category": "reason_code",
+      "title": "reason code: trail.maintenance_tty",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.maintenance_tty"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.maintenance_tty` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.maintenance_tty` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-MAINTENANCE-TTY",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-MAINTENANCE-TTY",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-MAINTENANCE-TTY",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-MAINTENANCE-TTY",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-NAO-TRILHO",
+      "category": "reason_code",
+      "title": "reason code: trail.nao_trilho",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.nao_trilho"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.nao_trilho` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.nao_trilho` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-NAO-TRILHO",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-NAO-TRILHO",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-NAO-TRILHO",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-NAO-TRILHO",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-OBJETIVO-DIVERGENTE",
+      "category": "reason_code",
+      "title": "reason code: trail.objetivo_divergente",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.objetivo_divergente"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.objetivo_divergente` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.objetivo_divergente` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-OBJETIVO-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-OBJETIVO-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-OBJETIVO-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-OBJETIVO-DIVERGENTE",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-OK",
+      "category": "reason_code",
+      "title": "reason code: trail.ok",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.ok"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.ok` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.ok` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-OK",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-OK",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-OK",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-OK",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-OUTPUT-INVALIDO",
+      "category": "reason_code",
+      "title": "reason code: trail.output_invalido",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.output_invalido"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.output_invalido` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.output_invalido` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-OUTPUT-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-OUTPUT-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-OUTPUT-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-OUTPUT-INVALIDO",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-PRD-INVALIDO",
+      "category": "reason_code",
+      "title": "reason code: trail.prd_invalido",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.prd_invalido"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.prd_invalido` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.prd_invalido` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-PRD-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-PRD-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-PRD-INVALIDO",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-PRD-INVALIDO",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-SEM-RUN",
+      "category": "reason_code",
+      "title": "reason code: trail.sem_run",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.sem_run"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.sem_run` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.sem_run` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-SEM-RUN",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-SEM-RUN",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-SEM-RUN",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-SEM-RUN",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-SPEC-REVISION-INVALID",
+      "category": "reason_code",
+      "title": "reason code: trail.spec_revision_invalid",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.spec_revision_invalid"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.spec_revision_invalid` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.spec_revision_invalid` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-SPEC-REVISION-INVALID",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-SPEC-REVISION-INVALID",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-SPEC-REVISION-INVALID",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-SPEC-REVISION-INVALID",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-USE-DONE",
+      "category": "reason_code",
+      "title": "reason code: trail.use_done",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.use_done"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.use_done` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.use_done` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-USE-DONE",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-USE-DONE",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-USE-DONE",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-USE-DONE",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-USO",
+      "category": "reason_code",
+      "title": "reason code: trail.uso",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.uso"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.uso` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.uso` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-USO",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-USO",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-USO",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-USO",
+          "status": "planned",
+          "path": null
+        }
+      },
+      "status": "not_started",
+      "intentional_difference": null
+    },
+    {
+      "id": "REASON-TRAIL-WORKTREE-DIRTY",
+      "category": "reason_code",
+      "title": "reason code: trail.worktree_dirty",
+      "legacy_refs": ["internal/trail/result.go"],
+      "covers": ["reason_codes.trail.worktree_dirty"],
+      "expected_behavior": "Normal: emit the exact stable reason code `trail.worktree_dirty` only for its domain condition named by the code and carry it through the documented state, stderr, or structured-output field. Failure: adjacent conditions must not reuse `trail.worktree_dirty` or replace it with free-form text that breaks automation. Edge: preserve wrapped errors, resumed runs, multiple blockers, localized human messages, and deterministic priority among competing reasons.",
+      "priority": "P0",
+      "typescript_owner": "@mestre-yoda/contracts",
+      "verification": {
+        "unit": {
+          "id": "UNIT-REASON-TRAIL-WORKTREE-DIRTY",
+          "status": "planned",
+          "path": null
+        },
+        "differential": {
+          "id": "DIFF-REASON-TRAIL-WORKTREE-DIRTY",
+          "status": "planned",
+          "path": null
+        },
+        "integration": {
+          "id": "INT-REASON-TRAIL-WORKTREE-DIRTY",
+          "status": "planned",
+          "path": null
+        },
+        "e2e": {
+          "id": "E2E-REASON-TRAIL-WORKTREE-DIRTY",
           "status": "planned",
           "path": null
         }

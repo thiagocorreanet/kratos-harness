@@ -5,7 +5,7 @@ import { isAbsolute, join, relative, resolve, win32 } from "node:path";
 
 const provenanceId = "private-go-v3-hash-only";
 const discoverySemanticSha256 =
-  "7e682b6fd474265657707b3182af6defb5ab549b2c77f7834ffcded57d94f5b2";
+  "26b34876226b28e307575a8a4a03d625482bc436583e5e78f31d2b0d79e1154e";
 const expectedIdentity = {
   tag: "v0.6.5",
   tagObject: "720f0a35074451208a0673324d223803add249e0",
@@ -199,6 +199,171 @@ function readPrivate(source, relative) {
   }
 }
 
+function privateGoFiles(root) {
+  const files = [];
+  const visit = (directory) => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch {
+      fail("private discovery input could not be read");
+    }
+    for (const entry of entries) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else if (entry.name.endsWith(".go") && !entry.name.endsWith("_test.go")) {
+        files.push(path);
+      }
+    }
+  };
+  visit(root);
+  return files.toSorted();
+}
+
+function parseFlagList(value) {
+  if (value.startsWith("rootValueFlags")) return ["--root"];
+  return [...value.matchAll(/"(--[a-z][a-z-]*)"/gu)].map((match) => match[1]);
+}
+
+function discoverCatalogFlags(source) {
+  const contents = readPrivate(source, "cmd/yoda/value_flags.go");
+  const flags = new Set();
+  let section = "";
+  let parent = "";
+  for (const line of contents.split("\n")) {
+    if (line.includes("valueFlagsByCommand =")) section = "command";
+    else if (line.includes("valueFlagsByAction =")) section = "action";
+    const indent = /^\t*/u.exec(line)?.[0].length ?? 0;
+    const entry = /^\s*"([a-z][a-z0-9-]*)":\s*(.+)$/u.exec(line);
+    if (entry === null) continue;
+    const [, name, value] = entry;
+    if (section === "action" && indent === 2 && value.startsWith("{")) {
+      parent = name;
+      continue;
+    }
+    if (section === "command" && indent === 2) {
+      const scope =
+        { gen: "gen.codex-agents", views: "views.sync" }[name] ?? name;
+      for (const flag of parseFlagList(value)) flags.add(`${scope}.${flag}`);
+    } else if (section === "action" && indent === 3) {
+      for (const flag of parseFlagList(value)) {
+        flags.add(`${parent}.${name}.${flag}`);
+      }
+    }
+  }
+  return flags;
+}
+
+function functionSource(contents, name) {
+  const start = contents.search(new RegExp(`^func\\s+${name}\\s*\\(`, "mu"));
+  if (start < 0) fail("private CLI handler could not be discovered");
+  const next = contents.indexOf("\nfunc ", start + 1);
+  return contents.slice(start, next < 0 ? undefined : next);
+}
+
+function flagsMentionedIn(contents) {
+  const flags = new Set();
+  for (const line of contents.split("\n")) {
+    if (
+      /(?:hasFlag|valueFlag|splitValueFlag|flagOr|validateValueFlags)\(|case\s+"--|==\s*"--/u.test(
+        line,
+      )
+    ) {
+      for (const match of line.matchAll(/"(--[a-z][a-z-]*)"/gu)) {
+        flags.add(match[1]);
+      }
+    }
+    for (const match of line.matchAll(/\.Bool\("([a-z][a-z-]*)"/gu)) {
+      flags.add(`--${match[1]}`);
+    }
+    for (const match of line.matchAll(/\.Var\([^,\n]+,\s*"([a-z][a-z-]*)"/gu)) {
+      flags.add(`--${match[1]}`);
+    }
+  }
+  return flags;
+}
+
+function discoverCommandFlags(checkout) {
+  const flags = discoverCatalogFlags(checkout);
+  const sources = new Map();
+  const readSource = (relative) => {
+    if (!sources.has(relative)) {
+      sources.set(relative, readPrivate(checkout, relative));
+    }
+    return sources.get(relative);
+  };
+  const wholeFileScopes = [
+    ["bench.gaps", "cmd/yoda/bench.go"],
+    ["dashboard", "cmd/yoda/dashboard.go"],
+    ["doctor", "cmd/yoda/doctor.go"],
+    ["init", "cmd/yoda/init.go"],
+    ["migrate.brain", "cmd/yoda/migrate.go"],
+    ["stats", "cmd/yoda/telemetry.go"],
+  ];
+  for (const [scope, relative] of wholeFileScopes) {
+    for (const flag of flagsMentionedIn(readSource(relative))) {
+      flags.add(`${scope}.${flag}`);
+    }
+  }
+  const trail = readSource("cmd/yoda/trailcli.go");
+  for (const [scope, handler] of [
+    ["objective", "objectiveArgs"],
+    ["continue", "parseContinueArgs"],
+    ["step", "runStep"],
+  ]) {
+    for (const flag of flagsMentionedIn(functionSource(trail, handler))) {
+      flags.add(`${scope}.${flag}`);
+    }
+  }
+  return [...flags].toSorted();
+}
+
+function discoverIoContracts(source) {
+  const checks = [
+    ["stderr.errors-and-reasons", "cmd/yoda/trailcli.go", /stderr/u],
+    ["stdin.bench-gaps-detect", "cmd/yoda/bench.go", /stdin/u],
+    ["stdin.hook-payload", "cmd/yoda/hook.go", /stdin/u],
+    ["stdin.init-answers", "cmd/yoda/init.go", /stdin/u],
+    ["stdin.migrate-brain-confirmation", "cmd/yoda/migrate.go", /stdin/u],
+    ["stdin.step-maintenance", "cmd/yoda/trailcli.go", /runStep[\s\S]*stdin/u],
+    [
+      "stdin.unlock-confirmation",
+      "cmd/yoda/guardrails.go",
+      /runUnlock[\s\S]*stdin/u,
+    ],
+    [
+      "stdin.validate-dash",
+      "cmd/yoda/main.go",
+      /target\s*==\s*"-"[\s\S]*io\.ReadAll\(stdin\)/u,
+    ],
+    ["stdout.success-and-echo", "cmd/yoda/trailcli.go", /stdout/u],
+  ];
+  return checks
+    .filter(([, relative, pattern]) =>
+      pattern.test(readPrivate(source, relative)),
+    )
+    .map(([name]) => name)
+    .toSorted();
+}
+
+function discoverReasonCodes(source) {
+  const codes = new Set();
+  for (const file of privateGoFiles(source)) {
+    const contents = readFileSync(file, "utf8");
+    for (const match of contents.matchAll(
+      /^\s*(?:Code[A-Z][A-Za-z0-9_]*|Reason[A-Z][A-Za-z0-9_]*|reason[A-Z][A-Za-z0-9_]*)\s*=\s*"([a-z][a-z0-9_.-]+)"/gmu,
+    )) {
+      codes.add(match[1]);
+    }
+    for (const match of contents.matchAll(
+      /\bReason:\s*"([a-z][a-z0-9_.-]+)"/gu,
+    )) {
+      codes.add(match[1]);
+    }
+  }
+  return [...codes].toSorted();
+}
+
 export function discoverLegacy(source, distribution) {
   validatePrivateCheckoutIdentity({
     sourceTagObject: git(source, ["rev-parse", expectedIdentity.tag]),
@@ -226,6 +391,40 @@ export function discoverLegacy(source, distribution) {
   const commands = [...help.matchAll(/Cmd:\s*"([^"]+)"/gu)]
     .map((match) => match[1])
     .toSorted();
+  const commandSource = privateGoFiles(join(source, "cmd/yoda"))
+    .map((path) => readFileSync(path, "utf8"))
+    .join("\n");
+  const allGoSource = privateGoFiles(source)
+    .map((path) => readFileSync(path, "utf8"))
+    .join("\n");
+  const commandForms = [
+    ...new Set(
+      [
+        ...commandSource.matchAll(
+          /\byoda\s+([a-z][a-z0-9-]*)\s+([a-z][a-z0-9-]*)/gu,
+        ),
+      ]
+        .map((match) => `${match[1]}.${match[2]}`)
+        .filter((name) => commands.includes(name.split(".")[0])),
+    ),
+  ].toSorted();
+  const flags = discoverCommandFlags(source);
+  const ioContracts = discoverIoContracts(source);
+  const exitCodes = [0, 1, 2, 3]
+    .filter((code) =>
+      code === 3
+        ? /ExitCode:\s*3/u.test(allGoSource)
+        : new RegExp(`return\\s+${code}\\b`, "u").test(commandSource),
+    )
+    .map(
+      (code) =>
+        [
+          "0.success-or-hook-continue",
+          "1-domain-or-validation-failure",
+          "2-usage-or-contract-failure",
+          "3-gate-or-judge-refusal",
+        ][code],
+    );
   const modulePrefix = "github.com/betaup-sistemas/mestre-yoda";
   const packages = command("go", ["list", "./..."], { cwd: source })
     .split("\n")
@@ -246,20 +445,20 @@ export function discoverLegacy(source, distribution) {
     fail("private discovery input could not be read");
   }
   const pluginFiles = git(distribution, ["ls-files"]).split("\n").toSorted();
-  const reasonFiles = [
-    "internal/decide/codes.go",
-    "internal/guard/codes.go",
-    "internal/complete/codes.go",
-  ];
-  const reasonCodes = reasonFiles
-    .flatMap((relative) => [
-      ...readPrivate(source, relative).matchAll(/=\s*"([a-z][a-z0-9_.-]+)"/gu),
-    ])
-    .map((match) => match[1])
-    .concat(["judge.auto_julgamento", "judge.modelo_divergente"])
-    .toSorted();
+  const reasonCodes = discoverReasonCodes(source);
 
-  return { commands, packages, schemas, pluginFiles, workflows, reasonCodes };
+  return {
+    commands,
+    commandForms,
+    flags,
+    ioContracts,
+    exitCodes,
+    packages,
+    schemas,
+    pluginFiles,
+    workflows,
+    reasonCodes,
+  };
 }
 
 export function validatePrivateCheckoutIdentity(observed) {
@@ -356,11 +555,11 @@ const owners = [
 const specificityPhrases = {
   alias: ["dispatch"],
   benchmark: ["fixture", "machine-readable"],
-  command: ["stdout", "stderr"],
-  "command-forms": ["nested command form", "form tokens"],
+  command: ["Observable contract:", "stderr"],
+  "command-forms": ["nested command form", "exact usage"],
   documentation: ["public path", "relative links"],
   "exit-codes": ["numeric exit class", "stdout", "stderr"],
-  flags: ["parsing", "precedence"],
+  flags: ["Type/default/effect:", "Parsing/precedence:"],
   generated_file: ["relative location", "merge/overwrite"],
   global_flag: ["before command dispatch", "compatibility check"],
   human_gate: ["explicit decision", "gate closed"],

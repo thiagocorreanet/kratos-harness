@@ -128,7 +128,7 @@ describe("Go v3 parity inventory catalog", () => {
     expect(discovery.namespaces.schemas).toHaveLength(14);
     expect(discovery.namespaces.plugin_files).toHaveLength(59);
     expect(discovery.namespaces.workflows).toHaveLength(5);
-    expect(discovery.namespaces.reason_codes).toHaveLength(55);
+    expect(discovery.namespaces.reason_codes).toHaveLength(71);
     expect(Object.keys(discovery.namespaces).sort()).toEqual(
       [
         "aliases",

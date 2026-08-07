@@ -73,9 +73,9 @@ describe("parity inventory completeness CLI", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
       [
-        "discovery go-v3-v0.6.5: verified (386 keys; 30 commands; 10 command forms; 59 command flags; 9 I/O contracts; 4 exit classes; 49 packages; 14 schemas; 59 plugin files; 5 workflows; 55 reason codes)",
-        "parity overall: 0 / 384 (0.00%)",
-        "parity P0: 0 / 195 (0.00%)",
+        "discovery go-v3-v0.6.5: verified (402 keys; 30 commands; 10 command forms; 59 command flags; 9 I/O contracts; 4 exit classes; 49 packages; 14 schemas; 59 plugin files; 5 workflows; 71 reason codes)",
+        "parity overall: 0 / 400 (0.00%)",
+        "parity P0: 0 / 211 (0.00%)",
         "parity P1: 0 / 174 (0.00%)",
         "",
       ].join("\n"),

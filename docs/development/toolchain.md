@@ -112,11 +112,11 @@ applicable digest. It never searches a home directory or downloads private
 material. A frozen oracle establishes measurement identity; it does not claim
 that TypeScript parity has already been implemented.
 
-The [parity inventory](../compatibility/parity-inventory.md) maps 386 frozen
-discovery keys into 384 owned and independently verifiable compatibility rows.
+The [parity inventory](../compatibility/parity-inventory.md) maps 402 frozen
+discovery keys into 400 owned and independently verifiable compatibility rows.
 `npm run parity:check` rejects missing or duplicate coverage, incomplete P0/P1
 requirements, invalid evidence references, and unsupported parity claims. It
-currently reports `0 / 384 (0.00%)`: the worklist is complete, while behavior
+currently reports `0 / 400 (0.00%)`: the worklist is complete, while behavior
 implementation and differential evidence remain future work.
 
 ## Runtime artifact

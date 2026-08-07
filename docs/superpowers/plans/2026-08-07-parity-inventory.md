@@ -55,7 +55,7 @@ expect(discovery.namespaces.packages).toHaveLength(49);
 expect(discovery.namespaces.schemas).toHaveLength(14);
 expect(discovery.namespaces.plugin_files).toHaveLength(59);
 expect(discovery.namespaces.workflows).toHaveLength(5);
-expect(discovery.namespaces.reason_codes).toHaveLength(55);
+expect(discovery.namespaces.reason_codes).toHaveLength(71);
 ```
 
 Assert the exact 30 active command names, eight retired commands, 49 package
@@ -415,9 +415,9 @@ node scripts/check-parity-inventory.mjs \
 
 Expected: clean detached immutable source identity; 30 top-level commands, 10
 nested forms, 59 command flags, nine stream contracts, four exit classes, 49
-packages, 14 schemas, 59 plugin files, five workflows, and all closed reason
-codes match without private payload output. Confirm both repositories remain
-clean.
+packages, 14 schemas, 59 plugin files, five workflows, and 71 closed reason
+codes are rediscovered and match without private payload output. Confirm both
+repositories remain clean.
 
 - [x] **Step 4: Run full verification and independent review**
 
