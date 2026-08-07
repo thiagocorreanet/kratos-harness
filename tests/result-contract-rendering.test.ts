@@ -129,4 +129,27 @@ describe("universal result rendering", () => {
     expect(rendered.stderr).toContain("Result contract validation failed:");
     expect(rendered.stderr).not.toContain("customer-value");
   });
+
+  it.each([
+    "AWS_ACCESS_KEY_ID=AKIAEXAMPLE",
+    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature",
+    "-----BEGIN PRIVATE KEY-----",
+    "api_key=customer-value",
+    "Traceback (most recent call last): /opt/customer/app.py",
+    "Unexpected failure at /srv/customer/runtime.py",
+  ])("keeps internal failure diagnostics out of public output", (summary) => {
+    const internal = examples.find(
+      ({ reasonCode }) => reasonCode === "runtime.internal_failure",
+    );
+    if (internal === undefined)
+      throw new Error("missing internal failure example");
+    const candidate = { ...structuredClone(internal), summary };
+    for (const operation of ["json", "human"] as const) {
+      const rendered = invoke(operation, candidate);
+      expect(rendered.status).not.toBe(0);
+      expect(rendered.stdout).toBe("");
+      expect(rendered.stderr).toContain("Result contract validation failed:");
+      expect(rendered.stderr).not.toContain(summary);
+    }
+  });
 });

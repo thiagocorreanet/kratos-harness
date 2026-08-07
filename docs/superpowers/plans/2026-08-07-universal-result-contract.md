@@ -159,7 +159,8 @@ Use the old Go behavior and parity row reference to assign legacy exits:
 - exit 0: `run.*`, `done.all_steps`, `trail.ok`, `trail.nao_trilho`,
   `trail.sem_run`, `no_git`, `guard.external_path`, and
   `guard.uninspectable` orientation/success outcomes;
-- exit 1: the two `dashboard.*` validation/read outcomes;
+- exit 1: the two `dashboard.*` validation/read outcomes and the frozen
+  `brain_migration_pending` layout migration outcome;
 - exit 2: usage/environment reasons including `trail.uso`,
   `trail.maintenance_tty`, `trail.worktree_dirty`, blocking guard
   invocation/layout failures, and `runtime.internal_failure`;

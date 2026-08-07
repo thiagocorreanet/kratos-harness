@@ -36,6 +36,11 @@ const RUNTIME_CODES = [
   "runtime.revision_conflict",
   "runtime.state_corrupt",
 ];
+const INTERNAL_FAILURE_SUMMARY =
+  "The operation stopped after an unexpected internal failure.";
+const INTERNAL_FAILURE_WHY = [
+  "A sanitized runtime boundary caught an unexpected condition.",
+];
 const repositoryRoot = dirname(
   fileURLToPath(new URL("../../package.json", import.meta.url)),
 );
@@ -77,7 +82,13 @@ function assertSafeStrings(value) {
       /[a-z][a-z0-9+.-]*:\/\//iu,
       /(?:github_pat_|gh[pousr]_)/iu,
       /(?:token|secret|password)\s*[:=]/iu,
-      /(?:^|\s)\/(?:etc|home|private|tmp|Users|var)\//u,
+      /(?:api[_-]?key|access[_-]?token|client[_-]?secret)\s*[:=]/iu,
+      /\b(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOOGLE_APPLICATION_CREDENTIALS|AZURE_[A-Z0-9_]+)\s*=/u,
+      /\bAuthorization\s*:\s*(?:Basic|Bearer)\s+\S+/iu,
+      /-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/u,
+      /\bTraceback \(most recent call last\):/u,
+      /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/u,
+      /(?:^|\s)\/(?!\/)(?:[^\s/]+\/)*[^\s/]+/u,
       /(?:^|\s)[A-Za-z]:[\\/]/u,
     ];
     const hasControlCharacter = [...value].some((character) => {
@@ -157,46 +168,10 @@ function validateExamples(examples, catalog, validateResult) {
     catalog.reasons.map((reason) => [reason.code, reason]),
   );
   for (const example of examples) {
-    assertSchema(validateResult, example, "result example");
-    assertSafeStrings(example);
-    if (!sameKeys(example, RESULT_KEYS)) {
-      throw validationFailure("result properties are not in canonical order");
-    }
-    for (const evidence of example.evidence) {
-      const expectedKeys =
-        evidence.sha256 === undefined
-          ? EVIDENCE_KEYS.slice(0, 2)
-          : EVIDENCE_KEYS;
-      if (!sameKeys(evidence, expectedKeys)) {
-        throw validationFailure(
-          "evidence properties are not in canonical order",
-        );
-      }
-    }
-    const reason = reasons.get(example.reasonCode);
-    if (reason === undefined) {
-      throw validationFailure("an example uses an unknown reason code");
-    }
-    for (const property of ["status", "exitCode", "retryable", "recovery"]) {
-      if (example[property] !== reason[property]) {
-        throw validationFailure(
-          `example ${property} conflicts with its reason`,
-        );
-      }
-    }
-    if (!reason.stateChanged && example.stateChanged) {
-      throw validationFailure("an example makes a false state mutation claim");
-    }
-    if (reason.evidence === "required" && example.evidence.length === 0) {
-      throw validationFailure("required evidence is absent");
-    }
-    if (reason.evidence === "forbidden" && example.evidence.length !== 0) {
-      throw validationFailure("forbidden evidence is present");
-    }
-    assertUnique(example.why, "why entries");
-    assertUnique(
-      example.evidence.map((item) => JSON.stringify(item)),
-      "evidence entries",
+    validateResultAgainstReason(
+      example,
+      reasons.get(example.reasonCode),
+      validateResult,
     );
   }
 }
@@ -216,6 +191,15 @@ function validateResultAgainstReason(result, reason, validateResult) {
   }
   if (reason === undefined) {
     throw validationFailure("result uses an unknown reason code");
+  }
+  if (
+    reason.code === "runtime.internal_failure" &&
+    (result.summary !== INTERNAL_FAILURE_SUMMARY ||
+      JSON.stringify(result.why) !== JSON.stringify(INTERNAL_FAILURE_WHY))
+  ) {
+    throw validationFailure(
+      "internal failures require fixed catalog-owned public prose",
+    );
   }
   for (const property of ["status", "exitCode", "retryable", "recovery"]) {
     if (result[property] !== reason[property]) {

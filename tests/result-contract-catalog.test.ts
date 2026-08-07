@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,18 +39,21 @@ interface Discovery {
 
 let legacyCodes: string[];
 let catalog: Catalog;
+let catalogDigest: string;
 
 async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
 beforeAll(async () => {
-  const [discovery, parsedCatalog] = await Promise.all([
+  const [discovery, parsedCatalog, catalogText] = await Promise.all([
     readJson<Discovery>(discoveryPath),
     readJson<Catalog>(catalogPath),
+    readFile(catalogPath, "utf8"),
   ]);
   legacyCodes = discovery.namespaces.reason_codes.map(({ name }) => name);
   catalog = parsedCatalog;
+  catalogDigest = createHash("sha256").update(catalogText).digest("hex");
 });
 
 describe("universal result reason catalog", () => {
@@ -67,6 +71,9 @@ describe("universal result reason catalog", () => {
     expect(codes).toEqual([...legacyCodes, ...runtimeCodes].sort());
     expect(codes).toHaveLength(76);
     expect(new Set(codes).size).toBe(codes.length);
+    expect(catalogDigest).toBe(
+      "63f91e9ae2c2d1f0dce1ac6313b75a4e3fb27627920620c7bc6eed3ad63dc2e2",
+    );
   });
 
   it("defines a unique actionable policy for every reason", () => {
@@ -115,6 +122,64 @@ describe("universal result reason catalog", () => {
         retryable: false,
         recovery: null,
       });
+    }
+  });
+
+  it("preserves the legacy migration exit and publishes actionable recovery", () => {
+    const expected = new Map<string, { exitCode: number; recovery: string }>([
+      [
+        "brain_migration_pending",
+        {
+          exitCode: 1,
+          recovery:
+            "Run `yoda migrate brain` from the project root, verify the sibling Brain repository, and retry.",
+        },
+      ],
+      [
+        "gate.aceitacao_final",
+        {
+          exitCode: 3,
+          recovery:
+            "Review the final evidence and run `yoda done` to record explicit human acceptance.",
+        },
+      ],
+      [
+        "trail.use_done",
+        {
+          exitCode: 3,
+          recovery:
+            "Run `yoda done` instead of `yoda continue` for final acceptance.",
+        },
+      ],
+      [
+        "trail.maintenance_tty",
+        {
+          exitCode: 2,
+          recovery:
+            "Rerun the maintenance operation from an interactive terminal.",
+        },
+      ],
+      [
+        "trail.worktree_dirty",
+        {
+          exitCode: 2,
+          recovery:
+            "Commit, stash, or revert disallowed worktree changes, then retry the code-step operation.",
+        },
+      ],
+    ]);
+    for (const [code, policy] of expected) {
+      expect(
+        catalog.reasons.find((reason) => reason.code === code),
+        code,
+      ).toMatchObject(policy);
+    }
+    for (const reason of catalog.reasons) {
+      if (reason.recovery !== null) {
+        expect(reason.recovery, reason.code).not.toMatch(
+          /^Resolve .*reload the authoritative project state, and repeat the operation\.$/u,
+        );
+      }
     }
   });
 });

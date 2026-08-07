@@ -14,5 +14,5 @@
   ],
   "stateChanged": false,
   "retryable": true,
-  "recovery": "Resolve dashboard rendering cannot read the canonical trail status, reload the authoritative project state, and repeat the operation."
+  "recovery": "Repair or regenerate the canonical trail status, then reload the dashboard."
 }

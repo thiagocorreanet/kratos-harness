@@ -278,7 +278,7 @@ safe rendering, and recovery semantics before the runtime consumes it:
   ],
   "stateChanged": false,
   "retryable": true,
-  "recovery": "Resolve the supplied gate does not equal the active pending gate, reload the authoritative project state, and repeat the operation."
+  "recovery": "Reload the active pending gate and submit the decision for that exact gate."
 }
 ```
 

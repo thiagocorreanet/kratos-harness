@@ -67,6 +67,8 @@ one host-neutral result mapping for future operations. Blocking decision and
 policy reasons map to exit 3; the explicitly non-blocking
 `guard.external_path` and `guard.uninspectable` warnings retain exit 0. This is
 the compatibility boundary that removes the predecessor ambiguity.
+The public `brain_migration_pending` layout failure retains its observed exit 1
+and directs callers to the explicit migration command.
 
 ## Reason catalog
 
@@ -167,7 +169,7 @@ Blocked policy transition:
   ],
   "stateChanged": false,
   "retryable": true,
-  "recovery": "Resolve the supplied gate does not equal the active pending gate, reload the authoritative project state, and repeat the operation."
+  "recovery": "Reload the active pending gate and submit the decision for that exact gate."
 }
 ```
 

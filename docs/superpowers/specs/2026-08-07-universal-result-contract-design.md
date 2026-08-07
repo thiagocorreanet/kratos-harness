@@ -238,7 +238,8 @@ catalog, validates every example, and applies cross-file invariants:
 5. examples cover each exit 0 through 5 exactly once;
 6. unsafe metadata, duplicate why/evidence, unknown properties, invalid
    digests, and false state/retry claims fail;
-7. canonical JSON and human rendering snapshots are deterministic and safe.
+7. exact canonical JSON and human rendering assertions are deterministic and
+   safe.
 
 Tests start RED for absent schemas/catalog/checker, then exercise representative
 success, validation, usage/contract, gate/policy, recovery, and conflict
