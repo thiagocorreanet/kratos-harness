@@ -173,4 +173,15 @@ describe("universal result rendering", () => {
       expect(rendered.stderr).not.toContain(summary);
     }
   });
+
+  it.each([
+    "The basic configuration is valid.",
+    "The bearer completed the requested handoff.",
+  ])("allows non-credential prose: %s", (summary) => {
+    const blocked = examples.find(({ exitCode }) => exitCode === 3);
+    if (blocked === undefined) throw new Error("missing blocked example");
+    const candidate = { ...structuredClone(blocked), summary };
+    expect(invoke("json", candidate).status).toBe(0);
+    expect(invoke("human", candidate).status).toBe(0);
+  });
 });
