@@ -1,5 +1,7 @@
 export { classifyConfiguration } from "./configuration.js";
 export type { ConfigurationOutcome } from "./configuration.js";
+export { resolveConfigurationLayers } from "./layers.js";
+export type { ConfigurationLayers, FlagValue, Resolved } from "./layers.js";
 export type {
   BrainMarker,
   ConfigurationObservation,
