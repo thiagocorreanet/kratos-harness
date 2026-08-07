@@ -95,6 +95,23 @@ describe("differential observation comparison", () => {
     ]);
   });
 
+  it("reports digest fields directly without disclosing stream content", () => {
+    const expected = observation();
+    const candidate = structuredClone(expected);
+    candidate.process.stdout.sha256 =
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const mismatch = compareObservations(
+      scenario(expected),
+      expected,
+      candidate,
+    ).mismatches.find(({ pointer }) => pointer.endsWith("/stdout/sha256"));
+    expect(mismatch).toMatchObject({
+      oracle: emptyDigest,
+      candidate:
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+  });
+
   it.each([
     ["timeout", "timeout"],
     ["signal", "crash"],

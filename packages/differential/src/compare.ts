@@ -15,7 +15,7 @@ function escapePointer(segment: string): string {
   return segment.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
-function safeSummary(value: unknown): unknown {
+function safeSummary(value: unknown, pointer: string): unknown {
   if (
     value === null ||
     typeof value === "boolean" ||
@@ -24,6 +24,9 @@ function safeSummary(value: unknown): unknown {
     return value;
   }
   if (typeof value === "string") {
+    if (pointer.endsWith("/sha256") && /^[a-f0-9]{64}$/u.test(value)) {
+      return value;
+    }
     return {
       type: "string",
       bytes: Buffer.byteLength(value),
@@ -113,8 +116,8 @@ function collect(
     kind: mismatchKind(pointer, expected, actual, observation),
     scenarioId: scenario.id,
     parityContractIds: scenario.parityContractIds,
-    oracle: safeSummary(expected),
-    candidate: safeSummary(actual),
+    oracle: safeSummary(expected, pointer),
+    candidate: safeSummary(actual, pointer),
   });
 }
 

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "live-help",
+  "parityContractIds": ["CLI-ALIAS-HELP", "CLI-HELP"],
+  "workspace": { "entries": [] },
+  "invocation": {
+    "args": ["--help"],
+    "stdin": "",
+    "environment": {},
+    "timeoutMs": 5000,
+    "maxStdoutBytes": 1048576,
+    "maxStderrBytes": 1048576
+  },
+  "capture": { "structured": [], "git": false },
+  "normalization": [],
+  "disclosure": {
+    "stdout": "digest",
+    "stderr": "digest",
+    "artifacts": "digest"
+  },
+  "expected": {
+    "process": {
+      "outcome": "exit",
+      "exitCode": 0,
+      "signal": null,
+      "stdout": {
+        "bytes": 1058,
+        "sha256": "8fe918223dc75b5fc644f2769fa38456077c1b0467e5bc2394597a77431414b6"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "filesystem": { "before": [], "after": [], "mutations": [] },
+    "structured": [],
+    "git": null
+  }
+}

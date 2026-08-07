@@ -299,7 +299,6 @@ git commit -s -m "feat: run bounded differential sandboxes"
 - Create: `compatibility/fixtures/differential/v1/scenarios/self-test-equality.json`
 - Create: `compatibility/fixtures/differential/v1/scenarios/live-version.json`
 - Create: `compatibility/fixtures/differential/v1/scenarios/live-help.json`
-- Create: `compatibility/fixtures/differential/v1/scenarios/prd-*.json`
 - Create: `scripts/run-differential.mjs`
 - Create: `tests/differential-cli.test.ts`
 - Modify: `package.json`
@@ -311,14 +310,14 @@ git commit -s -m "feat: run bounded differential sandboxes"
 - Live mode requires `--class live --oracle <path> --candidate <path>`.
 - Exit `0` means all selected scenarios equal, `1` means mismatch, and `2` means usage/contract/provenance/harness failure.
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Cover default JSON self-test, human rendering, unknown/duplicate/missing options,
 missing live runners, wrong oracle digest before mutation, valid oracle with
 seeded version/help mismatch, and redaction of absolute paths, secrets, stack
 text, and nondisclosed streams.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/differential-cli.test.ts
@@ -326,16 +325,19 @@ npm test -- tests/differential-cli.test.ts
 
 Expected: FAIL because CLI and corpus do not exist.
 
-- [ ] **Step 3: Add corpus and strict CLI**
+- [x] **Step 3: Add corpus and strict CLI**
 
-Classify corpus entries as `self-test`, `live`, or `planned`. Default mode runs
+Classify corpus entries as `self-test`, `live`, or `planned`. Runnable entries
+have a scenario path; planned entries instead have an ID, real contract IDs,
+and explicit observable requirements, with no invented golden output. Default mode runs
 the materialized original driver with `process.execPath` on both sides and a
 complete equal golden observation. Live `--version` and `--help` scenarios name
-real matrix IDs and store only issue #9 byte counts/digests. Planned PRD files
+real matrix IDs and store only issue #9 byte counts/digests. Planned PRD entries
 name all four real PRD IDs and sufficient/insufficient context, `needs_input`,
 blocking/deferred questions, 5 Whys/5W2H applied/skipped, root cause, invalid
 structured output, lineage drift, revision, and content-bound approval; they
-contain no private anchor expression and cannot execute or count as evidence.
+contain no private anchor expression, executable path, or golden observation
+and cannot execute or count as evidence.
 
 Default runners are Node only for `self-test`. Live mode requires regular
 executable files and verifies Go SHA before loading scenarios. JSON recursively
@@ -343,7 +345,7 @@ sorts keys; human output prints scenario and mismatch pointers only. Add
 `"differential:check": "node scripts/run-differential.mjs"` after
 `contracts:check` in `verify` and before build.
 
-- [ ] **Step 4: Run GREEN and authorized live evidence**
+- [x] **Step 4: Run GREEN and authorized live evidence**
 
 ```bash
 npm test -- tests/differential-cli.test.ts tests/differential-runner.test.ts
@@ -356,7 +358,7 @@ Expected: tests/self-test PASS; authorized live comparison verifies the oracle,
 reports only safe version/help pointer/digest differences, and exits `1` because
 the candidate is not yet parity-complete.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add compatibility/fixtures/differential package.json eslint.config.mjs scripts/run-differential.mjs tests/differential-cli.test.ts

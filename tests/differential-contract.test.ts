@@ -79,6 +79,58 @@ async function withScenario(
 }
 
 describe("differential JSON contracts", () => {
+  it("tracks every planned PRD case with real frozen matrix IDs", async () => {
+    const [corpusSource, matrixSource] = await Promise.all([
+      readFile(
+        join(
+          repositoryRoot,
+          "compatibility/fixtures/differential/v1/corpus.json",
+        ),
+        "utf8",
+      ),
+      readFile(
+        join(
+          repositoryRoot,
+          "compatibility/inventory/go-v3-v0.6.5/matrix.json",
+        ),
+        "utf8",
+      ),
+    ]);
+    const corpus = JSON.parse(corpusSource) as {
+      entries: {
+        class: string;
+        id?: string;
+        parityContractIds?: string[];
+        requirements?: string[];
+      }[];
+    };
+    const matrix = JSON.parse(matrixSource) as { rows: { id: string }[] };
+    const rowIds = new Set(matrix.rows.map(({ id }) => id));
+    const planned = corpus.entries.filter(
+      ({ class: kind }) => kind === "planned",
+    );
+    expect(planned).toHaveLength(12);
+    expect(
+      new Set(planned.flatMap(({ parityContractIds }) => parityContractIds)),
+    ).toEqual(
+      new Set([
+        "PRD-OUTPUT-SCHEMA",
+        "PRD-PROBLEM-DISCOVERY",
+        "PRD-RESEARCHER",
+        "PRD-TEMPLATE",
+      ]),
+    );
+    for (const entry of planned) {
+      expect(entry.id).toMatch(/^prd-/u);
+      expect(entry.requirements?.every((value) => value.length >= 20)).toBe(
+        true,
+      );
+      expect(entry.parityContractIds?.every((id) => rowIds.has(id))).toBe(true);
+      expect(entry).not.toHaveProperty("path");
+      expect(entry).not.toHaveProperty("expected");
+    }
+  });
+
   it("provides valid linked JSON Schema 2020-12 documents", async () => {
     const [scenarioSource, observationSource] = await Promise.all([
       readFile(

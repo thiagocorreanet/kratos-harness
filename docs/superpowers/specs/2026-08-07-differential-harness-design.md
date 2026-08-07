@@ -223,9 +223,14 @@ The checked-in corpus catalog records for each scenario whether it is:
 
 - `self-test`, safe and mandatory in public CI;
 - `live`, requiring the authorized oracle and candidate;
-- `planned`, contract-complete but blocked on a missing candidate behavior.
+- `planned`, requirement-complete metadata blocked on a missing candidate
+  behavior and therefore lacking an executable scenario path or golden output.
 
-A planned scenario is not executed and cannot count as evidence.
+A planned entry names real parity contract IDs and explicit observable
+requirements, but it is not an executable scenario. It has no invented golden
+observation, is not executed, and cannot count as evidence. It becomes a live
+entry only after authorized oracle capture can provide a complete,
+publication-safe golden observation and a candidate driver exists.
 
 ## 10. PRD compatibility boundary
 
