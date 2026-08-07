@@ -140,6 +140,22 @@ describe("versioned state and host schemas", () => {
     },
   );
 
+  it("rejects a leading-zero numeric adapter prerelease", () => {
+    const adapter = loaded.find(
+      ({ fixtureName }) => fixtureName === "adapter-message.json",
+    );
+    if (adapter === undefined) throw new Error("missing adapter fixture");
+    const candidate = structuredClone(adapter.fixture);
+    candidate.observedIdentity = {
+      ...(candidate.observedIdentity as JsonObject),
+      adapterVersion: "1.0.0-01",
+    };
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    ajv.addSchema(resultSchema);
+    const validate = ajv.compile(adapter.schema);
+    expect(validate(candidate)).toBe(false);
+  });
+
   it("ships eight payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [

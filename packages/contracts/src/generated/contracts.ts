@@ -1,5 +1,5 @@
 // Generated from registered JSON Schemas. Do not edit.
-// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:ca97c55aa5bca675f46642d53ada75701ecbba8a1424a34042eae706eb7d3ae8
+// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:58e71d3742ef50904aa6b1b8d848e7455ad0305d70e9e809e1ddf901fc6c4cb2
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:44c6490092a4effd67783f79ff19882be82059dc6b7b6524bb4417200a2ea73e
 // source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:159ef49a1893419d1f391bfef785b0473f9fa42cb61a954fc74de0a4cd4aa120
 // source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:469d406fd413d6af7cea1b03415663674795dadf3ba48af749af999be648028c
