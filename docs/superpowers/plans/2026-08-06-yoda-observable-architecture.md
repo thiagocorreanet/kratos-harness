@@ -210,7 +210,7 @@ max_retries = 3
 retry_wait_time = 2
 timeout = 20
 max_concurrency = 8
-accept = ["200..=204", "429"]
+accept = ["200..=204"]
 include_fragments = "full"
 include_mail = false
 ```

@@ -1,10 +1,10 @@
 # Yoda Observable Architecture Specification
 
-- Status: Approved
+- Status: Ready for Review
 - Decision date: 2026-08-06
 - Scope: TypeScript rewrite of Mestre Yoda
 - Tracking issue: [#2](https://github.com/thiagocorreanet/mestre-yoda/issues/2)
-- Approval basis: Maintainer-authorized autonomous design approval
+- Approval path: Maintainer review and green documentation CI on the integration PR
 
 ## 1. Purpose and authority
 
@@ -93,13 +93,32 @@ implementation architecture or code. Its process is equivalent to Go v3:
 10. Separate blocking questions, which stop the trail, from open questions,
     which the spec phase must resolve explicitly.
 
-The PRD producer emits both the human-readable `00-prd.md` view and a structured
-`prd-output.json`. The structured result identifies the producing role,
-completion status, next action, feature, written artifacts, discovery outcome,
-open questions, and blocking questions. A completed PRD is usable only when its
-structured output validates against the versioned schema, reports completion,
-and names at least one artifact. Missing or invalid PRD output is a deterministic
-checkpoint, not a human gate and not something a model may waive.
+Before choosing an outcome, the PRD researcher consumes the original demand and
+relayed interview answers, reads the project's stack profile and known-gotcha
+memory when present, and explores related code structure, naming, and existing
+features when code exists. It asks only questions whose answers cannot be
+inferred safely from that evidence. It never invents a missing answer. The PRD
+language follows the project's `documentationLanguage`; when the project has no
+language policy, it defaults to English while preserving domain terms and proper
+nouns.
+
+The two PRD outcomes remain observably distinct:
+
+| Condition | Human-facing behavior | Structured result | Filesystem effect |
+| --- | --- | --- | --- |
+| Context is insufficient | Return only the blocking `OPEN QUESTIONS`, with concise options when useful, and stop for relayed user input | `status: needs_input`, `next_action: needs_input`, the current feature, empty `artifacts`, and non-empty `blocking_questions` | Do not create or modify `00-prd.md` or another PRD artifact |
+| Context is sufficient | Write the complete WHAT/WHY PRD, return its path plus a three-line problem/goal/scope summary, and proceed to spec | `status: completed`, `next_action: proceed`, the current feature, at least one artifact, completed discovery fields, deferred `open_questions`, and empty `blocking_questions` | Write `00-prd.md` under the active feature through the managed transaction boundary |
+
+Both outcomes emit the versioned machine result through the host's structured
+output channel, separate from user-facing prose. This separation preserves the
+legacy `OPEN QUESTIONS` ending without forcing the runtime to parse free text.
+Re-invocation after answers repeats context validation rather than assuming that
+the prior questions made the PRD complete.
+
+A completed PRD is usable only when its structured output validates against the
+versioned schema, reports completion, and names at least one artifact. Missing,
+invalid, or `needs_input` PRD output is a deterministic checkpoint, not a human
+gate and not something a model may waive.
 
 Schema version 1 from Go v3 is the compatibility baseline. The compatibility
 contract may publish a successor, but it must retain the semantics above and
@@ -169,7 +188,7 @@ plugin/
 - Skills explain how agents collaborate with the runtime.
 - Schemas are versioned public contracts embedded in the bundle.
 - Templates generate managed project surfaces.
-- The manifest binds plugin, runtime, schema, and template versions.
+- The manifest binds plugin, runtime, schema, skill, adapter, and template versions.
 
 Runtime execution must not require a global `yoda` binary, a project-local
 `node_modules`, TypeScript sources, or network access.

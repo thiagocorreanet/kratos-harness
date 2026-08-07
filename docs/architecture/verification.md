@@ -124,7 +124,7 @@ Placeholder and whitespace checks:
 
 ```bash
 rg -n '\b(T[O]DO|T[B]D|F[I]XME|X[X]X)\b' README.md docs .github || true
-git diff --check
+git diff --check origin/main...HEAD
 ```
 
 Expected result: zero lint issues, zero actionlint findings, zero failed links,
