@@ -5,7 +5,11 @@ import { runCli } from "@mestre-yoda/runtime";
 import { createRuntime } from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import { planOf } from "@mestre-yoda/runtime/domain/effects";
-import { resultFor } from "@mestre-yoda/runtime/domain/result";
+import {
+  resultFor,
+  usageFailure,
+  USAGE_WHY,
+} from "@mestre-yoda/runtime/domain/result";
 import {
   memoryFileSystem,
   recordingOutput,
@@ -81,6 +85,16 @@ describe("composed command line", () => {
     });
   });
 
+  it("renders malformed globals and command arguments through usage results", async () => {
+    expect(await run(["--json", "--expect"])).toMatchObject({
+      exitCode: 2,
+      stderr: "",
+    });
+    expect((await run(["version", "--unknown"])).stderr).toContain(
+      "Reason: trail.uso",
+    );
+  });
+
   it("renders an unexpected failure as a sanitized internal failure", async () => {
     const output = recordingOutput();
     const exploding = [
@@ -141,5 +155,57 @@ describe("composed command line", () => {
     expect(output.human_.join("")).toContain(
       "Reason: runtime.internal_failure",
     );
+  });
+
+  it("publishes a command-owned failure through the result renderer", async () => {
+    const output = recordingOutput();
+    const failing = [
+      {
+        path: ["fail"],
+        summary: "Return a failure.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: usageFailure(USAGE_WHY.arity),
+          plan: planOf(),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+    expect(
+      await runCommandLine(["fail"], createRuntime({ output }), failing),
+    ).toBe(2);
+    expect(output.human_.join("")).toContain("Reason: trail.uso");
+  });
+
+  it("fails closed when a non-result command has no payload", async () => {
+    const output = recordingOutput();
+    const absent = [
+      {
+        path: ["absent"],
+        summary: "Return no payload.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "adapter-message@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: null,
+          payload: undefined,
+        }),
+      },
+    ];
+    expect(
+      await runCommandLine(
+        ["--json", "absent"],
+        createRuntime({ output }),
+        absent,
+      ),
+    ).toBe(2);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
   });
 });

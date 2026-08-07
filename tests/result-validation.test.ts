@@ -41,6 +41,27 @@ describe("result validation", () => {
     ).toThrow("forbidden evidence");
   });
 
+  it("rejects evidence properties outside canonical order", () => {
+    const evidence = {
+      ref: ".brain/events.jsonl",
+      kind: "event" as const,
+    };
+    expect(() =>
+      validateResult(
+        resultFor("blocked.empty_plan", {
+          why: ["cause"],
+          evidence: [evidence],
+        }),
+      ),
+    ).toThrow("evidence properties are not in canonical order");
+  });
+
+  it("rejects an unknown reason code", () => {
+    expect(() =>
+      validateResult(withField({ reasonCode: "runtime.unknown" })),
+    ).toThrow("result uses an unknown reason code");
+  });
+
   it("requires a cause for a failure", () => {
     expect(() => validateResult(withField({ why: [] }))).toThrow(
       "requires at least one cause",
