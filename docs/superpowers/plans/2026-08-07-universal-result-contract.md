@@ -304,7 +304,7 @@ git commit -s -m "feat: verify universal result contract"
 - Consumes: Task 3 `canonicalResultJson` and `renderHumanResult`.
 - Produces: deterministic renderer semantics reusable by the future runtime.
 
-- [ ] **Step 1: Write renderer RED tests**
+- [x] **Step 1: Write renderer RED tests**
 
 Assert JSON is one compact object with canonical field order plus newline and
 contains no stderr concept. Assert success human rendering is summary-only on
@@ -316,7 +316,7 @@ Add unsafe-result tests for `Error:`, `at function (file.ts:1:2)`, token/secret
 patterns, private URL, absolute Unix/Windows paths, control characters, and
 inline evidence content; rendering must reject before returning any text.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 ```bash
 npm test -- --run tests/result-contract-rendering.test.ts
