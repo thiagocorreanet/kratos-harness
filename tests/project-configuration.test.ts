@@ -46,6 +46,8 @@ describe("project configuration classification", () => {
       "guard.config_corrupt",
     ],
     ["a missing identity", file({}), "contract.state_version_invalid"],
+    ["a null document", file(null), "contract.state_version_invalid"],
+    ["an array document", file([]), "contract.state_version_invalid"],
     [
       "a non-string identity",
       file({ stateContract: 1 }),

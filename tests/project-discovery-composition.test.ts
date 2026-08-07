@@ -118,6 +118,67 @@ describe("project discovery composition", () => {
     ]);
   });
 
+  it("stops observation when the working directory is unavailable", async () => {
+    const calls: string[] = [];
+    const workspace: Workspace = {
+      canonicalize: (path) => {
+        calls.push(`canonicalize:${path}`);
+        return Promise.resolve(null);
+      },
+      inspect: () => {
+        throw new Error("inspect must not run");
+      },
+      ancestors: () => {
+        throw new Error("ancestors must not run");
+      },
+      locateWorktree: () => {
+        throw new Error("worktree lookup must not run");
+      },
+    };
+
+    await expect(
+      observeWorkspace(
+        {
+          workingDirectory: "/missing",
+          explicitRoot: null,
+          worktreeMode: "principal",
+        },
+        {
+          workspace,
+          environment: fixedEnvironment({}, "/process"),
+        },
+      ),
+    ).resolves.toEqual({
+      canonicalWorkingDirectory: null,
+      canonicalExplicitRoot: null,
+      ancestors: [],
+      principalAncestors: [],
+      worktree: null,
+    });
+    expect(calls).toEqual(["canonicalize:/missing"]);
+  });
+
+  it("does not inspect an explicit root that cannot be canonicalized", async () => {
+    const workspace = memoryWorkspace({ directories: ["/process"] });
+    await expect(
+      observeWorkspace(
+        {
+          workingDirectory: ".",
+          explicitRoot: "/missing",
+          worktreeMode: "principal",
+        },
+        {
+          workspace,
+          environment: fixedEnvironment({}, "/process"),
+        },
+      ),
+    ).resolves.toMatchObject({
+      canonicalWorkingDirectory: "/process",
+      canonicalExplicitRoot: null,
+      ancestors: [],
+    });
+  });
+
   it("returns configuration failures without constructing mutation ports", async () => {
     const root = "/project";
     const ports = {

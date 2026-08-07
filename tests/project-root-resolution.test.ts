@@ -71,6 +71,18 @@ describe("project root resolution", () => {
     ).toEqual({ kind: "refused", reasonCode: "trail.uso" });
   });
 
+  it("refuses an explicit root whose probe was not observed", () => {
+    expect(
+      resolveRoot(
+        request({ explicitRoot: "/work/missing-probe" }),
+        observation({
+          canonicalExplicitRoot: "/work/missing-probe",
+          ancestors: [],
+        }),
+      ),
+    ).toEqual({ kind: "refused", reasonCode: "trail.uso" });
+  });
+
   it("returns an explicit usable directory without a marker as root-only", () => {
     const root = probe("/work/new-project");
     expect(
@@ -104,6 +116,12 @@ describe("project root resolution", () => {
       root: "/work/project/packages/api",
       probe: nearest,
     });
+  });
+
+  it("refuses a working directory that could not be canonicalized", () => {
+    expect(
+      resolveRoot(request(), observation({ canonicalWorkingDirectory: null })),
+    ).toEqual({ kind: "refused", reasonCode: "trail.uso" });
   });
 
   it.each(["other", "escaping"] as const)(
@@ -186,6 +204,23 @@ describe("project root resolution", () => {
     });
   });
 
+  it("uses the principal checkout root when it has no marker", () => {
+    expect(
+      resolveRoot(
+        request(),
+        observation({
+          ancestors: [probe("/worktrees/task")],
+          principalAncestors: [probe("/repos/project")],
+          worktree: {
+            kind: "linked",
+            topLevel: "/worktrees/task",
+            principal: "/repos/project",
+          },
+        }),
+      ),
+    ).toEqual({ kind: "root-only", root: "/repos/project" });
+  });
+
   it("keeps local worktree mode at the linked Git root", () => {
     expect(
       resolveRoot(
@@ -217,6 +252,21 @@ describe("project root resolution", () => {
             topLevel: "/work/project",
             principal: "/work/project",
           },
+        }),
+      ),
+    ).toEqual({ kind: "root-only", root: "/work/project" });
+  });
+
+  it("uses an ancestor Git marker when topology lookup is unavailable", () => {
+    expect(
+      resolveRoot(
+        request(),
+        observation({
+          ancestors: [
+            probe("/work/project/src"),
+            probe("/work/project", { git: "present" }),
+          ],
+          worktree: null,
         }),
       ),
     ).toEqual({ kind: "root-only", root: "/work/project" });

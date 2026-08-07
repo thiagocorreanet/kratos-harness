@@ -81,6 +81,7 @@ describe("project configuration layers", () => {
       { defaults: { language: "en", privatePath: "/home/customer" } },
     ],
     ["an undefined value", { defaults: { language: undefined } }],
+    ["an undefined project value", { project: { language: undefined } }],
     [
       "an unsafe flag ref",
       { flags: { language: { value: "pt-BR", ref: "/home/customer" } } },
