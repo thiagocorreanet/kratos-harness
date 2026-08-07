@@ -11,6 +11,7 @@ import {
 } from "../packages/contracts/src/index.js";
 import type {
   CompatibilityClass,
+  ContractClassification,
   ContractFamily,
 } from "../packages/contracts/src/index.js";
 
@@ -102,5 +103,17 @@ describe("contract compatibility classifier", () => {
         "Contract failure result requires a rejected classification",
       );
     }
+  });
+
+  it("refuses a forged family and reason combination", () => {
+    const forged: ContractClassification = {
+      family: "plugin",
+      classification: "invalid",
+      reasonCode: "contract.host_version_invalid",
+      selectedVersion: null,
+    };
+    expect(() => contractFailureResult(forged)).toThrow(
+      "Contract failure classification is inconsistent",
+    );
   });
 });

@@ -104,11 +104,18 @@ export function contractFailureResult(
 ): ContractFailureResult {
   if (
     classification.reasonCode === null ||
-    !["invalid", "unsupported"].includes(classification.classification)
+    (classification.classification !== "invalid" &&
+      classification.classification !== "unsupported")
   ) {
     throw new Error(
       "Contract failure result requires a rejected classification",
     );
+  }
+  if (
+    classification.reasonCode !==
+    reasonCode(classification.family, classification.classification)
+  ) {
+    throw new Error("Contract failure classification is inconsistent");
   }
   const reason = reasonCatalog.reasons.find(
     ({ code }) => code === classification.reasonCode,
