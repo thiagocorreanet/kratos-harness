@@ -167,12 +167,12 @@ git diff --check
 
 Resolve every technically valid finding and rerun affected checks.
 
-- [ ] **Step 3: Push and open the implementation pull request**
+- [x] **Step 3: Push and open the implementation pull request**
 
 Describe the implementation and local evidence. Refer to issue #7 without an
 automatic closure keyword because the deliberate failure campaign is pending.
 
-- [ ] **Step 4: Confirm the GitHub-hosted green run and merge**
+- [x] **Step 4: Confirm the GitHub-hosted green run and merge**
 
 Inspect each step and the exact event/permission context before merging the pull
 request. Sync local `main` after merge.
@@ -189,36 +189,36 @@ request. Sync local `main` after merge.
 - Consumes: the merged CI workflow.
 - Produces: GitHub run URLs for lint, type-check, test, package-content failure, and clean success; static fork-safety evidence; closure of issue #7.
 
-- [ ] **Step 1: Open a disposable pull request from a test branch**
+- [x] **Step 1: Open a disposable pull request from a test branch**
 
 Start from current `main`. Never merge this pull request.
 
-- [ ] **Step 2: Exercise the lint failure**
+- [x] **Step 2: Exercise the lint failure**
 
 Commit a deliberately lint-invalid TypeScript probe, push, and record that the
 Lint step blocks the job while the failure artifact is available.
 
-- [ ] **Step 3: Exercise the type failure**
+- [x] **Step 3: Exercise the type failure**
 
 Replace the probe with lint-valid but type-invalid TypeScript, push, and record
 that Type-check blocks the job.
 
-- [ ] **Step 4: Exercise the unit-test failure**
+- [x] **Step 4: Exercise the unit-test failure**
 
 Replace the probe with a deliberately failing Vitest assertion, push, and record
 that Unit tests blocks the job.
 
-- [ ] **Step 5: Exercise the package-content failure**
+- [x] **Step 5: Exercise the package-content failure**
 
 Alter the disposable build to stage an unexpected file, push, and record that
 Verify package blocks the job.
 
-- [ ] **Step 6: Restore a clean tree and prove success**
+- [x] **Step 6: Restore a clean tree and prove success**
 
 Remove every probe, push a final signed commit, and record a fully green run.
 Close the disposable pull request without merging and delete its branch.
 
-- [ ] **Step 7: Record fork-safety and platform evidence**
+- [x] **Step 7: Record fork-safety and platform evidence**
 
 Document the use of `pull_request`, read-only permissions, no secret references,
 no persisted credentials, standard hosted runner, and the relevant GitHub event
