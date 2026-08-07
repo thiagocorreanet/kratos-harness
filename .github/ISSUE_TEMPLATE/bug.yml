@@ -4,7 +4,6 @@ title: "[BUG] "
 labels:
   - bug
   - english-only
-assignees: []
 body:
   - type: markdown
     attributes:
@@ -74,5 +73,3 @@ body:
           required: true
         - label: This report contains no suspected vulnerability, exploit detail, secret, private data, or proprietary source.
           required: true
-    validations:
-      required: true

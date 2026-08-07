@@ -5,7 +5,6 @@ labels:
   - enhancement
   - type:feature
   - english-only
-assignees: []
 body:
   - type: markdown
     attributes:
@@ -67,5 +66,3 @@ body:
           required: true
         - label: This proposal contains no secret, private data, proprietary source, or confidential vulnerability detail.
           required: true
-    validations:
-      required: true

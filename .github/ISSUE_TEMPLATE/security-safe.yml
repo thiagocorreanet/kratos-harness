@@ -5,7 +5,6 @@ labels:
   - type:security
   - area:security
   - english-only
-assignees: []
 body:
   - type: markdown
     attributes:
@@ -51,5 +50,3 @@ body:
           required: true
         - label: This request is written in normative English.
           required: true
-    validations:
-      required: true

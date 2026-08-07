@@ -141,6 +141,7 @@ function validateBodyElement(
     );
   }
   if (type === "checkboxes") {
+    expect(element.validations, context).toBeUndefined();
     expect(Array.isArray(attributes.options), context).toBe(true);
     for (const [index, optionValue] of (
       attributes.options as unknown[]
@@ -153,6 +154,7 @@ function validateBodyElement(
       expect(option.label, context).toEqual(expect.any(String));
       expect(option.required, context).toBe(true);
     }
+    return element;
   }
 
   const validations = object(element.validations, `${context}.validations`);
@@ -204,7 +206,6 @@ describe("GitHub Issue Form schema contract", () => {
       expect(form.name, filename).toEqual(expect.any(String));
       expect(form.description, filename).toEqual(expect.any(String));
       expect(form.title, filename).toMatch(/^\[[A-Z-]+\] /);
-      expect(form.assignees, filename).toEqual([]);
       expect(form.labels, filename).toEqual(
         expect.arrayContaining(["english-only"]),
       );
@@ -328,9 +329,14 @@ describe("pull request and contribution workflow contract", () => {
     ) as {
       dependencies?: Record<string, string>;
       devDependencies: Record<string, string>;
+      scripts: Record<string, string>;
     };
     expect(packageManifest.dependencies).toBeUndefined();
+    expect(packageManifest.devDependencies.ajv).toBe("8.20.0");
     expect(packageManifest.devDependencies.yaml).toBe("2.9.0");
+    expect(packageManifest.scripts["templates:validate"]).toBe(
+      "node scripts/validate-github-templates.mjs",
+    );
   });
 });
 

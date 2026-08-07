@@ -131,13 +131,19 @@ label the flow proposed rather than pretending protection already exists.
 
 ## 7. Deterministic validation and discoverability
 
-The repository pins `yaml@2.9.0` as a development-only parser and keeps zero
-production dependencies. `tests/github-contribution-contract.test.ts` starts
-red while the templates are absent, then validates:
+The repository pins Ajv `8.20.0` and YAML `2.9.0` as development-only validators
+and keeps zero production dependencies. `npm run templates:validate` downloads
+the GitHub Issue Forms schema from the immutable SchemaStore commit
+`4b00bca7dc9307b9dd34ca13d8c87329d66ad4ce`, rejects any content whose SHA-256
+is not `c2722dbf00334ce4fdeffa960b8c9047caf4f1cbb8f3809663f4d604b1d3ae76`,
+and validates all five forms against that complete snapshot.
+
+`tests/github-contribution-contract.test.ts` starts red while the templates are
+absent, then validates repository-specific policy:
 
 - the exact chooser/form inventory and parseable YAML object shape;
-- GitHub-supported top-level and body element keys, types, unique IDs, required
-  attributes, valid option shapes, and existing default labels;
+- parseable YAML, supported keys/types, unique IDs, required attributes, valid
+  option shapes, and existing default labels;
 - form-specific reproduction or acceptance evidence;
 - private vulnerability routing and public safety attestations;
 - the PR template's required risk, evidence, provenance, DCO, and English
@@ -150,9 +156,12 @@ system temporary directory, verifies that all required fields are discoverable,
 and deletes the draft tree. This proves local draft creation without opening a
 real issue or notifying maintainers.
 
-After merge, GitHub's issue-template API must discover exactly the five forms,
-and the community profile must recognize both issue and pull-request templates.
-That post-merge evidence is the platform-level GitHub schema/discovery gate.
+The implementation PR references #6 without a closing keyword. After merge,
+GitHub's issue-template API must discover exactly the five forms, every direct
+form URL must render its title and required fields, and the community profile
+must recognize issue and pull-request templates. Only an evidence follow-up may
+use `Closes #6`. This keeps the issue open until the platform-level discovery and
+rendering gate has actually passed.
 
 ## 8. Compatibility, security, and provenance
 

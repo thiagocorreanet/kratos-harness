@@ -5,7 +5,6 @@ labels:
   - documentation
   - type:documentation
   - english-only
-assignees: []
 body:
   - type: markdown
     attributes:
@@ -56,5 +55,3 @@ body:
           required: true
         - label: This report contains no secret, private data, proprietary source, or confidential vulnerability detail.
           required: true
-    validations:
-      required: true

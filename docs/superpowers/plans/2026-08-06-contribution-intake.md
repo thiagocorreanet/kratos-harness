@@ -4,9 +4,9 @@
 
 **Goal:** Make every public issue and pull request arrive with typed context, safe routing, deterministic evidence, and a stable work-taxonomy reference.
 
-**Architecture:** GitHub-native Issue Forms and one PR template remain static repository artifacts. A Vitest contract parses every YAML form, enforces the supported schema subset and repository policy, and renders temporary local drafts; a contributor guide owns labels, milestones, IDs, and the proposed branch flow.
+**Architecture:** GitHub-native Issue Forms and one PR template remain static repository artifacts. A Vitest policy contract parses every YAML form and renders temporary local drafts; a separate validator checks all forms against a content-hash-verified schema snapshot. A contributor guide owns labels, milestones, IDs, and the proposed branch flow.
 
-**Tech Stack:** GitHub Issue Forms YAML, Markdown, TypeScript, Vitest 4.1.10, YAML 2.9.0, GitHub community profile/template APIs.
+**Tech Stack:** GitHub Issue Forms YAML, Markdown, TypeScript, Vitest 4.1.10, YAML 2.9.0, Ajv 8.20.0, pinned SchemaStore snapshot, GitHub community profile/template APIs.
 
 ## Global constraints
 
@@ -14,13 +14,13 @@
 - Do not expose a public vulnerability intake path or collect sensitive details.
 - Do not claim `developer` or branch protection exists before issue #60.
 - Preserve the private Go predecessor only as a behavioral oracle; do not copy private prose.
-- Keep YAML development-only and retain zero production dependencies.
+- Keep Ajv/YAML development-only and retain zero production dependencies.
 - Do not alter runtime, state, migration, host, or PRD/spec behavior.
 - Sign every commit under DCO 1.1.
 
 ---
 
-### Task 1: Add deterministic YAML parsing
+### Task 1: Add deterministic schema and YAML parsing
 
 **Files:**
 
@@ -32,12 +32,12 @@
 **Interfaces:**
 
 - Consumes: exact npm lockfile and Issue Form YAML.
-- Produces: one development-only YAML parser available to Vitest.
+- Produces: development-only schema/YAML validation without runtime impact.
 
-- [x] **Step 1: Pin YAML exactly**
+- [x] **Step 1: Pin Ajv and YAML exactly**
 
-Add `"yaml": "2.9.0"` to root `devDependencies`. Do not add a production
-dependency or a new public script.
+Add `"ajv": "8.20.0"` and `"yaml": "2.9.0"` to root `devDependencies`. Do
+not add a production dependency.
 
 - [x] **Step 2: Regenerate and verify the lockfile**
 
@@ -46,15 +46,16 @@ Using exact Node/npm:
 ```bash
 npm install --package-lock-only
 npm ci
-npm ls yaml --depth=0
+npm ls ajv yaml --depth=0
 ```
 
-Expected: YAML resolves exactly to `2.9.0`; strict lifecycle policy still passes.
+Expected: Ajv/YAML resolve exactly to `8.20.0`/`2.9.0`; strict lifecycle policy
+still passes.
 
 - [x] **Step 3: Update the toolchain contract**
 
-List YAML 2.9.0 as the development-only configuration parser and state that it
-does not enter the embedded runtime bundle.
+List Ajv/YAML as development-only configuration validators and state that they
+do not enter the embedded runtime bundle.
 
 ### Task 2: Define the failing GitHub contribution contract
 
@@ -195,7 +196,7 @@ git commit -s -m "docs: add structured contribution intake"
 
 Expected: all contract tests and focused static checks pass.
 
-### Task 5: Verify, review, publish, and prove GitHub discovery
+### Task 5: Verify, review, publish, and prove GitHub discovery before closure
 
 **Files:**
 
@@ -211,12 +212,14 @@ Expected: all contract tests and focused static checks pass.
 
 ```bash
 npm run verify
+npm run templates:validate
 npx --yes markdownlint-cli2@0.20.0 "README.md" "*.md" "docs/**/*.md"
 lychee --config .lychee.toml './**/*.md'
 git diff --check
 ```
 
-Expected: full suite, spelling, Markdown, links, package, and whitespace pass.
+Expected: full suite, hash-verified pinned Issue Forms schema, spelling,
+Markdown, links, package, and whitespace pass.
 
 - [ ] **Step 2: Request independent review**
 
@@ -230,14 +233,16 @@ Record exact versions, test/file/link counts, local temporary draft inventory,
 form labels/required fields, review outcome, DCO trailers, and no production
 dependency/runtime-bundle change.
 
-- [ ] **Step 4: Publish, merge, and close**
+- [ ] **Step 4: Publish implementation without closing the issue**
 
-Push `docs/issue-6-contribution-templates`, open a signed PR with `Closes #6`,
-wait for all available checks, merge, confirm issue #6 closed, and synchronize
-`main`.
+Push `docs/issue-6-contribution-templates`, open a signed PR that references but
+does not close #6, wait for all available checks, merge, confirm issue #6 remains
+open, and synchronize `main`.
 
-- [ ] **Step 5: Prove platform discovery post-merge**
+- [ ] **Step 5: Prove platform discovery, record evidence, and close**
 
 Use GitHub's issue-template and community-profile APIs to verify exactly five
-forms plus recognized issue/PR template paths on `main`. Record the merged commit
-and green workflow, publish the evidence follow-up, then begin issue #7.
+forms plus recognized issue/PR template paths on `main`. Open every direct form
+URL and verify its rendered title/required fields. Record the merged commit and
+green workflow, publish an evidence follow-up with `Closes #6`, merge it, confirm
+issue #6 closed, then begin issue #7.

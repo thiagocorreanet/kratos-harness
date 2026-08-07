@@ -5,7 +5,6 @@ labels:
   - type:research
   - area:compatibility
   - english-only
-assignees: []
 body:
   - type: markdown
     attributes:
@@ -90,5 +89,3 @@ body:
           required: true
         - label: This report contains no suspected vulnerability, exploit detail, secret, private data, or confidential infrastructure.
           required: true
-    validations:
-      required: true

@@ -32,13 +32,19 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | --- | --- |
 | `npm run format:check` | Check supported source and configuration formatting |
 | `npm run spellcheck` | Check tracked English Markdown with the project dictionary |
+| `npm run templates:validate` | Validate Issue Forms against a pinned SchemaStore snapshot of GitHub's documented schema |
 | `npm run lint` | Run typed ESLint with zero warnings |
 | `npm run typecheck` | Run strict TypeScript 6 compatibility checking without emit |
 | `npm test` | Run unit and clean-room bundle tests once |
 | `npm run test:coverage` | Enforce 100% coverage on the initial CLI decision surface |
 | `npm run build` | Rebuild the standalone runtime artifact |
 | `npm run package:verify` | Inspect and execute the staged artifact outside the checkout |
-| `npm run verify` | Run every validation above in dependency order |
+| `npm run verify` | Run the complete offline validation chain in dependency order |
+
+Run `npm run templates:validate` separately when Issue Forms or their validation
+contract changes. It requires network access only to retrieve the immutable,
+hash-verified schema snapshot; `npm run verify` remains reproducible offline
+after `npm ci`.
 
 Issue [#7](https://github.com/thiagocorreanet/mestre-yoda/issues/7) will add the
 Node pull-request workflow. It must call these commands and must not introduce
@@ -58,13 +64,17 @@ scripts/             deterministic build and package verification
 
 All npm packages are private ESM workspaces. The root has no production
 dependencies. Its exactly pinned development dependencies are compilers,
-linters, formatters, the CSpell documentation checker, the YAML configuration
-parser, test/coverage tools, type declarations, and the bundler.
+linters, formatters, the CSpell documentation checker, the Ajv JSON Schema and
+YAML configuration parsers, test/coverage tools, type declarations, and the
+bundler.
 Only the exactly pinned esbuild installer is allowed to run a dependency
 lifecycle script. npm treats uncovered scripts as installation errors and
 explicitly denies the optional fsevents script recorded for macOS compatibility.
 YAML `2.9.0` is used only by repository contract tests for GitHub configuration;
 it is absent from the embedded runtime bundle.
+Ajv `8.20.0` validates Issue Forms against a content-hash-verified schema
+snapshot. That explicit online evidence command is separate from the offline
+`verify` chain; both validation dependencies remain absent from the runtime.
 
 ## Runtime artifact
 
