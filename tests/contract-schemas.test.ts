@@ -156,6 +156,36 @@ describe("versioned state and host schemas", () => {
     expect(validate(candidate)).toBe(false);
   });
 
+  it("rejects impossible UTC timestamp components", () => {
+    for (const { schema, fixtureName } of loaded.filter(
+      ({ schema }) => (schema.$defs as JsonObject | undefined)?.timestamp,
+    )) {
+      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      ajv.addSchema(schema);
+      const validate = ajv.compile({
+        $ref: `${String(schema.$id)}#/$defs/timestamp`,
+      });
+      expect(validate("2026-99-99T99:99:99Z"), fixtureName).toBe(false);
+    }
+  });
+
+  it("bounds persisted cursors and revisions to safe integers", () => {
+    for (const fixtureName of ["snapshot.json", "event.json"]) {
+      const artifact = loaded.find((item) => item.fixtureName === fixtureName);
+      if (artifact === undefined) throw new Error("missing revision fixture");
+      const candidate = structuredClone(artifact.fixture);
+      if (fixtureName === "snapshot.json") {
+        candidate.eventCursor = Number.MAX_SAFE_INTEGER + 1;
+      } else {
+        candidate.resultingRevision = Number.MAX_SAFE_INTEGER + 1;
+      }
+      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      ajv.addSchema(resultSchema);
+      const validate = ajv.compile(artifact.schema);
+      expect(validate(candidate), fixtureName).toBe(false);
+    }
+  });
+
   it("ships eight payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [

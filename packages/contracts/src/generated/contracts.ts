@@ -1,12 +1,12 @@
 // Generated from registered JSON Schemas. Do not edit.
 // source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:58e71d3742ef50904aa6b1b8d848e7455ad0305d70e9e809e1ddf901fc6c4cb2
-// source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:44c6490092a4effd67783f79ff19882be82059dc6b7b6524bb4417200a2ea73e
-// source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:159ef49a1893419d1f391bfef785b0473f9fa42cb61a954fc74de0a4cd4aa120
-// source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:469d406fd413d6af7cea1b03415663674795dadf3ba48af749af999be648028c
-// source: https://mestre-yoda.dev/schemas/state/lock/v1 sha256:04891b0af102b4c71ad1fade1413e0729bd6d0367540453d2fe997270ac236a4
-// source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:4fcb9a1341e7ee52dd33bed1b3a2b497ff9b3fc0573733ab7a23c100ca3b188e
+// source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:841fd2dd3ba3abf8ff4bfda6571b2be4ddbcf544e3551c55677fbf4243dba13b
+// source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:e803d6e14b50675a6bbd3f7b39df0a50b6d6fd1f90017d6a9f74a6b6848ca878
+// source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:ac5147a7fb442720e288f1c1a0bfcb76c75e02f4af9a0dd6e8c0a3922a7587d3
+// source: https://mestre-yoda.dev/schemas/state/lock/v1 sha256:488d2e7f8269ef8803dd7f7803bddca2110759afc1cc42bbc8ca1498ffeb601b
+// source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:5b1082202fcc83a9a3c2af6c4894eb3d3774ed1b2e6d43871a98bda1c9c409ef
 // source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:78fc5822e1cbf79b0185ceb8d40b64394acfcbb2fc2050526c702c3dc62efebb
-// source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:6792451a6fb91370c8ca25e2943608837e9287d463f8d5377c8adaa8e1427677
+// source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:bb600b0d7d311bda1e150ee9121388b68567a4806f55aca1e77b501faace02fb
 
 export namespace AdapterMessageV1Contract {
   export type AdapterMessageV1 = RequestMessage | ResponseMessage;
