@@ -112,6 +112,27 @@ describe("differential observation comparison", () => {
     });
   });
 
+  it("does not disclose private structured keys or scalar values in digest mode", () => {
+    const expected = observation();
+    expected.structured = [
+      { id: "result", path: "result.json", value: { privateField: 123 } },
+    ];
+    const candidate: DifferentialObservation = {
+      ...structuredClone(expected),
+      structured: [
+        { id: "result", path: "result.json", value: { privateField: 456 } },
+      ],
+    };
+
+    const report = compareObservations(scenario(expected), expected, candidate);
+    const serialized = JSON.stringify(report);
+    expect(report.mismatches).toHaveLength(1);
+    expect(report.mismatches[0]?.pointer).toBe("/candidate/structured/0/value");
+    expect(serialized).not.toContain("privateField");
+    expect(serialized).not.toContain("123");
+    expect(serialized).not.toContain("456");
+  });
+
   it.each([
     ["timeout", "timeout"],
     ["signal", "crash"],
@@ -195,6 +216,7 @@ describe("differential observation comparison", () => {
     "/process/exitCode",
     "/process/outcome",
     "/structured/0/value/status",
+    "/structured/0/value/exitCode",
     "/structured/0/value/reasonCode",
     "/filesystem/mutations",
     "/git",

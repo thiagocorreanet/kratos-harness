@@ -43,6 +43,43 @@ function safeSummary(value: unknown, pointer: string): unknown {
   return { type: Array.isArray(value) ? "array" : typeof value };
 }
 
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonical(entry)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    const body = Object.keys(value)
+      .sort((left, right) => left.localeCompare(right, "en-US"))
+      .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
+      .join(",");
+    return `{${body}}`;
+  }
+  if (value === undefined) return "null";
+  return JSON.stringify(value);
+}
+
+/**
+ * Summarize a captured artifact as bytes and a digest so that mismatch reports
+ * never disclose private key names or scalar values from predecessor output.
+ */
+function artifactDigest(value: unknown): { bytes: number; sha256: string } {
+  const serialized = canonical(value);
+  return {
+    bytes: Buffer.byteLength(serialized),
+    sha256: createHash("sha256").update(serialized).digest("hex"),
+  };
+}
+
+function isOpaqueArtifact(
+  pointer: string,
+  scenario: DifferentialScenario,
+): boolean {
+  return (
+    scenario.disclosure.artifacts === "digest" &&
+    /^\/structured\/\d+\/value$/u.test(pointer)
+  );
+}
+
 function mismatchKind(
   pointer: string,
   expected: unknown,
@@ -79,6 +116,21 @@ function collect(
   output: Mismatch[],
 ): void {
   if (Object.is(expected, actual)) return;
+  if (isOpaqueArtifact(pointer, scenario)) {
+    const oracle =
+      expected === undefined ? undefined : artifactDigest(expected);
+    const candidate = actual === undefined ? undefined : artifactDigest(actual);
+    if (oracle?.sha256 === candidate?.sha256) return;
+    output.push({
+      pointer: `/${side}${pointer}`,
+      kind: mismatchKind(pointer, expected, actual, observation),
+      scenarioId: scenario.id,
+      parityContractIds: scenario.parityContractIds,
+      ...(oracle === undefined ? {} : { oracle }),
+      ...(candidate === undefined ? {} : { candidate }),
+    });
+    return;
+  }
   if (Array.isArray(expected) && Array.isArray(actual)) {
     const length = Math.max(expected.length, actual.length);
     for (let index = 0; index < length; index += 1) {

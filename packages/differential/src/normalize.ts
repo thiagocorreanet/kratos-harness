@@ -22,7 +22,9 @@ function isProtected(pointer: string): boolean {
     pointer.startsWith("/filesystem/") ||
     pointer === "/git" ||
     pointer.startsWith("/git/") ||
-    /^\/structured\/\d+\/value\/(?:status|reasonCode)(?:\/|$)/u.test(pointer)
+    /^\/structured\/\d+\/value\/(?:status|exitCode|reasonCode)(?:\/|$)/u.test(
+      pointer,
+    )
   );
 }
 
