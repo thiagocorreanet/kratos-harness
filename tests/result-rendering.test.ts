@@ -30,9 +30,7 @@ describe("result rendering", () => {
   });
 
   it("emits labeled lines on stderr for a human failure", () => {
-    const rendered = renderResultHuman(
-      usageFailure(USAGE_WHY.unknownCommand),
-    );
+    const rendered = renderResultHuman(usageFailure(USAGE_WHY.unknownCommand));
 
     expect(rendered.stdout).toBe("");
     expect(rendered.exitCode).toBe(2);

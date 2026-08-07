@@ -84,7 +84,7 @@ evidence and represents a state change, so `help`, `version`, and the shipped
 
 - Produces: reason code `runtime.orientation_ok`, catalog revision `1.3.0`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/contract-reason-catalog.test.ts`, alongside the existing
 revision tests. Add `catalogV13Path`, `catalogV13`, and `catalogV13Text`
@@ -116,12 +116,12 @@ it("lets orientation output succeed without claiming evidence or mutation", () =
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/contract-reason-catalog.test.ts`
 Expected: FAIL, the 1.3 catalog file does not exist.
 
-- [ ] **Step 3: Create the revision**
+- [x] **Step 3: Create the revision**
 
 ```bash
 node -e '
@@ -158,7 +158,7 @@ Then point every reader at the new revision:
   "1.3.0"`.
 - `tests/contract-manifest.test.ts` line 111: expect `reasonCatalog: "1.3.0"`.
 
-- [ ] **Step 4: Record the measured digest**
+- [x] **Step 4: Record the measured digest**
 
 The revision tests pin file digests. Measure, do not guess:
 
@@ -174,7 +174,7 @@ expect(createHash("sha256").update(catalogV13Text).digest("hex")).toBe(
 );
 ```
 
-- [ ] **Step 5: Document the revision**
+- [x] **Step 5: Document the revision**
 
 In `docs/compatibility/result-contract.md`, add `reason-codes.v1.3.json` to the
 authoritative artifact list, mark it the current revision, demote the 1.2 entry
@@ -196,12 +196,12 @@ assertions:
 expect(guide).toContain("reason-codes.v1.3.json");
 ```
 
-- [ ] **Step 6: Run the full contract suite**
+- [x] **Step 6: Run the full contract suite**
 
 Run: `npx vitest run tests/contract-reason-catalog.test.ts tests/contract-manifest.test.ts tests/contract-documentation.test.ts tests/contract-compatibility.test.ts && npm run result:check && npm run contracts:check`
 Expected: PASS for all.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/contracts scripts docs tests
@@ -234,7 +234,7 @@ Refs #17"
   `Result`, `EvidenceRef`, `resultFor(code, detail?)`, `usageFailure(why)`,
   `internalFailure()`, and the `USAGE_WHY` constants.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/result-envelope.test.ts`:
 
@@ -299,12 +299,12 @@ describe("result envelope", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/result-envelope.test.ts`
 Expected: FAIL, the module cannot be resolved.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/contracts/src/reasons.ts`:
 
@@ -445,12 +445,12 @@ Add to the `exports` map in `packages/runtime/package.json`:
 "./domain/result": "./src/domain/result/index.ts"
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/result-envelope.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -479,7 +479,7 @@ Refs #17"
 - Produces: `validateResult(result: Result): Result` and the exported error
   class `ResultContractError`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/result-validation.test.ts`:
 
@@ -573,12 +573,12 @@ describe("result validation", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/result-validation.test.ts`
 Expected: FAIL, `validateResult` is not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/runtime/src/domain/result/validate.ts`. The unsafe patterns and the
 canonical key list are the same rules `scripts/lib/result-contract.mjs` applies;
@@ -706,12 +706,12 @@ Export both from `packages/runtime/src/domain/result/index.ts`:
 export { ResultContractError, validateResult } from "./validate.js";
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/result-validation.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -740,7 +740,7 @@ Refs #17"
 - Produces: `Rendered { stdout, stderr, exitCode }`, `renderResultJson(result)`,
   `renderResultHuman(result)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/result-rendering.test.ts`:
 
@@ -818,12 +818,12 @@ describe("result rendering", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/result-rendering.test.ts`
 Expected: FAIL, the renderers are not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/runtime/src/domain/result/render.ts`:
 
@@ -892,12 +892,12 @@ export { renderResultHuman, renderResultJson } from "./render.js";
 export type { Rendered } from "./render.js";
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/result-rendering.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -923,7 +923,7 @@ Refs #17"
   `canonicalResultJson`, `renderHumanResult` from
   `scripts/lib/result-contract.mjs`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 The verifier's renderer runs under Ajv and reads schemas from disk, so it is
 loaded in a child process exactly the way `tests/contract-reason-catalog.test.ts`
@@ -1046,14 +1046,14 @@ describe("renderer equivalence", () => {
 });
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `npx vitest run tests/result-renderer-equivalence.test.ts`
 Expected: PASS. If it fails, the runtime renderer is wrong, not the verifier:
 the verifier is the published contract check. Fix `render.ts` or `validate.ts`
 until the bytes match.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests
@@ -1085,7 +1085,7 @@ Refs #17"
   `Invocation`, `Decision`, `GLOBAL_FLAGS`, `renderHelp(registry)`,
   `usageLine(spec)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-help.test.ts`:
 
@@ -1163,12 +1163,12 @@ describe("generated help", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/cli-help.test.ts`
 Expected: FAIL, the module cannot be resolved.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/runtime/src/domain/cli/spec.ts`:
 
@@ -1333,13 +1333,13 @@ Add to the `exports` map in `packages/runtime/package.json`:
 "./domain/cli": "./src/domain/cli/index.ts"
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/cli-help.test.ts && npm run typecheck`
 Expected: PASS. Adjust the expected column padding in the test to the generator
 if the two disagree, then keep the generator fixed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -1368,7 +1368,7 @@ Refs #17"
 - Produces: `parseGlobals(argv): GlobalParse` with
   `{ globals, rest, failure }`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-globals.test.ts`:
 
@@ -1440,12 +1440,12 @@ describe("global flag parsing", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/cli-globals.test.ts`
 Expected: FAIL, `parseGlobals` is not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `packages/runtime/src/domain/cli/parse.ts`:
 
@@ -1517,12 +1517,12 @@ export { parseGlobals } from "./parse.js";
 export type { GlobalParse } from "./parse.js";
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/cli-globals.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -1552,7 +1552,7 @@ Refs #17"
 - Produces: `resolveCommand(tokens, registry): Resolution | null`,
   `parseArguments(spec, tokens): ArgumentParse`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-parsing.test.ts`:
 
@@ -1651,12 +1651,12 @@ describe("argument parsing", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/cli-parsing.test.ts`
 Expected: FAIL, the functions are not exported.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append to `packages/runtime/src/domain/cli/parse.ts`:
 
@@ -1759,12 +1759,12 @@ export { parseArguments, resolveCommand } from "./parse.js";
 export type { ArgumentParse, Resolution } from "./parse.js";
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/cli-parsing.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -1794,7 +1794,7 @@ Refs #17"
 - Produces: `DEFAULT_REGISTRY`, `parseInvocation(argv, registry): ParseOutcome`,
   `dispatch(invocation): Decision`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-commands.test.ts`:
 
@@ -1879,19 +1879,19 @@ describe("implemented commands", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/cli-commands.test.ts`
 Expected: FAIL, the module cannot be resolved.
 
-- [ ] **Step 3: Update the handshake to a truthful reason**
+- [x] **Step 3: Update the handshake to a truthful reason**
 
 In `packages/runtime/src/handshake.ts`, change the payload's `reasonCode` from
 `"trail.ok"` to `"runtime.orientation_ok"`. The published payload claimed a
 reason whose policy requires evidence and represents a mutation, and it carried
 neither.
 
-- [ ] **Step 4: Write the commands**
+- [x] **Step 4: Write the commands**
 
 `packages/runtime/src/domain/cli/commands.ts`:
 
@@ -1988,7 +1988,7 @@ export {
 Then import from `../handshake.js` (the domain copy) in `commands.ts` and
 `parse.ts`.
 
-- [ ] **Step 5: Write the pipeline entry and dispatch**
+- [x] **Step 5: Write the pipeline entry and dispatch**
 
 Append to `packages/runtime/src/domain/cli/parse.ts`:
 
@@ -2067,13 +2067,13 @@ export function dispatch(invocation: Invocation): Decision {
 Export `DEFAULT_REGISTRY`, `dispatch`, `parseInvocation`, and `ParseOutcome`
 from `packages/runtime/src/domain/cli/index.ts`.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `npx vitest run tests/cli-commands.test.ts tests/runtime-handshake.test.ts && npm run typecheck && npx vitest run tests/architecture.test.ts`
 Expected: PASS. The architecture test is included because this task moves a
 module between layers.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages tests
@@ -2107,7 +2107,7 @@ Refs #17"
   `createRuntime` from `composition/index.ts`.
 - Produces: `runCommandLine(argv, ports, registry?): Promise<number>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-composition.test.ts`:
 
@@ -2210,12 +2210,12 @@ describe("composed command line", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/cli-composition.test.ts`
 Expected: FAIL, `@mestre-yoda/runtime/composition/cli` does not resolve.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `packages/runtime/src/composition/cli.ts`:
 
@@ -2327,12 +2327,12 @@ Add to the `exports` map in `packages/runtime/package.json`:
 "./composition/cli": "./src/composition/cli.ts"
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `npx vitest run tests/cli-composition.test.ts tests/architecture.test.ts && npm run typecheck && npm run lint`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages tests
@@ -2359,7 +2359,7 @@ Refs #17"
 - Consumes: `DEFAULT_REGISTRY`, `runCommandLine`, the schema files under
   `schemas/`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/cli-contracts.test.ts`:
 
@@ -2469,7 +2469,7 @@ describe("no mutation on a usage failure", () => {
 });
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `npx vitest run tests/cli-contracts.test.ts`
 Expected: PASS. If the adapter-message schema rejects the handshake output,
@@ -2478,7 +2478,7 @@ fix the payload, not the schema: the schema is the published contract.
 If `memoryFileSystem()` requires a seed argument, pass the shape its signature
 in `packages/runtime/src/infra/fake/index.ts` declares.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests
@@ -2503,12 +2503,12 @@ Refs #17"
 - Modify: `README.md`
 - Test: `tests/readme-honesty.test.ts`
 
-- [ ] **Step 1: Run the suites to see what breaks**
+- [x] **Step 1: Run the suites to see what breaks**
 
 Run: `npx vitest run tests/package-verifier.test.ts tests/bundle-smoke.test.ts tests/readme-honesty.test.ts && npm run build && npm run package:verify`
 Expected: FAIL. Each failure names a place that pinned the old one-line help.
 
-- [ ] **Step 2: Replace the pinned help with the generated first line**
+- [x] **Step 2: Replace the pinned help with the generated first line**
 
 The old constant was the entire help text. The generated help is multi-line, so
 these checks assert its first line and its command list instead of the whole
@@ -2523,7 +2523,7 @@ and change the assertion that compared the whole string to compare
 `stdout.split("\n")[0]`. Apply the same change in `tests/package-verifier.test.ts`
 and `tests/bundle-smoke.test.ts`.
 
-- [ ] **Step 3: Correct the README claim**
+- [x] **Step 3: Correct the README claim**
 
 `tests/readme-honesty.test.ts` pins the sentence describing the shipped surface.
 Update both the README sentence and the test to the same new wording:
@@ -2532,12 +2532,12 @@ Update both the README sentence and the test to the same new wording:
 supports only `help`, `version`, and `handshake`
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run build && npm run package:verify && npx vitest run tests/package-verifier.test.ts tests/bundle-smoke.test.ts tests/readme-honesty.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts tests README.md
@@ -2558,7 +2558,7 @@ Refs #17"
 - Create: `docs/architecture/command-routing.md`
 - Modify: `docs/superpowers/plans/2026-08-07-command-routing.md` (check the boxes)
 
-- [ ] **Step 1: Write the public behavior document**
+- [x] **Step 1: Write the public behavior document**
 
 Create `docs/architecture/command-routing.md` covering, in prose that matches
 `docs/architecture/runtime-boundaries.md`:
@@ -2574,25 +2574,25 @@ Create `docs/architecture/command-routing.md` covering, in prose that matches
 - what is deliberately absent: `--require-contract`, and every workflow command;
 - that parity remains `0 / 400` and why `CLI-HELP` is not claimed.
 
-- [ ] **Step 2: Verify the document**
+- [x] **Step 2: Verify the document**
 
 Run: `npx markdownlint-cli2 "docs/architecture/command-routing.md" && npm run spellcheck`
 Expected: clean.
 
-- [ ] **Step 3: Run the full verification suite**
+- [x] **Step 3: Run the full verification suite**
 
 Run: `npm run verify`
 Expected: PASS end to end. Record the exact output for the pull request. If
 coverage falls below 100% on `domain` or `composition`, add the missing case as
 a real test rather than an ignore comment.
 
-- [ ] **Step 4: Confirm parity did not move**
+- [x] **Step 4: Confirm parity did not move**
 
 Run: `npm run parity:check`
 Expected: `0 / 400 (0.00%)`. If it changed, a row was edited that should not
 have been.
 
-- [ ] **Step 5: Commit and open the pull request**
+- [x] **Step 5: Commit and open the pull request**
 
 ```bash
 git add docs

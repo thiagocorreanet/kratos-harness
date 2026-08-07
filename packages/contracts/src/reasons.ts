@@ -14,8 +14,7 @@ export interface ReasonPolicy {
 
 // JSON imports widen literals to `string`. The catalog contract tests prove
 // that the checked artifact satisfies this shape before consumers use it.
-export const REASON_CATALOG =
-  reasonCatalog.reasons as readonly ReasonPolicy[];
+export const REASON_CATALOG = reasonCatalog.reasons as readonly ReasonPolicy[];
 
 const byCode = new Map(REASON_CATALOG.map((reason) => [reason.code, reason]));
 

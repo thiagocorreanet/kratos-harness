@@ -9,20 +9,22 @@ import {
 
 describe("result envelope", () => {
   it("takes status, exit, retry, and recovery from the catalog", () => {
-    expect(resultFor("trail.uso", { why: [USAGE_WHY.unknownCommand] })).toEqual({
-      contractVersion: "1.0.0",
-      status: "failure",
-      exitCode: 2,
-      reasonCode: "trail.uso",
-      summary:
-        "The trail command arguments do not satisfy the operation usage contract.",
-      why: [USAGE_WHY.unknownCommand],
-      evidence: [],
-      stateChanged: false,
-      retryable: true,
-      recovery:
-        "Correct the command arguments according to the operation usage and invoke it again.",
-    });
+    expect(resultFor("trail.uso", { why: [USAGE_WHY.unknownCommand] })).toEqual(
+      {
+        contractVersion: "1.0.0",
+        status: "failure",
+        exitCode: 2,
+        reasonCode: "trail.uso",
+        summary:
+          "The trail command arguments do not satisfy the operation usage contract.",
+        why: [USAGE_WHY.unknownCommand],
+        evidence: [],
+        stateChanged: false,
+        retryable: true,
+        recovery:
+          "Correct the command arguments according to the operation usage and invoke it again.",
+      },
+    );
   });
 
   it("carries a caller summary without changing catalog policy", () => {
