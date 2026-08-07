@@ -183,14 +183,14 @@ git commit -s -m "feat: compare normalized differential observations"
 - Produces `captureBefore(project, selector): Promise<CaptureBaseline>`.
 - Produces `captureAfter(project, selector, baseline, process): Promise<DifferentialObservation>`.
 
-- [ ] **Step 1: Write failing capture tests**
+- [x] **Step 1: Write failing capture tests**
 
 Use external `mkdtemp` roots. Cover deterministic files/directories/executable
 mode/safe link manifests, selected JSON, Git HEAD/status/ref/diff digests,
 added/modified/deleted classifications, malformed JSON, unsafe link, special
 file, limit overflow, cleanup, and byte-identical source checkout status.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/differential-capture.test.ts
@@ -198,7 +198,7 @@ npm test -- tests/differential-capture.test.ts
 
 Expected: FAIL because capture modules do not exist.
 
-- [ ] **Step 3: Implement materialization and observation**
+- [x] **Step 3: Implement materialization and observation**
 
 Create directories, files with `flag: "wx"`, then links. Resolve each parent
 immediately before mutation and require it below project root. Require lexical
@@ -219,7 +219,7 @@ git for-each-ref --format=%(refname)%00%(objectname)
 Use isolated Git config and bounded output. Non-Git workspaces produce
 `git: null`; malformed selected JSON and unsafe/special files fail explicitly.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/differential-capture.test.ts tests/differential-comparator.test.ts
