@@ -67,7 +67,7 @@ describe("README honesty", () => {
       build: "node scripts/build.mjs",
       "package:verify": "node scripts/verify-package.mjs",
       verify:
-        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run build && npm run package:verify",
+        "npm run format:check && npm run spellcheck && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run oracle:verify && npm run build && npm run package:verify",
     });
     expect(commands.indexOf("npm run build")).toBeLessThan(
       commands.indexOf("npm run package:verify"),
