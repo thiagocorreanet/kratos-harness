@@ -371,6 +371,6 @@ npm ls --omit=dev --all
 
 Expected: no unresolved placeholders or forbidden bundle references; npm reports the root project with no production dependency tree. Documentation may mention `node_modules` only in the explicit clean-up/package-guarantee explanation and must be reviewed rather than blindly rejected.
 
-- [ ] **Step 4: Request independent review and publish**
+- [x] **Step 4: Request independent review and publish**
 
 Use `superpowers:requesting-code-review` against the issue #3 acceptance criteria. Resolve every validated finding, rerun `npm run verify`, push `feat/issue-3-typescript-toolchain`, open a pull request containing the clean-room evidence, wait for all available checks, merge only when green, and confirm issue #3 is closed before beginning issue #4.
