@@ -1,5 +1,5 @@
 // Generated from registered JSON Schemas. Do not edit.
-// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:d68edbd041f1f6f3d6783008714d4b2dd201b698fd61644811109dd5fd0f1719
+// source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:ca97c55aa5bca675f46642d53ada75701ecbba8a1424a34042eae706eb7d3ae8
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:44c6490092a4effd67783f79ff19882be82059dc6b7b6524bb4417200a2ea73e
 // source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:159ef49a1893419d1f391bfef785b0473f9fa42cb61a954fc74de0a4cd4aa120
 // source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:469d406fd413d6af7cea1b03415663674795dadf3ba48af749af999be648028c
@@ -9,24 +9,7 @@
 // source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:6792451a6fb91370c8ca25e2943608837e9287d463f8d5377c8adaa8e1427677
 
 export namespace AdapterMessageV1Contract {
-  export type AdapterMessageV1 = {
-    [k: string]: unknown | undefined;
-  } & {
-    contractVersion: "1.0.0";
-    hostContract: "1.0.0";
-    messageId: Id;
-    messageType: "request" | "response";
-    host: Id;
-    operation: Id;
-    capabilities: Id[];
-    observedIdentity: {
-      adapterVersion: Semver;
-      model: Id | null;
-    };
-    payloadContract: PayloadContract;
-    payload: RequestPayload | MestreYodaUniversalResultV1;
-    correlationId: Id;
-  };
+  export type AdapterMessageV1 = RequestMessage | ResponseMessage;
   export type Id = string;
   export type Semver = string;
   export type PayloadContract = string;
@@ -47,9 +30,39 @@ export namespace AdapterMessageV1Contract {
     recovery: string | null;
   };
 
+  export interface RequestMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    messageType: "request";
+    host: Id;
+    operation: Id;
+    capabilities: Id[];
+    observedIdentity: ObservedIdentity;
+    payloadContract: PayloadContract;
+    payload: RequestPayload;
+    correlationId: Id;
+  }
+  export interface ObservedIdentity {
+    adapterVersion: Semver;
+    model: Id | null;
+  }
   export interface RequestPayload {
     ref: Reference;
     sha256: Sha256;
+  }
+  export interface ResponseMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    messageType: "response";
+    host: Id;
+    operation: Id;
+    capabilities: Id[];
+    observedIdentity: ObservedIdentity;
+    payloadContract: PayloadContract;
+    payload: MestreYodaUniversalResultV1;
+    correlationId: Id;
   }
   export interface Evidence {
     kind: "artifact" | "event" | "approval" | "test" | "observation";

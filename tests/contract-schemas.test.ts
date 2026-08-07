@@ -54,7 +54,17 @@ describe("versioned state and host schemas", () => {
       expect(schema.$schema, fixtureName).toBe(
         "https://json-schema.org/draft/2020-12/schema",
       );
-      expect(schema.additionalProperties, fixtureName).toBe(false);
+      if (fixtureName === "adapter-message.json") {
+        expect(schema.oneOf, fixtureName).toHaveLength(2);
+        const definitions = schema.$defs as JsonObject;
+        for (const name of ["requestMessage", "responseMessage"]) {
+          expect((definitions[name] as JsonObject).additionalProperties).toBe(
+            false,
+          );
+        }
+      } else {
+        expect(schema.additionalProperties, fixtureName).toBe(false);
+      }
       const validate = ajv.compile(schema);
       expect(validate(fixture), JSON.stringify(validate.errors)).toBe(true);
       expect(JSON.parse(JSON.stringify(fixture)), fixtureName).toEqual(fixture);

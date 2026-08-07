@@ -2,51 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mestre-yoda.dev/schemas/host/adapter-message/v1",
   "title": "Mestre Yoda host adapter message v1",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "contractVersion",
-    "hostContract",
-    "messageId",
-    "messageType",
-    "host",
-    "operation",
-    "capabilities",
-    "observedIdentity",
-    "payloadContract",
-    "payload",
-    "correlationId"
+  "oneOf": [
+    { "$ref": "#/$defs/requestMessage" },
+    { "$ref": "#/$defs/responseMessage" }
   ],
-  "properties": {
-    "contractVersion": { "const": "1.0.0" },
-    "hostContract": { "const": "1.0.0" },
-    "messageId": { "$ref": "#/$defs/id" },
-    "messageType": { "enum": ["request", "response"] },
-    "host": { "$ref": "#/$defs/id" },
-    "operation": { "$ref": "#/$defs/id" },
-    "capabilities": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/id" },
-      "uniqueItems": true
-    },
-    "observedIdentity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["adapterVersion", "model"],
-      "properties": {
-        "adapterVersion": { "$ref": "#/$defs/semver" },
-        "model": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
-      }
-    },
-    "payloadContract": { "$ref": "#/$defs/payloadContract" },
-    "payload": {
-      "oneOf": [
-        { "$ref": "#/$defs/requestPayload" },
-        { "$ref": "https://mestre-yoda.dev/schemas/result/v1" }
-      ]
-    },
-    "correlationId": { "$ref": "#/$defs/id" }
-  },
   "$defs": {
     "id": {
       "type": "string",
@@ -75,28 +34,87 @@
         "ref": { "$ref": "#/$defs/reference" },
         "sha256": { "$ref": "#/$defs/sha256" }
       }
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "messageType": { "const": "request" } },
-        "required": ["messageType"]
-      },
-      "then": {
-        "properties": { "payload": { "$ref": "#/$defs/requestPayload" } }
-      }
     },
-    {
-      "if": {
-        "properties": { "messageType": { "const": "response" } },
-        "required": ["messageType"]
-      },
-      "then": {
-        "properties": {
-          "payload": { "$ref": "https://mestre-yoda.dev/schemas/result/v1" }
+    "observedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapterVersion", "model"],
+      "properties": {
+        "adapterVersion": { "$ref": "#/$defs/semver" },
+        "model": {
+          "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
         }
       }
+    },
+    "requestMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "messageType",
+        "host",
+        "operation",
+        "capabilities",
+        "observedIdentity",
+        "payloadContract",
+        "payload",
+        "correlationId"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "messageType": { "const": "request" },
+        "host": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+        "payloadContract": { "$ref": "#/$defs/payloadContract" },
+        "payload": { "$ref": "#/$defs/requestPayload" },
+        "correlationId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "responseMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "messageType",
+        "host",
+        "operation",
+        "capabilities",
+        "observedIdentity",
+        "payloadContract",
+        "payload",
+        "correlationId"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "messageType": { "const": "response" },
+        "host": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+        "payloadContract": { "$ref": "#/$defs/payloadContract" },
+        "payload": {
+          "$ref": "https://mestre-yoda.dev/schemas/result/v1"
+        },
+        "correlationId": { "$ref": "#/$defs/id" }
+      }
     }
-  ]
+  }
 }

@@ -54,6 +54,68 @@ describe("schema-derived contract declarations", () => {
     }
   });
 
+  it("rejects extra adapter fields and mismatched response payloads", async () => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "invalid-adapter.mts");
+      await writeFile(
+        source,
+        `
+          import type { AdapterMessageV1 } from "../packages/contracts/src/generated/contracts.js";
+          const common = {
+            contractVersion: "1.0.0" as const,
+            hostContract: "1.0.0" as const,
+            messageId: "message-01",
+            host: "codex",
+            operation: "sdd.continue",
+            capabilities: [] as string[],
+            observedIdentity: { adapterVersion: "1.0.0", model: null as string | null },
+            payloadContract: "state.snapshot@1.0.0",
+            correlationId: "correlation-01",
+          };
+          ({
+            ...common,
+            messageType: "request",
+            payload: { ref: "snapshot.json", sha256: "${"a".repeat(64)}" },
+            unexpected: true,
+          }) satisfies AdapterMessageV1;
+          ({
+            ...common,
+            messageType: "response",
+            payload: { ref: "snapshot.json", sha256: "${"a".repeat(64)}" },
+          }) satisfies AdapterMessageV1;
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain("unexpected");
+      expect(result.stdout).toContain(
+        "not assignable to type 'MestreYodaUniversalResultV1'",
+      );
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   it.each([
     ["unknown option", ["--other", "value"]],
     ["duplicate option", ["--generated", "one", "--generated", "two"]],
