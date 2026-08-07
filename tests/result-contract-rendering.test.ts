@@ -109,8 +109,29 @@ describe("universal result rendering", () => {
     ["error prefix", { summary: "Error: private failure" }],
     ["stack frame", { summary: "Stopped at execute (private.ts:1:2)" }],
     ["credential", { summary: "secret=customer-value" }],
+    [
+      "cloud credential with colon",
+      { summary: "AWS_SECRET_ACCESS_KEY: customer-value" },
+    ],
+    [
+      "cloud credential in JSON",
+      { summary: '{"AWS_SECRET_ACCESS_KEY":"customer-value"}' },
+    ],
+    ["bare bearer credential", { summary: "Bearer customer-value" }],
     ["private URL", { summary: "Inspect https://private.example/run" }],
     ["Unix path", { summary: "Inspect /home/customer/private.json" }],
+    [
+      "quoted Unix path",
+      { summary: "ENOENT opening '/opt/customer/private.json'" },
+    ],
+    [
+      "parenthesized Unix path",
+      { summary: "Inspect (/srv/customer/runtime.py)" },
+    ],
+    [
+      "assigned Unix path",
+      { summary: "diagnostic_path=/var/customer/error.log" },
+    ],
     ["Windows path", { summary: "Inspect C:\\Users\\customer\\private.json" }],
     ["control character", { summary: "Invalid\u0000summary" }],
     [

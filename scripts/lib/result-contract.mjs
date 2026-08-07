@@ -81,15 +81,15 @@ function assertSafeStrings(value) {
       /(?:^|\s)at\s+\S+\s*\([^)]*:\d+:\d+\)/u,
       /[a-z][a-z0-9+.-]*:\/\//iu,
       /(?:github_pat_|gh[pousr]_)/iu,
-      /(?:token|secret|password)\s*[:=]/iu,
-      /(?:api[_-]?key|access[_-]?token|client[_-]?secret)\s*[:=]/iu,
-      /\b(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOOGLE_APPLICATION_CREDENTIALS|AZURE_[A-Z0-9_]+)\s*=/u,
-      /\bAuthorization\s*:\s*(?:Basic|Bearer)\s+\S+/iu,
+      /(?:token|secret|password)["']?\s*[:=]/iu,
+      /(?:api[_-]?key|access[_-]?token|client[_-]?secret)["']?\s*[:=]/iu,
+      /\b(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOOGLE_APPLICATION_CREDENTIALS|AZURE_[A-Z0-9_]+)\b["']?\s*[:=]/u,
+      /\b(?:Basic|Bearer)\s+\S+/iu,
       /-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/u,
       /\bTraceback \(most recent call last\):/u,
       /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/u,
-      /(?:^|\s)\/(?!\/)(?:[^\s/]+\/)*[^\s/]+/u,
-      /(?:^|\s)[A-Za-z]:[\\/]/u,
+      /(?:^|[^A-Za-z0-9_.-])\/(?!\/)(?:[^\s/'")\]}]+\/)*[^\s/'")\]}]+/u,
+      /(?:^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]/u,
     ];
     const hasControlCharacter = [...value].some((character) => {
       const code = character.codePointAt(0);
