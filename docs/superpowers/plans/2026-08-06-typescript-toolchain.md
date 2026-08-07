@@ -45,7 +45,7 @@
 - Consumes: the exact version and dependency policy in the approved design.
 - Produces: root commands `format:check`, `lint`, `typecheck`, `test`, `test:coverage`, `build`, `package:verify`, and `verify`; workspace names `@mestre-yoda/contracts`, `@mestre-yoda/adapters`, and `@mestre-yoda/runtime`.
 
-- [ ] **Step 1: Add the pinned manifests and runtime selectors**
+- [x] **Step 1: Add the pinned manifests and runtime selectors**
 
 Create the root manifest with no `dependencies`, exact `devDependencies`, an
 `allowScripts` entry permitting only `esbuild@0.28.1`, and this command graph:
@@ -91,7 +91,7 @@ Create the root manifest with no `dependencies`, exact `devDependencies`, an
 
 Each workspace manifest is private, ESM, and exports its TypeScript source. Use `@mestre-yoda/contracts` as the runtime workspace dependency with version `0.0.0-development`; adapters has no dependencies.
 
-- [ ] **Step 2: Add deterministic environment and ignore files**
+- [x] **Step 2: Add deterministic environment and ignore files**
 
 Write `24.18.0` to both `.nvmrc` and `.node-version`. Configure `.npmrc` with `engine-strict=true`, `package-lock=true`, `save-exact=true`, `audit=false`, and `fund=false`. Ignore only generated/dependency material:
 
@@ -104,13 +104,13 @@ coverage/
 
 Set UTF-8, LF, final newlines, and two-space indentation in `.editorconfig`; exclude `.git`, `node_modules`, `dist`, `coverage`, Markdown, and the lockfile from Prettier.
 
-- [ ] **Step 3: Add strict compiler, lint, format, and coverage configuration**
+- [x] **Step 3: Add strict compiler, lint, format, and coverage configuration**
 
 Configure TypeScript with `target: ES2024`, `lib: ["ES2024"]`, `module` and `moduleResolution: "NodeNext"`, `types: ["node"]`, `strict: true`, all strict flags listed in the global constraints, `verbatimModuleSyntax: true`, `allowJs: false`, `checkJs: false`, `noEmit: true`, and `skipLibCheck: false`. Include `packages/**/*.ts`, `scripts/**/*.mjs`, `tests/**/*.ts`, and `vitest.config.ts`.
 
 Use ESLint flat configuration with `eslint.configs.recommended`, `typescript-eslint.configs.strictTypeChecked`, and `typescript-eslint.configs.stylisticTypeChecked`; ignore generated directories and enable project-service typed linting. Configure Vitest for the Node environment, single-process deterministic execution, executable runtime coverage only, and 100% statements/branches/functions/lines thresholds.
 
-- [ ] **Step 4: Generate the lockfile with the pinned toolchain**
+- [x] **Step 4: Generate the lockfile with the pinned toolchain**
 
 Run with Node 24.18.0 and npm 11.16.0:
 
@@ -124,7 +124,7 @@ npm ls --depth=0
 
 Expected: versions are `v24.18.0` and `11.16.0`; installation uses only the committed resolution; all nine root development dependencies are present and there are no production dependencies.
 
-- [ ] **Step 5: Commit the toolchain foundation**
+- [x] **Step 5: Commit the toolchain foundation**
 
 ```bash
 git add package.json package-lock.json .nvmrc .node-version .npmrc .editorconfig .gitignore .prettierignore tsconfig.json eslint.config.mjs vitest.config.ts packages/*/package.json
@@ -147,7 +147,7 @@ git commit -m "build: establish deterministic TypeScript workspace"
 - Consumes: workspace import `@mestre-yoda/contracts` from Task 1.
 - Produces: `YODA_VERSION: "0.0.0-development"`, `TextWriter = (text: string) => void`, and `runCli(args: readonly string[], output: TextWriter, error: TextWriter): number`.
 
-- [ ] **Step 1: Write failing CLI behavior tests**
+- [x] **Step 1: Write failing CLI behavior tests**
 
 Create tests that capture output and assert these exact cases:
 
@@ -181,13 +181,13 @@ describe("runCli", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and confirm RED**
+- [x] **Step 2: Run the focused test and confirm RED**
 
 Run: `npm test -- packages/runtime/src/cli.test.ts`
 
 Expected: FAIL because `packages/runtime/src/cli.ts` does not exist.
 
-- [ ] **Step 3: Add the minimal host-neutral contract and CLI implementation**
+- [x] **Step 3: Add the minimal host-neutral contract and CLI implementation**
 
 Export `YODA_VERSION` from contracts and implement the exact behavior under test. The executable `main.ts` passes `process.argv.slice(2)` and stream writers to `runCli` and assigns the returned value to `process.exitCode`. Keep `packages/adapters/src/index.ts` as a type-only boundary exporting:
 
@@ -197,7 +197,7 @@ export interface HostAdapter {
 }
 ```
 
-- [ ] **Step 4: Run tests and strict static checks**
+- [x] **Step 4: Run tests and strict static checks**
 
 ```bash
 npm test -- packages/runtime/src/cli.test.ts
@@ -207,7 +207,7 @@ npm run lint
 
 Expected: four CLI cases pass; TypeScript and ESLint exit 0 with no warnings.
 
-- [ ] **Step 5: Commit the tested smoke surface**
+- [x] **Step 5: Commit the tested smoke surface**
 
 ```bash
 git add packages/contracts/src packages/adapters/src packages/runtime/src
@@ -227,17 +227,17 @@ git commit -m "feat: add minimal runtime smoke CLI"
 - Consumes: `packages/runtime/src/cli.ts`, exact CLI text, and the output path from Tasks 1–2.
 - Produces: executable `dist/plugin/runtime/yoda.mjs`, `dist/build-meta.json`, and a package verifier that fails on unexpected staged content or external runtime dependencies.
 
-- [ ] **Step 1: Write the failing clean-room bundle test**
+- [x] **Step 1: Write the failing clean-room bundle test**
 
 The test runs `node scripts/build.mjs`, creates a temporary directory with `mkdtemp`, copies only `dist/plugin/runtime/yoda.mjs`, and invokes it with `cwd` set to that directory and an environment containing only a safe `PATH`, `HOME`, `TMPDIR`, and empty `NODE_PATH`/`NODE_OPTIONS`. Assert `--help` and `--version` exit 0 with exact stdout and empty stderr; always remove the temporary directory in `finally`.
 
-- [ ] **Step 2: Confirm the black-box test is RED**
+- [x] **Step 2: Confirm the black-box test is RED**
 
 Run: `npm test -- tests/bundle-smoke.test.ts`
 
 Expected: FAIL because `scripts/build.mjs` does not exist.
 
-- [ ] **Step 3: Implement deterministic bundling**
+- [x] **Step 3: Implement deterministic bundling**
 
 Use the esbuild API with:
 
@@ -259,11 +259,11 @@ await build({
 
 Resolve `repositoryRoot` from `import.meta.url`, remove only `dist/plugin`, recreate its runtime directory, write stable pretty-printed metadata to `dist/build-meta.json`, and set mode `0o755` on POSIX.
 
-- [ ] **Step 4: Implement staged-package verification**
+- [x] **Step 4: Implement staged-package verification**
 
 Recursively inventory `dist/plugin` without following symlinks and require exactly `runtime/yoda.mjs`. Check the shebang, POSIX executable bits, forbidden strings `node_modules`, `/packages/`, and `\\packages\\`; inspect `dist/build-meta.json` and reject any output import whose `external` value is true unless its path starts with `node:`. Copy the artifact to a new temporary directory and spawn help/version with the same clean environment as the test. On success print the artifact SHA-256, byte size, inventory, help line, and version.
 
-- [ ] **Step 5: Run the full bundle checks**
+- [x] **Step 5: Run the full bundle checks**
 
 ```bash
 npm test -- tests/bundle-smoke.test.ts
@@ -274,7 +274,7 @@ find dist/plugin -type f -print
 
 Expected: bundle smoke passes; package verification prints one SHA-256 and reports only `runtime/yoda.mjs`; `find` prints exactly `dist/plugin/runtime/yoda.mjs`.
 
-- [ ] **Step 6: Commit bundle construction and verification**
+- [x] **Step 6: Commit bundle construction and verification**
 
 ```bash
 git add scripts/build.mjs scripts/verify-package.mjs tests/bundle-smoke.test.ts
@@ -295,19 +295,19 @@ git commit -m "build: verify standalone runtime bundle"
 - Consumes: exact versions, commands, paths, and scope boundary from Tasks 1–3.
 - Produces: clean-checkout instructions and discoverable ownership boundaries without defining premature schemas or fixtures.
 
-- [ ] **Step 1: Document reserved directory ownership**
+- [x] **Step 1: Document reserved directory ownership**
 
 State that `schemas/` will own versioned public runtime contracts and `fixtures/` will own compatibility/golden inputs, but that neither format is introduced by issue #3. Link both documents to the canonical architecture specification.
 
-- [ ] **Step 2: Write the contributor toolchain guide**
+- [x] **Step 2: Write the contributor toolchain guide**
 
 Document Node 24.18.0 and npm 11.16.0 prerequisites, `npm ci`, every root command and its purpose, the exact four-command clean-checkout flow, the zero-production-dependency policy, output path, clean-room guarantees, and recovery by removing only `node_modules`, `dist`, and `coverage` before rerunning `npm ci`. Explain that issue #7 will add Node CI using these same commands.
 
-- [ ] **Step 3: Update top-level project navigation and status**
+- [x] **Step 3: Update top-level project navigation and status**
 
 Change the TypeScript deterministic runtime status from `Planned` to `Foundation available`, link the status to `docs/development/toolchain.md`, and add a short Development section linking the toolchain guide without claiming the runtime workflow is implemented.
 
-- [ ] **Step 4: Validate documentation and formatting**
+- [x] **Step 4: Validate documentation and formatting**
 
 ```bash
 npx --no-install markdownlint-cli2 "README.md" "docs/**/*.md" "schemas/**/*.md" "fixtures/**/*.md"
@@ -317,7 +317,7 @@ npm run format:check
 
 Expected: markdownlint reports zero errors, Lychee reports no excluded/failing links, and Prettier reports all matched source/config files formatted.
 
-- [ ] **Step 5: Commit contributor documentation**
+- [x] **Step 5: Commit contributor documentation**
 
 ```bash
 git add README.md docs/development/toolchain.md schemas/README.md fixtures/README.md
@@ -335,7 +335,7 @@ git commit -m "docs: explain deterministic development workflow"
 - Consumes: the committed lockfile and all root verification commands.
 - Produces: acceptance evidence suitable for the pull request and issue closure.
 
-- [ ] **Step 1: Run the complete repository verification**
+- [x] **Step 1: Run the complete repository verification**
 
 ```bash
 npm run verify
@@ -345,7 +345,7 @@ git status --short
 
 Expected: formatting, lint, strict typecheck, unit/black-box tests, 100% configured runtime coverage, build, and package verification all pass; diff check is empty; only intentional source changes are present.
 
-- [ ] **Step 2: Verify from a fresh temporary clone of the feature commit**
+- [x] **Step 2: Verify from a fresh temporary clone of the feature commit**
 
 Commit any final corrections, clone the repository locally into a directory created by `mktemp -d`, check out the exact feature commit, and run with Node 24.18.0/npm 11.16.0:
 
@@ -360,7 +360,7 @@ dist/plugin/runtime/yoda.mjs --version
 
 Expected: the clean install and full suite pass; one artifact is listed; help prints `Usage: yoda [--help | --version]`; version prints `0.0.0-development`.
 
-- [ ] **Step 3: Check forbidden dependency and placeholder patterns**
+- [x] **Step 3: Check forbidden dependency and placeholder patterns**
 
 ```bash
 rg -n 'T[B]D|T[O]DO|F[I]XME|node_modules|/packages/|\\\\packages\\\\' package.json packages scripts tests docs/development schemas fixtures dist/plugin/runtime/yoda.mjs
