@@ -126,7 +126,7 @@ aggression toward or disparagement of individuals or classes of people.
 
 ## Attribution
 
-This Code of Conduct uses GitHub's recognized Contributor Covenant template,
+This Code of Conduct is based on GitHub's bundled Contributor Covenant template,
 adapted from the [Contributor Covenant](https://www.contributor-covenant.org/),
 version 2.0, available at the
 [permanent version URL](https://www.contributor-covenant.org/version/2/0/code_of_conduct.html).

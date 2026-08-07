@@ -34,9 +34,11 @@ The repository adopts:
   in supported root locations;
 - [Developer Certificate of Origin 1.1](https://developercertificate.org/)
   verbatim in `DCO`;
-- GitHub's recognized Contributor Covenant 2.0 template, obtained from the
-  `codes_of_conduct/contributor_covenant` API and adapted only for actionable
-  enforcement routes, in `CODE_OF_CONDUCT.md` with required attribution;
+- GitHub's bundled Contributor Covenant 2.0 template, obtained from the
+  `codes_of_conduct/contributor_covenant` API and adapted for actionable
+  enforcement routes, in `CODE_OF_CONDUCT.md` with required attribution. The
+  community profile must recognize the file; adaptation may classify it as
+  `other` rather than the unmodified template key;
 - [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository)
   as the primary confidential channel;
 - `.github/CODEOWNERS`, the location GitHub recommends for protecting ownership

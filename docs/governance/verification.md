@@ -4,7 +4,7 @@
 - Tracking issue: [#4](https://github.com/thiagocorreanet/mestre-yoda/issues/4)
 - Branch: `docs/issue-4-governance`
 - Policy commit: `dc6e40d`
-- Status: Pre-merge evidence complete; post-merge GitHub recognition required
+- Status: Complete
 
 ## Contribution path dry run
 
@@ -69,14 +69,22 @@ behaviors, required file presence, DCO/provenance rules, confidential security
 routing, support boundaries, conduct attribution, governance, CODEOWNERS, and
 unfilled-template rejection.
 
-## Post-merge closure checks
+## Post-merge closure evidence
 
-After the policy files reach `main`, issue #4 remains open until maintainers
-verify:
+PR [#72](https://github.com/thiagocorreanet/mestre-yoda/pull/72) merged as
+`f10d4b3d2be6760c17ce7bbfae8d38b8da7d2bb8`. The following checks were then
+performed against `main`:
 
-1. GitHub's community profile recognizes contribution, conduct, license, and
-   security artifacts;
-2. GitHub's CODEOWNERS error endpoint returns an empty error list;
-3. private vulnerability reporting remains enabled;
-4. the Documentation workflow passes on the merged content;
-5. the issue is closed with links to the PR and this evidence.
+| GitHub check | Observed result |
+| --- | --- |
+| Community profile | Health 85%; contribution, conduct, MIT license, and README files recognized |
+| Code of Conduct classification | `code_of_conduct_file` non-null; adapted policy classified as `other` |
+| Security policy | `/security/policy` resolved with HTTP 200 |
+| CODEOWNERS errors | Empty `errors` array |
+| Private vulnerability reporting | `enabled: true` |
+| Documentation workflow | [Successful](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31141856101) |
+
+The remaining community-profile percentage belongs to issue and pull request
+templates, intentionally owned by issue #6. GitHub recognizes the adapted Code
+of Conduct as a valid custom community file rather than misidentifying it as the
+unmodified bundled template.
