@@ -12,7 +12,9 @@ The universal runtime-result family contains:
 - [`reason-codes.v1.json`](../packages/contracts/catalogs/reason-codes.v1.json),
   the immutable 76-entry revision 1.0 ledger;
 - [`reason-codes.v1.1.json`](../packages/contracts/catalogs/reason-codes.v1.1.json),
-  which adds six plugin, state, and host compatibility reasons.
+  which adds six plugin, state, and host compatibility reasons;
+- [`reason-codes.v1.2.json`](../packages/contracts/catalogs/reason-codes.v1.2.json),
+  the current revision, which adds `runtime.node_unsupported`.
 
 The state family contains:
 

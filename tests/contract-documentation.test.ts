@@ -40,6 +40,8 @@ describe("contract versioning documentation", () => {
     expect(guide).toMatch(/before payload validation or\s+mutation/u);
     expect(guide).toContain("byte-preserving");
     expect(guide).toContain("reason-codes.v1.1.json");
+    expect(guide).toContain("reason-codes.v1.2.json");
+    expect(guide).toContain("runtime.node_unsupported");
   });
 
   it("keeps README status honest while publishing contract infrastructure", () => {

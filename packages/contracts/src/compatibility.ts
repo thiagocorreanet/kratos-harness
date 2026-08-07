@@ -1,5 +1,5 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.1.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.2.json" with { type: "json" };
 
 export type ContractFamily = "plugin" | "state" | "host";
 export type CompatibilityClass =

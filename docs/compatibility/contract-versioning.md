@@ -59,6 +59,19 @@ catalog preserves all 76 entries from revision 1.0 and adds:
 | `contract.state_version_invalid` | 4 | Persisted state identity cannot be trusted |
 | `contract.state_version_unsupported` | 4 | Persisted state needs explicit migration or recovery |
 
+The additive
+[`reason-codes.v1.2.json`](../../packages/contracts/catalogs/reason-codes.v1.2.json)
+catalog preserves all 82 entries from revision 1.1 and adds:
+
+| Reason | Exit | Meaning |
+| --- | --- | --- |
+| `runtime.node_unsupported` | 2 | The interpreter running the plugin runtime is older than the supported minimum |
+
+`runtime.node_unsupported` is the current catalog revision, `1.2.0`. It is the
+one reason a caller can receive before the runtime bundle has loaded at all, so
+the plugin entry point embeds its summary and recovery text verbatim from this
+catalog. It is documented in full by the runtime distribution contract.
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied

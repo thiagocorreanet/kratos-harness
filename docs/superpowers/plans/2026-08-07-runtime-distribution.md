@@ -39,7 +39,7 @@
 - Produces: catalog revision `1.2.0` containing `runtime.node_unsupported` with `status: "failure"`, `exitCode: 2`, `stateMutation: false`, `retryable: false`, and recovery text naming the required Node version.
 - Consumes: revision `1.1.0` entries, copied unchanged.
 
-- [ ] **Step 1: Write the failing catalog test**
+- [x] **Step 1: Write the failing catalog test**
 
 Add to `tests/contract-reason-catalog.test.ts`:
 
@@ -60,7 +60,7 @@ it("adds the unsupported interpreter reason without altering revision 1.1", asyn
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/contract-reason-catalog.test.ts
@@ -68,7 +68,7 @@ npm test -- tests/contract-reason-catalog.test.ts
 
 Expected: FAIL because `reason-codes.v1.2.json` does not exist.
 
-- [ ] **Step 3: Generate the catalog and retarget every reference**
+- [x] **Step 3: Generate the catalog and retarget every reference**
 
 Generate the new file from the old one so the preserved entries are byte-identical rather than retyped:
 
@@ -96,8 +96,15 @@ Those eight keys are exactly the catalog schema's `reason` required set:
 `retryable`, `recovery`. `evidence: "forbidden"` matches the other
 `runtime.*` entries, because an interpreter rejection publishes no evidence.
 
-Then set `minItems` for `reasons` in `schemas/reason-catalog.v1.schema.json`
-from `76` to `83`, set `reasonCatalog` to `"1.2.0"` in
+Leave `minItems` for `reasons` in `schemas/reason-catalog.v1.schema.json` at
+`76`. It is a floor shared by every revision, and raising it makes the schema
+reject the frozen 1.0 and 1.1 catalogs it also validates.
+
+Leave `scripts/check-result-contract.mjs:48` pointing at `reason-codes.v1.json`:
+that checker deliberately validates the frozen revision 1.0. Only the canonical
+renderer in `result-contract.mjs` follows the current revision.
+
+Then set `reasonCatalog` to `"1.2.0"` in
 `contract-families.v1.json` and in the `contract-manifest.v1.schema.json`
 `const`, and repoint the three `reason-codes.v1.1.json` string references in
 `compatibility.ts:2`, `result-contract.mjs:274`, and
@@ -108,7 +115,7 @@ filename expectation in `tests/contract-documentation.test.ts:42`.
 Leave `contractVersion` at `"1.0.0"`: the catalog revision advances, the
 contract does not.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/contract-reason-catalog.test.ts tests/contract-manifest.test.ts tests/contract-documentation.test.ts
