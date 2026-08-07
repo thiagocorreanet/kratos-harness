@@ -237,7 +237,7 @@ git commit -s -m "feat: add deterministic port fakes and one shared contract sui
 - Produces `nodeClock()`, `nodeIds()`, `nodeFileSystem(root)`, `nodeGit(root)`, `nodeLocks(root)`, `nodeEnvironment()`, `nodeOutput()`.
 - Consumes the same contract suites from Task 2.
 
-- [ ] **Step 1: Extend the contract test to run every suite twice**
+- [x] **Step 1: Extend the contract test to run every suite twice**
 
 ```ts
 describeFileSystemContract("memory", async () => ({
@@ -259,7 +259,7 @@ suites against the fake only, with an explicit comment naming why: `RUN-07` and
 `RUN-08` own those semantics, and asserting real Git or real lease expiry here
 would pre-empt issues that have not been designed.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 npm test -- tests/ports-contract.test.ts
@@ -267,7 +267,7 @@ npm test -- tests/ports-contract.test.ts
 
 Expected: FAIL because `infra/node` does not exist.
 
-- [ ] **Step 3: Implement the Node ports**
+- [x] **Step 3: Implement the Node ports**
 
 `nodeFileSystem(root)` resolves every path through the same normalization the
 fake uses, then `realpath`s the parent and requires it below `root` before any
@@ -285,7 +285,7 @@ argument vector and `shell: false`; `nodeLocks` writes a lock file with `flag:
 "wx"` so acquisition is atomic. Both carry a comment naming the issue that owns
 their full semantics.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 npm test -- tests/ports-contract.test.ts

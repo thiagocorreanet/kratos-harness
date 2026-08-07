@@ -8,7 +8,8 @@
     "./handshake": "./src/handshake.ts",
     "./ports": "./src/ports/index.ts",
     "./domain/effects": "./src/domain/effects.ts",
-    "./infra/fake": "./src/infra/fake/index.ts"
+    "./infra/fake": "./src/infra/fake/index.ts",
+    "./infra/node": "./src/infra/node/index.ts"
   },
   "dependencies": {
     "@mestre-yoda/contracts": "0.0.0-development"

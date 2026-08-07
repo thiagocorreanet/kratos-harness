@@ -1,0 +1,226 @@
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, join, relative, sep } from "node:path";
+import { promisify } from "node:util";
+
+import { normalizeProjectPath } from "../fake/index.js";
+import type {
+  Clock,
+  Environment,
+  FileStat,
+  FileSystem,
+  Git,
+  Ids,
+  Lease,
+  Locks,
+  Output,
+  RepositoryState,
+} from "../../ports/index.js";
+
+const run = promisify(execFile);
+
+export function nodeClock(): Clock {
+  return { now: () => new Date() };
+}
+
+/** Opaque identifiers, hyphen-free so they match the port's safe-id contract. */
+export function nodeIds(): Ids {
+  return { next: () => randomUUID().replaceAll("-", "") };
+}
+
+function inside(root: string, candidate: string): boolean {
+  const path = relative(root, candidate);
+  return path === "" || (!path.startsWith(`..${sep}`) && path !== "..");
+}
+
+/**
+ * Resolve a project-relative path against the real filesystem.
+ *
+ * Lexical normalization alone is not enough: a symlink can point outside the
+ * project while the path that reaches it looks perfectly safe. The real parent
+ * is resolved and checked before any mutation, so a redirected write is refused
+ * rather than performed.
+ */
+async function resolveInside(root: string, path: string): Promise<string> {
+  const normalized = normalizeProjectPath(path);
+  const absolute = join(root, normalized);
+  const parent = dirname(absolute);
+  let realParent: string;
+  try {
+    realParent = await realpath(parent);
+  } catch {
+    // The parent does not exist yet, so nothing can redirect it. Its own
+    // ancestors are checked when they are created.
+    return absolute;
+  }
+  const realRoot = await realpath(root);
+  if (!inside(realRoot, realParent)) {
+    throw new Error("Runtime path escapes the project");
+  }
+  return join(realParent, normalized.split("/").pop() ?? normalized);
+}
+
+export function nodeFileSystem(root: string): FileSystem {
+  return {
+    read: async (path) => readFile(await resolveInside(root, path), "utf8"),
+    write: async (path, content) => {
+      const absolute = await resolveInside(root, path);
+      await mkdir(dirname(absolute), { recursive: true });
+      await writeFile(absolute, content, "utf8");
+    },
+    remove: async (path) => {
+      await rm(await resolveInside(root, path), { force: true });
+    },
+    makeDirectory: async (path) => {
+      await mkdir(await resolveInside(root, path), { recursive: true });
+    },
+    list: async (path) => {
+      const absolute =
+        path === "." || path === "" ? root : await resolveInside(root, path);
+      const entries = await readdir(absolute);
+      return entries.sort((left, right) => left.localeCompare(right, "en-US"));
+    },
+    stat: async (path) => {
+      try {
+        const absolute = await resolveInside(root, path);
+        const details = await stat(absolute);
+        const kind = details.isDirectory() ? "directory" : "file";
+        return { kind, size: details.size } satisfies FileStat;
+      } catch (error) {
+        // An escaping path is a refusal, not an absence, so it must not be
+        // flattened into null the way a genuinely missing file is.
+        if (
+          error instanceof Error &&
+          error.message.includes("escapes the project")
+        ) {
+          throw error;
+        }
+        return null;
+      }
+    },
+  };
+}
+
+/**
+ * Repository classification. Deliberately minimal: `RUN-08` owns the full
+ * semantics, including scope deltas and approved-change calculation.
+ */
+export function nodeGit(root: string): Git {
+  const git = async (args: readonly string[]): Promise<string> => {
+    const result = await run("git", [...args], {
+      cwd: root,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: "1", LC_ALL: "C" },
+    });
+    return result.stdout;
+  };
+
+  return {
+    state: async (): Promise<RepositoryState> => {
+      try {
+        if (
+          (await git(["rev-parse", "--is-inside-work-tree"])).trim() !== "true"
+        ) {
+          return "absent";
+        }
+      } catch {
+        return "absent";
+      }
+      try {
+        await git(["rev-parse", "HEAD"]);
+      } catch {
+        return "unborn";
+      }
+      if (
+        (await git(["symbolic-ref", "--quiet", "HEAD"]).catch(() => "")) === ""
+      ) {
+        return "detached";
+      }
+      return (await git(["status", "--porcelain"])).trim() === ""
+        ? "clean"
+        : "dirty";
+    },
+    head: async () => {
+      try {
+        return (await git(["rev-parse", "HEAD"])).trim() || null;
+      } catch {
+        return null;
+      }
+    },
+    changedPaths: async () => {
+      try {
+        const lines = (await git(["status", "--porcelain"]))
+          .split("\n")
+          .map((line) => line.slice(3).trim())
+          .filter((line) => line.length > 0);
+        return [...new Set(lines)].sort((left, right) =>
+          left.localeCompare(right, "en-US"),
+        );
+      } catch {
+        return [];
+      }
+    },
+  };
+}
+
+/**
+ * Lease acquisition. Deliberately minimal: `RUN-07` owns expiry, renewal, and
+ * recovery of an abandoned lease.
+ */
+export function nodeLocks(root: string): Locks {
+  let token = 0;
+  return {
+    acquire: async (scope, ttlMs) => {
+      const file = join(root, `${normalizeProjectPath(scope)}.lock`);
+      await mkdir(dirname(file), { recursive: true });
+      try {
+        // `wx` fails if the file exists, so acquisition is atomic rather than
+        // a check followed by a racy write.
+        await writeFile(file, scope, { encoding: "utf8", flag: "wx" });
+      } catch {
+        return null;
+      }
+      token += 1;
+      return {
+        owner: scope,
+        fencingToken: token,
+        expiresAt: new Date(Date.now() + ttlMs),
+      } satisfies Lease;
+    },
+    release: async (lease) => {
+      await rm(join(root, `${normalizeProjectPath(lease.owner)}.lock`), {
+        force: true,
+      });
+    },
+  };
+}
+
+export function nodeEnvironment(): Environment {
+  return {
+    get: (name) => process.env[name],
+    workingDirectory: () => process.cwd(),
+  };
+}
+
+/** Output streams. A sink may be supplied so a test does not write to them. */
+export function nodeOutput(sink?: Output): Output {
+  return (
+    sink ?? {
+      structured: (text) => {
+        process.stdout.write(text);
+      },
+      human: (text) => {
+        process.stderr.write(text);
+      },
+    }
+  );
+}
