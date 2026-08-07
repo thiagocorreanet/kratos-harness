@@ -156,6 +156,7 @@ an exactly pinned root `devDependency`:
 - `prettier@3.9.6`;
 - `vitest@4.1.10`;
 - `@vitest/coverage-v8@4.1.10`;
+- `cspell@10.0.1`;
 - `esbuild@0.28.1`.
 
 Version ranges are not permitted in manifests. The lockfile is the complete
@@ -181,13 +182,14 @@ The root manifest exposes the following deterministic commands:
 | --- | --- |
 | `npm ci` | Install exactly the committed lockfile |
 | `npm run format:check` | Check supported source and configuration files with Prettier |
+| `npm run spellcheck` | Check tracked English Markdown with the narrow project dictionary |
 | `npm run lint` | Run ESLint with type-aware TypeScript rules and zero warnings |
 | `npm run typecheck` | Run `tsc6` with strict root configuration and no emit |
 | `npm test` | Run unit and clean-room bundle tests once with Vitest |
 | `npm run test:coverage` | Run deterministic coverage with configured thresholds |
 | `npm run build` | Clean and generate `dist/plugin/runtime/yoda.mjs` with esbuild |
 | `npm run package:verify` | Validate staged contents and execute help/version outside the checkout |
-| `npm run verify` | Run format, lint, typecheck, tests, coverage, build, and package verification in order |
+| `npm run verify` | Run format, spelling, lint, typecheck, tests, coverage, build, and package verification in order |
 
 Commands do not download tools after `npm ci`, mutate dependency versions,
 depend on a global package, or hide subprocess failures.

@@ -6,22 +6,27 @@
 
 > **A deterministic, observable Spec-Driven Development harness for AI coding agents.**
 
-**The model proposes. The runtime decides. The event log proves.**
+**The model will propose. The runtime will decide. The event log will prove.**
 
 [![Project Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
+[![Documentation](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Language: English](https://img.shields.io/badge/project_language-English-1f6feb.svg)](#contributing)
 
 Mestre Yoda is an open-source **Spec-Driven Development (SDD) harness** designed to make AI-assisted software delivery more reliable, explainable, and auditable.
 
-Instead of trusting an AI coding agent to remember every rule, infer every gate, and declare its own work complete, Mestre Yoda places a deterministic runtime around the development workflow. Agents can propose actions, but the harness validates state, enforces policies, records evidence, requires human approval where necessary, and explains why work may or may not continue.
+Instead of trusting an AI coding agent to remember every rule, infer every gate, and declare its own work complete, Mestre Yoda is designed to place a deterministic runtime around the development workflow. In the target architecture, agents propose actions while the harness validates state, enforces policies, records evidence, requires human approval where necessary, and explains why work may or may not continue.
 
 The project is being built for **Claude Code** and **OpenAI Codex**, with a host-neutral core designed to support additional coding agents in the future.
 
 ## Project status
 
 > [!IMPORTANT]
-> Mestre Yoda is currently an **experimental rewrite under active development**. The architecture and public implementation backlog are available, but the new TypeScript runtime is not ready for production installation yet.
+> Mestre Yoda is an **experimental rewrite under active development**. There is
+> no supported installation method, public distribution, production runtime, or
+> usable SDD command today. The checked-in embedded ESM runtime is internal
+> foundation infrastructure: it supports only `--help` and `--version` to prove
+> the deterministic toolchain and standalone bundle. The project is not ready for production.
 
 This repository is intentionally public from the beginning so that its architecture, compatibility decisions, tests, and trade-offs can evolve in the open.
 
@@ -37,6 +42,34 @@ This repository is intentionally public from the beginning so that its architect
 
 Follow the [public milestones](https://github.com/thiagocorreanet/mestre-yoda/milestones) or browse the [complete implementation backlog](https://github.com/thiagocorreanet/mestre-yoda/issues).
 
+## Installation
+
+There is no supported installation method for this public rewrite yet. Do not
+use installation or marketplace commands from the private Go predecessor: they
+refer to a different implementation and distribution boundary.
+
+The planned distribution will embed one self-contained `runtime/yoda.mjs` in
+thin Claude Code and Codex plugins. It will not install a global Yoda binary or
+project runtime `node_modules`. A supported installation path will be published
+only after [version-coherent distributions](https://github.com/thiagocorreanet/mestre-yoda/issues/61)
+exist and their install, update, compatibility, rollback, and uninstall flows
+pass release gates.
+
+Cloning this repository is currently useful only for contributing to and
+validating the rewrite; it does not install Mestre Yoda into an agent host.
+
+## Usage preview — not available yet
+
+The intended agent-driven trail begins with an objective, starts the next valid
+workflow, continues through runtime-selected gates, and reaches done only after
+evidence and human acceptance agree. Planned operational capabilities include
+status, doctor, explain, evidence, handoff, statistics, and budgets.
+
+These operations are architectural preview, not runnable in the current bundle.
+The compatibility contract and differential tests must freeze their exact
+inputs, outputs, reason codes, and recovery semantics before this README presents
+them as usable commands.
+
 ## Why Mestre Yoda exists
 
 AI coding agents are powerful, but a prompt alone is not a reliable control system.
@@ -51,9 +84,12 @@ Long-running engineering work introduces problems that conversational memory can
 - plugin and runtime versions can drift when distributed separately;
 - completion claims may not be backed by reproducible evidence.
 
-Mestre Yoda addresses these problems with a robust SDD workflow in which state transitions, gates, approvals, migrations, and recovery rules are enforced by software rather than left entirely to model behavior.
+The Mestre Yoda design addresses these problems with an SDD workflow in which state transitions, gates, approvals, migrations, and recovery rules will be enforced by software rather than left entirely to model behavior.
 
 ## Core principles
+
+These principles are target invariants for the rewrite, not claims that the
+current smoke bundle implements them.
 
 ### Deterministic decisions
 
@@ -69,7 +105,9 @@ Critical approvals are explicit and bound to the content that was actually revie
 
 ### Local-first project state
 
-Project-specific state lives inside the project under `.brain/`. Host instructions live in `.claude/` and `.codex/`. The runtime remains owned by the installed plugin.
+The project-owned `.brain/` state lives inside the project. Host instructions live
+in `.claude/` and `.codex/`. The embedded ESM runtime remains owned by the
+installed plugin.
 
 ### No global Yoda binary
 
@@ -79,9 +117,10 @@ The new runtime is developed in TypeScript and distributed as a self-contained J
 
 A workflow is not complete because an agent says it is complete. Required tests, gates, evidence, handoff information, and human acceptance must agree with the current state.
 
-## How the SDD trail works
+## How the planned SDD trail will work
 
-Mestre Yoda follows one agent-driven trail from intent to accepted delivery:
+Mestre Yoda is designed to follow one agent-driven trail from intent to accepted
+delivery:
 
 ```mermaid
 flowchart LR
@@ -97,19 +136,22 @@ flowchart LR
     A -->|Approved| D[Done]
 ```
 
-The runtime is expected to support the primary trail operations `objective`, `start`, `continue`, and `done`, together with operational capabilities such as `status`, `doctor`, `explain`, `evidence`, `handoff`, `stats`, and `budgets`.
+The future runtime is expected to support the primary trail operations `objective`, `start`, `continue`, and `done`, together with operational capabilities such as `status`, `doctor`, `explain`, `evidence`, `handoff`, `stats`, and `budgets`.
 
-Manual phase jumping is not part of the design. The runtime determines which transition is valid from the current state and explains any blocked transition.
+Manual phase jumping is not part of the design. Once implemented, the runtime
+will determine which transition is valid from the current state and explain any
+blocked transition.
 
 ## Architecture
 
-Mestre Yoda separates the portable decision engine from host-specific integration and project-specific state.
+The target Mestre Yoda architecture separates the portable decision engine from
+host-specific integration and project-specific state.
 
 The canonical [Yoda Observable Architecture Specification](docs/superpowers/specs/2026-08-06-yoda-observable-architecture-design.md) defines the runtime, state, security, migration, testing, and rollout contracts. Structural choices and their consequences are indexed in the [Architecture Decision Records](docs/adr/README.md), and the required end-to-end architecture trace is recorded in [verification evidence](docs/architecture/verification.md).
 
 ```mermaid
 flowchart TB
-    subgraph Plugin[Installed plugin]
+    subgraph Plugin[Future plugin package]
         CC[Claude Code adapter]
         CX[Codex adapter]
         RT[Bundled runtime/yoda.mjs]
@@ -135,7 +177,7 @@ flowchart TB
 The central boundary is deliberate:
 
 ```text
-installed plugin/
+future plugin package/
 ├── runtime/yoda.mjs       # self-contained deterministic runtime
 ├── adapters/              # host-specific integration
 ├── skills/                # agent-facing workflows
@@ -149,7 +191,8 @@ user project/
 └── ...                    # the user's application
 ```
 
-The plugin contains the motor. The project contains only the memory and configuration required for that project.
+The future plugin will contain the motor. The project will contain only the
+memory and configuration required for that project.
 
 ## Planned capabilities
 
@@ -230,14 +273,16 @@ The final catalog and schemas will be defined through the [compatibility contrac
 
 ## Roadmap
 
-Development is organized into explicit maturity stages:
+Development uses four evidence-based maturity stages:
 
-1. **Experimental** — architecture, compatibility contract, and runtime foundation.
-2. **Preview** — complete local SDD trail with initial host integrations.
-3. **Beta** — migration, observability, platform coverage, documentation, and public pilots.
-4. **Stable** — mandatory parity, security, migration, host, and pilot criteria are satisfied.
+1. **Experimental (current)** — public architecture and foundations; not installable.
+2. **Preview** — complete compatible trail and host integrations for evaluation.
+3. **Beta** — migration, quality, documentation, and distribution gates passed.
+4. **Stable** — representative pilots and every mandatory release gate passed.
 
-The frozen Go implementation will not be retired merely because the rewrite appears feature-complete. Retirement requires measurable compatibility, migration, native platform, host E2E, recovery, and pilot evidence.
+See the [Objective maturity gates](ROADMAP.md) for promotion, regression,
+rollback, and private Go predecessor retirement criteria. No calendar date,
+feature count, or demo can replace the required evidence.
 
 ## Development
 
@@ -245,6 +290,29 @@ The repository now provides a pinned Node/npm workspace, strict TypeScript
 validation, tests with coverage, and a standalone bundle smoke check. Follow the
 [deterministic toolchain guide](docs/development/toolchain.md) to reproduce the
 complete validation sequence from a clean checkout.
+
+Run this block in order from a clean checkout using Node.js `24.18.0` and npm
+`11.16.0`:
+
+```bash
+npm ci
+npm run spellcheck
+npm run verify
+npm run build
+npm run package:verify
+```
+
+The build creates `dist/plugin/runtime/yoda.mjs`; package verification copies
+only that file outside the checkout and exercises help/version. Passing these
+commands proves the repository foundation, not SDD product readiness.
+
+- `npm ci` reproduces the exactly locked development dependencies.
+- `npm run spellcheck` checks the tracked English Markdown.
+- `npm run verify` runs formatting, spelling, lint, typecheck, tests, coverage,
+  build, and package verification in order.
+- `npm run build` creates the internal standalone smoke bundle.
+- `npm run package:verify` validates its inventory, hash, and exact help/version
+  behavior outside the checkout; it requires the preceding build.
 
 ## Contributing
 
@@ -276,11 +344,16 @@ public issue, pull request, discussion, or paste before coordinated disclosure.
 
 ### Is Mestre Yoda ready to install?
 
-Not yet. This repository currently contains the public design and implementation backlog for the new architecture. Installation instructions will be published only after they are tested against release artifacts.
+No. There is no supported installation method today. This repository contains
+the architecture, backlog, governance, deterministic toolchain, and an internal
+help/version smoke bundle. Installation instructions will be published only
+after they pass against versioned release artifacts.
 
 ### Is this just a prompt collection?
 
-No. Skills and prompts guide agent behavior, but deterministic state transitions, gates, validation, concurrency, migrations, and recovery belong to the runtime.
+No. Skills and prompts will guide agent behavior, but the target architecture
+assigns deterministic state transitions, gates, validation, concurrency,
+migrations, and recovery to the future runtime.
 
 ### Why TypeScript and JavaScript instead of Go?
 
@@ -288,11 +361,26 @@ TypeScript provides a productive development model while a bundled JavaScript ru
 
 ### Will Mestre Yoda modify my source code automatically?
 
-AI coding agents may propose and perform project work under their own host permissions. Mestre Yoda's role is to control and explain the SDD workflow, validate transitions, preserve evidence, and enforce delivery gates. Exact permissions and managed paths will be documented before release.
+AI coding agents may propose and perform project work under their own host
+permissions. The future Mestre Yoda runtime is designed to control and explain
+the SDD workflow, validate transitions, preserve evidence, and enforce delivery
+gates. Exact permissions and managed paths will be documented before release.
 
 ### Where does project state live?
 
 The new architecture keeps project-specific state in `.brain/` inside the project. Host-specific project instructions live in `.claude/` and `.codex/`. The runtime stays inside the installed plugin.
+
+## Acknowledgements
+
+- The private Go Mestre Yoda v3 implementation is the behavioral oracle for
+  compatibility work. Its source and prose are not presumed MIT-licensed; every
+  migrated artifact remains subject to the repository's provenance policy.
+- Claude Code and OpenAI Codex motivate the first host adapters. Naming them
+  describes interoperability targets and does not imply endorsement.
+- The development foundation builds on Node.js, TypeScript, esbuild, ESLint,
+  Prettier, Vitest, CSpell, markdownlint, and Lychee.
+- Community policy builds on the Developer Certificate of Origin, Contributor
+  Covenant, and GitHub's open-source community tooling.
 
 ## License
 
