@@ -1,3 +1,5 @@
+export { classifyConfiguration } from "./configuration.js";
+export type { ConfigurationOutcome } from "./configuration.js";
 export type {
   BrainMarker,
   ConfigurationObservation,

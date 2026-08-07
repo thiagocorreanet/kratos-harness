@@ -1,7 +1,8 @@
 export type BrainMarker = "absent" | "directory" | "other" | "escaping";
 
 export type ConfigurationObservation =
-  | { readonly kind: "absent" | "other" }
+  | { readonly kind: "absent" }
+  | { readonly kind: "other" }
   | { readonly kind: "file"; readonly text: string };
 
 /** One canonical ancestor inspected without interpreting its contents. */
