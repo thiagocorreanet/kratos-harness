@@ -34,4 +34,14 @@ export default defineConfig(
       "@typescript-eslint/no-unsafe-return": "error",
     },
   },
+  {
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
 );
