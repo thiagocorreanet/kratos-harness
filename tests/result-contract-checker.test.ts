@@ -151,6 +151,14 @@ describe("result contract completeness CLI", () => {
       },
     ],
     [
+      "missing mutation claim",
+      (_catalog: JsonObject, examples: JsonObject[]) => {
+        const success = examples.find(({ exitCode }) => exitCode === 0);
+        if (success === undefined) throw new Error("missing success example");
+        success.stateChanged = false;
+      },
+    ],
+    [
       "false retry claim",
       (_catalog: JsonObject, examples: JsonObject[]) => {
         const failure = examples.find(({ exitCode }) => exitCode === 2);

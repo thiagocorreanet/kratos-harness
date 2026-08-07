@@ -31,6 +31,18 @@ describe("result validation", () => {
     );
   });
 
+  it("rejects a missing state mutation claim", () => {
+    const result = {
+      ...resultFor("trail.ok", {
+        evidence: [{ kind: "event", ref: ".brain/events.jsonl" }],
+      }),
+      stateChanged: false,
+    };
+    expect(() => validateResult(result)).toThrow(
+      "state mutation claim conflicts with its reason",
+    );
+  });
+
   it("rejects forbidden evidence", () => {
     expect(() =>
       validateResult(
@@ -121,5 +133,50 @@ describe("result validation", () => {
     ) as Result;
 
     expect(() => validateResult(reordered)).toThrow("canonical order");
+  });
+
+  it.each([
+    ["contract version", { contractVersion: "2.0.0" }],
+    ["empty summary", { summary: "" }],
+    ["oversized summary", { summary: "a".repeat(4_097) }],
+    ["empty cause", { why: [""] }],
+  ])("rejects a result with an invalid %s", (_label, overrides) => {
+    const invalid = {
+      ...resultFor("trail.uso", { why: ["cause"] }),
+      ...overrides,
+    } as unknown as Result;
+    expect(() => validateResult(invalid)).toThrow(
+      "result does not satisfy its closed schema",
+    );
+  });
+
+  it.each([
+    [{ kind: "private", ref: ".brain/events.jsonl" }],
+    [{ kind: "event", ref: "../events.jsonl" }],
+    [{ kind: "event", ref: ".brain/events.jsonl", sha256: "ABC" }],
+  ])("rejects invalid evidence metadata: %o", (evidence) => {
+    const invalid = resultFor("blocked.empty_plan", {
+      why: ["cause"],
+      evidence: [evidence as unknown as Result["evidence"][number]],
+    });
+    expect(() => validateResult(invalid)).toThrow(
+      "result does not satisfy its closed schema",
+    );
+  });
+
+  it("rejects a non-object result", () => {
+    expect(() => validateResult(null as unknown as Result)).toThrow(
+      "result does not satisfy its closed schema",
+    );
+  });
+
+  it("rejects a non-object evidence entry", () => {
+    const invalid = resultFor("blocked.empty_plan", {
+      why: ["cause"],
+      evidence: [null as unknown as Result["evidence"][number]],
+    });
+    expect(() => validateResult(invalid)).toThrow(
+      "result does not satisfy its closed schema",
+    );
   });
 });

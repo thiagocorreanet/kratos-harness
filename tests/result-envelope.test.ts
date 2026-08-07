@@ -58,4 +58,12 @@ describe("result envelope", () => {
       USAGE_WHY.unknownFlag,
     ]);
   });
+
+  it("defaults a mutating reason to a truthful state-change claim", () => {
+    expect(
+      resultFor("trail.ok", {
+        evidence: [{ kind: "event", ref: ".brain/events.jsonl" }],
+      }).stateChanged,
+    ).toBe(true);
+  });
 });

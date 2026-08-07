@@ -39,7 +39,7 @@ export function resultFor(code: string, detail: ResultDetail = {}): Result {
     summary: detail.summary ?? policy.description,
     why: detail.why ?? [],
     evidence: detail.evidence ?? [],
-    stateChanged: detail.stateChanged ?? false,
+    stateChanged: detail.stateChanged ?? policy.stateChanged,
     retryable: policy.retryable,
     recovery: policy.recovery,
   };

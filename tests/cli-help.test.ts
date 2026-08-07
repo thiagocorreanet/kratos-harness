@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REGISTRY,
   renderHelp,
   usageLine,
   type CommandRegistry,
@@ -33,6 +34,24 @@ const stub: CommandSpec = {
 const registry: CommandRegistry = [stub];
 
 describe("generated help", () => {
+  it("keeps the complete implemented help byte-stable", () => {
+    expect(renderHelp(DEFAULT_REGISTRY)).toBe(
+      [
+        "Usage: yoda [--expect <version>] [--json] <command>",
+        "",
+        "Commands:",
+        "  handshake           Report the contract versions this runtime carries.",
+        "  help                Print the command usage text.",
+        "  version             Print the runtime version.",
+        "",
+        "Global flags:",
+        "  --expect <version>  Act only when the plugin version matches exactly.",
+        "  --json              Emit one machine-readable object instead of human text.",
+        "",
+      ].join("\n"),
+    );
+  });
+
   it("builds a usage line from the specification", () => {
     expect(usageLine(stub)).toBe("yoda ac check [--root <path>]");
   });

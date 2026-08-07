@@ -60,6 +60,38 @@ describe("composed command line", () => {
     expect(result.stdout.trimEnd()).not.toContain("\n");
   });
 
+  it("allows JSON escaping after validating raw result fields", async () => {
+    const output = recordingOutput();
+    const quoted = [
+      {
+        path: ["quoted"],
+        summary: "Return quoted prose.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok", {
+            summary: 'A "quoted" summary.',
+          }),
+          plan: planOf(),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "quoted"],
+        createRuntime({ output }),
+        quoted,
+      ),
+    ).toBe(0);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      summary: 'A "quoted" summary.',
+    });
+  });
+
   it("emits the declared adapter message for the handshake", async () => {
     expect(
       JSON.parse((await run(["--json", "handshake"])).stdout),
@@ -163,10 +195,45 @@ describe("composed command line", () => {
 
   it("publishes a command-owned failure through the result renderer", async () => {
     const output = recordingOutput();
+    const fileSystem = memoryFileSystem();
     const failing = [
       {
         path: ["fail"],
         summary: "Return a failure.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: usageFailure(USAGE_WHY.arity),
+          plan: planOf({
+            kind: "write_file" as const,
+            path: "must-not-change.txt",
+            content: "forbidden",
+          }),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+    expect(
+      await runCommandLine(
+        ["fail"],
+        createRuntime({ fileSystem, output }),
+        failing,
+      ),
+    ).toBe(2);
+    expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
+    expect(output.human_.join("")).toContain(
+      "Reason: runtime.internal_failure",
+    );
+  });
+
+  it("publishes a valid command-owned failure", async () => {
+    const output = recordingOutput();
+    const failing = [
+      {
+        path: ["fail-cleanly"],
+        summary: "Return a failure without effects.",
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
@@ -178,10 +245,114 @@ describe("composed command line", () => {
         }),
       },
     ];
+
     expect(
-      await runCommandLine(["fail"], createRuntime({ output }), failing),
+      await runCommandLine(
+        ["fail-cleanly"],
+        createRuntime({ output }),
+        failing,
+      ),
     ).toBe(2);
     expect(output.human_.join("")).toContain("Reason: trail.uso");
+  });
+
+  it("rejects state effects when the result denies a state change", async () => {
+    const output = recordingOutput();
+    const fileSystem = memoryFileSystem();
+    const inconsistent = [
+      {
+        path: ["inconsistent"],
+        summary: "Return an inconsistent success.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf({
+            kind: "write_file" as const,
+            path: "must-not-change.txt",
+            content: "forbidden",
+          }),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["inconsistent"],
+        createRuntime({ fileSystem, output }),
+        inconsistent,
+      ),
+    ).toBe(2);
+    expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
+    expect(output.human_.join("")).toContain(
+      "Reason: runtime.internal_failure",
+    );
+  });
+
+  it("rejects handler-owned output effects", async () => {
+    const output = recordingOutput();
+    const emitting = [
+      {
+        path: ["emitting"],
+        summary: "Emit unmanaged output.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf({
+            kind: "emit" as const,
+            channel: "structured" as const,
+            text: "unmanaged\n",
+          }),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "emitting"],
+        createRuntime({ output }),
+        emitting,
+      ),
+    ).toBe(2);
+    expect(output.structured_.join("")).not.toContain("unmanaged");
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+  });
+
+  it("rejects unsafe handler-owned human output", async () => {
+    const output = recordingOutput();
+    const unsafe = [
+      {
+        path: ["unsafe"],
+        summary: "Return unsafe human text.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: "/home/customer/private.txt\n",
+          payload: null,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(["unsafe"], createRuntime({ output }), unsafe),
+    ).toBe(2);
+    expect(output.structured_.join("")).not.toContain("/home/customer");
+    expect(output.human_.join("")).not.toContain("/home/customer");
+    expect(output.human_.join("")).toContain(
+      "Reason: runtime.internal_failure",
+    );
   });
 
   it("uses a successful result summary when a command owns no human text", async () => {
@@ -215,6 +386,7 @@ describe("composed command line", () => {
 
   it("fails closed when a non-result command has no payload", async () => {
     const output = recordingOutput();
+    const fileSystem = memoryFileSystem();
     const absent = [
       {
         path: ["absent"],
@@ -223,8 +395,14 @@ describe("composed command line", () => {
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
         handler: () => ({
-          result: resultFor("runtime.orientation_ok"),
-          plan: planOf(),
+          result: resultFor("trail.ok", {
+            evidence: [{ kind: "event", ref: ".brain/events.jsonl" }],
+          }),
+          plan: planOf({
+            kind: "write_file" as const,
+            path: "must-not-change.txt",
+            content: "forbidden",
+          }),
           humanStdout: null,
           payload: undefined,
         }),
@@ -233,10 +411,72 @@ describe("composed command line", () => {
     expect(
       await runCommandLine(
         ["--json", "absent"],
-        createRuntime({ output }),
+        createRuntime({ fileSystem, output }),
         absent,
       ),
     ).toBe(2);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+    expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
+  });
+
+  it("fails closed when a non-result payload cannot encode as JSON", async () => {
+    const output = recordingOutput();
+    const unencodable = [
+      {
+        path: ["unencodable"],
+        summary: "Return an unencodable payload.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "adapter-message@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: null,
+          payload: () => undefined,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "unencodable"],
+        createRuntime({ output }),
+        unencodable,
+      ),
+    ).toBe(2);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+  });
+
+  it("rejects unsafe strings in a non-result JSON payload", async () => {
+    const output = recordingOutput();
+    const unsafePayload = [
+      {
+        path: ["unsafe-payload"],
+        summary: "Return an unsafe payload.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "adapter-message@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: null,
+          payload: { path: "/home/customer/private.txt" },
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "unsafe-payload"],
+        createRuntime({ output }),
+        unsafePayload,
+      ),
+    ).toBe(2);
+    expect(output.structured_.join("")).not.toContain("/home/customer");
     expect(JSON.parse(output.structured_.join(""))).toMatchObject({
       reasonCode: "runtime.internal_failure",
     });

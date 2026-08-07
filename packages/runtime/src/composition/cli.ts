@@ -8,6 +8,7 @@ import {
   internalFailure,
   renderResultHuman,
   renderResultJson,
+  validatePublicText,
   validateResult,
   type Result,
 } from "../domain/result/index.js";
@@ -32,6 +33,33 @@ function publish(result: Result, json: boolean, ports: RuntimePorts): number {
   return rendered.exitCode;
 }
 
+function validatePlan(
+  result: Result,
+  plan: Parameters<typeof applyPlan>[0],
+): void {
+  if (plan.effects.some(({ kind }) => kind === "emit")) {
+    throw new Error("A command decision cannot own output effects");
+  }
+  if ((plan.effects.length !== 0) !== result.stateChanged) {
+    throw new Error("A command effect plan conflicts with its result");
+  }
+}
+
+function encodePayload(payload: unknown): string {
+  const encoded: unknown = JSON.stringify(
+    payload,
+    (key: string, value: unknown): unknown => {
+      validatePublicText(key);
+      if (typeof value === "string") validatePublicText(value);
+      return value;
+    },
+  );
+  if (typeof encoded !== "string") {
+    throw new Error("Command payload cannot be encoded");
+  }
+  return encoded;
+}
+
 /** Parse, validate, apply, and publish one command line. */
 export async function runCommandLine(
   argv: readonly string[],
@@ -46,26 +74,25 @@ export async function runCommandLine(
     }
     const decision = dispatch(parsed.invocation);
     validateResult(decision.result);
-    await applyPlan(decision.plan, ports);
+    validatePlan(decision.result, decision.plan);
     if (decision.result.exitCode !== 0) {
       return publish(decision.result, json, ports);
     }
+
+    let stdout: string;
     if (json && parsed.invocation.command.jsonContract === "result@1.0.0") {
-      return publish(decision.result, true, ports);
-    }
-    if (json) {
+      stdout = renderResultJson(decision.result).stdout;
+    } else if (json) {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
-      const payload = JSON.stringify(decision.payload);
-      write(`${payload}\n`, "stdout", ports);
-      return decision.result.exitCode;
+      stdout = `${encodePayload(decision.payload)}\n`;
+    } else {
+      stdout = decision.humanStdout ?? `${decision.result.summary}\n`;
+      validatePublicText(stdout);
     }
-    write(
-      decision.humanStdout ?? `${decision.result.summary}\n`,
-      "stdout",
-      ports,
-    );
+    await applyPlan(decision.plan, ports);
+    write(stdout, "stdout", ports);
     return decision.result.exitCode;
   } catch {
     return publish(internalFailure(), json, ports);

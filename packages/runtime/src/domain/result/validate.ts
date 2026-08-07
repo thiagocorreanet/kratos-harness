@@ -1,6 +1,6 @@
 import { reasonPolicy } from "@mestre-yoda/contracts";
 
-import type { EvidenceRef, Result } from "./result.js";
+import type { Result } from "./result.js";
 
 export class ResultContractError extends Error {
   constructor(detail: string) {
@@ -38,19 +38,74 @@ const unsafe = [
   /(?:^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]/u,
   /\\/u,
 ];
+const evidenceKinds = new Set([
+  "artifact",
+  "event",
+  "approval",
+  "test",
+  "observation",
+]);
+const reasonCodePattern = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$/u;
+function schemaFailure(): never {
+  throw new ResultContractError("result does not satisfy its closed schema");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    if (code !== undefined && (code <= 31 || code === 127)) return true;
+  }
+  return false;
+}
+
+function codePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
+function isSafeReference(value: string): boolean {
+  return (
+    codePointLength(value) >= 1 &&
+    codePointLength(value) <= 1_024 &&
+    !value.startsWith("/") &&
+    !/^[A-Za-z]:[\\/]/u.test(value) &&
+    !value.includes("\\") &&
+    !value.split("/").includes("..") &&
+    !/^[a-z][a-z0-9+.-]*:\/\//iu.test(value) &&
+    !/(?:github_pat_|gh[pousr]_)/iu.test(value) &&
+    !hasControlCharacter(value)
+  );
+}
 
 function assertSafe(text: string): void {
-  let hasControlCharacter = false;
-  for (const character of text) {
-    const code = character.codePointAt(0);
-    if (code !== undefined && (code <= 31 || code === 127)) {
-      hasControlCharacter = true;
-      break;
-    }
-  }
-  if (hasControlCharacter || unsafe.some((pattern) => pattern.test(text))) {
+  if (
+    hasControlCharacter(text) ||
+    unsafe.some((pattern) => pattern.test(text))
+  ) {
     throw new ResultContractError("unsafe text is not publishable");
   }
+}
+
+function assertSafeLine(value: unknown): asserts value is string {
+  if (
+    typeof value !== "string" ||
+    codePointLength(value) < 1 ||
+    codePointLength(value) > 4_096
+  ) {
+    schemaFailure();
+  }
+  assertSafe(value);
+}
+
+/** Validate command-owned text before it reaches either public stream. */
+export function validatePublicText(text: string): string {
+  for (const line of text.split("\n")) {
+    if (line.length !== 0) assertSafeLine(line);
+  }
+  return text;
 }
 
 function assertUnique(values: readonly string[], label: string): void {
@@ -59,14 +114,26 @@ function assertUnique(values: readonly string[], label: string): void {
   }
 }
 
-function assertEvidence(evidence: readonly EvidenceRef[]): void {
+function assertEvidence(evidence: readonly unknown[]): void {
   for (const item of evidence) {
+    if (!isRecord(item)) schemaFailure();
     const expected =
       item.sha256 === undefined ? ["kind", "ref"] : ["kind", "ref", "sha256"];
     if (JSON.stringify(Object.keys(item)) !== JSON.stringify(expected)) {
       throw new ResultContractError(
         "evidence properties are not in canonical order",
       );
+    }
+    if (
+      typeof item.kind !== "string" ||
+      !evidenceKinds.has(item.kind) ||
+      typeof item.ref !== "string" ||
+      !isSafeReference(item.ref) ||
+      (item.sha256 !== undefined &&
+        (typeof item.sha256 !== "string" ||
+          !/^[a-f0-9]{64}$/u.test(item.sha256)))
+    ) {
+      schemaFailure();
     }
     assertSafe(item.ref);
   }
@@ -78,17 +145,38 @@ function assertEvidence(evidence: readonly EvidenceRef[]): void {
 
 /** Prove a result may be published before a renderer writes any bytes. */
 export function validateResult(result: Result): Result {
-  if (JSON.stringify(Object.keys(result)) !== JSON.stringify(RESULT_KEYS)) {
+  const input: unknown = result;
+  if (!isRecord(input)) schemaFailure();
+  if (JSON.stringify(Object.keys(input)) !== JSON.stringify(RESULT_KEYS)) {
     throw new ResultContractError(
       "result properties are not in canonical order",
     );
   }
+  if (
+    input.contractVersion !== "1.0.0" ||
+    typeof input.status !== "string" ||
+    !["success", "failure", "blocked"].includes(input.status) ||
+    typeof input.exitCode !== "number" ||
+    !Number.isInteger(input.exitCode) ||
+    input.exitCode < 0 ||
+    input.exitCode > 5 ||
+    typeof input.reasonCode !== "string" ||
+    !reasonCodePattern.test(input.reasonCode) ||
+    !Array.isArray(input.why) ||
+    !Array.isArray(input.evidence) ||
+    typeof input.stateChanged !== "boolean" ||
+    typeof input.retryable !== "boolean" ||
+    (input.recovery !== null && typeof input.recovery !== "string")
+  ) {
+    schemaFailure();
+  }
+  assertSafeLine(result.summary);
+  for (const why of result.why) assertSafeLine(why);
+  if (result.recovery !== null) assertSafeLine(result.recovery);
   const policy = reasonPolicy(result.reasonCode);
   if (policy === null) {
     throw new ResultContractError("result uses an unknown reason code");
   }
-  assertSafe(result.summary);
-  for (const why of result.why) assertSafe(why);
   assertEvidence(result.evidence);
   if (
     result.reasonCode === "runtime.internal_failure" &&
@@ -115,8 +203,12 @@ export function validateResult(result: Result): Result {
       );
     }
   }
-  if (!policy.stateChanged && result.stateChanged) {
-    throw new ResultContractError("result makes a false state mutation claim");
+  if (result.stateChanged !== policy.stateChanged) {
+    throw new ResultContractError(
+      result.stateChanged
+        ? "result makes a false state mutation claim"
+        : "result state mutation claim conflicts with its reason",
+    );
   }
   if (policy.evidence === "required" && result.evidence.length === 0) {
     throw new ResultContractError("required evidence is absent");
