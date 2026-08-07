@@ -9,6 +9,7 @@
 **The model will propose. The runtime will decide. The event log will prove.**
 
 [![Project Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
+[![CI](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/ci.yml)
 [![Documentation](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Language: English](https://img.shields.io/badge/project_language-English-1f6feb.svg)](#contributing)

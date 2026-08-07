@@ -29,7 +29,8 @@ describe("README honesty", () => {
       "actions/workflows/docs.yml/badge.svg?branch=main",
     );
     expect(readme).toContain("actions/workflows/docs.yml");
-    expect(readme).not.toContain("actions/workflows/ci.yml/badge.svg");
+    expect(readme).toContain("actions/workflows/ci.yml/badge.svg?branch=main");
+    expect(readme).toContain("actions/workflows/ci.yml");
   });
 
   it("makes current availability impossible to mistake", () => {
