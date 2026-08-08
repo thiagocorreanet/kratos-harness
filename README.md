@@ -120,6 +120,11 @@ The internal [project discovery contract](docs/architecture/project-discovery.md
 now fixes root, worktree, migration, and configuration precedence. It adds no new runnable command
 to the current bundle.
 
+The internal [schema registry contract](docs/architecture/schema-registry.md)
+uses embedded schemas for validation before domain use and revalidates typed
+output before producing canonical JSON. Today this is validation infrastructure
+and project-configuration wiring only; it adds no state command or effect.
+
 ### No global Yoda binary
 
 The new runtime is developed in TypeScript and distributed as a self-contained JavaScript ESM bundle inside the plugin. This avoids a separately installed global binary, PATH problems, and runtime/plugin version drift.
@@ -327,9 +332,10 @@ npm run build
 npm run package:verify
 ```
 
-The build creates `dist/plugin/runtime/yoda.mjs`; package verification copies
-only that file outside the checkout and exercises help/version. Passing these
-commands proves the repository foundation, not SDD product readiness.
+The build creates the three-file `dist/plugin/runtime/` staging directory;
+package verification and distribution tests copy it outside the checkout and
+collectively exercise help, version, and handshake. Passing these commands
+proves the repository foundation, not SDD product readiness.
 
 - `npm ci` reproduces the exactly locked development dependencies.
 - `npm run spellcheck` checks the tracked English Markdown.

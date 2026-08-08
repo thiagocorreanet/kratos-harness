@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
@@ -34,6 +34,18 @@ let manifest: DistributionManifest;
 let entry: string;
 let core: Buffer;
 let reason: ReasonEntry | undefined;
+
+const embeddedSchemaInputs = [
+  "schemas/host/adapter-message.v1.schema.json",
+  "schemas/result.v1.schema.json",
+  "schemas/state/approval.v1.schema.json",
+  "schemas/state/event.v1.schema.json",
+  "schemas/state/evidence.v1.schema.json",
+  "schemas/state/lock.v1.schema.json",
+  "schemas/state/migration.v1.schema.json",
+  "schemas/state/project-config.v1.schema.json",
+  "schemas/state/snapshot.v1.schema.json",
+] as const;
 
 beforeAll(async () => {
   const [manifestText, entryText, coreBytes, catalogText] = await Promise.all([
@@ -94,6 +106,46 @@ describe("runtime distribution", () => {
 
   it("keeps the shebang off the core bundle", () => {
     expect(core.toString("utf8").startsWith("#!")).toBe(false);
+  });
+
+  it("embeds Ajv and every registry schema without checkout-relative imports", async () => {
+    const metadata = JSON.parse(
+      await readFile(join(repositoryRoot, "dist/build-meta.json"), "utf8"),
+    ) as {
+      outputs: Record<
+        string,
+        {
+          imports: readonly { external?: boolean; path: string }[];
+          inputs: Record<string, { bytesInOutput: number }>;
+        }
+      >;
+    };
+    const output = metadata.outputs["dist/plugin/runtime/yoda.core.mjs"];
+    expect(output).toBeDefined();
+    if (output === undefined) throw new Error("Core build metadata is absent");
+
+    expect(
+      output.imports.filter(
+        ({ path }) => path === "ajv" || path.startsWith("ajv/"),
+      ),
+    ).toEqual([]);
+    expect(
+      Object.keys(output.inputs).some((path) =>
+        path.startsWith("node_modules/ajv/"),
+      ),
+    ).toBe(true);
+    for (const schema of embeddedSchemaInputs) {
+      expect(output.inputs[schema]?.bytesInOutput).toBeGreaterThan(0);
+    }
+    expect(core.toString("utf8")).not.toMatch(/(?:\.\.\/)+schemas\//u);
+  });
+
+  it("stages exactly the manifest, core, and entry point", async () => {
+    expect((await readdir(join(plugin, "runtime"))).sort()).toEqual([
+      "manifest.json",
+      "yoda.core.mjs",
+      "yoda.mjs",
+    ]);
   });
 });
 

@@ -1,7 +1,15 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -112,5 +120,49 @@ describe("package verifier", () => {
     await mkdir(join(repositoryRoot, "dist/plugin/unexpected"));
 
     expect(verify).toThrow();
+  });
+
+  it("runs every orientation command from an isolated three-file copy", async () => {
+    const cleanRoom = await mkdtemp(join(tmpdir(), "yoda-package-verifier-"));
+    try {
+      const runtime = join(cleanRoom, "runtime");
+      await mkdir(runtime, { recursive: true });
+      for (const staged of ["manifest.json", "yoda.core.mjs", "yoda.mjs"]) {
+        await copyFile(
+          join(repositoryRoot, "dist/plugin/runtime", staged),
+          join(runtime, staged),
+        );
+      }
+
+      const isolatedEntry = join(runtime, "yoda.mjs");
+      for (const [argument, accepts] of [
+        ["--help", (stdout: string) => stdout.startsWith("Usage: yoda ")],
+        ["--version", (stdout: string) => stdout === "0.0.0-development\n"],
+        [
+          "handshake",
+          (stdout: string) =>
+            (JSON.parse(stdout) as { operation?: unknown }).operation ===
+            "handshake",
+        ],
+      ] as const) {
+        const result = spawnSync(process.execPath, [isolatedEntry, argument], {
+          cwd: cleanRoom,
+          encoding: "utf8",
+          env: {
+            HOME: cleanRoom,
+            NODE_OPTIONS: "",
+            NODE_PATH: "",
+            PATH: dirname(process.execPath),
+            TMPDIR: tmpdir(),
+          },
+        });
+        expect(result.error).toBeUndefined();
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe("");
+        expect(accepts(result.stdout)).toBe(true);
+      }
+    } finally {
+      await rm(cleanRoom, { force: true, recursive: true });
+    }
   });
 });

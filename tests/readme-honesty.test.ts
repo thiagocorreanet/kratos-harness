@@ -93,6 +93,15 @@ describe("README honesty", () => {
     expect(readme).toContain("no new runnable command");
   });
 
+  it("publishes the schema validation boundary without overstating it", () => {
+    expect(readme).toContain(
+      "[schema registry contract](docs/architecture/schema-registry.md)",
+    );
+    expect(readme).toContain("embedded schemas");
+    expect(readme).toContain("validation before domain use");
+    expect(readme).toContain("canonical JSON");
+  });
+
   it("links every required public path", () => {
     for (const link of [
       "[Objective maturity gates](ROADMAP.md)",
