@@ -45,8 +45,13 @@ describe("schema registry vocabulary", () => {
       value: { untrusted: true },
       structuralReasonCode: "guard.config_corrupt",
     };
-    expectTypeOf<SchemaRegistry["validate"]>().toMatchTypeOf<
-      (candidate: typeof request) => ValidationResult<ProjectConfigV1>
+    expectTypeOf<typeof request>().toEqualTypeOf<
+      ContractRequest<"state.project-config">
+    >();
+    expectTypeOf<SchemaRegistry["validate"]>().toEqualTypeOf<
+      <I extends ContractId>(
+        candidate: ContractRequest<I>,
+      ) => ValidationResult<ContractValue<I>>
     >();
     expectTypeOf<ValidationDiagnostic>().toHaveProperty("pointer");
   });
