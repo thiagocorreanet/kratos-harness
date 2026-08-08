@@ -66,13 +66,13 @@ type ContractId =
 
 interface ContractRequest<I extends ContractId> {
   readonly id: I;
-  readonly version: string;
+  readonly version: unknown;
   readonly value: unknown;
 }
 
 interface ValidationDiagnostic {
   readonly contract: ContractId;
-  readonly version: string;
+  readonly version: string | null;
   readonly pointer: string;
   readonly keyword: string;
   readonly reasonCode: string;
@@ -165,9 +165,9 @@ satisfies the contract or is rejected.
 ### D4: Diagnostics are stable, sanitized data
 
 Invalid payloads return diagnostics rather than throw. Each diagnostic contains
-only the requested contract, requested version, normalized JSON Pointer,
-validation keyword, a stable reason code, and recovery text obtained from the
-committed reason policy.
+only the requested contract, a valid requested version or `null`, normalized
+JSON Pointer, validation keyword, a stable reason code, and recovery text
+obtained from the committed reason policy.
 
 Ajv messages, schema paths, rejected values, property contents, absolute paths,
 and JavaScript exception text never cross the boundary. For keywords such as
