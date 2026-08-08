@@ -156,13 +156,15 @@ const rules: {
   },
   {
     from: "ports",
-    forbidden: ["node", "infra", "composition", "entry"],
+    forbidden: ["node", "infra", "composition", "entry", "ajv", "schemas"],
     reason: (target) =>
       target === "node"
         ? "ports must not import Node.js builtins"
-        : target === "composition"
-          ? "only an entry point may import composition"
-          : `ports must not import ${target}`,
+        : target === "ajv" || target === "schemas"
+          ? "ports must not import schema infrastructure"
+          : target === "composition"
+            ? "only an entry point may import composition"
+            : `ports must not import ${target}`,
   },
   {
     from: "infra",

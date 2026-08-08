@@ -153,8 +153,12 @@ or Ajv dependency. It enforces this supported JSON model:
 - finite numbers use the deterministic JSON number representation, with
   negative zero encoded as `0`;
 - ordinary and null-prototype objects are supported;
-- unsupported properties and array members are rejected rather than omitted or
-  converted to `null`;
+- enumerable string-keyed object properties and array indices must be own data
+  descriptors; accessor-backed members are rejected before a getter can run;
+- symbol and non-enumerable properties remain outside the serialized JSON
+  object and are ignored without being evaluated;
+- unsupported enumerable properties and array members are rejected rather than
+  omitted or converted to `null`;
 - sparse arrays, non-finite numbers, `undefined`, `bigint`, functions, symbols,
   non-plain objects, and cycles are rejected;
 - output has no insignificant whitespace or trailing newline.

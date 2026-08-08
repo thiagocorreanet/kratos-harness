@@ -21,6 +21,12 @@ allow it fails CI.
 adding `import { readFile } from "node:fs/promises"` to a policy module fails CI
 rather than review.
 
+Neither layer may import Ajv, a schema JSON path, or `infra/schema`. Validation
+types belong to `domain/schema`; the engine and embedded documents remain an
+infrastructure implementation detail. Architecture fixtures exercise all three
+forbidden routes from both `domain` and `ports` while retaining valid
+ports-to-domain imports.
+
 A builtin is recognized by resolving against Node's own builtin list, not by the
 `node:` prefix. `import { readFileSync } from "fs"` is legal Node and resolves
 fine, so a prefix check would let four dropped characters walk through the rule.

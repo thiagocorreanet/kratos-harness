@@ -41,10 +41,7 @@ function encodeArray(value: unknown[], active: WeakSet<object>): string {
   try {
     const entries: string[] = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.hasOwn(value, index)) {
-        throw new CanonicalJsonError();
-      }
-      entries.push(encode(value[index], active));
+      entries.push(encode(ownDataProperty(value, index), active));
     }
     return `[${entries.join(",")}]`;
   } finally {
@@ -59,11 +56,23 @@ function encodeObject(
   enter(value, active);
   try {
     return `{${unicodeCodePointKeys(value)
-      .map((key) => `${JSON.stringify(key)}:${encode(value[key], active)}`)
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${encode(ownDataProperty(value, key), active)}`,
+      )
       .join(",")}}`;
   } finally {
     active.delete(value);
   }
+}
+
+/** Read only inert own data without invoking an accessor. */
+function ownDataProperty(value: object, key: PropertyKey): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined || !("value" in descriptor)) {
+    throw new CanonicalJsonError();
+  }
+  return descriptor.value;
 }
 
 /** Decorate with an ASCII order key so the built-in sort compares code points. */

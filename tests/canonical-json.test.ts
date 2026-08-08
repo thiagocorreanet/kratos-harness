@@ -28,6 +28,106 @@ describe("canonical JSON", () => {
     );
   });
 
+  it("rejects an object getter without evaluating it", () => {
+    let calls = 0;
+    const value: Record<string, unknown> = {};
+    Object.defineProperty(value, "observed", {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        return "must not be read";
+      },
+    });
+
+    expect(() => canonicalizeJson(value)).toThrow(CanonicalJsonError);
+    expect(calls).toBe(0);
+  });
+
+  it("rejects an array index getter without evaluating it", () => {
+    let calls = 0;
+    const value = [0];
+    Object.defineProperty(value, 0, {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        return 1;
+      },
+    });
+
+    expect(() => canonicalizeJson(value)).toThrow(CanonicalJsonError);
+    expect(calls).toBe(0);
+  });
+
+  it("never observes a changing getter", () => {
+    let calls = 0;
+    const value: Record<string, unknown> = {};
+    Object.defineProperty(value, "changing", {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        return calls;
+      },
+    });
+
+    expect(() => canonicalizeJson(value)).toThrow(CanonicalJsonError);
+    expect(() => canonicalizeJson(value)).toThrow(CanonicalJsonError);
+    expect(calls).toBe(0);
+  });
+
+  it("does not leak or execute a throwing getter", () => {
+    const secret = "getter secret must not escape";
+    let calls = 0;
+    let error: unknown;
+    const value: Record<string, unknown> = {};
+    Object.defineProperty(value, "throwing", {
+      enumerable: true,
+      get: () => {
+        calls += 1;
+        throw new Error(secret);
+      },
+    });
+
+    try {
+      canonicalizeJson(value);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(CanonicalJsonError);
+    expect(error instanceof Error ? error.message : String(error)).toBe(
+      "Value is not canonical JSON",
+    );
+    expect(
+      error instanceof Error ? error.message : String(error),
+    ).not.toContain(secret);
+    expect(calls).toBe(0);
+  });
+
+  it("encodes own data descriptors on arrays and null-prototype objects", () => {
+    const object = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(object, "z", { enumerable: true, value: 2 });
+    Object.defineProperty(object, "a", { enumerable: true, value: 1 });
+    const array: unknown[] = [];
+    Object.defineProperty(array, 0, { enumerable: true, value: object });
+
+    expect(canonicalizeJson(array)).toBe('[{"a":1,"z":2}]');
+  });
+
+  it("ignores symbol and non-enumerable accessors without evaluating them", () => {
+    let calls = 0;
+    const value = { visible: true };
+    const accessor = {
+      get: () => {
+        calls += 1;
+        return "ignored";
+      },
+    };
+    Object.defineProperty(value, "hidden", accessor);
+    Object.defineProperty(value, Symbol("hidden"), accessor);
+
+    expect(canonicalizeJson(value)).toBe('{"visible":true}');
+    expect(calls).toBe(0);
+  });
+
   it.each([
     [null, "null"],
     [true, "true"],

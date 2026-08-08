@@ -35,6 +35,7 @@ describe("schema registry documentation", () => {
     expect(schemaRegistry).toContain("Unicode code point");
     expect(schemaRegistry).toContain("one production registry instance");
     expect(schemaRegistry).toContain("startup and project discovery");
+    expect(schemaRegistry).toContain("accessor-backed");
   });
 });
 
