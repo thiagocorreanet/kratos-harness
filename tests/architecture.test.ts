@@ -142,6 +142,25 @@ describe("dependency direction", () => {
   });
 
   it.each([
+    "ajv",
+    "../../../../../schemas/state/approval.v1.schema.json",
+    "../infra/schema/index.js",
+  ])(
+    "rejects a domain module importing schema infrastructure through %s",
+    (specifier) => {
+      const path = "packages/runtime/src/domain/policy.ts";
+
+      expect(violations([{ path, imports: [specifier] }])).toEqual([
+        {
+          path,
+          specifier,
+          reason: "domain must not import schema infrastructure",
+        },
+      ]);
+    },
+  );
+
+  it.each([
     [
       "packages/runtime/src/domain/policy.ts",
       "../infra/node/clock.js",
