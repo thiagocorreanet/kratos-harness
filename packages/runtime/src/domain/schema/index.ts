@@ -10,3 +10,4 @@ export type {
   ValidationDiagnostic,
   ValidationResult,
 } from "./validation.js";
+export { CanonicalJsonError, canonicalizeJson } from "./canonical-json.js";
