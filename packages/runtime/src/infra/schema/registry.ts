@@ -17,7 +17,10 @@ import {
   EMBEDDED_SCHEMA_DEPENDENCIES,
   assertSchemaCatalog,
 } from "./catalog.js";
-import { isInertJsonData } from "./data-shape.js";
+import {
+  isInertJsonData,
+  isObjectPrototypeEnvironmentSafe,
+} from "./data-shape.js";
 import {
   dataShapeDiagnostics,
   normalizeAjvDiagnostics,
@@ -92,6 +95,7 @@ export function compileSchemaRegistry(
   const families = new Map<ContractId, "state" | "host">();
 
   try {
+    if (!isObjectPrototypeEnvironmentSafe()) throw registryIntegrityError();
     assertSchemaCatalog(entries);
     const ajv = new Ajv2020({
       allErrors: true,

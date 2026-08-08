@@ -24,6 +24,10 @@ export function isInertJsonData(value: unknown): boolean {
   return inspect(value, new WeakSet<object>());
 }
 
+export function isObjectPrototypeEnvironmentSafe(): boolean {
+  return objectPrototypeMatchesSnapshot();
+}
+
 function inspect(value: unknown, active: WeakSet<object>): boolean {
   if (value === null) return true;
   if (typeof value === "string" || typeof value === "boolean") return true;

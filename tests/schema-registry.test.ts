@@ -304,12 +304,11 @@ describe("Ajv schema registry", () => {
     });
   });
 
-  it("rejects Object.prototype pollution present before module initialization", async () => {
+  it("fails closed on Object.prototype pollution present before module initialization", async () => {
     let calls = 0;
-    let observedCalls: number;
-    let result: unknown;
-    const value = structuredClone(projectConfig) as Record<string, unknown>;
-    delete value.language;
+    let constructionCalls: number;
+    let constructionError: unknown;
+    let importCalls: number;
     Object.defineProperty(Object.prototype, "language", {
       configurable: true,
       get() {
@@ -320,22 +319,25 @@ describe("Ajv schema registry", () => {
 
     try {
       vi.resetModules();
-      const freshRegistry = (
-        await import("@mestre-yoda/runtime/infra/schema")
-      ).ajvSchemaRegistry();
+      const schemaModule = await import("@mestre-yoda/runtime/infra/schema");
+      importCalls = calls;
       calls = 0;
-      result = freshRegistry.validate(projectConfigRequest(value));
-      observedCalls = calls;
+      try {
+        schemaModule.ajvSchemaRegistry();
+      } catch (error) {
+        constructionError = error;
+      }
+      constructionCalls = calls;
     } finally {
       delete (Object.prototype as Record<string, unknown>).language;
       vi.resetModules();
     }
 
-    expect(observedCalls).toBe(0);
-    expect(result).toEqual({
-      kind: "invalid",
-      diagnostics: [rootProjectConfigTypeDiagnostic],
-    });
+    expect(importCalls).toBe(0);
+    expect(constructionCalls).toBe(0);
+    expect(constructionError).toEqual(
+      new Error("Embedded schema registry is invalid"),
+    );
   });
 
   it("accepts null-prototype own data while preserving value identity", () => {
