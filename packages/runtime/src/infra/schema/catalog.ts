@@ -11,69 +11,95 @@ import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json
 
 import type { EmbeddedSchemaEntry } from "./types.js";
 
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  const nested: readonly unknown[] = Array.isArray(value)
+    ? (value as readonly unknown[])
+    : Object.values(value as Record<string, unknown>);
+  for (const child of nested) deepFreeze(child, seen);
+  Object.freeze(value);
+  return value;
+}
+
 export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
-  Object.freeze([
-    Object.freeze({
+  deepFreeze([
+    {
       id: "host.adapter-message",
       family: "host",
       version: "1.0.0",
       path: "schemas/host/adapter-message.v1.schema.json",
       schema: adapterMessageSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.approval",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/approval.v1.schema.json",
       schema: approvalSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.event",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/event.v1.schema.json",
       schema: eventSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.evidence",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/evidence.v1.schema.json",
       schema: evidenceSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.lock",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/lock.v1.schema.json",
       schema: lockSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.migration",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/migration.v1.schema.json",
       schema: migrationSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.project-config",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/project-config.v1.schema.json",
       schema: projectConfigSchema,
-    }),
-    Object.freeze({
+    },
+    {
       id: "state.snapshot",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/snapshot.v1.schema.json",
       schema: snapshotSchema,
-    }),
+    },
   ] as const satisfies readonly EmbeddedSchemaEntry[]);
 
-export const EMBEDDED_SCHEMA_DEPENDENCIES = Object.freeze([
+export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
   resultSchema,
 ] as const satisfies readonly object[]);
+
+const EXPECTED_SCHEMA_IDS = {
+  "host.adapter-message":
+    "https://mestre-yoda.dev/schemas/host/adapter-message/v1",
+  "state.approval": "https://mestre-yoda.dev/schemas/state/approval/v1",
+  "state.event": "https://mestre-yoda.dev/schemas/state/event/v1",
+  "state.evidence": "https://mestre-yoda.dev/schemas/state/evidence/v1",
+  "state.lock": "https://mestre-yoda.dev/schemas/state/lock/v1",
+  "state.migration": "https://mestre-yoda.dev/schemas/state/migration/v1",
+  "state.project-config":
+    "https://mestre-yoda.dev/schemas/state/project-config/v1",
+  "state.snapshot": "https://mestre-yoda.dev/schemas/state/snapshot/v1",
+} as const satisfies Readonly<Record<EmbeddedSchemaEntry["id"], string>>;
 
 function failCatalogIntegrity(): never {
   throw new Error("Embedded schema catalog is inconsistent");
@@ -139,14 +165,15 @@ export function assertSchemaCatalog(
     if (expected === undefined) failCatalogIntegrity();
     const key = `${entry.id}\u0000${entry.version}`;
     const id = schemaId(entry.schema);
+    if (keys.has(key) || id === undefined || schemaIds.has(id)) {
+      failCatalogIntegrity();
+    }
     if (
       entry.id !== expected.id ||
       entry.family !== expected.family ||
       entry.version !== expected.version ||
       entry.path !== expected.path ||
-      keys.has(key) ||
-      id === undefined ||
-      schemaIds.has(id) ||
+      id !== EXPECTED_SCHEMA_IDS[entry.id] ||
       !declaresVersion(entry)
     ) {
       failCatalogIntegrity();
