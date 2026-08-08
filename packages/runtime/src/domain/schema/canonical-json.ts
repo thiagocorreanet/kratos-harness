@@ -72,7 +72,7 @@ function encodeObject(
  * prototype. Other JavaScript object types may hide non-JSON state.
  */
 function isPlainJsonObject(value: object): value is Record<string, unknown> {
-  const prototype = Object.getPrototypeOf(value);
+  const prototype = Reflect.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 

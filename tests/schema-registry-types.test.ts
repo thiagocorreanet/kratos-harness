@@ -39,15 +39,9 @@ describe("schema registry vocabulary", () => {
   });
 
   it("keeps unknown input outside the typed domain until validation", () => {
-    const request: ContractRequest<"state.project-config"> = {
-      id: "state.project-config",
-      version: "1.0.0",
-      value: { untrusted: true },
-      structuralReasonCode: "guard.config_corrupt",
-    };
-    expectTypeOf<typeof request>().toEqualTypeOf<
-      ContractRequest<"state.project-config">
-    >();
+    expectTypeOf<
+      ContractRequest<"state.project-config">["value"]
+    >().toEqualTypeOf<unknown>();
     expectTypeOf<SchemaRegistry["validate"]>().toEqualTypeOf<
       <I extends ContractId>(
         candidate: ContractRequest<I>,

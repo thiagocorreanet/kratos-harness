@@ -22,7 +22,7 @@ function generateUnicodeString(next: () => number): string {
   const length = next() % 6;
   let value = "";
   for (let index = 0; index < length; index += 1) {
-    value += characters[next() % characters.length] as string;
+    value += characters[next() % characters.length] ?? "";
   }
   return value;
 }
@@ -51,7 +51,7 @@ function generateJsonValue(next: () => number, depth: number): JsonValue {
       const length = next() % keys.length;
       const value: Record<string, JsonValue> = {};
       for (let index = 0; index < length; index += 1) {
-        const key = keys[(next() + index) % keys.length] as string;
+        const key = keys[(next() + index) % keys.length] ?? "";
         value[key] = generateJsonValue(next, depth + 1);
       }
       return value;
@@ -64,12 +64,10 @@ function reverseObjectInsertionOrder(value: JsonValue): JsonValue {
     return value.map(reverseObjectInsertionOrder);
   }
   if (value !== null && typeof value === "object") {
-    const objectValue = value as { readonly [key: string]: JsonValue };
+    const objectValue = value as Readonly<Record<string, JsonValue>>;
     const reversed: Record<string, JsonValue> = {};
-    for (const key of Object.keys(objectValue).reverse()) {
-      reversed[key] = reverseObjectInsertionOrder(
-        objectValue[key] as JsonValue,
-      );
+    for (const [key, child] of Object.entries(objectValue).reverse()) {
+      reversed[key] = reverseObjectInsertionOrder(child);
     }
     return reversed;
   }
