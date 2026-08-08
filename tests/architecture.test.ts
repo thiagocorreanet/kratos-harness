@@ -105,6 +105,7 @@ describe("import extraction", () => {
       "../domain/effects.js",
       "../infra/node/index.js",
       "../ports/index.js",
+      "./schema.js",
     ]);
   });
 });

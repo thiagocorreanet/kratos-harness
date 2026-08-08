@@ -1,5 +1,11 @@
 import { planOf } from "@mestre-yoda/runtime/domain/effects";
-import { applyPlan, createRuntime } from "@mestre-yoda/runtime/composition";
+import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import {
+  applyPlan,
+  configurationValidator,
+  createRuntime,
+  createSchemaRegistry,
+} from "@mestre-yoda/runtime/composition";
 import {
   fixedClock,
   memoryFileSystem,
@@ -9,6 +15,15 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("composition root", () => {
+  it("exposes production schema composition", () => {
+    expect(
+      configurationValidator(createSchemaRegistry())(projectConfig),
+    ).toEqual({
+      kind: "valid",
+      value: projectConfig,
+    });
+  });
+
   it("uses Node implementations when nothing is overridden", () => {
     const ports = createRuntime();
 

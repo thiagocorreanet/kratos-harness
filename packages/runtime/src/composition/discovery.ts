@@ -7,6 +7,7 @@ import {
 } from "../domain/project/index.js";
 import { nodeEnvironment, nodeWorkspace } from "../infra/node/index.js";
 import type { Environment, Workspace } from "../ports/index.js";
+import { configurationValidator, createSchemaRegistry } from "./schema.js";
 
 export interface DiscoveryPorts {
   readonly workspace: Workspace;
@@ -79,7 +80,9 @@ export async function observeWorkspace(
 export async function discoverProject(
   request: DiscoveryRequest,
   ports: DiscoveryPorts,
-  validateConfiguration: ConfigurationValidator,
+  validateConfiguration: ConfigurationValidator = configurationValidator(
+    createSchemaRegistry(),
+  ),
 ): Promise<ProjectResolution> {
   return resolveProject(
     request,
