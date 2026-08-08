@@ -11,6 +11,14 @@ function registryIntegrityError(): Error {
   return new Error("Embedded schema registry is invalid");
 }
 
+function recoveryFor(reasonCode: StructuralReasonCode): string {
+  const recovery = reasonPolicy(reasonCode)?.recovery;
+  if (recovery === null || recovery === undefined) {
+    throw registryIntegrityError();
+  }
+  return recovery;
+}
+
 function compareText(left: string, right: string): number {
   if (left === right) return 0;
   return left < right ? -1 : 1;
@@ -51,9 +59,8 @@ export function normalizeAjvDiagnostics(
   version: string,
   structuralReasonCode: StructuralReasonCode,
 ): readonly ValidationDiagnostic[] {
-  const policy = reasonPolicy(structuralReasonCode);
-  const recovery = policy?.recovery;
-  if (recovery === null || recovery === undefined || !errors?.length) {
+  const recovery = recoveryFor(structuralReasonCode);
+  if (!errors?.length) {
     throw registryIntegrityError();
   }
 
@@ -77,4 +84,21 @@ export function normalizeAjvDiagnostics(
       compareText(left.reasonCode, right.reasonCode) ||
       compareText(left.contract, right.contract),
   );
+}
+
+export function dataShapeDiagnostics(
+  contract: ContractId,
+  version: string,
+  structuralReasonCode: StructuralReasonCode,
+): readonly ValidationDiagnostic[] {
+  return [
+    {
+      contract,
+      version,
+      pointer: "",
+      keyword: "type",
+      reasonCode: structuralReasonCode,
+      recovery: recoveryFor(structuralReasonCode),
+    },
+  ];
 }

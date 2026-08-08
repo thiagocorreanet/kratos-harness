@@ -17,7 +17,11 @@ import {
   EMBEDDED_SCHEMA_DEPENDENCIES,
   assertSchemaCatalog,
 } from "./catalog.js";
-import { normalizeAjvDiagnostics } from "./diagnostics.js";
+import { isInertJsonData } from "./data-shape.js";
+import {
+  dataShapeDiagnostics,
+  normalizeAjvDiagnostics,
+} from "./diagnostics.js";
 import type { EmbeddedSchemaEntry } from "./types.js";
 
 const REGISTRY_INTEGRITY_ERROR = "Embedded schema registry is invalid";
@@ -138,6 +142,16 @@ export function compileSchemaRegistry(
       const validator = validators.get(registryKey(request.id, version));
       if (validator === undefined) throw registryIntegrityError();
       try {
+        if (!isInertJsonData(request.value)) {
+          return {
+            kind: "invalid" as const,
+            diagnostics: dataShapeDiagnostics(
+              request.id,
+              version,
+              request.structuralReasonCode,
+            ),
+          };
+        }
         if (!validator(request.value)) {
           return {
             kind: "invalid" as const,
