@@ -92,6 +92,7 @@ export function compileSchemaRegistry(
     const ajv = new Ajv2020({
       allErrors: true,
       coerceTypes: false,
+      ownProperties: true,
       removeAdditional: false,
       strict: true,
       useDefaults: false,

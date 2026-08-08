@@ -1,4 +1,5 @@
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import {
@@ -22,6 +23,72 @@ describe("Ajv schema registry", () => {
     });
     expect(result).toEqual({ kind: "valid", value: projectConfig });
     if (result.kind === "valid") expect(result.value).toBe(projectConfig);
+  });
+
+  it("rejects inherited-only contract fields with deterministic safe diagnostics", () => {
+    const value = Object.create(approval) as Record<string, unknown>;
+    const request = {
+      id: "state.approval" as const,
+      version: "1.0.0",
+      value,
+      structuralReasonCode: "runtime.state_corrupt" as const,
+    };
+    const expectedProperties = [
+      "approvalId",
+      "approver",
+      "challenge",
+      "contractVersion",
+      "decidedAt",
+      "decision",
+      "gate",
+      "observation",
+      "policyVersion",
+      "prdDigest",
+      "runId",
+      "specDigest",
+      "stateContract",
+    ];
+    const expected = {
+      kind: "invalid",
+      diagnostics: expectedProperties.map((property) => ({
+        contract: "state.approval",
+        version: "1.0.0",
+        pointer: `/${property}`,
+        keyword: "required",
+        reasonCode: "runtime.state_corrupt",
+        recovery:
+          "Preserve the rejected state, run the explicit integrity audit, and retry only after verified repair or rebuild.",
+      })),
+    };
+
+    const first = registry.validate(request);
+    const second = registry.validate(request);
+
+    expect(first).toEqual(expected);
+    expect(second).toEqual(expected);
+    const serialized = JSON.stringify(first);
+    expect(serialized).not.toContain(approval.observation);
+    expect(serialized).not.toContain(approval.challenge);
+    expect(serialized).not.toContain("message");
+    expect(serialized).not.toContain("schemaPath");
+  });
+
+  it("accepts null-prototype own data while preserving value identity", () => {
+    const value = Object.assign(
+      Object.create(null) as Record<string, unknown>,
+      approval,
+    );
+
+    const result = registry.validate({
+      id: "state.approval",
+      version: "1.0.0",
+      value,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(Object.getPrototypeOf(value)).toBeNull();
+    expect(result).toEqual({ kind: "valid", value });
+    if (result.kind === "valid") expect(result.value).toBe(value);
   });
 
   it.each([
