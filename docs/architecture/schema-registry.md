@@ -101,6 +101,13 @@ packaged process compiles the catalog at startup, before dispatching an
 orientation command, so a damaged catalog cannot masquerade as invalid project
 state.
 
+Composition constructs one production registry instance when its schema module
+is evaluated. The same instance serves startup and project discovery: the entry
+point evaluates the composition module for its integrity check, and discovery
+reuses a cached configuration adapter built from that registry. Tests still
+inject a registry into `configurationValidator` or a validator into
+`discoverProject`; domain code never locates an ambient service.
+
 The build embeds Ajv and every schema document in `yoda.core.mjs`. Runtime
 validation does not scan a `schemas/` directory, open a checkout-relative
 schema file, resolve an external module, or fetch a reference from the network.
@@ -139,7 +146,8 @@ does not add a state writer, host effect, or publication command.
 `canonicalizeJson` is a pure domain function with no Node, filesystem, network,
 or Ajv dependency. It enforces this supported JSON model:
 
-- object keys are sorted lexicographically and array order is preserved;
+- object keys are sorted lexicographically by Unicode code point and array
+  order is preserved;
 - strings use JSON escaping without locale-sensitive transformation;
 - booleans and `null` use their JSON literals;
 - finite numbers use the deterministic JSON number representation, with
@@ -165,8 +173,9 @@ invalid registry result becomes the existing sanitized invalid result.
 
 JSON syntax and `stateContract` compatibility are still classified before this
 adapter runs. Tests may inject the seam directly, while production defaults to
-the embedded registry. See the [project discovery contract](project-discovery.md)
-for the complete failure order and root-selection behavior.
+the cached adapter backed by the one embedded registry. See the
+[project discovery contract](project-discovery.md) for the complete failure
+order and root-selection behavior.
 
 ## Scope and compatibility
 

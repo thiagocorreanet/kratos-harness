@@ -161,10 +161,13 @@ must not perform.
 Schema validation follows the same dependency direction. Closed identifiers,
 typed results, and canonical JSON live in `domain/schema`; embedded schema
 documents and Ajv live in `infra/schema`; and `composition/schema` constructs
-the real registry and adapts project configuration. The packaged process
-compiles that embedded catalog at startup so a malformed catalog is a package
-integrity failure, not a user-state diagnostic. The registry has no port and no
-capability for filesystem or network schema discovery.
+one real registry and adapts project configuration. Module evaluation compiles
+that embedded catalog once at startup; project discovery reuses the same
+instance through its cached configuration adapter. A malformed catalog is a
+package integrity failure, not a user-state diagnostic. Tests retain explicit
+registry and validator injection, and no domain module locates composition as a
+service. The registry has no port and no capability for filesystem or network
+schema discovery.
 
 ## Effect plans
 

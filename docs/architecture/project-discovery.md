@@ -60,9 +60,9 @@ The [schema registry contract](schema-registry.md) (`RUN-04`) now supplies that
 production validator. Discovery continues to classify JSON syntax and `stateContract`
 compatibility before invoking it, so version selection precedes structural
 validation. Pure resolver tests can still inject a deterministic validator;
-production composition defaults to the registry adapter. Missing, corrupt,
-unsupported, migration-required, and schema-invalid inputs remain distinct
-typed outcomes.
+production composition defaults to the cached adapter backed by the single
+production registry. Missing, corrupt, unsupported, migration-required, and
+schema-invalid inputs remain distinct typed outcomes.
 
 Effective values follow one explicit precedence:
 

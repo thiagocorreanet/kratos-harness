@@ -1,8 +1,7 @@
-import { runCli } from "./cli.js";
-import { createSchemaRegistry } from "./composition/schema.js";
+// Evaluating schema composition compiles its one production registry. Project
+// discovery imports and reuses the same module-owned instance.
+import "./composition/schema.js";
 
-// Compile the embedded catalog when the packaged process starts. This makes a
-// broken schema or unresolved reference a package-integrity failure even while
-// the public CLI exposes only orientation commands.
-createSchemaRegistry();
+import { runCli } from "./cli.js";
+
 process.exitCode = await runCli(process.argv.slice(2));

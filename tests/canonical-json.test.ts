@@ -15,6 +15,19 @@ describe("canonical JSON", () => {
     );
   });
 
+  it("sorts object keys lexicographically by Unicode code point", () => {
+    const privateUse = "\uE000";
+    const supplementary = "\u{10000}";
+    const expected = `{"${privateUse}":1,"${supplementary}":2}`;
+
+    expect(canonicalizeJson({ [supplementary]: 2, [privateUse]: 1 })).toBe(
+      expected,
+    );
+    expect(canonicalizeJson({ [privateUse]: 1, [supplementary]: 2 })).toBe(
+      expected,
+    );
+  });
+
   it.each([
     [null, "null"],
     [true, "true"],

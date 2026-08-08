@@ -58,13 +58,38 @@ function encodeObject(
 ): string {
   enter(value, active);
   try {
-    return `{${Object.keys(value)
-      .sort()
+    return `{${unicodeCodePointKeys(value)
       .map((key) => `${JSON.stringify(key)}:${encode(value[key], active)}`)
       .join(",")}}`;
   } finally {
     active.delete(value);
   }
+}
+
+/** Decorate with an ASCII order key so the built-in sort compares code points. */
+function unicodeCodePointKeys(value: Record<string, unknown>): string[] {
+  return Object.keys(value)
+    .map((key) => `${codePointSortKey(key)}\u0000${key}`)
+    .sort()
+    .map((decorated) => decorated.slice(decorated.indexOf("\u0000") + 1));
+}
+
+/** Fixed-width hexadecimal preserves numeric code-point order and prefixes. */
+function codePointSortKey(value: string): string {
+  return Array.from(value, (character) =>
+    codePointOfCharacter(character).toString(16).padStart(6, "0"),
+  ).join("");
+}
+
+/** `Array.from(string)` yields either one code unit or one surrogate pair. */
+function codePointOfCharacter(character: string): number {
+  if (character.length === 1) return character.charCodeAt(0);
+  return (
+    (character.charCodeAt(0) - 0xd800) * 0x400 +
+    character.charCodeAt(1) -
+    0xdc00 +
+    0x10000
+  );
 }
 
 /**

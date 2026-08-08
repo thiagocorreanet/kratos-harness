@@ -47,7 +47,7 @@ function generateJsonValue(next: () => number, depth: number): JsonValue {
       return values;
     }
     default: {
-      const keys = ["z", "a", "é", "中", "😀"];
+      const keys = ["z", "a", "é", "中", "😀", "\uE000", "\u{10000}"];
       const length = next() % keys.length;
       const value: Record<string, JsonValue> = {};
       for (let index = 0; index < length; index += 1) {
@@ -77,9 +77,10 @@ function reverseObjectInsertionOrder(value: JsonValue): JsonValue {
 describe("canonical JSON properties", () => {
   it("is idempotent and independent from object insertion order", () => {
     const next = createGenerator(0x19c0ffee);
-    const values = Array.from({ length: 200 }, () =>
-      generateJsonValue(next, 0),
-    );
+    const values: JsonValue[] = [
+      { "\u{10000}": { nested: true }, "\uE000": [1, 2] },
+      ...Array.from({ length: 200 }, () => generateJsonValue(next, 0)),
+    ];
 
     for (const value of values) {
       const encoded = canonicalizeJson(value);

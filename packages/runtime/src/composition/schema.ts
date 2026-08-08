@@ -4,8 +4,10 @@ import type { ConfigurationValidator } from "../domain/project/index.js";
 import type { SchemaRegistry } from "../domain/schema/index.js";
 import { ajvSchemaRegistry } from "../infra/schema/index.js";
 
+const productionSchemaRegistry = ajvSchemaRegistry();
+
 export function createSchemaRegistry(): SchemaRegistry {
-  return ajvSchemaRegistry();
+  return productionSchemaRegistry;
 }
 
 export function configurationValidator(
