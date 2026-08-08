@@ -121,15 +121,20 @@ export function compileSchemaRegistry(
 
   return Object.freeze({
     validate<I extends ContractId>(request: ContractRequest<I>) {
-      const family = families.get(request.id);
+      const id = request.id;
+      const family = families.get(id);
       if (family === undefined) throw registryIntegrityError();
-      const classification = classifyContractVersion(family, request.version);
+      const requestedContractVersion = request.version;
+      const classification = classifyContractVersion(
+        family,
+        requestedContractVersion,
+      );
       if (classification.classification !== "current") {
         try {
           return {
             kind: "invalid" as const,
             diagnostics: [
-              versionDiagnostic(request.id, request.version, classification),
+              versionDiagnostic(id, requestedContractVersion, classification),
             ],
           };
         } catch {
@@ -139,37 +144,39 @@ export function compileSchemaRegistry(
 
       const version = classification.selectedVersion;
       if (version === null) throw registryIntegrityError();
-      const validator = validators.get(registryKey(request.id, version));
+      const validator = validators.get(registryKey(id, version));
       if (validator === undefined) throw registryIntegrityError();
       try {
-        if (!isInertJsonData(request.value)) {
+        const structuralReasonCode = request.structuralReasonCode;
+        const value = request.value;
+        if (!isInertJsonData(value)) {
           return {
             kind: "invalid" as const,
             diagnostics: dataShapeDiagnostics(
-              request.id,
+              id,
               version,
-              request.structuralReasonCode,
+              structuralReasonCode,
             ),
           };
         }
-        if (!validator(request.value)) {
+        if (!validator(value)) {
           return {
             kind: "invalid" as const,
             diagnostics: normalizeAjvDiagnostics(
               validator.errors,
-              request.id,
+              id,
               version,
-              request.structuralReasonCode,
+              structuralReasonCode,
             ),
           };
         }
+        return {
+          kind: "valid" as const,
+          value: value as ContractValue<I>,
+        };
       } catch {
         throw registryIntegrityError();
       }
-      return {
-        kind: "valid" as const,
-        value: request.value as ContractValue<I>,
-      };
     },
   });
 }

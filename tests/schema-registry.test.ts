@@ -2,6 +2,7 @@ import projectConfig from "../fixtures/contracts/v1/project-config.json" with { 
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import {
   EMBEDDED_SCHEMA_CATALOG,
   EMBEDDED_SCHEMA_DEPENDENCIES,
@@ -9,7 +10,7 @@ import {
   compileSchemaRegistry,
   type EmbeddedSchemaEntry,
 } from "@mestre-yoda/runtime/infra/schema";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const registry = ajvSchemaRegistry();
 
@@ -18,6 +19,13 @@ const projectConfigRequest = (value: unknown) => ({
   version: "1.0.0",
   value,
   structuralReasonCode: "guard.config_corrupt" as const,
+});
+
+const migrationRequest = (value: unknown) => ({
+  id: "state.migration" as const,
+  version: "1.0.0",
+  value,
+  structuralReasonCode: "runtime.state_corrupt" as const,
 });
 
 const rootProjectConfigTypeDiagnostic = {
@@ -32,6 +40,16 @@ const rootProjectConfigTypeDiagnostic = {
 
 const rootApprovalTypeDiagnostic = {
   contract: "state.approval",
+  version: "1.0.0",
+  pointer: "",
+  keyword: "type",
+  reasonCode: "runtime.state_corrupt",
+  recovery:
+    "Preserve the rejected state, run the explicit integrity audit, and retry only after verified repair or rebuild.",
+};
+
+const rootMigrationTypeDiagnostic = {
+  contract: "state.migration",
   version: "1.0.0",
   pointer: "",
   keyword: "type",
@@ -103,6 +121,26 @@ describe("Ajv schema registry", () => {
       diagnostics: [rootProjectConfigTypeDiagnostic],
     });
     expect(calls).toBe(0);
+  });
+
+  it("rejects a non-enumerable own accessor without invoking it", () => {
+    let calls = 0;
+    const value = structuredClone(projectConfig) as Record<string, unknown>;
+    Object.defineProperty(value, "language", {
+      enumerable: false,
+      get() {
+        calls += 1;
+        return "en";
+      },
+    });
+
+    const result = registry.validate(projectConfigRequest(value));
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
   });
 
   it("rejects a throwing own accessor without invoking it", () => {
@@ -193,6 +231,113 @@ describe("Ajv schema registry", () => {
     });
   });
 
+  it("rejects a cycle hidden in a non-enumerable own descriptor", () => {
+    const value = structuredClone(projectConfig) as Record<string, unknown>;
+    Object.defineProperty(value, "hiddenCycle", {
+      enumerable: false,
+      value,
+    });
+
+    expect(registry.validate(projectConfigRequest(value))).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
+  });
+
+  it("rejects an unsupported value hidden in a non-enumerable own descriptor", () => {
+    const value = structuredClone(projectConfig) as Record<string, unknown>;
+    Object.defineProperty(value, "hiddenUnsupported", {
+      enumerable: false,
+      value: Symbol("attacker-controlled hidden value"),
+    });
+
+    const result = registry.validate(projectConfigRequest(value));
+
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
+    expect(JSON.stringify(result)).not.toContain("attacker-controlled");
+  });
+
+  it("rejects an own symbol key with one sanitized root diagnostic", () => {
+    const value = structuredClone(projectConfig) as Record<
+      string | symbol,
+      unknown
+    >;
+    value[Symbol("attacker-controlled key")] = "attacker-controlled value";
+
+    const result = registry.validate(projectConfigRequest(value));
+
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
+    expect(JSON.stringify(result)).not.toContain("attacker-controlled");
+  });
+
+  it("rejects Object.prototype pollution without invoking its getter", () => {
+    let calls = 0;
+    let observedCalls: number;
+    let result: unknown;
+    const value = structuredClone(projectConfig) as Record<string, unknown>;
+    delete value.language;
+    Object.defineProperty(Object.prototype, "language", {
+      configurable: true,
+      get() {
+        calls += 1;
+        return "en";
+      },
+    });
+
+    try {
+      result = registry.validate(projectConfigRequest(value));
+      observedCalls = calls;
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).language;
+    }
+
+    expect(observedCalls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
+  });
+
+  it("rejects Object.prototype pollution present before module initialization", async () => {
+    let calls = 0;
+    let observedCalls: number;
+    let result: unknown;
+    const value = structuredClone(projectConfig) as Record<string, unknown>;
+    delete value.language;
+    Object.defineProperty(Object.prototype, "language", {
+      configurable: true,
+      get() {
+        calls += 1;
+        return "en";
+      },
+    });
+
+    try {
+      vi.resetModules();
+      const freshRegistry = (
+        await import("@mestre-yoda/runtime/infra/schema")
+      ).ajvSchemaRegistry();
+      calls = 0;
+      result = freshRegistry.validate(projectConfigRequest(value));
+      observedCalls = calls;
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).language;
+      vi.resetModules();
+    }
+
+    expect(observedCalls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootProjectConfigTypeDiagnostic],
+    });
+  });
+
   it("accepts null-prototype own data while preserving value identity", () => {
     const value = Object.assign(
       Object.create(null) as Record<string, unknown>,
@@ -265,6 +410,89 @@ describe("Ajv schema registry", () => {
     });
   });
 
+  it("rejects an array with a custom prototype", () => {
+    const value = structuredClone(migration);
+    const arrayPrototype = Array.prototype as object;
+    const customPrototype = Object.create(arrayPrototype) as object;
+    Object.setPrototypeOf(value.conversions, customPrototype);
+
+    expect(registry.validate(migrationRequest(value))).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
+  it("rejects an extra array accessor without invoking it", () => {
+    let calls = 0;
+    const value = structuredClone(migration);
+    Object.defineProperty(value.conversions, "extra", {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return "attacker-controlled array value";
+      },
+    });
+
+    const result = registry.validate(migrationRequest(value));
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
+  it("rejects an extra array data key", () => {
+    const value = structuredClone(migration);
+    Object.defineProperty(value.conversions, "extra", {
+      enumerable: true,
+      value: "attacker-controlled array value",
+    });
+
+    const result = registry.validate(migrationRequest(value));
+
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+    expect(JSON.stringify(result)).not.toContain("attacker-controlled");
+  });
+
+  it("rejects an array symbol key", () => {
+    const value = structuredClone(migration);
+    const conversions = value.conversions as unknown as Record<
+      string | symbol,
+      unknown
+    >;
+    conversions[Symbol("attacker-controlled array key")] = "hidden";
+
+    expect(registry.validate(migrationRequest(value))).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
+  it("rejects an accessor-backed array position without invoking it", () => {
+    let calls = 0;
+    const value = structuredClone(migration);
+    const first = value.conversions[0];
+    Object.defineProperty(value.conversions, "0", {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return first;
+      },
+    });
+
+    const result = registry.validate(migrationRequest(value));
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
   it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
     "rejects the non-finite number %s with one sanitized root diagnostic",
     (nonFinite) => {
@@ -317,6 +545,72 @@ describe("Ajv schema registry", () => {
           reasonCode: "contract.state_version_unsupported",
           recovery:
             "Create and authorize an explicit migration plan for the persisted project state.",
+        },
+      ],
+    });
+  });
+
+  it("reads a changing request value once and returns that validated identity", () => {
+    let calls = 0;
+    const first = structuredClone(projectConfig);
+    const changed = {
+      ...structuredClone(projectConfig),
+      unexpected: true,
+    };
+    const request = {
+      id: "state.project-config" as const,
+      version: "1.0.0",
+      get value() {
+        calls += 1;
+        return calls === 1 ? first : changed;
+      },
+      structuralReasonCode: "guard.config_corrupt" as const,
+    };
+
+    const result = registry.validate(request);
+
+    expect(calls).toBe(1);
+    expect(result).toEqual({ kind: "valid", value: first });
+    if (result.kind === "valid") expect(result.value).toBe(first);
+  });
+
+  it("reads the version once and leaves later envelope fields untouched when unsupported", () => {
+    const calls = {
+      structuralReasonCode: 0,
+      value: 0,
+      version: 0,
+    };
+    const request = {
+      id: "state.project-config" as const,
+      get version() {
+        calls.version += 1;
+        return "2.0.0";
+      },
+      get value() {
+        calls.value += 1;
+        return projectConfig;
+      },
+      get structuralReasonCode() {
+        calls.structuralReasonCode += 1;
+        return "guard.config_corrupt" as const;
+      },
+    };
+
+    const result = registry.validate(request);
+
+    expect(calls).toEqual({
+      structuralReasonCode: 0,
+      value: 0,
+      version: 1,
+    });
+    expect(result).toMatchObject({
+      kind: "invalid",
+      diagnostics: [
+        {
+          contract: "state.project-config",
+          version: "2.0.0",
+          keyword: "version",
+          reasonCode: "contract.state_version_unsupported",
         },
       ],
     });
