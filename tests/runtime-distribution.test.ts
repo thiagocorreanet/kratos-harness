@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -48,6 +49,10 @@ const embeddedSchemaInputs = [
 ] as const;
 
 beforeAll(async () => {
+  execFileSync(process.execPath, ["scripts/build.mjs"], {
+    cwd: repositoryRoot,
+    stdio: "pipe",
+  });
   const [manifestText, entryText, coreBytes, catalogText] = await Promise.all([
     readFile(join(plugin, "runtime/manifest.json"), "utf8"),
     readFile(join(plugin, "runtime/yoda.mjs"), "utf8"),
