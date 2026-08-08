@@ -5,6 +5,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("canonical JSON", () => {
+  class CustomValue {
+    public readonly value = 1;
+  }
+
   it("sorts object keys recursively and preserves array order", () => {
     expect(canonicalizeJson({ z: 1, a: { y: 2, x: [3, 1] } })).toBe(
       '{"a":{"x":[3,1],"y":2},"z":1}',
@@ -42,5 +46,24 @@ describe("canonical JSON", () => {
     const cycle: Record<string, unknown> = {};
     cycle.self = cycle;
     expect(() => canonicalizeJson(cycle)).toThrow(CanonicalJsonError);
+  });
+
+  it.each([
+    new Date(),
+    new Map(),
+    new CustomValue(),
+    new String("value"),
+    new Number(1),
+    new Boolean(true),
+  ])("rejects non-plain object %s", (value) => {
+    expect(() => canonicalizeJson(value)).toThrow(CanonicalJsonError);
+  });
+
+  it("supports null-prototype JSON objects", () => {
+    const value = Object.create(null) as Record<string, unknown>;
+    value.z = 1;
+    value.a = true;
+
+    expect(canonicalizeJson(value)).toBe('{"a":true,"z":1}');
   });
 });

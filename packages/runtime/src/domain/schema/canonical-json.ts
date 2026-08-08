@@ -24,9 +24,13 @@ function encode(value: unknown, active: WeakSet<object>): string {
       }
       return JSON.stringify(value);
     case "object":
-      return Array.isArray(value)
-        ? encodeArray(value, active)
-        : encodeObject(value, active);
+      if (Array.isArray(value)) {
+        return encodeArray(value, active);
+      }
+      if (isPlainJsonObject(value)) {
+        return encodeObject(value, active);
+      }
+      throw new CanonicalJsonError();
     default:
       throw new CanonicalJsonError();
   }
@@ -48,19 +52,28 @@ function encodeArray(value: unknown[], active: WeakSet<object>): string {
   }
 }
 
-function encodeObject(value: object, active: WeakSet<object>): string {
+function encodeObject(
+  value: Record<string, unknown>,
+  active: WeakSet<object>,
+): string {
   enter(value, active);
   try {
     return `{${Object.keys(value)
       .sort()
-      .map(
-        (key) =>
-          `${JSON.stringify(key)}:${encode(value[key as keyof object], active)}`,
-      )
+      .map((key) => `${JSON.stringify(key)}:${encode(value[key], active)}`)
       .join(",")}}`;
   } finally {
     active.delete(value);
   }
+}
+
+/**
+ * JSON data-model objects have either the ordinary object prototype or no
+ * prototype. Other JavaScript object types may hide non-JSON state.
+ */
+function isPlainJsonObject(value: object): value is Record<string, unknown> {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function enter(value: object, active: WeakSet<object>): void {
