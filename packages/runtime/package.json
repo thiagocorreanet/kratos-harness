@@ -11,6 +11,7 @@
     "./domain/cli": "./src/domain/cli/index.ts",
     "./domain/project": "./src/domain/project/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
+    "./domain/schema": "./src/domain/schema/index.ts",
     "./infra/fake": "./src/infra/fake/index.ts",
     "./infra/node": "./src/infra/node/index.ts",
     "./composition": "./src/composition/index.ts",
