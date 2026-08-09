@@ -34,6 +34,118 @@ async function temporaryProject<T>(
 }
 
 describe("node durable filesystem security", () => {
+  it("rejects an operation when the canonical root is persistently replaced by a symlink", async () => {
+    const container = await mkdtemp(join(tmpdir(), "yoda-node-root-swap-"));
+    const root = join(container, "project");
+    const displaced = join(container, "project-original");
+    const outside = join(container, "outside");
+    try {
+      await mkdir(join(root, ".brain"), { recursive: true });
+      await mkdir(join(outside, ".brain"), { recursive: true });
+      await writeFile(join(root, ".brain/state.json"), "ORIGINAL", "utf8");
+      await writeFile(join(outside, ".brain/state.json"), "SENTINEL", "utf8");
+      let armed = false;
+      const fileSystem = nodeDurableFileSystem(root, async (event) => {
+        if (
+          armed &&
+          event.operation === "inspect" &&
+          event.timing === "before"
+        ) {
+          await rename(root, displaced);
+          await symlink(outside, root, "dir");
+        }
+      });
+      await expect(
+        fileSystem.inspect(".brain/state.json"),
+      ).resolves.toMatchObject({
+        kind: "file",
+      });
+      armed = true;
+
+      await expect(fileSystem.inspect(".brain/state.json")).rejects.toThrow(
+        "project root changed",
+      );
+
+      expect(await readFile(join(outside, ".brain/state.json"), "utf8")).toBe(
+        "SENTINEL",
+      );
+      expect(await readFile(join(displaced, ".brain/state.json"), "utf8")).toBe(
+        "ORIGINAL",
+      );
+    } finally {
+      await rm(container, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects root directory synchronization after persistent directory substitution", async () => {
+    const container = await mkdtemp(join(tmpdir(), "yoda-node-root-swap-"));
+    const root = join(container, "project");
+    const displaced = join(container, "project-original");
+    try {
+      await mkdir(join(root, ".brain"), { recursive: true });
+      await writeFile(join(root, ".brain/state.json"), "ORIGINAL", "utf8");
+      let armed = false;
+      const fileSystem = nodeDurableFileSystem(root, async (event) => {
+        if (
+          armed &&
+          event.operation === "sync_directory" &&
+          event.timing === "before"
+        ) {
+          await rename(root, displaced);
+          await mkdir(root);
+          await writeFile(join(root, "sentinel.txt"), "SENTINEL", "utf8");
+        }
+      });
+      await fileSystem.inspect(".brain/state.json");
+      armed = true;
+
+      await expect(fileSystem.syncDirectory(".")).rejects.toThrow(
+        "project root changed",
+      );
+
+      expect(await readFile(join(root, "sentinel.txt"), "utf8")).toBe(
+        "SENTINEL",
+      );
+      expect(await readFile(join(displaced, ".brain/state.json"), "utf8")).toBe(
+        "ORIGINAL",
+      );
+    } finally {
+      await rm(container, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects an operation after the canonical root is renamed away", async () => {
+    const container = await mkdtemp(join(tmpdir(), "yoda-node-root-swap-"));
+    const root = join(container, "project");
+    const displaced = join(container, "project-original");
+    try {
+      await mkdir(join(root, ".brain"), { recursive: true });
+      await writeFile(join(root, ".brain/state.json"), "ORIGINAL", "utf8");
+      let armed = false;
+      const fileSystem = nodeDurableFileSystem(root, async (event) => {
+        if (
+          armed &&
+          event.operation === "inspect" &&
+          event.timing === "before"
+        ) {
+          await rename(root, displaced);
+        }
+      });
+      await fileSystem.inspect(".brain/state.json");
+      armed = true;
+
+      await expect(fileSystem.inspect(".brain/state.json")).rejects.toThrow(
+        "project root changed",
+      );
+
+      expect(await readFile(join(displaced, ".brain/state.json"), "utf8")).toBe(
+        "ORIGINAL",
+      );
+    } finally {
+      await rm(container, { force: true, recursive: true });
+    }
+  });
+
   it("refuses internal and escaping symlink ancestors", async () => {
     await temporaryProject(async (root, outside) => {
       await mkdir(join(root, ".brain/real"), { recursive: true });

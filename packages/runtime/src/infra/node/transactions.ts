@@ -7,7 +7,6 @@ import {
   realpath,
   rename,
   rmdir,
-  stat,
   unlink,
   type FileHandle,
 } from "node:fs/promises";
@@ -52,6 +51,12 @@ interface ScannedPath {
   readonly normalized: NormalizedPath;
 }
 
+interface CanonicalRootIdentity {
+  readonly path: string;
+  readonly device: number;
+  readonly inode: number;
+}
+
 function pathRefusal(): never {
   throw new Error("Runtime path escapes the project");
 }
@@ -72,16 +77,18 @@ function normalizeManagedPath(path: string): NormalizedPath {
     return pathRefusal();
   }
 
-  const segments: string[] = [];
-  for (const segment of path.split("/")) {
-    if (segment === "" || segment === ".") continue;
-    if (segment === "..") return pathRefusal();
-    segments.push(segment);
-  }
-  if (segments.length === 0 || segments[0] !== ".brain") {
+  const segments = path.split("/");
+  if (
+    segments.length === 0 ||
+    segments[0] !== ".brain" ||
+    segments.some(
+      (segment) => segment === "" || segment === "." || segment === "..",
+    ) ||
+    segments.join("/") !== path
+  ) {
     return pathRefusal();
   }
-  return { path: segments.join("/"), segments };
+  return { path, segments };
 }
 
 function missing(error: unknown): boolean {
@@ -164,13 +171,40 @@ export function nodeDurableFileSystem(
   root: string,
   observer?: DurableOperationObserver,
 ): DurableFileSystem {
-  const canonicalRoot = realpath(root).then(async (path) => {
-    const details = await stat(path);
-    if (!details.isDirectory()) {
-      throw new Error("Runtime project root is not a directory");
+  const canonicalRoot = realpath(root).then(
+    async (path): Promise<CanonicalRootIdentity> => {
+      const details = await lstat(path);
+      if (details.isSymbolicLink() || !details.isDirectory()) {
+        throw new Error("Runtime project root is not a directory");
+      }
+      return { path, device: details.dev, inode: details.ino };
+    },
+  );
+
+  async function validatedRoot(): Promise<string> {
+    const expected = await canonicalRoot;
+    try {
+      const details = await lstat(expected.path);
+      if (
+        details.isSymbolicLink() ||
+        !details.isDirectory() ||
+        details.dev !== expected.device ||
+        details.ino !== expected.inode ||
+        (await realpath(expected.path)) !== expected.path
+      ) {
+        throw new Error("Runtime project root changed");
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Runtime project root changed"
+      ) {
+        throw error;
+      }
+      throw new Error("Runtime project root changed", { cause: error });
     }
-    return path;
-  });
+    return expected.path;
+  }
 
   async function notify(
     operation: DurableOperation,
@@ -191,7 +225,7 @@ export function nodeDurableFileSystem(
 
   async function scan(path: string): Promise<ScannedPath> {
     const normalized = normalizeManagedPath(path);
-    const project = await canonicalRoot;
+    const project = await validatedRoot();
     let absolute = project;
 
     for (const [index, segment] of normalized.segments.entries()) {
@@ -354,7 +388,7 @@ export function nodeDurableFileSystem(
       boundary("sync_directory", async () => {
         const absolute =
           path === "."
-            ? await canonicalRoot
+            ? await validatedRoot()
             : (await requireDirectory(path)).absolute;
         let handle: FileHandle | null = null;
         try {

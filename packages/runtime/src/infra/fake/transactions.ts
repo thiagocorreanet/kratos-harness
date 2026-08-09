@@ -46,10 +46,11 @@ export interface MemoryTransactionStorage {
   };
 }
 
+function rejectPath(): never {
+  throw new Error("Runtime path escapes the project");
+}
+
 function normalizePath(path: string): string {
-  const reject = (): never => {
-    throw new Error("Runtime path escapes the project");
-  };
   let hasControlCharacter = false;
   for (const character of path) {
     const code = character.charCodeAt(0);
@@ -62,16 +63,32 @@ function normalizePath(path: string): string {
     path.includes("\\") ||
     hasControlCharacter
   ) {
-    reject();
+    rejectPath();
   }
   const segments: string[] = [];
   for (const segment of path.split("/")) {
     if (segment === "" || segment === ".") continue;
-    if (segment === "..") reject();
+    if (segment === "..") rejectPath();
     segments.push(segment);
   }
-  if (segments.length === 0) reject();
+  if (segments.length === 0) rejectPath();
   return segments.join("/");
+}
+
+function normalizeDurablePath(path: string): string {
+  const normalized = normalizePath(path);
+  const segments = path.split("/");
+  if (
+    segments[0] !== ".brain" ||
+    segments.some(
+      (segment) => segment === "" || segment === "." || segment === "..",
+    ) ||
+    segments.join("/") !== path ||
+    normalized !== path
+  ) {
+    rejectPath();
+  }
+  return normalized;
 }
 
 function deferred<T>(body: () => T): Promise<T> {
@@ -266,7 +283,7 @@ export function memoryTransactionStorage(
   const durableFileSystem: DurableFileSystem = {
     inspect: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         return boundary("inspect", (): DurableEntry => {
           const content = files.get(normalized);
           if (content !== undefined) {
@@ -283,7 +300,7 @@ export function memoryTransactionStorage(
       }),
     list: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         return boundary("list", () => {
           requireDirectory(normalized);
           return immediateEntries(normalized, files, directories);
@@ -291,12 +308,12 @@ export function memoryTransactionStorage(
       }),
     readText: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         return boundary("read_text", () => requireFile(normalized));
       }),
     createDirectory: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         boundary("create_directory", () => {
           requireParentDirectory(normalized);
           if (files.has(normalized)) {
@@ -309,7 +326,7 @@ export function memoryTransactionStorage(
       }),
     createDirectoryExclusive: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         boundary("create_directory_exclusive", () => {
           requireParentDirectory(normalized);
           if (files.has(normalized) || directories.has(normalized)) {
@@ -321,7 +338,7 @@ export function memoryTransactionStorage(
         });
       }),
     writeSynced: async (path, content) => {
-      const normalized = normalizePath(path);
+      const normalized = normalizeDurablePath(path);
       const handle = { opened: false };
       try {
         await deferred(() => {
@@ -359,8 +376,8 @@ export function memoryTransactionStorage(
     },
     replaceFile: (stagedPath, targetPath) =>
       deferred(() => {
-        const normalizedStaged = normalizePath(stagedPath);
-        const normalizedTarget = normalizePath(targetPath);
+        const normalizedStaged = normalizeDurablePath(stagedPath);
+        const normalizedTarget = normalizeDurablePath(targetPath);
         boundary("replace_file", () => {
           requireParentDirectory(normalizedStaged);
           requireParentDirectory(normalizedTarget);
@@ -376,7 +393,7 @@ export function memoryTransactionStorage(
       }),
     removeFile: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         boundary("remove_file", () => {
           requireFile(normalized);
           files.delete(normalized);
@@ -384,7 +401,7 @@ export function memoryTransactionStorage(
       }),
     removeEmptyDirectory: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = normalizeDurablePath(path);
         boundary("remove_empty_directory", () => {
           requireDirectory(normalized);
           if (immediateEntries(normalized, files, directories).length !== 0) {
@@ -397,7 +414,7 @@ export function memoryTransactionStorage(
       }),
     syncDirectory: (path) =>
       deferred(() => {
-        const normalized = path === "." ? null : normalizePath(path);
+        const normalized = path === "." ? null : normalizeDurablePath(path);
         return boundary("sync_directory", () => {
           if (normalized !== null) requireDirectory(normalized);
           return "supported" as const;

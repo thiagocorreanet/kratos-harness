@@ -219,6 +219,11 @@ export function describeDurableFileSystemContract(
       "a\\b",
       "a\u0000b",
       "a\nb",
+      ".brain//state.json",
+      ".brain/./state.json",
+      ".brain/state.json/",
+      "outside.txt",
+      "relative/path",
     ] as const;
 
     const durableEntryPathOperations: readonly [
