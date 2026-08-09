@@ -441,6 +441,62 @@ describe("Ajv schema registry", () => {
     });
   });
 
+  it("rejects Array.prototype pollution after initialization without invoking it", () => {
+    const value = structuredClone(migration);
+    let calls = 0;
+    let result: unknown;
+    Object.defineProperty(Array.prototype, "attackerArrayValue", {
+      configurable: true,
+      get() {
+        calls += 1;
+        return "attacker-controlled array prototype value";
+      },
+    });
+
+    try {
+      result = registry.validate(migrationRequest(value));
+    } finally {
+      delete (Array.prototype as unknown as Record<string, unknown>)
+        .attackerArrayValue;
+    }
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
+  it("rejects an adulterated Array.isArray after initialization without invoking it", () => {
+    const value = structuredClone(migration);
+    const intrinsic = Array.isArray;
+    const descriptor = Object.getOwnPropertyDescriptor(Array, "isArray");
+    let calls = 0;
+    let result: unknown;
+    Object.defineProperty(Array, "isArray", {
+      configurable: true,
+      value(candidate: unknown) {
+        calls += 1;
+        return Reflect.apply(intrinsic, Array, [candidate]);
+      },
+      writable: true,
+    });
+
+    try {
+      result = registry.validate(migrationRequest(value));
+    } finally {
+      if (descriptor === undefined)
+        delete (Array as { isArray?: unknown }).isArray;
+      else Object.defineProperty(Array, "isArray", descriptor);
+    }
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
   it("rejects an extra array accessor without invoking it", () => {
     let calls = 0;
     const value = structuredClone(migration);
@@ -1088,5 +1144,47 @@ describe("schema registry fresh-process preflight", () => {
     expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
     expect(result.stderr).toContain("Embedded schema registry is invalid");
     expect(result.stderr).not.toContain("attacker-call-accessor");
+  });
+
+  it("rejects Array.prototype pollution before initialization without invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(Array.prototype, "attackerArrayValue", {
+        configurable: true,
+        get() {
+          calls += 1;
+          throw new Error("attacker-array-prototype-accessor");
+        },
+      });
+    `);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+    expect(result.stderr).not.toContain("attacker-array-prototype-accessor");
+  });
+
+  it("rejects an Array.isArray accessor before initialization without invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(Array, "isArray", {
+        configurable: true,
+        get() {
+          calls += 1;
+          throw new Error("attacker-array-is-array-accessor");
+        },
+      });
+    `);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+    expect(result.stderr).not.toContain("attacker-array-is-array-accessor");
   });
 });

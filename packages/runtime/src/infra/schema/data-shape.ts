@@ -3,6 +3,7 @@ import { types } from "node:util";
 import { isObjectPrototypeEnvironmentSafe } from "./prototype-environment.js";
 
 export function isInertJsonData(value: unknown): boolean {
+  if (!isObjectPrototypeEnvironmentSafe()) return false;
   return inspect(value, new WeakSet<object>());
 }
 
@@ -15,9 +16,7 @@ function inspect(value: unknown, active: WeakSet<object>): boolean {
 
   if (Array.isArray(value)) return inspectArray(value, active);
   const prototype: unknown = Object.getPrototypeOf(value);
-  if (prototype === Object.prototype) {
-    if (!isObjectPrototypeEnvironmentSafe()) return false;
-  } else if (prototype !== null) {
+  if (prototype !== Object.prototype && prototype !== null) {
     return false;
   }
   return inspectObject(value as Record<string, unknown>, active);

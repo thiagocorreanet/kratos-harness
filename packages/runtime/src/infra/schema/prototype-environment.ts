@@ -8,6 +8,7 @@ type FunctionToString = (this: unknown) => string;
 type IntrinsicFunction = (...args: never[]) => unknown;
 
 interface TrustedIntrinsics {
+  readonly arrayConstructor: IntrinsicFunction;
   readonly functionCall: IntrinsicFunction;
   readonly functionPrototype: IntrinsicFunction;
   readonly functionToString: FunctionToString;
@@ -55,6 +56,12 @@ export function isObjectPrototypeEnvironmentSafe(): boolean {
         TRUSTED_INTRINSICS.functionCall,
         TRUSTED_INTRINSICS.functionToString,
         compared,
+      ) &&
+      sameIntrinsicValue(
+        Array,
+        TRUSTED_INTRINSICS.arrayConstructor,
+        TRUSTED_INTRINSICS.functionToString,
+        compared,
       )
     );
   } catch {
@@ -66,27 +73,51 @@ function createTrustedIntrinsics(): TrustedIntrinsics | null {
   try {
     const sandbox = Object.create(null) as Record<string, never>;
     const intrinsics: unknown = runInNewContext(
-      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString]",
+      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString, Array]",
       sandbox,
     );
-    if (!Array.isArray(intrinsics) || intrinsics.length !== 4) return null;
-    const objectPrototype: unknown = intrinsics[0];
-    const functionPrototype: unknown = intrinsics[1];
-    const functionCall: unknown = intrinsics[2];
-    const functionToString: unknown = intrinsics[3];
+    if (typeof intrinsics !== "object" || intrinsics === null) return null;
+    const lengthDescriptor = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "length",
+    );
+    if (lengthDescriptor?.value !== 5) return null;
+    const objectPrototype: unknown = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "0",
+    )?.value;
+    const functionPrototype: unknown = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "1",
+    )?.value;
+    const functionCall: unknown = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "2",
+    )?.value;
+    const functionToString: unknown = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "3",
+    )?.value;
+    const arrayConstructor: unknown = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "4",
+    )?.value;
     if (
       typeof objectPrototype !== "object" ||
       objectPrototype === null ||
       typeof functionPrototype !== "function" ||
       typeof functionCall !== "function" ||
       typeof functionToString !== "function" ||
+      typeof arrayConstructor !== "function" ||
       types.isProxy(functionPrototype) ||
       types.isProxy(functionCall) ||
-      types.isProxy(functionToString)
+      types.isProxy(functionToString) ||
+      types.isProxy(arrayConstructor)
     ) {
       return null;
     }
     return {
+      arrayConstructor: arrayConstructor as IntrinsicFunction,
       functionCall: functionCall as IntrinsicFunction,
       functionPrototype: functionPrototype as IntrinsicFunction,
       functionToString: functionToString as FunctionToString,
@@ -102,9 +133,11 @@ function resolveDataProperty(value: object, key: PropertyKey): unknown {
   while (current !== null) {
     const descriptor = Object.getOwnPropertyDescriptor(current, key);
     if (descriptor !== undefined) {
-      return Reflect.ownKeys(descriptor).includes("value")
-        ? descriptor.value
-        : UNRESOLVED;
+      const valueDescriptor = Object.getOwnPropertyDescriptor(
+        descriptor,
+        "value",
+      );
+      return valueDescriptor === undefined ? UNRESOLVED : valueDescriptor.value;
     }
     current = Object.getPrototypeOf(current) as object | null;
   }
@@ -158,17 +191,27 @@ function sameIntrinsicObject(
 
   const actualKeys = Reflect.ownKeys(actual);
   const expectedKeys = Reflect.ownKeys(expected);
-  if (
-    actualKeys.length !== expectedKeys.length ||
-    actualKeys.some(
-      (actualKey) =>
-        !expectedKeys.some((expectedKey) => Object.is(actualKey, expectedKey)),
-    )
-  ) {
-    return false;
+  if (actualKeys.length !== expectedKeys.length) return false;
+  // Indexed loops deliberately avoid consulting a potentially polluted
+  // Array.prototype iterator before the intrinsic comparison rejects it.
+  /* eslint-disable @typescript-eslint/prefer-for-of */
+  for (let actualIndex = 0; actualIndex < actualKeys.length; actualIndex += 1) {
+    const actualKey = actualKeys[actualIndex];
+    let found = false;
+    for (
+      let expectedIndex = 0;
+      expectedIndex < expectedKeys.length;
+      expectedIndex += 1
+    ) {
+      const expectedKey = expectedKeys[expectedIndex];
+      if (Object.is(actualKey, expectedKey)) found = true;
+    }
+    if (!found) return false;
   }
 
-  for (const key of expectedKeys) {
+  for (let index = 0; index < expectedKeys.length; index += 1) {
+    const key = expectedKeys[index];
+    if (key === undefined) return false;
     const actualDescriptor = Object.getOwnPropertyDescriptor(actual, key);
     const expectedDescriptor = Object.getOwnPropertyDescriptor(expected, key);
     if (
@@ -182,6 +225,7 @@ function sameIntrinsicObject(
       return false;
     }
   }
+  /* eslint-enable @typescript-eslint/prefer-for-of */
 
   return sameIntrinsicValue(
     Object.getPrototypeOf(actual),
@@ -205,8 +249,10 @@ function sameIntrinsicDescriptor(
     return false;
   }
 
-  const actualIsData = Reflect.ownKeys(actual).includes("value");
-  const expectedIsData = Reflect.ownKeys(expected).includes("value");
+  const actualIsData =
+    Object.getOwnPropertyDescriptor(actual, "value") !== undefined;
+  const expectedIsData =
+    Object.getOwnPropertyDescriptor(expected, "value") !== undefined;
   if (actualIsData !== expectedIsData) return false;
   if (actualIsData) {
     return (

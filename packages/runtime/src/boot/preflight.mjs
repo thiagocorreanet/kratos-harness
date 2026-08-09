@@ -36,9 +36,11 @@ function resolveDataProperty(value, key) {
   while (current !== null) {
     var descriptor = Object.getOwnPropertyDescriptor(current, key);
     if (descriptor !== undefined) {
-      return Reflect.ownKeys(descriptor).indexOf("value") !== -1
-        ? descriptor.value
-        : UNRESOLVED;
+      var valueDescriptor = Object.getOwnPropertyDescriptor(
+        descriptor,
+        "value",
+      );
+      return valueDescriptor === undefined ? UNRESOLVED : valueDescriptor.value;
     }
     current = Object.getPrototypeOf(current);
   }
@@ -150,8 +152,10 @@ function sameIntrinsicDescriptor(
   ) {
     return false;
   }
-  var actualIsData = Reflect.ownKeys(actual).indexOf("value") !== -1;
-  var expectedIsData = Reflect.ownKeys(expected).indexOf("value") !== -1;
+  var actualIsData =
+    Object.getOwnPropertyDescriptor(actual, "value") !== undefined;
+  var expectedIsData =
+    Object.getOwnPropertyDescriptor(expected, "value") !== undefined;
   if (actualIsData !== expectedIsData) return false;
   if (actualIsData) {
     return (
@@ -190,20 +194,48 @@ function sameIntrinsicDescriptor(
 function objectPrototypeIsSafe(vm, types) {
   try {
     var intrinsics = vm.runInNewContext(
-      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString]",
+      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString, Array]",
       Object.create(null),
     );
+    var lengthDescriptor = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "length",
+    );
+    var objectPrototype = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "0",
+    ).value;
+    var functionPrototype = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "1",
+    ).value;
+    var functionCallIntrinsic = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "2",
+    ).value;
+    var functionToString = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "3",
+    ).value;
+    var arrayConstructor = Object.getOwnPropertyDescriptor(
+      intrinsics,
+      "4",
+    ).value;
     if (
-      !Array.isArray(intrinsics) ||
-      intrinsics.length !== 4 ||
-      typeof intrinsics[0] !== "object" ||
-      intrinsics[0] === null ||
-      typeof intrinsics[1] !== "function" ||
-      typeof intrinsics[2] !== "function" ||
-      typeof intrinsics[3] !== "function" ||
-      types.isProxy(intrinsics[1]) ||
-      types.isProxy(intrinsics[2]) ||
-      types.isProxy(intrinsics[3])
+      typeof intrinsics !== "object" ||
+      intrinsics === null ||
+      lengthDescriptor === undefined ||
+      lengthDescriptor.value !== 5 ||
+      typeof objectPrototype !== "object" ||
+      objectPrototype === null ||
+      typeof functionPrototype !== "function" ||
+      typeof functionCallIntrinsic !== "function" ||
+      typeof functionToString !== "function" ||
+      typeof arrayConstructor !== "function" ||
+      types.isProxy(functionPrototype) ||
+      types.isProxy(functionCallIntrinsic) ||
+      types.isProxy(functionToString) ||
+      types.isProxy(arrayConstructor)
     ) {
       return false;
     }
@@ -217,22 +249,29 @@ function objectPrototypeIsSafe(vm, types) {
     return (
       sameIntrinsicValue(
         Object.prototype,
-        intrinsics[0],
-        intrinsics[3],
+        objectPrototype,
+        functionToString,
         types,
         compared,
       ) &&
       sameIntrinsicValue(
         Function.prototype,
-        intrinsics[1],
-        intrinsics[3],
+        functionPrototype,
+        functionToString,
         types,
         compared,
       ) &&
       sameIntrinsicValue(
         functionCall,
-        intrinsics[2],
-        intrinsics[3],
+        functionCallIntrinsic,
+        functionToString,
+        types,
+        compared,
+      ) &&
+      sameIntrinsicValue(
+        Array,
+        arrayConstructor,
+        functionToString,
         types,
         compared,
       )
