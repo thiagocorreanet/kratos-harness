@@ -7,9 +7,10 @@ It does not add a public state command or complete the SDD trail. The staged CLI
 still supports only `help`, `version`, and `handshake`.
 
 The boundary turns one normalized, ordered managed mutation plan into a durable
-transaction below `.brain/`. A dry run renders that same normalized plan and
-does not create transaction metadata. A plan whose results are already present
-is a no-op and also creates no transaction.
+transaction below `.brain/`. That normalized plan is currently an internal
+input to execution. This issue adds no public dry-run wiring; a future command
+can render the same plan without creating transaction metadata. A plan whose
+results are already present is a no-op and also creates no transaction.
 
 ## Managed scope and layout
 
@@ -99,8 +100,9 @@ bytes are not parsed and bounded abort cleanup removes it. A directory,
 symlink, special entry, unknown layout name, or a manifest referenced by a
 non-null digest remains strict corrupt-state evidence and is preserved.
 
-At and after `publishing`, recovery only rolls forward. It observes each
-destination instead of trusting whether the prior promise resolved:
+At and after `publishing`, recovery never aborts. It observes each destination
+instead of trusting whether the prior promise resolved, then rolls forward
+toward `committed` or blocks on unexpected evidence:
 
 - a destination matching its precondition is published next;
 - a destination already matching its result is recorded and skipped;
@@ -119,9 +121,10 @@ atomicity, not simultaneous visibility.
 
 While `publishing` exists, individual destinations may contain a mix of old and
 new bytes. Ordinary mutation and canonical-state consumption are blocked until
-explicit recovery either reaches `committed` or proves a safe pre-publication
-abort. The durable marker makes the mixed interval unavailable rather than
-pretending it did not occur.
+explicit recovery reaches `committed`. If the observed evidence cannot safely
+support roll-forward, recovery blocks and preserves it for diagnosis; it never
+aborts a publishing transaction. The durable marker makes the mixed interval
+unavailable rather than pretending it did not occur.
 
 ## Root bootstrap and synchronization
 
