@@ -319,6 +319,26 @@ describe("runtime boundary documentation", () => {
 });
 
 describe("the repository obeys its own rules", () => {
+  it("keeps transaction domain and durable ports free of Node.js builtins", async () => {
+    const paths = [
+      "packages/runtime/src/domain/transactions/index.ts",
+      "packages/runtime/src/domain/transactions/model.ts",
+      "packages/runtime/src/domain/transactions/normalize.ts",
+      "packages/runtime/src/domain/transactions/recovery.ts",
+      "packages/runtime/src/domain/transactions/transition.ts",
+      "packages/runtime/src/ports/transactions.ts",
+    ] as const;
+    const modules = await Promise.all(
+      paths.map(async (path) => ({
+        path,
+        imports: await collectImports(join(repositoryRoot, path)),
+      })),
+    );
+
+    expect(modules.map(({ path }) => path)).toEqual(paths);
+    expect(violations(modules)).toEqual([]);
+  });
+
   it("has no dependency-direction violation", async () => {
     const modules = await sourceModules();
     // Prove the sweep actually looked at the layered source, so an empty glob

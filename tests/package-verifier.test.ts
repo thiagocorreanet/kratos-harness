@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -122,7 +123,7 @@ describe("package verifier", () => {
     expect(verify).toThrow();
   });
 
-  it("runs every orientation command from an isolated three-file copy", async () => {
+  it("runs every orientation command from an isolated three-file plugin", async () => {
     const cleanRoom = await mkdtemp(join(tmpdir(), "yoda-package-verifier-"));
     try {
       const runtime = join(cleanRoom, "runtime");
@@ -133,11 +134,19 @@ describe("package verifier", () => {
           join(runtime, staged),
         );
       }
+      expect((await readdir(cleanRoom)).sort()).toEqual(["runtime"]);
+      expect((await readdir(runtime)).sort()).toEqual([
+        "manifest.json",
+        "yoda.core.mjs",
+        "yoda.mjs",
+      ]);
 
       const isolatedEntry = join(runtime, "yoda.mjs");
       for (const [argument, accepts] of [
         ["--help", (stdout: string) => stdout.startsWith("Usage: yoda ")],
+        ["help", (stdout: string) => stdout.startsWith("Usage: yoda ")],
         ["--version", (stdout: string) => stdout === "0.0.0-development\n"],
+        ["version", (stdout: string) => stdout === "0.0.0-development\n"],
         [
           "handshake",
           (stdout: string) =>
@@ -161,6 +170,7 @@ describe("package verifier", () => {
         expect(result.stderr).toBe("");
         expect(accepts(result.stdout)).toBe(true);
       }
+      expect((await readdir(cleanRoom)).sort()).toEqual(["runtime"]);
     } finally {
       await rm(cleanRoom, { force: true, recursive: true });
     }
