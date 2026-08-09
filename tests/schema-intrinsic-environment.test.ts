@@ -6,6 +6,23 @@ import { isObjectPrototypeEnvironmentSafe } from "../packages/runtime/src/infra/
 
 const intrinsic = () => undefined;
 
+function trustedTuple(index?: number, value?: unknown): unknown[] {
+  const tuple: unknown[] = [
+    {},
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    intrinsic,
+    {},
+  ];
+  if (index !== undefined) tuple[index] = value;
+  return tuple;
+}
+
 afterEach(() => {
   vi.doUnmock("node:vm");
   vi.resetModules();
@@ -27,36 +44,25 @@ describe("schema intrinsic environment", () => {
   it.each([
     ["a non-object result", null],
     ["the wrong tuple length", []],
-    [
-      "a null object prototype",
-      [null, intrinsic, intrinsic, intrinsic, intrinsic],
-    ],
-    [
-      "a non-callable function prototype",
-      [{}, null, intrinsic, intrinsic, intrinsic],
-    ],
-    [
-      "a non-callable function call",
-      [{}, intrinsic, null, intrinsic, intrinsic],
-    ],
-    ["a non-callable toString", [{}, intrinsic, intrinsic, null, intrinsic]],
-    ["a non-callable Array", [{}, intrinsic, intrinsic, intrinsic, null]],
-    [
-      "a proxied function prototype",
-      [{}, new Proxy(intrinsic, {}), intrinsic, intrinsic, intrinsic],
-    ],
-    [
-      "a proxied function call",
-      [{}, intrinsic, new Proxy(intrinsic, {}), intrinsic, intrinsic],
-    ],
-    [
-      "a proxied toString",
-      [{}, intrinsic, intrinsic, new Proxy(intrinsic, {}), intrinsic],
-    ],
-    [
-      "a proxied Array",
-      [{}, intrinsic, intrinsic, intrinsic, new Proxy(intrinsic, {})],
-    ],
+    ["a null object prototype", trustedTuple(0, null)],
+    ["a non-callable function prototype", trustedTuple(1, null)],
+    ["a non-callable function call", trustedTuple(2, null)],
+    ["a non-callable Array", trustedTuple(3, null)],
+    ["a non-callable function source helper", trustedTuple(4, null)],
+    ["a non-callable descriptor helper", trustedTuple(5, null)],
+    ["a non-callable prototype helper", trustedTuple(6, null)],
+    ["a non-callable same-value helper", trustedTuple(7, null)],
+    ["a non-callable own-keys helper", trustedTuple(8, null)],
+    ["a null Reflect object", trustedTuple(9, null)],
+    ["a proxied function prototype", trustedTuple(1, new Proxy(intrinsic, {}))],
+    ["a proxied function call", trustedTuple(2, new Proxy(intrinsic, {}))],
+    ["a proxied Array", trustedTuple(3, new Proxy(intrinsic, {}))],
+    ["a proxied function source", trustedTuple(4, new Proxy(intrinsic, {}))],
+    ["a proxied descriptor helper", trustedTuple(5, new Proxy(intrinsic, {}))],
+    ["a proxied prototype helper", trustedTuple(6, new Proxy(intrinsic, {}))],
+    ["a proxied same-value helper", trustedTuple(7, new Proxy(intrinsic, {}))],
+    ["a proxied own-keys helper", trustedTuple(8, new Proxy(intrinsic, {}))],
+    ["a proxied Reflect object", trustedTuple(9, new Proxy({}, {}))],
   ] as const)("rejects %s from the trusted realm", async (_name, value) => {
     await expectRejectedTrustedRealm(value);
   });
@@ -75,6 +81,14 @@ describe("schema intrinsic environment", () => {
     expect(() => {
       environment.assertObjectPrototypeEnvironmentSafe();
     }).toThrow(new Error("Embedded schema registry is invalid"));
+  });
+
+  it("fails closed when a trusted reflection helper throws", async () => {
+    await expectRejectedTrustedRealm(
+      trustedTuple(5, () => {
+        throw new Error("trusted reflection unavailable");
+      }),
+    );
   });
 
   it("rejects an accessor-backed Function.prototype.call without invoking it", () => {
@@ -136,6 +150,79 @@ describe("schema intrinsic environment", () => {
         Object.defineProperty(Reflect, "ownKeys", descriptor);
     }
 
+    expect(safe).toBe(false);
+  });
+
+  it("rejects preserving Reflect.ownKeys adulteration without invoking it", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(Reflect, "ownKeys");
+    const intrinsic = Reflect.ownKeys;
+    let calls = 0;
+    Object.defineProperty(Reflect, "ownKeys", {
+      configurable: true,
+      value(target: object) {
+        calls += 1;
+        return intrinsic(target);
+      },
+      writable: true,
+    });
+    let safe: boolean;
+    try {
+      safe = isObjectPrototypeEnvironmentSafe();
+    } finally {
+      if (descriptor !== undefined)
+        Object.defineProperty(Reflect, "ownKeys", descriptor);
+    }
+
+    expect(calls).toBe(0);
+    expect(safe).toBe(false);
+  });
+
+  it("rejects a hidden Array.isArray accessor without invoking host reflection", () => {
+    const arrayDescriptor = Object.getOwnPropertyDescriptor(Array, "isArray");
+    const reflectionDescriptor = Object.getOwnPropertyDescriptor(
+      Object,
+      "getOwnPropertyDescriptor",
+    );
+    const intrinsicReflection = Object.getOwnPropertyDescriptor;
+    const intrinsicIsArray = Array.isArray;
+    let accessorCalls = 0;
+    let reflectionCalls = 0;
+    Object.defineProperty(Array, "isArray", {
+      configurable: true,
+      get() {
+        accessorCalls += 1;
+        return intrinsicIsArray;
+      },
+    });
+    Object.defineProperty(Object, "getOwnPropertyDescriptor", {
+      configurable: true,
+      value(target: object, key: PropertyKey) {
+        reflectionCalls += 1;
+        if (target === Array && key === "isArray") return arrayDescriptor;
+        if (target === Object && key === "getOwnPropertyDescriptor") {
+          return reflectionDescriptor;
+        }
+        return intrinsicReflection(target, key);
+      },
+      writable: true,
+    });
+    let safe: boolean;
+    try {
+      safe = isObjectPrototypeEnvironmentSafe();
+    } finally {
+      if (reflectionDescriptor !== undefined) {
+        Object.defineProperty(
+          Object,
+          "getOwnPropertyDescriptor",
+          reflectionDescriptor,
+        );
+      }
+      if (arrayDescriptor !== undefined)
+        Object.defineProperty(Array, "isArray", arrayDescriptor);
+    }
+
+    expect(reflectionCalls).toBe(0);
+    expect(accessorCalls).toBe(0);
     expect(safe).toBe(false);
   });
 

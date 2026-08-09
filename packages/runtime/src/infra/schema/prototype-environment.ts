@@ -4,20 +4,37 @@ import { runInNewContext } from "node:vm";
 const REGISTRY_INTEGRITY_ERROR = "Embedded schema registry is invalid";
 const UNRESOLVED = Symbol("unresolved intrinsic property");
 
-type FunctionToString = (this: unknown) => string;
 type IntrinsicFunction = (...args: never[]) => unknown;
+type TrustedFunctionSource = (value: unknown) => unknown;
+type TrustedGetOwnPropertyDescriptor = (
+  value: object,
+  key: PropertyKey,
+) => PropertyDescriptor | undefined;
+type TrustedGetPrototypeOf = (value: object) => object | null;
+type TrustedIs = (left: unknown, right: unknown) => boolean;
+type TrustedOwnKeys = (value: object) => PropertyKey[];
 
 interface TrustedIntrinsics {
   readonly arrayConstructor: IntrinsicFunction;
   readonly functionCall: IntrinsicFunction;
   readonly functionPrototype: IntrinsicFunction;
-  readonly functionToString: FunctionToString;
+  readonly functionSource: TrustedFunctionSource;
+  readonly getOwnPropertyDescriptor: TrustedGetOwnPropertyDescriptor;
+  readonly getPrototypeOf: TrustedGetPrototypeOf;
+  readonly is: TrustedIs;
   readonly objectPrototype: object;
+  readonly ownKeys: TrustedOwnKeys;
+  readonly reflectObject: object;
+}
+
+interface ComparedPair {
+  readonly actual: object;
+  readonly expected: object;
+  readonly previous: ComparedPair | null;
 }
 
 interface ComparedObjects {
-  readonly actualToExpected: WeakMap<object, object>;
-  readonly expectedToActual: WeakMap<object, object>;
+  head: ComparedPair | null;
 }
 
 const TRUSTED_INTRINSICS = createTrustedIntrinsics();
@@ -31,36 +48,43 @@ export function assertObjectPrototypeEnvironmentSafe(): void {
 export function isObjectPrototypeEnvironmentSafe(): boolean {
   if (TRUSTED_INTRINSICS === null) return false;
   try {
-    const functionCall = resolveDataProperty(Function.prototype, "call");
+    const functionCall = resolveDataProperty(
+      Function.prototype,
+      "call",
+      TRUSTED_INTRINSICS,
+    );
     if (functionCall === UNRESOLVED) return false;
 
-    const compared: ComparedObjects = {
-      actualToExpected: new WeakMap<object, object>(),
-      expectedToActual: new WeakMap<object, object>(),
-    };
+    const compared: ComparedObjects = { head: null };
     return (
       sameIntrinsicValue(
         Object.prototype,
         TRUSTED_INTRINSICS.objectPrototype,
-        TRUSTED_INTRINSICS.functionToString,
+        TRUSTED_INTRINSICS,
         compared,
       ) &&
       sameIntrinsicValue(
         Function.prototype,
         TRUSTED_INTRINSICS.functionPrototype,
-        TRUSTED_INTRINSICS.functionToString,
+        TRUSTED_INTRINSICS,
         compared,
       ) &&
       sameIntrinsicValue(
         functionCall,
         TRUSTED_INTRINSICS.functionCall,
-        TRUSTED_INTRINSICS.functionToString,
+        TRUSTED_INTRINSICS,
         compared,
       ) &&
       sameIntrinsicValue(
         Array,
         TRUSTED_INTRINSICS.arrayConstructor,
-        TRUSTED_INTRINSICS.functionToString,
+        TRUSTED_INTRINSICS,
+        compared,
+      ) &&
+      sameIntrinsicValue(
+        Reflect,
+        TRUSTED_INTRINSICS.reflectObject,
+        TRUSTED_INTRINSICS,
         compared,
       )
     );
@@ -71,48 +95,75 @@ export function isObjectPrototypeEnvironmentSafe(): boolean {
 
 function createTrustedIntrinsics(): TrustedIntrinsics | null {
   try {
-    const sandbox = Object.create(null) as Record<string, never>;
     const intrinsics: unknown = runInNewContext(
-      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString, Array]",
-      sandbox,
+      `
+        (function () {
+          var apply = Reflect.apply;
+          var functionToString = Function.prototype.toString;
+          var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+          var getPrototypeOf = Object.getPrototypeOf;
+          var is = Object.is;
+          var ownKeys = Reflect.ownKeys;
+          return [
+            Object.prototype,
+            Function.prototype,
+            Function.prototype.call,
+            Array,
+            function (value) {
+              return apply(functionToString, value, []);
+            },
+            function (value, key) {
+              return getOwnPropertyDescriptor(value, key);
+            },
+            function (value) {
+              return getPrototypeOf(value);
+            },
+            function (left, right) {
+              return is(left, right);
+            },
+            function (value) {
+              return ownKeys(value);
+            },
+            Reflect,
+          ];
+        })()
+      `,
     );
     if (typeof intrinsics !== "object" || intrinsics === null) return null;
-    const lengthDescriptor = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "length",
-    );
-    if (lengthDescriptor?.value !== 5) return null;
-    const objectPrototype: unknown = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "0",
-    )?.value;
-    const functionPrototype: unknown = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "1",
-    )?.value;
-    const functionCall: unknown = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "2",
-    )?.value;
-    const functionToString: unknown = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "3",
-    )?.value;
-    const arrayConstructor: unknown = Object.getOwnPropertyDescriptor(
-      intrinsics,
-      "4",
-    )?.value;
+    const trusted = intrinsics as Readonly<Record<number | "length", unknown>>;
+    if (trusted.length !== 10) return null;
+    const objectPrototype = trusted[0];
+    const functionPrototype = trusted[1];
+    const functionCall = trusted[2];
+    const arrayConstructor = trusted[3];
+    const functionSource = trusted[4];
+    const getOwnPropertyDescriptor = trusted[5];
+    const getPrototypeOf = trusted[6];
+    const is = trusted[7];
+    const ownKeys = trusted[8];
+    const reflectObject = trusted[9];
     if (
       typeof objectPrototype !== "object" ||
       objectPrototype === null ||
       typeof functionPrototype !== "function" ||
       typeof functionCall !== "function" ||
-      typeof functionToString !== "function" ||
       typeof arrayConstructor !== "function" ||
+      typeof functionSource !== "function" ||
+      typeof getOwnPropertyDescriptor !== "function" ||
+      typeof getPrototypeOf !== "function" ||
+      typeof is !== "function" ||
+      typeof ownKeys !== "function" ||
+      typeof reflectObject !== "object" ||
+      reflectObject === null ||
       types.isProxy(functionPrototype) ||
       types.isProxy(functionCall) ||
-      types.isProxy(functionToString) ||
-      types.isProxy(arrayConstructor)
+      types.isProxy(arrayConstructor) ||
+      types.isProxy(functionSource) ||
+      types.isProxy(getOwnPropertyDescriptor) ||
+      types.isProxy(getPrototypeOf) ||
+      types.isProxy(is) ||
+      types.isProxy(ownKeys) ||
+      types.isProxy(reflectObject)
     ) {
       return null;
     }
@@ -120,26 +171,36 @@ function createTrustedIntrinsics(): TrustedIntrinsics | null {
       arrayConstructor: arrayConstructor as IntrinsicFunction,
       functionCall: functionCall as IntrinsicFunction,
       functionPrototype: functionPrototype as IntrinsicFunction,
-      functionToString: functionToString as FunctionToString,
+      functionSource: functionSource as TrustedFunctionSource,
+      getOwnPropertyDescriptor:
+        getOwnPropertyDescriptor as TrustedGetOwnPropertyDescriptor,
+      getPrototypeOf: getPrototypeOf as TrustedGetPrototypeOf,
+      is: is as TrustedIs,
       objectPrototype,
+      ownKeys: ownKeys as TrustedOwnKeys,
+      reflectObject,
     };
   } catch {
     return null;
   }
 }
 
-function resolveDataProperty(value: object, key: PropertyKey): unknown {
+function resolveDataProperty(
+  value: object,
+  key: PropertyKey,
+  trusted: TrustedIntrinsics,
+): unknown {
   let current: object | null = value;
   while (current !== null) {
-    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    const descriptor = trusted.getOwnPropertyDescriptor(current, key);
     if (descriptor !== undefined) {
-      const valueDescriptor = Object.getOwnPropertyDescriptor(
+      const valueDescriptor = trusted.getOwnPropertyDescriptor(
         descriptor,
         "value",
       );
       return valueDescriptor === undefined ? UNRESOLVED : valueDescriptor.value;
     }
-    current = Object.getPrototypeOf(current) as object | null;
+    current = trusted.getPrototypeOf(current);
   }
   return UNRESOLVED;
 }
@@ -147,22 +208,18 @@ function resolveDataProperty(value: object, key: PropertyKey): unknown {
 function sameIntrinsicValue(
   actual: unknown,
   expected: unknown,
-  functionToString: FunctionToString,
+  trusted: TrustedIntrinsics,
   compared: ComparedObjects,
 ): boolean {
   if (typeof actual !== typeof expected) return false;
   if (typeof actual === "function" && typeof expected === "function") {
     if (types.isProxy(actual) || types.isProxy(expected)) return false;
-    const actualSource: unknown = Reflect.apply(functionToString, actual, []);
-    const expectedSource: unknown = Reflect.apply(
-      functionToString,
-      expected,
-      [],
-    );
+    const actualSource = trusted.functionSource(actual);
+    const expectedSource = trusted.functionSource(expected);
     if (typeof actualSource !== "string" || actualSource !== expectedSource) {
       return false;
     }
-    return sameIntrinsicObject(actual, expected, functionToString, compared);
+    return sameIntrinsicObject(actual, expected, trusted, compared);
   }
   if (
     actual === null ||
@@ -170,27 +227,28 @@ function sameIntrinsicValue(
     typeof actual !== "object" ||
     typeof expected !== "object"
   ) {
-    return Object.is(actual, expected);
+    return trusted.is(actual, expected);
   }
   if (types.isProxy(actual) || types.isProxy(expected)) return false;
-  return sameIntrinsicObject(actual, expected, functionToString, compared);
+  return sameIntrinsicObject(actual, expected, trusted, compared);
 }
 
 function sameIntrinsicObject(
   actual: object,
   expected: object,
-  functionToString: FunctionToString,
+  trusted: TrustedIntrinsics,
   compared: ComparedObjects,
 ): boolean {
-  const mappedExpected = compared.actualToExpected.get(actual);
-  if (mappedExpected !== undefined) return mappedExpected === expected;
-  const mappedActual = compared.expectedToActual.get(expected);
-  if (mappedActual !== undefined) return mappedActual === actual;
-  compared.actualToExpected.set(actual, expected);
-  compared.expectedToActual.set(expected, actual);
+  let pair = compared.head;
+  while (pair !== null) {
+    if (pair.actual === actual) return pair.expected === expected;
+    if (pair.expected === expected) return pair.actual === actual;
+    pair = pair.previous;
+  }
+  compared.head = { actual, expected, previous: compared.head };
 
-  const actualKeys = Reflect.ownKeys(actual);
-  const expectedKeys = Reflect.ownKeys(expected);
+  const actualKeys = trusted.ownKeys(actual);
+  const expectedKeys = trusted.ownKeys(expected);
   if (actualKeys.length !== expectedKeys.length) return false;
   // Indexed loops deliberately avoid consulting a potentially polluted
   // Array.prototype iterator before the intrinsic comparison rejects it.
@@ -204,21 +262,22 @@ function sameIntrinsicObject(
       expectedIndex += 1
     ) {
       const expectedKey = expectedKeys[expectedIndex];
-      if (Object.is(actualKey, expectedKey)) found = true;
+      if (trusted.is(actualKey, expectedKey)) found = true;
     }
     if (!found) return false;
   }
 
   for (let index = 0; index < expectedKeys.length; index += 1) {
     // Reflect.ownKeys returns a dense PropertyKey array.
-    const key = expectedKeys[index] as PropertyKey;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- non-proxy own keys cannot disappear during synchronous inspection
+    const key = expectedKeys[index]!;
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- non-proxy own keys cannot disappear during synchronous inspection
-    const actualDescriptor = Object.getOwnPropertyDescriptor(
+    const actualDescriptor = trusted.getOwnPropertyDescriptor(
       actual,
       key,
     ) as PropertyDescriptor;
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- non-proxy own keys cannot disappear during synchronous inspection
-    const expectedDescriptor = Object.getOwnPropertyDescriptor(
+    const expectedDescriptor = trusted.getOwnPropertyDescriptor(
       expected,
       key,
     ) as PropertyDescriptor;
@@ -226,7 +285,7 @@ function sameIntrinsicObject(
       !sameIntrinsicDescriptor(
         actualDescriptor,
         expectedDescriptor,
-        functionToString,
+        trusted,
         compared,
       )
     ) {
@@ -236,9 +295,9 @@ function sameIntrinsicObject(
   /* eslint-enable @typescript-eslint/prefer-for-of */
 
   return sameIntrinsicValue(
-    Object.getPrototypeOf(actual),
-    Object.getPrototypeOf(expected),
-    functionToString,
+    trusted.getPrototypeOf(actual),
+    trusted.getPrototypeOf(expected),
+    trusted,
     compared,
   );
 }
@@ -246,7 +305,7 @@ function sameIntrinsicObject(
 function sameIntrinsicDescriptor(
   actual: PropertyDescriptor,
   expected: PropertyDescriptor,
-  functionToString: FunctionToString,
+  trusted: TrustedIntrinsics,
   compared: ComparedObjects,
 ): boolean {
   if (
@@ -257,39 +316,34 @@ function sameIntrinsicDescriptor(
   }
 
   const actualIsData =
-    Object.getOwnPropertyDescriptor(actual, "value") !== undefined;
+    trusted.getOwnPropertyDescriptor(actual, "value") !== undefined;
   const expectedIsData =
-    Object.getOwnPropertyDescriptor(expected, "value") !== undefined;
+    trusted.getOwnPropertyDescriptor(expected, "value") !== undefined;
   if (actualIsData !== expectedIsData) return false;
   if (actualIsData) {
     return (
       actual.writable === expected.writable &&
-      sameIntrinsicValue(
-        actual.value,
-        expected.value,
-        functionToString,
-        compared,
-      )
+      sameIntrinsicValue(actual.value, expected.value, trusted, compared)
     );
   }
-  const actualGet: unknown = Object.getOwnPropertyDescriptor(
+  const actualGet: unknown = trusted.getOwnPropertyDescriptor(
     actual,
     "get",
   )?.value;
-  const expectedGet: unknown = Object.getOwnPropertyDescriptor(
+  const expectedGet: unknown = trusted.getOwnPropertyDescriptor(
     expected,
     "get",
   )?.value;
-  const actualSet: unknown = Object.getOwnPropertyDescriptor(
+  const actualSet: unknown = trusted.getOwnPropertyDescriptor(
     actual,
     "set",
   )?.value;
-  const expectedSet: unknown = Object.getOwnPropertyDescriptor(
+  const expectedSet: unknown = trusted.getOwnPropertyDescriptor(
     expected,
     "set",
   )?.value;
   return (
-    sameIntrinsicValue(actualGet, expectedGet, functionToString, compared) &&
-    sameIntrinsicValue(actualSet, expectedSet, functionToString, compared)
+    sameIntrinsicValue(actualGet, expectedGet, trusted, compared) &&
+    sameIntrinsicValue(actualSet, expectedSet, trusted, compared)
   );
 }

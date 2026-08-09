@@ -497,6 +497,89 @@ describe("Ajv schema registry", () => {
     });
   });
 
+  it("rejects preserving Reflect.ownKeys adulteration after initialization without invoking it", () => {
+    const value = structuredClone(migration);
+    const descriptor = Object.getOwnPropertyDescriptor(Reflect, "ownKeys");
+    const intrinsic = Reflect.ownKeys;
+    let calls = 0;
+    let result: unknown;
+    Object.defineProperty(Reflect, "ownKeys", {
+      configurable: true,
+      value(target: object) {
+        calls += 1;
+        return intrinsic(target);
+      },
+      writable: true,
+    });
+
+    try {
+      result = registry.validate(migrationRequest(value));
+    } finally {
+      if (descriptor !== undefined)
+        Object.defineProperty(Reflect, "ownKeys", descriptor);
+    }
+
+    expect(calls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
+  it("rejects a hidden Array.isArray accessor after initialization without host execution", () => {
+    const value = structuredClone(migration);
+    const arrayDescriptor = Object.getOwnPropertyDescriptor(Array, "isArray");
+    const reflectionDescriptor = Object.getOwnPropertyDescriptor(
+      Object,
+      "getOwnPropertyDescriptor",
+    );
+    const intrinsicReflection = Object.getOwnPropertyDescriptor;
+    const intrinsicIsArray = Array.isArray;
+    let accessorCalls = 0;
+    let reflectionCalls = 0;
+    let result: unknown;
+    Object.defineProperty(Array, "isArray", {
+      configurable: true,
+      get() {
+        accessorCalls += 1;
+        return intrinsicIsArray;
+      },
+    });
+    Object.defineProperty(Object, "getOwnPropertyDescriptor", {
+      configurable: true,
+      value(target: object, key: PropertyKey) {
+        reflectionCalls += 1;
+        if (target === Array && key === "isArray") return arrayDescriptor;
+        if (target === Object && key === "getOwnPropertyDescriptor") {
+          return reflectionDescriptor;
+        }
+        return intrinsicReflection(target, key);
+      },
+      writable: true,
+    });
+
+    try {
+      result = registry.validate(migrationRequest(value));
+    } finally {
+      if (reflectionDescriptor !== undefined) {
+        Object.defineProperty(
+          Object,
+          "getOwnPropertyDescriptor",
+          reflectionDescriptor,
+        );
+      }
+      if (arrayDescriptor !== undefined)
+        Object.defineProperty(Array, "isArray", arrayDescriptor);
+    }
+
+    expect(reflectionCalls).toBe(0);
+    expect(accessorCalls).toBe(0);
+    expect(result).toEqual({
+      kind: "invalid",
+      diagnostics: [rootMigrationTypeDiagnostic],
+    });
+  });
+
   it("rejects an extra array accessor without invoking it", () => {
     let calls = 0;
     const value = structuredClone(migration);
@@ -1186,5 +1269,70 @@ describe("schema registry fresh-process preflight", () => {
     expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
     expect(result.stderr).toContain("Embedded schema registry is invalid");
     expect(result.stderr).not.toContain("attacker-array-is-array-accessor");
+  });
+
+  it("rejects preserving Reflect.ownKeys adulteration before initialization without invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      const intrinsic = Reflect.ownKeys;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(Reflect, "ownKeys", {
+        configurable: true,
+        value(target) {
+          calls += 1;
+          return intrinsic(target);
+        },
+        writable: true,
+      });
+    `);
+
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+  });
+
+  it("rejects a hidden Array.isArray accessor before initialization with zero host execution", () => {
+    const result = runWithPrototypePollution(`
+      let accessorCalls = 0;
+      let reflectionCalls = 0;
+      const arrayDescriptor = Object.getOwnPropertyDescriptor(Array, "isArray");
+      const reflectionDescriptor = Object.getOwnPropertyDescriptor(
+        Object,
+        "getOwnPropertyDescriptor",
+      );
+      const intrinsicReflection = Object.getOwnPropertyDescriptor;
+      process.on("exit", () => {
+        process.stderr.write(
+          "\\nMESTRE_YODA_ACCESSOR_CALLS=" + accessorCalls +
+          "\\nMESTRE_YODA_REFLECTION_CALLS=" + reflectionCalls + "\\n",
+        );
+      });
+      Object.defineProperty(Array, "isArray", {
+        configurable: true,
+        get() {
+          accessorCalls += 1;
+          return arrayDescriptor.value;
+        },
+      });
+      Object.defineProperty(Object, "getOwnPropertyDescriptor", {
+        configurable: true,
+        value(target, key) {
+          reflectionCalls += 1;
+          if (target === Array && key === "isArray") return arrayDescriptor;
+          if (target === Object && key === "getOwnPropertyDescriptor") {
+            return reflectionDescriptor;
+          }
+          return intrinsicReflection(target, key);
+        },
+        writable: true,
+      });
+    `);
+
+    expect(result.stderr).toContain("MESTRE_YODA_ACCESSOR_CALLS=0");
+    expect(result.stderr).toContain("MESTRE_YODA_REFLECTION_CALLS=0");
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
   });
 });
