@@ -73,22 +73,247 @@ export async function executeManagedMutation(
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
 ): Promise<TransactionReceipt> {
+  let frozenPlan: ManagedMutationPlan;
   try {
-    await rejectIncompleteTransactions(services);
-    return await driveExecution(plan, options, services);
+    frozenPlan = freezeManagedPlan(plan, services);
   } catch (error) {
-    return classifyDriverFailure(error, services);
+    if (error instanceof TransactionFailure) throw error;
+    throw new TransactionFailure("runtime.internal_failure", []);
   }
+  const attempt: { transactionId?: string } = {};
+  try {
+    await reconcileUnmarkedTransactions(services);
+    await rejectIncompleteTransactions(services);
+    return await driveExecution(frozenPlan, options, services, attempt);
+  } catch (error) {
+    return classifyDriverFailure(error, services, attempt.transactionId);
+  }
+}
+
+function freezeManagedPlan(
+  value: unknown,
+  services: TransactionServices,
+): ManagedMutationPlan {
+  if (
+    !isExactRecord(value, ["operations"]) ||
+    !Array.isArray(value.operations)
+  ) {
+    throw invalidPlan();
+  }
+  if (value.operations.length === 0) throw invalidPlan();
+
+  const operations = value.operations.map((operation, index) =>
+    freezeManagedOperation(operation, index, services),
+  );
+  validateManagedRelationships(operations);
+  return { operations };
+}
+
+function freezeManagedOperation(
+  value: unknown,
+  index: number,
+  services: TransactionServices,
+): ManagedOperation {
+  if (!isRecord(value)) throw invalidPlan();
+  const operationId = `operation-${String(index + 1).padStart(4, "0")}`;
+  if (value.operationId !== operationId || typeof value.path !== "string") {
+    throw invalidPlan();
+  }
+  assertCallerManagedDestination(value.path);
+  const expected = freezeFingerprint(value.expected);
+  const result = freezeFingerprint(value.result);
+  if (sameFingerprint(expected, result)) throw invalidPlan();
+
+  switch (value.kind) {
+    case "create_directory":
+      if (
+        !isExactRecord(value, [
+          "expected",
+          "kind",
+          "operationId",
+          "path",
+          "result",
+          "stagedPath",
+        ]) ||
+        value.stagedPath !== null ||
+        expected.kind !== "missing" ||
+        result.kind !== "directory"
+      ) {
+        throw invalidPlan();
+      }
+      return {
+        operationId,
+        kind: value.kind,
+        path: value.path,
+        expected,
+        result,
+        stagedPath: null,
+      };
+    case "write_file": {
+      if (
+        !isExactRecord(value, [
+          "content",
+          "expected",
+          "kind",
+          "operationId",
+          "path",
+          "result",
+          "stagedPath",
+        ]) ||
+        value.stagedPath !== `staging/${operationId}.payload` ||
+        typeof value.content !== "string" ||
+        expected.kind === "directory" ||
+        result.kind !== "file"
+      ) {
+        throw invalidPlan();
+      }
+      const contentSize = new TextEncoder().encode(value.content).byteLength;
+      if (
+        result.size !== contentSize ||
+        result.sha256 !== services.digests.sha256(value.content)
+      ) {
+        throw invalidPlan();
+      }
+      return {
+        operationId,
+        kind: value.kind,
+        path: value.path,
+        expected,
+        result,
+        stagedPath: value.stagedPath,
+        content: value.content,
+      };
+    }
+    case "delete_file":
+      if (
+        !isExactRecord(value, [
+          "expected",
+          "kind",
+          "operationId",
+          "path",
+          "result",
+          "stagedPath",
+        ]) ||
+        value.stagedPath !== null ||
+        expected.kind !== "file" ||
+        result.kind !== "missing"
+      ) {
+        throw invalidPlan();
+      }
+      return {
+        operationId,
+        kind: value.kind,
+        path: value.path,
+        expected,
+        result,
+        stagedPath: null,
+      };
+    default:
+      throw invalidPlan();
+  }
+}
+
+function freezeFingerprint(value: unknown): PathFingerprint {
+  if (!isRecord(value)) throw invalidPlan();
+  switch (value.kind) {
+    case "missing":
+      if (!isExactRecord(value, ["kind"])) throw invalidPlan();
+      return { kind: "missing" };
+    case "directory":
+      if (!isExactRecord(value, ["kind"])) throw invalidPlan();
+      return { kind: "directory" };
+    case "file":
+      if (
+        !isExactRecord(value, ["kind", "sha256", "size"]) ||
+        !Number.isSafeInteger(value.size) ||
+        typeof value.size !== "number" ||
+        value.size < 0 ||
+        typeof value.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(value.sha256)
+      ) {
+        throw invalidPlan();
+      }
+      return { kind: "file", size: value.size, sha256: value.sha256 };
+    default:
+      throw invalidPlan();
+  }
+}
+
+function validateManagedRelationships(
+  operations: readonly ManagedOperation[],
+): void {
+  const spellings = new Map<string, string>();
+  for (const operation of operations) {
+    for (const path of managedPathPrefixes(operation.path)) {
+      const key = path.toLowerCase();
+      const prior = spellings.get(key);
+      if (prior !== undefined && prior !== path) throw invalidPlan();
+      spellings.set(key, path);
+    }
+  }
+
+  for (const [leftIndex, left] of operations.entries()) {
+    for (const right of operations.slice(leftIndex + 1)) {
+      const leftPath = left.path.toLowerCase();
+      const rightPath = right.path.toLowerCase();
+      if (leftPath === rightPath) throw invalidPlan();
+      if (rightPath.startsWith(`${leftPath}/`)) {
+        if (left.kind !== "create_directory") throw invalidPlan();
+      } else if (leftPath.startsWith(`${rightPath}/`)) {
+        throw invalidPlan();
+      }
+    }
+  }
+}
+
+function managedPathPrefixes(path: string): readonly string[] {
+  const segments = path.split("/");
+  return segments
+    .slice(1)
+    .map((_segment, index) => segments.slice(0, index + 2).join("/"));
+}
+
+function assertCallerManagedDestination(path: string): void {
+  if (!isManagedDestination(path)) {
+    throw new TransactionFailure("guard.outside_allow", []);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isExactRecord(
+  value: unknown,
+  expectedKeys: readonly string[],
+): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  const actual = Object.keys(value).sort((left, right) =>
+    left.localeCompare(right, "en-US"),
+  );
+  const expected = [...expectedKeys].sort((left, right) =>
+    left.localeCompare(right, "en-US"),
+  );
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+}
+
+function invalidPlan(): TransactionFailure {
+  return new TransactionFailure("runtime.state_corrupt", []);
 }
 
 async function driveExecution(
   plan: ManagedMutationPlan,
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
+  attempt: { transactionId?: string },
 ): Promise<TransactionReceipt> {
   await assertExistingRoot(options.rootMode, services);
 
   const transactionId = services.ids.next();
+  attempt.transactionId = transactionId;
   const createdAt = services.clock.now().toISOString();
   const root = transactionRoot(transactionId);
   const stagingRoot = `${root}/staging`;
@@ -138,6 +363,7 @@ async function driveExecution(
       stagedPayloadPath(root, operation),
       operation.content,
     );
+    await assertExecutionPayload(operation, root, services);
     directorySync = mergeDirectorySync(
       directorySync,
       await services.durableFileSystem.syncDirectory(stagingRoot),
@@ -190,6 +416,9 @@ async function driveExecution(
   const publishedOperationIds: string[] = [];
   for (const operation of plan.operations) {
     await assertPublishable(operation, services);
+    if (operation.kind === "write_file") {
+      await assertExecutionPayload(operation, root, services);
+    }
     await publishOperation(operation, root, services);
     directorySync = mergeDirectorySync(
       directorySync,
@@ -224,19 +453,13 @@ async function driveExecution(
   );
   directorySync = await persistProgress(progress, services);
 
-  await services.durableFileSystem.removeEmptyDirectory(stagingRoot);
-  directorySync = mergeDirectorySync(
+  directorySync = await cleanupTransaction(manifest, directorySync, services);
+  progress = await persistTerminalDirectorySync(
+    progress,
     directorySync,
-    await services.durableFileSystem.syncDirectory(root),
+    services,
   );
-
-  return {
-    transactionId,
-    manifestDigest,
-    recoveryToken: manifestDigest,
-    phase: "committed",
-    directorySync,
-  };
+  return receiptFromProgress(progress);
 }
 
 export async function inspectManagedTransactions(
@@ -300,7 +523,12 @@ export async function recoverManagedMutation(
     }
     return await driveRecovery(summary, services);
   } catch (error) {
-    return classifyDriverFailure(error, services);
+    return classifyDriverFailure(
+      error,
+      services,
+      request.transactionId,
+      request.recoveryToken,
+    );
   }
 }
 
@@ -311,6 +539,13 @@ async function driveRecovery(
   const root = transactionRoot(summary.transactionId);
   const progressPath = `${root}/progress.json`;
   let progress = await readProgress(progressPath, services);
+  if (
+    progress.transactionId !== summary.transactionId ||
+    progress.recoveryToken !== summary.recoveryToken ||
+    progress.manifestDigest !== summary.manifestDigest
+  ) {
+    throw recoveryRequired(summary);
+  }
   const manifestEntry = await services.durableFileSystem.inspect(
     `${root}/manifest.json`,
   );
@@ -369,6 +604,24 @@ async function driveRecovery(
         ) {
           throw corrupt(operation.path);
         }
+        const immediateTarget = await observeFingerprint(
+          operation.path,
+          services,
+        );
+        if (sameFingerprint(immediateTarget, operation.result)) {
+          progress = await recordPublishedOperation(
+            progress,
+            operation.operationId,
+            services,
+          );
+          break;
+        }
+        if (!sameFingerprint(immediateTarget, operation.expected)) {
+          throw corrupt(operation.path);
+        }
+        if (operation.kind === "write_file") {
+          await assertPersistedPayload(operation, services);
+        }
         await publishPersistedOperation(operation, services);
         let directorySync = mergeDirectorySync(
           progress.directorySync,
@@ -417,7 +670,11 @@ async function driveRecovery(
           progress.directorySync,
           services,
         );
-        progress = { ...progress, directorySync };
+        progress = await persistTerminalDirectorySync(
+          progress,
+          directorySync,
+          services,
+        );
         break;
       }
       case "complete": {
@@ -427,7 +684,11 @@ async function driveRecovery(
             progress.directorySync,
             services,
           );
-          progress = { ...progress, directorySync };
+          progress = await persistTerminalDirectorySync(
+            progress,
+            directorySync,
+            services,
+          );
         }
         return receiptFromProgress(progress);
       }
@@ -452,6 +713,23 @@ async function driveRecovery(
       }
     }
   }
+}
+
+async function recordPublishedOperation(
+  progress: TransactionProgressV1,
+  operationId: string,
+  services: TransactionServices,
+): Promise<TransactionProgressV1> {
+  const next = validateProgress(
+    {
+      ...progress,
+      publishedOperationIds: [...progress.publishedOperationIds, operationId],
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+  const directorySync = await persistProgress(next, services);
+  return { ...next, directorySync };
 }
 
 function transactionRoot(transactionId: string): string {
@@ -498,20 +776,104 @@ function recoveryRequired(summary: TransactionSummary): TransactionFailure {
 async function classifyDriverFailure(
   error: unknown,
   services: TransactionServices,
-): Promise<never> {
-  if (error instanceof TransactionFailure) throw error;
+  transactionId?: string,
+  recoveryToken?: string,
+): Promise<TransactionReceipt> {
+  const typedFailure = error instanceof TransactionFailure ? error : undefined;
+  if (typedFailure !== undefined && transactionId === undefined) {
+    throw typedFailure;
+  }
   try {
-    await cleanupUnmarkedTransactions(services);
+    if (typedFailure === undefined && transactionId !== undefined) {
+      await cleanupUnmarkedTransaction(transactionId, services);
+    }
     const summaries = await inspectManagedTransactions(services);
+    const current = summaries.find(
+      (summary) => summary.transactionId === transactionId,
+    );
+    if (current !== undefined) {
+      if (
+        recoveryToken !== undefined &&
+        current.recoveryToken !== recoveryToken
+      ) {
+        throw recoveryRequired(current);
+      }
+      if (current.phase === "committed" || current.phase === "aborted") {
+        const root = transactionRoot(current.transactionId);
+        if (await hasCleanupEntries(root, services)) {
+          throw recoveryRequired(current);
+        }
+        const progress = await readProgress(`${root}/progress.json`, services);
+        return receiptFromProgress(
+          await finalizeTerminalProgress(progress, services),
+        );
+      }
+      if (current.phase === "publishing") {
+        await classifyPublishingState(current, services);
+      }
+      if (typedFailure !== undefined) throw typedFailure;
+      throw recoveryRequired(current);
+    }
     const incomplete = await firstIncompleteSummary(summaries, services);
     if (incomplete !== undefined) throw recoveryRequired(incomplete);
   } catch (inspectionError) {
     if (inspectionError instanceof TransactionFailure) throw inspectionError;
   }
+  if (typedFailure !== undefined) throw typedFailure;
   throw new TransactionFailure("runtime.internal_failure", []);
 }
 
-async function cleanupUnmarkedTransactions(
+async function classifyPublishingState(
+  summary: TransactionSummary,
+  services: TransactionServices,
+): Promise<never> {
+  const root = transactionRoot(summary.transactionId);
+  const progress = await readProgress(`${root}/progress.json`, services);
+  if (
+    progress.transactionId !== summary.transactionId ||
+    progress.recoveryToken !== summary.recoveryToken ||
+    progress.manifestDigest !== summary.manifestDigest
+  ) {
+    throw recoveryRequired(summary);
+  }
+  const manifest = await readRequiredManifest(root, progress, services);
+  const observation = await observeTransaction(manifest, services);
+  const decision = decideRecovery(manifest, progress, observation);
+  if (decision.kind === "blocked") {
+    const operation =
+      decision.operationId === null
+        ? undefined
+        : manifest.operations.find(
+            (candidate) => candidate.operationId === decision.operationId,
+          );
+    if (operation?.kind === "write_file") {
+      const payload = observation.stagedPayloads.get(operation.stagedPath);
+      if (
+        payload === undefined ||
+        !sameFingerprint(payload, operation.result)
+      ) {
+        throw corrupt(operation.stagedPath);
+      }
+    }
+    throw corrupt(operation?.path ?? `${root}/progress.json`);
+  }
+  if (decision.kind === "publish") {
+    const operation = manifest.operations.find(
+      (candidate) => candidate.operationId === decision.operationId,
+    );
+    /* v8 ignore next -- decideRecovery only returns IDs from the manifest */
+    if (operation === undefined) throw corrupt(`${root}/manifest.json`);
+    if (
+      (await services.durableFileSystem.inspect(parentOf(operation.path)))
+        .kind !== "directory"
+    ) {
+      throw corrupt(operation.path);
+    }
+  }
+  throw recoveryRequired(summary);
+}
+
+async function reconcileUnmarkedTransactions(
   services: TransactionServices,
 ): Promise<void> {
   if (
@@ -521,35 +883,64 @@ async function cleanupUnmarkedTransactions(
   ) {
     return;
   }
-  for (const transactionId of await services.durableFileSystem.list(
-    transactionsRoot,
-  )) {
+  const transactionIds = [
+    ...(await services.durableFileSystem.list(transactionsRoot)),
+  ].sort((left, right) => left.localeCompare(right, "en-US"));
+  for (const transactionId of transactionIds) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u.test(transactionId)) {
+      throw corrupt(transactionsRoot);
+    }
     const root = transactionRoot(transactionId);
-    /* v8 ignore next -- only the driver creates an unmarked transaction ID */
     if ((await services.durableFileSystem.inspect(root)).kind !== "directory") {
-      continue;
+      throw corrupt(root);
     }
     const progress = await services.durableFileSystem.inspect(
       `${root}/progress.json`,
     );
     if (progress.kind !== "missing") continue;
-    const entries = await services.durableFileSystem.list(root);
-    /* v8 ignore next -- a pre-marker driver writes only progress.next */
-    if (entries.some((entry) => entry !== "progress.next")) continue;
-    const nextPath = `${root}/progress.next`;
-    const next = await services.durableFileSystem.inspect(nextPath);
-    if (next.kind === "file") {
-      await services.durableFileSystem.removeFile(nextPath);
-      /* v8 ignore start -- the validated scratch entry is missing or a file */
-    } else if (next.kind !== "missing") {
-      continue;
-    }
-    /* v8 ignore stop */
-    /* v8 ignore next -- progress.next was the only possible entry */
-    if ((await services.durableFileSystem.list(root)).length !== 0) continue;
-    await services.durableFileSystem.removeEmptyDirectory(root);
-    await services.durableFileSystem.syncDirectory(transactionsRoot);
+    await removeSafeUnmarkedTransaction(root, services, true);
   }
+}
+
+async function cleanupUnmarkedTransaction(
+  transactionId: string,
+  services: TransactionServices,
+): Promise<void> {
+  const root = transactionRoot(transactionId);
+  if ((await services.durableFileSystem.inspect(root)).kind !== "directory") {
+    return;
+  }
+  const progress = await services.durableFileSystem.inspect(
+    `${root}/progress.json`,
+  );
+  if (progress.kind !== "missing") return;
+  await removeSafeUnmarkedTransaction(root, services, false);
+}
+
+async function removeSafeUnmarkedTransaction(
+  root: string,
+  services: TransactionServices,
+  blockUnknown: boolean,
+): Promise<void> {
+  const entries = await services.durableFileSystem.list(root);
+  if (entries.some((entry) => entry !== "progress.next")) {
+    if (blockUnknown) throw corrupt(root);
+    return;
+  }
+  const nextPath = `${root}/progress.next`;
+  const next = await services.durableFileSystem.inspect(nextPath);
+  if (next.kind === "file") {
+    await services.durableFileSystem.removeFile(nextPath);
+  } else if (next.kind !== "missing") {
+    if (blockUnknown) throw corrupt(nextPath);
+    return;
+  }
+  if ((await services.durableFileSystem.list(root)).length !== 0) {
+    if (blockUnknown) throw corrupt(root);
+    return;
+  }
+  await services.durableFileSystem.removeEmptyDirectory(root);
+  await services.durableFileSystem.syncDirectory(transactionsRoot);
 }
 
 async function assertExistingRoot(
@@ -738,6 +1129,10 @@ function assertManifestSemantics(
 function isManagedDestination(path: string): boolean {
   const segments = path.split("/");
   return (
+    path !== "" &&
+    !path.includes("\\") &&
+    !/^[A-Za-z]:/u.test(path) &&
+    !hasControlCharacter(path) &&
     segments.length >= 2 &&
     segments[0] === ".brain" &&
     segments[1]?.toLowerCase() !== "transactions" &&
@@ -746,6 +1141,16 @@ function isManagedDestination(path: string): boolean {
     ) &&
     segments.join("/") === path
   );
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function observeTransaction(
@@ -868,9 +1273,11 @@ function createManifest(
       : { ...value, stagedPath: `${root}/${value.stagedPath}` };
   });
   const first = persisted[0];
+  /* v8 ignore start -- the synchronous preflight rejects empty plans */
   if (first === undefined) {
     throw new TransactionFailure("runtime.state_corrupt", []);
   }
+  /* v8 ignore stop */
   const manifest: TransactionManifestV1 = {
     contractVersion,
     stateContract,
@@ -921,7 +1328,7 @@ function validateProgress(
 async function persistProgress(
   progress: TransactionProgressV1,
   services: TransactionServices,
-): Promise<TransactionProgressV1["directorySync"]> {
+): Promise<"supported" | "unsupported"> {
   const validated = validateProgress(progress, services);
   const root = transactionRoot(validated.transactionId);
   const nextPath = `${root}/progress.next`;
@@ -970,7 +1377,7 @@ async function cleanupTransaction(
   manifest: TransactionManifestV1,
   currentDirectorySync: TransactionProgressV1["directorySync"],
   services: TransactionServices,
-): Promise<TransactionProgressV1["directorySync"]> {
+): Promise<"supported" | "unsupported"> {
   const root = transactionRoot(manifest.transactionId);
   const stagingRoot = `${root}/staging`;
   for (const operation of manifest.operations) {
@@ -1013,6 +1420,37 @@ async function cleanupTransaction(
     currentDirectorySync,
     await services.durableFileSystem.syncDirectory(root),
   );
+}
+
+async function persistTerminalDirectorySync(
+  progress: TransactionProgressV1,
+  observed: "supported" | "unsupported",
+  services: TransactionServices,
+): Promise<TransactionProgressV1> {
+  const directorySync = mergeDirectorySync(progress.directorySync, observed);
+  if (directorySync === progress.directorySync) {
+    return { ...progress, directorySync };
+  }
+  const next = validateProgress(
+    {
+      ...progress,
+      directorySync,
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+  const persistedDirectorySync = await persistProgress(next, services);
+  return { ...next, directorySync: persistedDirectorySync };
+}
+
+async function finalizeTerminalProgress(
+  progress: TransactionProgressV1,
+  services: TransactionServices,
+): Promise<TransactionProgressV1> {
+  const observed = await services.durableFileSystem.syncDirectory(
+    transactionRoot(progress.transactionId),
+  );
+  return persistTerminalDirectorySync(progress, observed, services);
 }
 
 async function recoverWithoutManifest(
@@ -1082,7 +1520,12 @@ async function recoverWithoutManifest(
     progress.directorySync,
     await services.durableFileSystem.syncDirectory(root),
   );
-  return receiptFromProgress({ ...progress, directorySync });
+  progress = await persistTerminalDirectorySync(
+    progress,
+    directorySync,
+    services,
+  );
+  return receiptFromProgress(progress);
 }
 
 async function hasCleanupEntries(
@@ -1154,6 +1597,29 @@ async function assertPublishable(
       "runtime.revision_conflict",
       evidence(operation.path),
     );
+  }
+}
+
+async function assertExecutionPayload(
+  operation: Extract<ManagedOperation, { readonly kind: "write_file" }>,
+  root: string,
+  services: TransactionServices,
+): Promise<void> {
+  const path = stagedPayloadPath(root, operation);
+  const observed = await observeFingerprint(path, services);
+  if (!sameFingerprint(observed, operation.result)) throw corrupt(path);
+}
+
+async function assertPersistedPayload(
+  operation: Extract<
+    TransactionManifestV1["operations"][number],
+    { readonly kind: "write_file" }
+  >,
+  services: TransactionServices,
+): Promise<void> {
+  const observed = await observeFingerprint(operation.stagedPath, services);
+  if (!sameFingerprint(observed, operation.result)) {
+    throw corrupt(operation.stagedPath);
   }
 }
 
@@ -1245,7 +1711,7 @@ function parentOf(path: string): string {
 function mergeDirectorySync(
   current: TransactionProgressV1["directorySync"],
   observed: "supported" | "unsupported",
-): TransactionProgressV1["directorySync"] {
+): "supported" | "unsupported" {
   return current === "unsupported" || observed === "unsupported"
     ? "unsupported"
     : "supported";

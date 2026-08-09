@@ -6,6 +6,7 @@ import {
   type TransactionServices,
 } from "@mestre-yoda/runtime/composition";
 import type { ManagedMutationPlan } from "@mestre-yoda/runtime/domain/transactions";
+import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import type {
   DurableEntry,
   DurableFileSystem,
@@ -57,6 +58,431 @@ function replacementPlan(
 }
 
 describe("managed transaction execution", () => {
+  it.each([
+    {
+      label: "non-object plan",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => null,
+    },
+    {
+      label: "non-array operations",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({ operations: "forged" }),
+    },
+    {
+      label: "empty plan",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({ operations: [] }),
+    },
+    {
+      label: "non-object operation",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({ operations: [null] }),
+    },
+    {
+      label: "unknown operation kind",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "rename_file",
+            path: ".brain/state.json",
+            expected: { kind: "missing" },
+            result: { kind: "file", size: 3, sha256: "f".repeat(64) },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "invalid create fingerprints",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "create_directory",
+            path: ".brain/runs",
+            expected: { kind: "file", size: 1, sha256: "f".repeat(64) },
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "invalid delete fingerprints",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "delete_file",
+            path: ".brain/state.json",
+            expected: { kind: "missing" },
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "non-object fingerprint",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            expected: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "extended missing fingerprint",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            expected: { kind: "missing", forged: true },
+          },
+        ],
+      }),
+    },
+    {
+      label: "extended directory fingerprint",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "create_directory",
+            path: ".brain/runs",
+            expected: { kind: "missing" },
+            result: { kind: "directory", forged: true },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "invalid file fingerprint",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            expected: { kind: "file", size: -1, sha256: "not-a-digest" },
+          },
+        ],
+      }),
+    },
+    {
+      label: "unknown fingerprint kind",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            expected: { kind: "special" },
+          },
+        ],
+      }),
+    },
+    {
+      label: "outside destination",
+      reasonCode: "guard.outside_allow",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: "src/owned.txt",
+          },
+        ],
+      }),
+    },
+    {
+      label: "reserved destination",
+      reasonCode: "guard.outside_allow",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: ".brain/transactions/owned.txt",
+          },
+        ],
+      }),
+    },
+    {
+      label: "unsafe destination",
+      reasonCode: "guard.outside_allow",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: ".brain/../owned.txt",
+          },
+        ],
+      }),
+    },
+    {
+      label: "control-character destination",
+      reasonCode: "guard.outside_allow",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: ".brain/control\npath",
+          },
+        ],
+      }),
+    },
+    {
+      label: "forged operation ID",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            operationId: "operation-0002",
+            stagedPath: "staging/operation-0002.payload",
+          },
+        ],
+      }),
+    },
+    {
+      label: "forged staged payload",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            stagedPath: "staging/forged.payload",
+          },
+        ],
+      }),
+    },
+    {
+      label: "equal expected and result fingerprints",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => {
+        const operation = replacementPlan(storage).operations[0];
+        return {
+          operations: [
+            {
+              ...operation,
+              expected: operation?.result,
+            },
+          ],
+        };
+      },
+    },
+    {
+      label: "content fingerprint mismatch",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            result: {
+              kind: "file",
+              size: 999,
+              sha256: storage.digests.sha256("forged"),
+            },
+          },
+        ],
+      }),
+    },
+    {
+      label: "case-colliding destinations",
+      reasonCode: "runtime.state_corrupt",
+      plan: () => ({
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "create_directory",
+            path: ".brain/Runs",
+            expected: { kind: "missing" },
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+          {
+            operationId: "operation-0002",
+            kind: "create_directory",
+            path: ".brain/runs",
+            expected: { kind: "missing" },
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+    {
+      label: "duplicate destinations",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          replacementPlan(storage).operations[0],
+          {
+            ...replacementPlan(storage).operations[0],
+            operationId: "operation-0002",
+            stagedPath: "staging/operation-0002.payload",
+          },
+        ],
+      }),
+    },
+    {
+      label: "non-directory parent operation",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: ".brain/runs",
+          },
+          {
+            ...replacementPlan(storage).operations[0],
+            operationId: "operation-0002",
+            path: ".brain/runs/state.json",
+            stagedPath: "staging/operation-0002.payload",
+          },
+        ],
+      }),
+    },
+    {
+      label: "invalid parent-child order",
+      reasonCode: "runtime.state_corrupt",
+      plan: (storage: ReturnType<typeof memoryTransactionStorage>) => ({
+        operations: [
+          {
+            ...replacementPlan(storage).operations[0],
+            path: ".brain/runs/state.json",
+          },
+          {
+            operationId: "operation-0002",
+            kind: "create_directory",
+            path: ".brain/runs",
+            expected: { kind: "missing" },
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+        ],
+      }),
+    },
+  ])(
+    "rejects a forged $label before every injected effect boundary",
+    async ({ plan, reasonCode }) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions"],
+        files: {
+          ".brain/state.json": "old",
+          "src/owned.txt": "old",
+        },
+      });
+      const before = storage.snapshot();
+      let clockCalls = 0;
+      let idCalls = 0;
+      const injected: TransactionServices = {
+        ...services(storage),
+        clock: {
+          now: () => {
+            clockCalls += 1;
+            return new Date("2026-08-09T00:00:00.000Z");
+          },
+        },
+        ids: {
+          next: () => {
+            idCalls += 1;
+            return "transaction-1";
+          },
+        },
+      };
+
+      await expect(
+        executeManagedMutation(
+          plan(storage) as ManagedMutationPlan,
+          { rootMode: "existing" },
+          injected,
+        ),
+      ).rejects.toMatchObject({ reasonCode });
+      expect(storage.snapshot()).toEqual(before);
+      expect(storage.calls()).toEqual([]);
+      expect(clockCalls).toBe(0);
+      expect(idCalls).toBe(0);
+    },
+  );
+
+  it("executes an immutable snapshot when the caller mutates its plan after preflight", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const original = replacementPlan(storage).operations[0];
+    if (original?.kind !== "write_file") {
+      throw new Error("missing write fixture operation");
+    }
+    const mutablePlan: { operations: ManagedMutationPlan["operations"] } = {
+      operations: [original],
+    };
+    const base = storage.durableFileSystem;
+    let mutated = false;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path) => {
+        if (!mutated) {
+          mutated = true;
+          mutablePlan.operations = [
+            {
+              ...original,
+              content: "evil",
+              result: {
+                kind: "file",
+                size: 4,
+                sha256: storage.digests.sha256("evil"),
+              },
+            },
+          ];
+        }
+        return base.inspect(path);
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        mutablePlan,
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).resolves.toMatchObject({ phase: "committed" });
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("new");
+  });
+
+  it("sanitizes a digest failure during preflight without crossing another boundary", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const injected: TransactionServices = {
+      ...services(storage),
+      digests: {
+        sha256: () => {
+          throw new Error("digest detail");
+        },
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        { rootMode: "existing" },
+        injected,
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).toEqual([]);
+  });
+
   it("durably prepares, publishes, commits, and removes staged payloads", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions"],
@@ -162,7 +588,8 @@ describe("managed transaction execution", () => {
       ),
     ).resolves.toMatchObject({ phase: "committed" });
 
-    expect(storage.calls().slice(0, 7)).toEqual([
+    expect(storage.calls().slice(0, 8)).toEqual([
+      "inspect",
       "inspect",
       "inspect",
       "create_directory",
@@ -202,7 +629,7 @@ describe("managed transaction execution", () => {
       ]),
     );
     expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
-    expect(storage.calls()).toEqual(["inspect", "inspect"]);
+    expect(storage.calls()).toEqual(["inspect", "inspect", "inspect"]);
   });
 
   it("leaves a pre-publication revision conflict explicitly abortable", async () => {
@@ -304,6 +731,47 @@ describe("managed transaction execution", () => {
     expect(storage.snapshot().files).not.toHaveProperty(".brain/delete.json");
   });
 
+  it("accepts a normalized parent-first directory and child write", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+    });
+    const content = "state";
+    const mutation: ManagedMutationPlan = {
+      operations: [
+        {
+          operationId: "operation-0001",
+          kind: "create_directory",
+          path: ".brain/runs",
+          expected: { kind: "missing" },
+          result: { kind: "directory" },
+          stagedPath: null,
+        },
+        {
+          operationId: "operation-0002",
+          kind: "write_file",
+          path: ".brain/runs/state.json",
+          expected: { kind: "missing" },
+          result: {
+            kind: "file",
+            size: 5,
+            sha256: storage.digests.sha256(content),
+          },
+          stagedPath: "staging/operation-0002.payload",
+          content,
+        },
+      ],
+    };
+
+    await expect(
+      executeManagedMutation(
+        mutation,
+        { rootMode: "existing" },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ phase: "committed" });
+    expect(storage.snapshot().files[".brain/runs/state.json"]).toBe(content);
+  });
+
   it("records unsupported directory synchronization in progress and receipt", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions"],
@@ -387,19 +855,19 @@ describe("managed transaction execution", () => {
       label: "drift immediately before publication",
       occurrence: 2,
       observed: { kind: "missing" } as const,
-      reasonCode: "runtime.revision_conflict",
+      reasonCode: "runtime.recovery_required",
     },
     {
       label: "wrong immediate publication result",
       occurrence: 3,
       observed: { kind: "missing" } as const,
-      reasonCode: "runtime.state_corrupt",
+      reasonCode: "runtime.recovery_required",
     },
     {
       label: "wrong final publication result",
       occurrence: 4,
       observed: { kind: "missing" } as const,
-      reasonCode: "runtime.state_corrupt",
+      reasonCode: "runtime.recovery_required",
     },
   ])(
     "blocks a $label observation",
@@ -429,6 +897,218 @@ describe("managed transaction execution", () => {
       ).rejects.toMatchObject({ reasonCode });
     },
   );
+
+  it("reclassifies persistent drift after publishing as corrupt state", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const base = storage.durableFileSystem;
+    let targetInspections = 0;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path): Promise<DurableEntry> => {
+        const actual = await base.inspect(path);
+        if (path !== ".brain/state.json") return actual;
+        targetInspections += 1;
+        return targetInspections >= 2 ? { kind: "missing" } : actual;
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain/state.json" },
+      ]),
+    );
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+  });
+
+  it("rebinds progress identity while classifying a publishing failure", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const base = storage.durableFileSystem;
+    const progressPath = ".brain/transactions/transaction-1/progress.json";
+    let targetInspections = 0;
+    let progressReads = 0;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path): Promise<DurableEntry> => {
+        const actual = await base.inspect(path);
+        if (path !== ".brain/state.json") return actual;
+        targetInspections += 1;
+        return targetInspections === 2 ? { kind: "missing" } : actual;
+      },
+      readText: async (path) => {
+        const actual = await base.readText(path);
+        if (path !== progressPath) return actual;
+        progressReads += 1;
+        if (progressReads !== 2) return actual;
+        const replacement = JSON.parse(actual) as Record<string, unknown>;
+        replacement.recoveryToken = "f".repeat(64);
+        return `${canonicalizeJson(replacement)}\n`;
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+  });
+
+  it("classifies persistent create-directory drift from fresh state", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+    });
+    const base = storage.durableFileSystem;
+    let targetInspections = 0;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path): Promise<DurableEntry> => {
+        const actual = await base.inspect(path);
+        if (path !== ".brain/runs") return actual;
+        targetInspections += 1;
+        return targetInspections >= 2
+          ? { kind: "file", size: 1, sha256: "f".repeat(64) }
+          : actual;
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        {
+          operations: [
+            {
+              operationId: "operation-0001",
+              kind: "create_directory",
+              path: ".brain/runs",
+              expected: { kind: "missing" },
+              result: { kind: "directory" },
+              stagedPath: null,
+            },
+          ],
+        },
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain/runs" },
+      ]),
+    );
+  });
+
+  it("classifies an invalid publishing prefix without inventing an operation", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const base = storage.durableFileSystem;
+    const progressPath = ".brain/transactions/transaction-1/progress.json";
+    let targetInspections = 0;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path): Promise<DurableEntry> => {
+        const actual = await base.inspect(path);
+        if (path !== ".brain/state.json") return actual;
+        targetInspections += 1;
+        return targetInspections === 2 ? { kind: "missing" } : actual;
+      },
+      readText: async (path) => {
+        const actual = await base.readText(path);
+        if (path !== progressPath) return actual;
+        const replacement = JSON.parse(actual) as Record<string, unknown>;
+        replacement.publishedOperationIds = ["operation-unknown"];
+        return `${canonicalizeJson(replacement)}\n`;
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: progressPath },
+      ]),
+    );
+  });
+
+  it("persists directory-sync capability discovered during terminal cleanup", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const base = storage.durableFileSystem;
+    const root = ".brain/transactions/transaction-1";
+    const staging = `${root}/staging`;
+    const boundary: DurableFileSystem = {
+      ...base,
+      syncDirectory: async (path) => {
+        await base.syncDirectory(path);
+        return path === root && (await base.inspect(staging)).kind === "missing"
+          ? "unsupported"
+          : "supported";
+      },
+    };
+    const injected = { ...services(storage), durableFileSystem: boundary };
+
+    const first = await executeManagedMutation(
+      replacementPlan(storage),
+      { rootMode: "existing" },
+      injected,
+    );
+    const second = await recoverManagedMutation(
+      {
+        transactionId: first.transactionId,
+        recoveryToken: first.recoveryToken,
+      },
+      injected,
+    );
+    expect(first.directorySync).toBe("unsupported");
+    expect(second).toEqual(first);
+  });
+
+  it("reconstructs a committed receipt after terminal cleanup completed before an error", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    storage.fail({
+      operation: "remove_empty_directory",
+      timing: "after",
+      occurrence: 1,
+    });
+    const injected = services(storage);
+
+    const first = await executeManagedMutation(
+      replacementPlan(storage),
+      { rootMode: "existing" },
+      injected,
+    );
+    const second = await recoverManagedMutation(
+      {
+        transactionId: first.transactionId,
+        recoveryToken: first.recoveryToken,
+      },
+      injected,
+    );
+    expect(first.phase).toBe("committed");
+    expect(second).toEqual(first);
+  });
 
   it("revalidates the destination parent immediately before publication", async () => {
     const storage = memoryTransactionStorage({
@@ -471,6 +1151,50 @@ describe("managed transaction execution", () => {
     );
   });
 
+  it.each([
+    { label: "altered", action: "alter" as const },
+    { label: "missing", action: "remove" as const },
+  ])(
+    "blocks an $label staged payload immediately before publication",
+    async ({ action }) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      const base = storage.durableFileSystem;
+      const payload =
+        ".brain/transactions/transaction-1/staging/operation-0001.payload";
+      let tampered = false;
+      const boundary: DurableFileSystem = {
+        ...base,
+        inspect: async (path) => {
+          if (path === ".brain/state.json" && !tampered) {
+            tampered = true;
+            if (action === "alter") {
+              await storage.fileSystem.write(payload, "evil");
+            } else {
+              await base.removeFile(payload);
+            }
+          }
+          return base.inspect(path);
+        },
+      };
+
+      await expect(
+        executeManagedMutation(
+          replacementPlan(storage),
+          { rootMode: "existing" },
+          { ...services(storage), durableFileSystem: boundary },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: payload },
+        ]),
+      );
+      expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+    },
+  );
+
   it("sanitizes a bootstrap failure before any marker becomes durable", async () => {
     const storage = memoryTransactionStorage();
     storage.fail({
@@ -498,6 +1222,40 @@ describe("managed transaction execution", () => {
       ),
     ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
     expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
+  });
+
+  it("sanitizes an exclusive-create failure that leaves no attempt directory", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+    });
+    const base = storage.durableFileSystem;
+    const boundary: DurableFileSystem = {
+      ...base,
+      createDirectoryExclusive: () =>
+        Promise.reject(new Error("create detail")),
+    };
+
+    await expect(
+      executeManagedMutation(
+        {
+          operations: [
+            {
+              operationId: "operation-0001",
+              kind: "create_directory",
+              path: ".brain/runs",
+              expected: { kind: "missing" },
+              result: { kind: "directory" },
+              stagedPath: null,
+            },
+          ],
+        },
+        { rootMode: "existing" },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.snapshot().directories).not.toContain(
+      ".brain/transactions/transaction-1",
+    );
   });
 
   it("sanitizes an unexpected inspection failure while classifying a driver failure", async () => {
