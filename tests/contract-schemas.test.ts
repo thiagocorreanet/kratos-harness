@@ -16,6 +16,16 @@ const artifacts = [
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
   ["state/migration.v1.schema.json", "migration.json", "state"],
+  [
+    "state/transaction-manifest.v1.schema.json",
+    "transaction-manifest.json",
+    "state",
+  ],
+  [
+    "state/transaction-progress.v1.schema.json",
+    "transaction-progress.json",
+    "state",
+  ],
   ["host/adapter-message.v1.schema.json", "adapter-message.json", "host"],
 ] as const;
 
@@ -186,7 +196,103 @@ describe("versioned state and host schemas", () => {
     }
   });
 
-  it("ships eight payload fixtures plus the version-case table", async () => {
+  it("enforces closed transaction operation fingerprints and staging", () => {
+    const artifact = loaded.find(
+      ({ fixtureName }) => fixtureName === "transaction-manifest.json",
+    );
+    if (artifact === undefined) throw new Error("missing transaction manifest");
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      artifact.schema,
+    );
+    const operation = (artifact.fixture.operations as JsonObject[])[0];
+    if (operation === undefined)
+      throw new Error("missing transaction operation");
+
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [{ ...operation, stagedPath: null }],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [
+          {
+            ...operation,
+            kind: "delete_file",
+            result: { kind: "missing" },
+            stagedPath: operation.stagedPath,
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [
+          {
+            ...operation,
+            kind: "create_directory",
+            result: { kind: "directory" },
+            stagedPath: null,
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [
+          {
+            ...operation,
+            result: {
+              kind: "file",
+              size: Number.MAX_SAFE_INTEGER + 1,
+              sha256: "a".repeat(64),
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("requires manifest digests after transaction preparation", () => {
+    const artifact = loaded.find(
+      ({ fixtureName }) => fixtureName === "transaction-progress.json",
+    );
+    if (artifact === undefined) throw new Error("missing transaction progress");
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      artifact.schema,
+    );
+
+    for (const phase of ["prepared", "publishing", "committed"]) {
+      expect(
+        validate({
+          ...structuredClone(artifact.fixture),
+          phase,
+          manifestDigest: null,
+        }),
+        phase,
+      ).toBe(false);
+    }
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        phase: "begun",
+        manifestDigest: null,
+      }),
+    ).toBe(true);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        phase: "aborted",
+        manifestDigest: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("ships ten payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [
         ...artifacts.map(([, fixtureName]) => fixtureName),

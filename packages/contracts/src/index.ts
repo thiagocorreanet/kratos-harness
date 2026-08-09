@@ -21,4 +21,6 @@ export type {
   MigrationV1,
   ProjectConfigV1,
   SnapshotV1,
+  TransactionManifestV1,
+  TransactionProgressV1,
 } from "./generated/contracts.js";

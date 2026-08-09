@@ -76,6 +76,22 @@
       "path": "schemas/state/snapshot.v1.schema.json",
       "boundary": "persisted",
       "typeName": "SnapshotV1"
+    },
+    {
+      "id": "state.transaction-manifest",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/transaction-manifest.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "TransactionManifestV1"
+    },
+    {
+      "id": "state.transaction-progress",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/transaction-progress.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "TransactionProgressV1"
     }
   ],
   "legacyProfiles": [

@@ -24,7 +24,9 @@ The state family contains:
 - [`approval.v1.schema.json`](state/approval.v1.schema.json);
 - [`evidence.v1.schema.json`](state/evidence.v1.schema.json);
 - [`lock.v1.schema.json`](state/lock.v1.schema.json);
-- [`migration.v1.schema.json`](state/migration.v1.schema.json).
+- [`migration.v1.schema.json`](state/migration.v1.schema.json);
+- [`transaction-manifest.v1.schema.json`](state/transaction-manifest.v1.schema.json);
+- [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 
 The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json), and the

@@ -8,6 +8,8 @@
 // source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:5b1082202fcc83a9a3c2af6c4894eb3d3774ed1b2e6d43871a98bda1c9c409ef
 // source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:78fc5822e1cbf79b0185ceb8d40b64394acfcbb2fc2050526c702c3dc62efebb
 // source: https://mestre-yoda.dev/schemas/state/snapshot/v1 sha256:bb600b0d7d311bda1e150ee9121388b68567a4806f55aca1e77b501faace02fb
+// source: https://mestre-yoda.dev/schemas/state/transaction-manifest/v1 sha256:ca241c654b9edd2c75e3c8b3ce39f17ef9200f5c191786fd7d63d741944f3ec7
+// source: https://mestre-yoda.dev/schemas/state/transaction-progress/v1 sha256:3309c461745781087e4f9595089d8fe8fb739cbf9eaf3676fea211f289c1bdd9
 
 export namespace AdapterMessageV1Contract {
   export type AdapterMessageV1 = RequestMessage | ResponseMessage;
@@ -267,3 +269,75 @@ export namespace SnapshotV1Contract {
   }
 }
 export type SnapshotV1 = SnapshotV1Contract.SnapshotV1;
+export namespace TransactionManifestV1Contract {
+  export type Id = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+  export type Operation = {
+    [k: string]: unknown | undefined;
+  } & {
+    operationId: Id;
+    kind: "create_directory" | "write_file" | "delete_file";
+    path: Reference;
+    expected: Fingerprint;
+    result: Fingerprint;
+    stagedPath: Reference | null;
+  } & {
+    operationId: Id;
+    kind: "create_directory" | "write_file" | "delete_file";
+    path: Reference;
+    expected: Fingerprint;
+    result: Fingerprint;
+    stagedPath: Reference | null;
+  };
+  export type Reference = string;
+  export type Fingerprint =
+    | {
+        kind: "missing";
+      }
+    | {
+        kind: "directory";
+      }
+    | {
+        kind: "file";
+        size: SafeInteger;
+        sha256: Sha256;
+      };
+  export type SafeInteger = number;
+
+  export interface TransactionManifestV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    transactionId: Id;
+    planDigest: Sha256;
+    createdAt: Timestamp;
+    /**
+     * @minItems 1
+     */
+    operations: [Operation, ...Operation[]];
+  }
+}
+export type TransactionManifestV1 =
+  TransactionManifestV1Contract.TransactionManifestV1;
+export namespace TransactionProgressV1Contract {
+  export type TransactionProgressV1 = {
+    [k: string]: unknown | undefined;
+  } & {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    transactionId: Id;
+    manifestDigest: Sha256 | null;
+    recoveryToken: Sha256;
+    phase: "begun" | "prepared" | "publishing" | "committed" | "aborted";
+    publishedOperationIds: Id[];
+    fileSync: "required";
+    directorySync: "not_attempted" | "supported" | "unsupported";
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+  };
+  export type Id = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+}
+export type TransactionProgressV1 =
+  TransactionProgressV1Contract.TransactionProgressV1;

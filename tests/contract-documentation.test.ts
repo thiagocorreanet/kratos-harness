@@ -118,6 +118,8 @@ describe("contract versioning documentation", () => {
       "evidence.v1.schema.json",
       "lock.v1.schema.json",
       "migration.v1.schema.json",
+      "transaction-manifest.v1.schema.json",
+      "transaction-progress.v1.schema.json",
       "adapter-message.v1.schema.json",
       "contract-manifest.v1.schema.json",
       "npm run contracts:generate",

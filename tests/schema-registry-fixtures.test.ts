@@ -8,6 +8,8 @@ import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import snapshot from "../fixtures/contracts/v1/snapshot.json" with { type: "json" };
+import transactionManifest from "../fixtures/contracts/v1/transaction-manifest.json" with { type: "json" };
+import transactionProgress from "../fixtures/contracts/v1/transaction-progress.json" with { type: "json" };
 import type {
   ContractId,
   StructuralReasonCode,
@@ -106,6 +108,26 @@ const fixtures = [
     requiredField: "projectId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: snapshot,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.transaction-manifest",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "transactionId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: transactionManifest,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.transaction-progress",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "transactionId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: transactionProgress,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

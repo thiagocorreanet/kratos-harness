@@ -1,0 +1,13 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "transactionId": "transaction-01",
+  "manifestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "recoveryToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "phase": "prepared",
+  "publishedOperationIds": [],
+  "fileSync": "required",
+  "directorySync": "supported",
+  "createdAt": "2026-08-09T00:00:00.000Z",
+  "updatedAt": "2026-08-09T00:00:01.000Z"
+}
