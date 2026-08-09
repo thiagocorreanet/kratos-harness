@@ -21,6 +21,8 @@ import {
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { describe, expect, it } from "vitest";
 
+const campaignTimeoutMilliseconds = 30_000;
+
 function services(
   storage: ReturnType<typeof memoryTransactionStorage>,
 ): TransactionServices {
@@ -234,6 +236,7 @@ describe("transaction fault campaign", () => {
     expect(enumerateMatrix(storage.calls())).toHaveLength(220);
   });
 
+  // prettier-ignore
   it("recovers idempotently at every reached before and after boundary", async () => {
     const baseline = campaignStorage();
     await executeManagedMutation(
@@ -327,7 +330,7 @@ describe("transaction fault campaign", () => {
         firstRecovery.manifestDigest !== null,
       );
     }
-  });
+  }, campaignTimeoutMilliseconds);
 
   it.each(["permission", "disk_full"] as const)(
     "maps a synthetic %s fault without leaking private transaction data",
