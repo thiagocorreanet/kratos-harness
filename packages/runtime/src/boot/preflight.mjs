@@ -29,129 +29,214 @@ function atLeast(actual, minimum) {
   return String(actual).indexOf("-") === -1;
 }
 
-function profileValue(value, functionToString, types) {
-  if (typeof value === "function") {
-    if (types.isProxy(value)) return null;
-    try {
-      var source = Reflect.apply(functionToString, value, []);
-      return typeof source === "string"
-        ? { kind: "function", source: source }
-        : null;
-    } catch {
-      return null;
+var UNRESOLVED = {};
+
+function resolveDataProperty(value, key) {
+  var current = value;
+  while (current !== null) {
+    var descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor !== undefined) {
+      return Reflect.ownKeys(descriptor).indexOf("value") !== -1
+        ? descriptor.value
+        : UNRESOLVED;
+    }
+    current = Object.getPrototypeOf(current);
+  }
+  return UNRESOLVED;
+}
+
+function sameIntrinsicValue(
+  actual,
+  expected,
+  functionToString,
+  types,
+  compared,
+) {
+  if (typeof actual !== typeof expected) return false;
+  if (typeof actual === "function") {
+    if (types.isProxy(actual) || types.isProxy(expected)) return false;
+    var actualSource = Reflect.apply(functionToString, actual, []);
+    var expectedSource = Reflect.apply(functionToString, expected, []);
+    if (typeof actualSource !== "string" || actualSource !== expectedSource) {
+      return false;
+    }
+    return sameIntrinsicObject(
+      actual,
+      expected,
+      functionToString,
+      types,
+      compared,
+    );
+  }
+  if (actual === null || expected === null || typeof actual !== "object") {
+    return Object.is(actual, expected);
+  }
+  if (types.isProxy(actual) || types.isProxy(expected)) return false;
+  return sameIntrinsicObject(
+    actual,
+    expected,
+    functionToString,
+    types,
+    compared,
+  );
+}
+
+function sameIntrinsicObject(
+  actual,
+  expected,
+  functionToString,
+  types,
+  compared,
+) {
+  if (compared.actualToExpected.has(actual)) {
+    return compared.actualToExpected.get(actual) === expected;
+  }
+  if (compared.expectedToActual.has(expected)) {
+    return compared.expectedToActual.get(expected) === actual;
+  }
+  compared.actualToExpected.set(actual, expected);
+  compared.expectedToActual.set(expected, actual);
+
+  var actualKeys = Reflect.ownKeys(actual);
+  var expectedKeys = Reflect.ownKeys(expected);
+  if (actualKeys.length !== expectedKeys.length) return false;
+  for (var actualIndex = 0; actualIndex < actualKeys.length; actualIndex += 1) {
+    var actualKey = actualKeys[actualIndex];
+    var found = false;
+    for (
+      var expectedIndex = 0;
+      expectedIndex < expectedKeys.length;
+      expectedIndex += 1
+    ) {
+      if (Object.is(actualKey, expectedKeys[expectedIndex])) found = true;
+    }
+    if (!found) return false;
+  }
+
+  for (var index = 0; index < expectedKeys.length; index += 1) {
+    var key = expectedKeys[index];
+    if (
+      !sameIntrinsicDescriptor(
+        Object.getOwnPropertyDescriptor(actual, key),
+        Object.getOwnPropertyDescriptor(expected, key),
+        functionToString,
+        types,
+        compared,
+      )
+    ) {
+      return false;
     }
   }
+  return sameIntrinsicValue(
+    Object.getPrototypeOf(actual),
+    Object.getPrototypeOf(expected),
+    functionToString,
+    types,
+    compared,
+  );
+}
+
+function sameIntrinsicDescriptor(
+  actual,
+  expected,
+  functionToString,
+  types,
+  compared,
+) {
+  if (actual === undefined || expected === undefined) return false;
   if (
-    value === null ||
-    value === undefined ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return { kind: "primitive", value: value };
-  }
-  return null;
-}
-
-function descriptorProfile(descriptor, functionToString, types) {
-  if (descriptor === undefined) return null;
-  if (Reflect.ownKeys(descriptor).indexOf("value") !== -1) {
-    var value = profileValue(descriptor.value, functionToString, types);
-    if (value === null || descriptor.writable === undefined) return null;
-    return {
-      configurable: descriptor.configurable === true,
-      enumerable: descriptor.enumerable === true,
-      kind: "data",
-      value: value,
-      writable: descriptor.writable,
-    };
-  }
-  var getter = profileValue(descriptor.get, functionToString, types);
-  var setter = profileValue(descriptor.set, functionToString, types);
-  if (getter === null || setter === null) return null;
-  return {
-    configurable: descriptor.configurable === true,
-    enumerable: descriptor.enumerable === true,
-    get: getter,
-    kind: "accessor",
-    set: setter,
-  };
-}
-
-function sameValueProfile(actual, expected) {
-  if (actual.kind !== expected.kind) return false;
-  return actual.kind === "function"
-    ? actual.source === expected.source
-    : Object.is(actual.value, expected.value);
-}
-
-function sameDescriptorProfile(actual, expected) {
-  if (
-    actual === null ||
-    actual.kind !== expected.kind ||
     actual.configurable !== expected.configurable ||
     actual.enumerable !== expected.enumerable
   ) {
     return false;
   }
-  return actual.kind === "data"
-    ? actual.writable === expected.writable &&
-        sameValueProfile(actual.value, expected.value)
-    : sameValueProfile(actual.get, expected.get) &&
-        sameValueProfile(actual.set, expected.set);
+  var actualIsData = Reflect.ownKeys(actual).indexOf("value") !== -1;
+  var expectedIsData = Reflect.ownKeys(expected).indexOf("value") !== -1;
+  if (actualIsData !== expectedIsData) return false;
+  if (actualIsData) {
+    return (
+      actual.writable === expected.writable &&
+      sameIntrinsicValue(
+        actual.value,
+        expected.value,
+        functionToString,
+        types,
+        compared,
+      )
+    );
+  }
+  var actualGet = Object.getOwnPropertyDescriptor(actual, "get").value;
+  var expectedGet = Object.getOwnPropertyDescriptor(expected, "get").value;
+  var actualSet = Object.getOwnPropertyDescriptor(actual, "set").value;
+  var expectedSet = Object.getOwnPropertyDescriptor(expected, "set").value;
+  return (
+    sameIntrinsicValue(
+      actualGet,
+      expectedGet,
+      functionToString,
+      types,
+      compared,
+    ) &&
+    sameIntrinsicValue(
+      actualSet,
+      expectedSet,
+      functionToString,
+      types,
+      compared,
+    )
+  );
 }
 
 function objectPrototypeIsSafe(vm, types) {
   try {
     var intrinsics = vm.runInNewContext(
-      "[Object.prototype, Function.prototype.toString]",
+      "[Object.prototype, Function.prototype, Function.prototype.call, Function.prototype.toString]",
       Object.create(null),
     );
     if (
       !Array.isArray(intrinsics) ||
-      intrinsics.length !== 2 ||
+      intrinsics.length !== 4 ||
       typeof intrinsics[0] !== "object" ||
       intrinsics[0] === null ||
       typeof intrinsics[1] !== "function" ||
-      types.isProxy(intrinsics[1])
+      typeof intrinsics[2] !== "function" ||
+      typeof intrinsics[3] !== "function" ||
+      types.isProxy(intrinsics[1]) ||
+      types.isProxy(intrinsics[2]) ||
+      types.isProxy(intrinsics[3])
     ) {
       return false;
     }
 
-    var cleanPrototype = intrinsics[0];
-    var functionToString = intrinsics[1];
-    var cleanKeys = Reflect.ownKeys(cleanPrototype);
-    var hostKeys = Reflect.ownKeys(Object.prototype);
-    if (cleanKeys.length !== hostKeys.length) return false;
-
-    var expected = new Map();
-    for (var index = 0; index < cleanKeys.length; index += 1) {
-      var key = cleanKeys[index];
-      var cleanDescriptor = Object.getOwnPropertyDescriptor(
-        cleanPrototype,
-        key,
-      );
-      var profile = descriptorProfile(cleanDescriptor, functionToString, types);
-      if (profile === null) return false;
-      expected.set(key, profile);
-    }
-
-    for (var hostIndex = 0; hostIndex < hostKeys.length; hostIndex += 1) {
-      var hostKey = hostKeys[hostIndex];
-      var expectedProfile = expected.get(hostKey);
-      if (expectedProfile === undefined) return false;
-      var hostDescriptor = Object.getOwnPropertyDescriptor(
+    var functionCall = resolveDataProperty(Function.prototype, "call");
+    if (functionCall === UNRESOLVED) return false;
+    var compared = {
+      actualToExpected: new WeakMap(),
+      expectedToActual: new WeakMap(),
+    };
+    return (
+      sameIntrinsicValue(
         Object.prototype,
-        hostKey,
-      );
-      var hostProfile = descriptorProfile(
-        hostDescriptor,
-        functionToString,
+        intrinsics[0],
+        intrinsics[3],
         types,
-      );
-      if (!sameDescriptorProfile(hostProfile, expectedProfile)) return false;
-    }
-    return true;
+        compared,
+      ) &&
+      sameIntrinsicValue(
+        Function.prototype,
+        intrinsics[1],
+        intrinsics[3],
+        types,
+        compared,
+      ) &&
+      sameIntrinsicValue(
+        functionCall,
+        intrinsics[2],
+        intrinsics[3],
+        types,
+        compared,
+      )
+    );
   } catch {
     return false;
   }

@@ -1044,4 +1044,49 @@ describe("schema registry fresh-process preflight", () => {
     expect(result.stderr).toContain("Embedded schema registry is invalid");
     expect(result.status).not.toBe(0);
   });
+
+  it("rejects an own returning call accessor without invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      const intrinsic = Object.prototype.hasOwnProperty;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(intrinsic, "call", {
+        configurable: true,
+        enumerable: false,
+        get() {
+          calls += 1;
+          return Function.prototype.call;
+        },
+      });
+    `);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+  });
+
+  it("rejects an own throwing call accessor without invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      const intrinsic = Object.prototype.hasOwnProperty;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(intrinsic, "call", {
+        configurable: true,
+        enumerable: false,
+        get() {
+          calls += 1;
+          throw new Error("attacker-call-accessor");
+        },
+      });
+    `);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+    expect(result.stderr).not.toContain("attacker-call-accessor");
+  });
 });
