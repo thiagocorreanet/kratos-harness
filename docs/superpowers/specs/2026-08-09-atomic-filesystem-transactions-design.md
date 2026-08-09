@@ -245,8 +245,13 @@ canonical state. They report recovery required before loading it.
 ### D6: Explicit recovery rolls forward after publication
 
 Inspection is read-only and returns a classified transaction summary. Recovery
-requires the exact transaction identifier and manifest digest so a stale
-operator action cannot recover a replacement transaction accidentally.
+requires the exact transaction identifier and recovery token so a stale
+operator action cannot recover a replacement transaction accidentally. The
+token is stored in progress. In `begun`, it is the digest of the immutable
+transaction identity (`contractVersion`, `stateContract`, `transactionId`, and
+`createdAt`). The transition to `prepared` replaces it once with the manifest
+digest. It never changes after that, including during terminal cleanup, so the
+same explicit request remains idempotent.
 
 Recovery behavior is deterministic:
 
@@ -405,7 +410,7 @@ executeManagedMutation(
 recoverManagedMutation(
   request: {
     transactionId: string;
-    manifestDigest: string;
+    recoveryToken: string;
   },
   ports: TransactionPorts,
 ): Promise<TransactionReceipt>;
