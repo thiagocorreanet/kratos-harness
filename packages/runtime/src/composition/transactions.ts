@@ -56,6 +56,7 @@ export interface TransactionServices {
 interface TransactionFailureContext {
   transactionId?: string;
   recoveryToken?: string;
+  validatedRecovery: boolean;
   publishingAuthorized: boolean;
 }
 
@@ -86,7 +87,10 @@ export async function executeManagedMutation(
     if (error instanceof TransactionFailure) throw error;
     throw new TransactionFailure("runtime.internal_failure", []);
   }
-  const attempt: TransactionFailureContext = { publishingAuthorized: false };
+  const attempt: TransactionFailureContext = {
+    validatedRecovery: false,
+    publishingAuthorized: false,
+  };
   try {
     await reconcileUnmarkedTransactions(services);
     await rejectIncompleteTransactions(services);
@@ -538,6 +542,7 @@ export async function recoverManagedMutation(
   const attempt: TransactionFailureContext = {
     transactionId: request.transactionId,
     recoveryToken: request.recoveryToken,
+    validatedRecovery: false,
     publishingAuthorized: false,
   };
   try {
@@ -553,6 +558,7 @@ export async function recoverManagedMutation(
     if (summary.recoveryToken !== request.recoveryToken) {
       throw recoveryRequired(summary);
     }
+    attempt.validatedRecovery = true;
     attempt.publishingAuthorized =
       summary.phase === "publishing" || summary.phase === "committed";
     return await driveRecovery(summary, services);
@@ -852,7 +858,10 @@ async function classifyDriverFailure(
     if (incomplete !== undefined) throw recoveryRequired(incomplete);
   } catch (inspectionError) {
     if (inspectionError instanceof TransactionFailure) throw inspectionError;
-    if (context.publishingAuthorized && transactionId !== undefined) {
+    if (
+      (context.validatedRecovery || context.publishingAuthorized) &&
+      transactionId !== undefined
+    ) {
       throw recoveryRequiredForTransaction(transactionId);
     }
   }

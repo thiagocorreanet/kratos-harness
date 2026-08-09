@@ -1212,6 +1212,170 @@ describe("managed transaction inspection and recovery", () => {
     expect(storage.snapshot().files[".brain/state.json"]).toBe("new");
   });
 
+  it.each([
+    {
+      phase: "begun" as const,
+      syncOccurrence: 5,
+      finalizeAsAborted: false,
+    },
+    {
+      phase: "prepared" as const,
+      syncOccurrence: 6,
+      finalizeAsAborted: false,
+    },
+    {
+      phase: "aborted" as const,
+      syncOccurrence: 5,
+      finalizeAsAborted: true,
+    },
+  ])(
+    "uses validated $phase recovery context when drive and classification reads fail",
+    async ({ phase, syncOccurrence, finalizeAsAborted }) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      const initial = services(storage);
+      storage.fail({
+        operation: "sync_directory",
+        timing: "after",
+        occurrence: syncOccurrence,
+      });
+      await expect(
+        executeManagedMutation(
+          writePlan(storage, "old", "new"),
+          { rootMode: "existing" },
+          initial,
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+      let [summary] = await inspectManagedTransactions(initial);
+      if (finalizeAsAborted) {
+        await recoverManagedMutation(
+          {
+            transactionId: "transaction-1",
+            recoveryToken: summary?.recoveryToken ?? "missing",
+          },
+          initial,
+        );
+        [summary] = await inspectManagedTransactions(initial);
+      }
+      expect(summary?.phase).toBe(phase);
+
+      const progressPath = ".brain/transactions/transaction-1/progress.json";
+      const base = storage.durableFileSystem;
+      let progressReads = 0;
+      let driveFailed = false;
+      const boundary: DurableFileSystem = {
+        ...base,
+        inspect: (path) =>
+          driveFailed && path === ".brain"
+            ? Promise.reject(new Error("classification scan detail"))
+            : base.inspect(path),
+        readText: async (path) => {
+          const actual = await base.readText(path);
+          if (path !== progressPath) return actual;
+          progressReads += 1;
+          if (progressReads === 2) {
+            driveFailed = true;
+            throw new Error("recovery drive detail");
+          }
+          return actual;
+        },
+      };
+
+      await expect(
+        recoverManagedMutation(
+          {
+            transactionId: "transaction-1",
+            recoveryToken: summary?.recoveryToken ?? "missing",
+          },
+          { ...initial, durableFileSystem: boundary },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.recovery_required", [
+          { kind: "artifact", ref: progressPath },
+        ]),
+      );
+      const [preserved] = await inspectManagedTransactions(initial);
+      expect(preserved?.phase).toBe(phase);
+      expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+    },
+  );
+
+  it("does not trust a recovery request before its initial inspection succeeds", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+    });
+    const base = storage.durableFileSystem;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: (path) =>
+        path === ".brain"
+          ? Promise.reject(new Error("initial recovery scan detail"))
+          : base.inspect(path),
+    };
+
+    await expect(
+      recoverManagedMutation(
+        {
+          transactionId: "transaction-unvalidated",
+          recoveryToken: "f".repeat(64),
+        },
+        { ...services(storage), durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
+
+  it("preserves the active transaction when an unmatched request precedes a raw classification scan", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const initial = services(storage);
+    storage.fail({
+      operation: "sync_directory",
+      timing: "after",
+      occurrence: 5,
+    });
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        initial,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    let brainInspections = 0;
+    const base = storage.durableFileSystem;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path) => {
+        if (path !== ".brain") return base.inspect(path);
+        brainInspections += 1;
+        if (brainInspections === 2) {
+          throw new Error("classification scan detail");
+        }
+        return base.inspect(path);
+      },
+    };
+
+    await expect(
+      recoverManagedMutation(
+        {
+          transactionId: "transaction-unvalidated",
+          recoveryToken: "f".repeat(64),
+        },
+        { ...initial, durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        {
+          kind: "artifact",
+          ref: ".brain/transactions/transaction-1/progress.json",
+        },
+      ]),
+    );
+  });
+
   it("uses the validated recovery context when drive and classification scans fail", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions"],
