@@ -107,6 +107,7 @@ describe("import extraction", () => {
       "../infra/node/index.js",
       "../ports/index.js",
       "./schema.js",
+      "./transactions.js",
     ]);
   });
 });

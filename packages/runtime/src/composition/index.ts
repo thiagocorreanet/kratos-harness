@@ -11,6 +11,15 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 export { configurationValidator, createSchemaRegistry } from "./schema.js";
+export {
+  executeManagedMutation,
+  inspectManagedTransactions,
+  recoverManagedMutation,
+  TransactionFailure,
+  type TransactionReceipt,
+  type TransactionServices,
+  type TransactionSummary,
+} from "./transactions.js";
 
 /**
  * The one place effect implementations are chosen.

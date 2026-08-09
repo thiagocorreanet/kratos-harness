@@ -1,0 +1,1252 @@
+import {
+  CONTRACT_IDENTITIES,
+  type TransactionManifestV1,
+  type TransactionProgressV1,
+} from "@mestre-yoda/contracts";
+
+import type { EvidenceRef } from "../domain/result/index.js";
+import {
+  canonicalizeJson,
+  type SchemaRegistry,
+} from "../domain/schema/index.js";
+import {
+  assertPhaseTransition,
+  decideRecovery,
+  toPersistedManagedOperation,
+  type ManagedMutationPlan,
+  type ManagedOperation,
+  type PathFingerprint,
+} from "../domain/transactions/index.js";
+import type {
+  Clock,
+  Digests,
+  DurableEntry,
+  DurableFileSystem,
+  Ids,
+} from "../ports/index.js";
+
+const contractVersion = "1.0.0" as const;
+const stateContract = "1.0.0" as const;
+const transactionsRoot = ".brain/transactions";
+
+export interface TransactionReceipt {
+  readonly transactionId: string;
+  readonly manifestDigest: string | null;
+  readonly recoveryToken: string;
+  readonly phase: "committed" | "aborted";
+  readonly directorySync: "not_attempted" | "supported" | "unsupported";
+}
+
+export interface TransactionSummary {
+  readonly transactionId: string;
+  readonly manifestDigest: string | null;
+  readonly recoveryToken: string;
+  readonly phase: TransactionProgressV1["phase"];
+  readonly evidenceRef: string;
+}
+
+export interface TransactionServices {
+  readonly clock: Clock;
+  readonly ids: Ids;
+  readonly digests: Digests;
+  readonly durableFileSystem: DurableFileSystem;
+  readonly schemaRegistry: SchemaRegistry;
+}
+
+export class TransactionFailure extends Error {
+  public constructor(
+    public readonly reasonCode:
+      | "guard.outside_allow"
+      | "runtime.internal_failure"
+      | "runtime.recovery_required"
+      | "runtime.revision_conflict"
+      | "runtime.state_corrupt",
+    public readonly evidence: readonly EvidenceRef[],
+  ) {
+    super("Managed transaction failed");
+    this.name = "TransactionFailure";
+  }
+}
+
+export async function executeManagedMutation(
+  plan: ManagedMutationPlan,
+  options: { readonly rootMode: "existing" | "initialize" },
+  services: TransactionServices,
+): Promise<TransactionReceipt> {
+  try {
+    await rejectIncompleteTransactions(services);
+    return await driveExecution(plan, options, services);
+  } catch (error) {
+    return classifyDriverFailure(error, services);
+  }
+}
+
+async function driveExecution(
+  plan: ManagedMutationPlan,
+  options: { readonly rootMode: "existing" | "initialize" },
+  services: TransactionServices,
+): Promise<TransactionReceipt> {
+  await assertExistingRoot(options.rootMode, services);
+
+  const transactionId = services.ids.next();
+  const createdAt = services.clock.now().toISOString();
+  const root = transactionRoot(transactionId);
+  const stagingRoot = `${root}/staging`;
+  const begunToken = services.digests.sha256(
+    canonicalizeJson({
+      contractVersion,
+      stateContract,
+      transactionId,
+      createdAt,
+    }),
+  );
+  let directorySync: TransactionProgressV1["directorySync"] = "not_attempted";
+
+  const begun = validateProgress(
+    {
+      contractVersion,
+      stateContract,
+      transactionId,
+      manifestDigest: null,
+      recoveryToken: begunToken,
+      phase: "begun",
+      publishedOperationIds: [],
+      fileSync: "required",
+      directorySync,
+      createdAt,
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+
+  await services.durableFileSystem.createDirectoryExclusive(root);
+  directorySync = mergeDirectorySync(
+    directorySync,
+    await services.durableFileSystem.syncDirectory(transactionsRoot),
+  );
+  directorySync = await persistProgress({ ...begun, directorySync }, services);
+
+  await services.durableFileSystem.createDirectory(stagingRoot);
+  directorySync = mergeDirectorySync(
+    directorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+
+  for (const operation of plan.operations) {
+    if (operation.kind !== "write_file") continue;
+    await services.durableFileSystem.writeSynced(
+      stagedPayloadPath(root, operation),
+      operation.content,
+    );
+    directorySync = mergeDirectorySync(
+      directorySync,
+      await services.durableFileSystem.syncDirectory(stagingRoot),
+    );
+  }
+
+  const manifest = createManifest(
+    plan,
+    transactionId,
+    createdAt,
+    root,
+    services,
+  );
+  const manifestEncoded = canonicalizeJson(manifest);
+  const manifestDigest = services.digests.sha256(manifestEncoded);
+  await services.durableFileSystem.writeSynced(
+    `${root}/manifest.json`,
+    `${manifestEncoded}\n`,
+  );
+  directorySync = mergeDirectorySync(
+    directorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+
+  await assertPreconditions(manifest, services);
+  let progress = validateProgress(
+    {
+      ...begun,
+      manifestDigest,
+      recoveryToken: manifestDigest,
+      phase: "prepared",
+      directorySync,
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+  directorySync = await persistProgress(progress, services);
+
+  progress = validateProgress(
+    {
+      ...progress,
+      phase: "publishing",
+      directorySync,
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+  directorySync = await persistProgress(progress, services);
+
+  const publishedOperationIds: string[] = [];
+  for (const operation of plan.operations) {
+    await assertPublishable(operation, services);
+    await publishOperation(operation, root, services);
+    directorySync = mergeDirectorySync(
+      directorySync,
+      await services.durableFileSystem.syncDirectory(parentOf(operation.path)),
+    );
+    await assertResult(operation, services);
+    publishedOperationIds.push(operation.operationId);
+    progress = validateProgress(
+      {
+        ...progress,
+        publishedOperationIds: [...publishedOperationIds],
+        directorySync,
+        updatedAt: services.clock.now().toISOString(),
+      },
+      services,
+    );
+    directorySync = await persistProgress(progress, services);
+  }
+
+  await assertResults(manifest, services);
+  progress = validateProgress(
+    {
+      ...progress,
+      phase: "committed",
+      publishedOperationIds: manifest.operations.map(
+        (operation) => operation.operationId,
+      ),
+      directorySync,
+      updatedAt: services.clock.now().toISOString(),
+    },
+    services,
+  );
+  directorySync = await persistProgress(progress, services);
+
+  await services.durableFileSystem.removeEmptyDirectory(stagingRoot);
+  directorySync = mergeDirectorySync(
+    directorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+
+  return {
+    transactionId,
+    manifestDigest,
+    recoveryToken: manifestDigest,
+    phase: "committed",
+    directorySync,
+  };
+}
+
+export async function inspectManagedTransactions(
+  services: TransactionServices,
+): Promise<readonly TransactionSummary[]> {
+  const brain = await services.durableFileSystem.inspect(".brain");
+  if (brain.kind === "missing") return [];
+  if (brain.kind !== "directory") {
+    throw corrupt(".brain");
+  }
+  const transactions =
+    await services.durableFileSystem.inspect(transactionsRoot);
+  if (transactions.kind === "missing") return [];
+  if (transactions.kind !== "directory") {
+    throw corrupt(transactionsRoot);
+  }
+
+  const transactionIds = [
+    ...(await services.durableFileSystem.list(transactionsRoot)),
+  ].sort((left, right) => left.localeCompare(right, "en-US"));
+  const summaries: TransactionSummary[] = [];
+  for (const transactionId of transactionIds) {
+    const root = transactionRoot(transactionId);
+    if ((await services.durableFileSystem.inspect(root)).kind !== "directory") {
+      throw corrupt(root);
+    }
+    await validateTransactionLayout(root, services);
+    const progressPath = `${root}/progress.json`;
+    const progress = await readProgress(progressPath, services);
+    if (progress.transactionId !== transactionId) {
+      throw corrupt(progressPath);
+    }
+    await validatePersistedIdentity(progress, root, services);
+    summaries.push({
+      transactionId,
+      manifestDigest: progress.manifestDigest,
+      recoveryToken: progress.recoveryToken,
+      phase: progress.phase,
+      evidenceRef: progressPath,
+    });
+  }
+  return summaries;
+}
+
+export async function recoverManagedMutation(
+  request: { readonly transactionId: string; readonly recoveryToken: string },
+  services: TransactionServices,
+): Promise<TransactionReceipt> {
+  try {
+    const summaries = await inspectManagedTransactions(services);
+    const summary = summaries.find(
+      (candidate) => candidate.transactionId === request.transactionId,
+    );
+    if (summary === undefined) {
+      const incomplete = await firstIncompleteSummary(summaries, services);
+      if (incomplete !== undefined) throw recoveryRequired(incomplete);
+      throw corrupt(transactionRoot(request.transactionId));
+    }
+    if (summary.recoveryToken !== request.recoveryToken) {
+      throw recoveryRequired(summary);
+    }
+    return await driveRecovery(summary, services);
+  } catch (error) {
+    return classifyDriverFailure(error, services);
+  }
+}
+
+async function driveRecovery(
+  summary: TransactionSummary,
+  services: TransactionServices,
+): Promise<TransactionReceipt> {
+  const root = transactionRoot(summary.transactionId);
+  const progressPath = `${root}/progress.json`;
+  let progress = await readProgress(progressPath, services);
+  const manifestEntry = await services.durableFileSystem.inspect(
+    `${root}/manifest.json`,
+  );
+  if (manifestEntry.kind === "missing") {
+    return recoverWithoutManifest(progress, services);
+  }
+  /* v8 ignore next -- inspection validated this entry before recovery */
+  if (manifestEntry.kind !== "file") throw corrupt(`${root}/manifest.json`);
+  const manifest = await readRequiredManifest(root, progress, services);
+
+  for (;;) {
+    const observation = await observeTransaction(manifest, services);
+    const decision = decideRecovery(manifest, progress, observation);
+    switch (decision.kind) {
+      case "abort": {
+        assertPhaseTransition(progress.phase, "aborted");
+        progress = validateProgress(
+          {
+            ...progress,
+            phase: "aborted",
+            publishedOperationIds: [],
+            updatedAt: services.clock.now().toISOString(),
+          },
+          services,
+        );
+        const directorySync = await persistProgress(progress, services);
+        progress = { ...progress, directorySync };
+        break;
+      }
+      case "record_published": {
+        progress = validateProgress(
+          {
+            ...progress,
+            publishedOperationIds: [
+              ...progress.publishedOperationIds,
+              decision.operationId,
+            ],
+            updatedAt: services.clock.now().toISOString(),
+          },
+          services,
+        );
+        const directorySync = await persistProgress(progress, services);
+        progress = { ...progress, directorySync };
+        break;
+      }
+      case "publish": {
+        const operation = manifest.operations.find(
+          (candidate) => candidate.operationId === decision.operationId,
+        );
+        /* v8 ignore next -- decideRecovery returns an ID from this manifest */
+        if (operation === undefined) throw corrupt(`${root}/manifest.json`);
+        const parent = parentOf(operation.path);
+        if (
+          (await services.durableFileSystem.inspect(parent)).kind !==
+          "directory"
+        ) {
+          throw corrupt(operation.path);
+        }
+        await publishPersistedOperation(operation, services);
+        let directorySync = mergeDirectorySync(
+          progress.directorySync,
+          await services.durableFileSystem.syncDirectory(parent),
+        );
+        const result = await observeFingerprint(operation.path, services);
+        if (!sameFingerprint(result, operation.result)) {
+          throw corrupt(operation.path);
+        }
+        progress = validateProgress(
+          {
+            ...progress,
+            publishedOperationIds: [
+              ...progress.publishedOperationIds,
+              operation.operationId,
+            ],
+            directorySync,
+            updatedAt: services.clock.now().toISOString(),
+          },
+          services,
+        );
+        directorySync = await persistProgress(progress, services);
+        progress = { ...progress, directorySync };
+        break;
+      }
+      case "commit": {
+        assertPhaseTransition(progress.phase, "committed");
+        progress = validateProgress(
+          {
+            ...progress,
+            phase: "committed",
+            publishedOperationIds: manifest.operations.map(
+              (operation) => operation.operationId,
+            ),
+            updatedAt: services.clock.now().toISOString(),
+          },
+          services,
+        );
+        const directorySync = await persistProgress(progress, services);
+        progress = { ...progress, directorySync };
+        break;
+      }
+      case "cleanup": {
+        const directorySync = await cleanupTransaction(
+          manifest,
+          progress.directorySync,
+          services,
+        );
+        progress = { ...progress, directorySync };
+        break;
+      }
+      case "complete": {
+        if (await hasCleanupEntries(root, services)) {
+          const directorySync = await cleanupTransaction(
+            manifest,
+            progress.directorySync,
+            services,
+          );
+          progress = { ...progress, directorySync };
+        }
+        return receiptFromProgress(progress);
+      }
+      case "blocked": {
+        const blockedOperation =
+          decision.operationId === null
+            ? undefined
+            : manifest.operations.find(
+                (operation) => operation.operationId === decision.operationId,
+              );
+        const blockedEvidenceRef =
+          decision.operationId === null ? progressPath : blockedOperation?.path;
+        /* v8 ignore start -- decideRecovery only returns IDs from this manifest */
+        if (blockedEvidenceRef === undefined) {
+          throw corrupt(`${root}/manifest.json`);
+        }
+        /* v8 ignore stop */
+        throw new TransactionFailure(
+          decision.reasonCode,
+          evidence(blockedEvidenceRef),
+        );
+      }
+    }
+  }
+}
+
+function transactionRoot(transactionId: string): string {
+  return `${transactionsRoot}/${transactionId}`;
+}
+
+function evidence(path: string): readonly EvidenceRef[] {
+  return [{ kind: "artifact", ref: path }];
+}
+
+async function rejectIncompleteTransactions(
+  services: TransactionServices,
+): Promise<void> {
+  const summaries = await inspectManagedTransactions(services);
+  const incomplete = await firstIncompleteSummary(summaries, services);
+  if (incomplete !== undefined) throw recoveryRequired(incomplete);
+}
+
+async function firstIncompleteSummary(
+  summaries: readonly TransactionSummary[],
+  services: TransactionServices,
+): Promise<TransactionSummary | undefined> {
+  for (const summary of summaries) {
+    if (summary.phase !== "committed" && summary.phase !== "aborted") {
+      return summary;
+    }
+    const root = transactionRoot(summary.transactionId);
+    const staging = await services.durableFileSystem.inspect(`${root}/staging`);
+    const next = await services.durableFileSystem.inspect(
+      `${root}/progress.next`,
+    );
+    if (staging.kind !== "missing" || next.kind !== "missing") return summary;
+  }
+  return undefined;
+}
+
+function recoveryRequired(summary: TransactionSummary): TransactionFailure {
+  return new TransactionFailure(
+    "runtime.recovery_required",
+    evidence(summary.evidenceRef),
+  );
+}
+
+async function classifyDriverFailure(
+  error: unknown,
+  services: TransactionServices,
+): Promise<never> {
+  if (error instanceof TransactionFailure) throw error;
+  try {
+    await cleanupUnmarkedTransactions(services);
+    const summaries = await inspectManagedTransactions(services);
+    const incomplete = await firstIncompleteSummary(summaries, services);
+    if (incomplete !== undefined) throw recoveryRequired(incomplete);
+  } catch (inspectionError) {
+    if (inspectionError instanceof TransactionFailure) throw inspectionError;
+  }
+  throw new TransactionFailure("runtime.internal_failure", []);
+}
+
+async function cleanupUnmarkedTransactions(
+  services: TransactionServices,
+): Promise<void> {
+  if (
+    (await services.durableFileSystem.inspect(".brain")).kind !== "directory" ||
+    (await services.durableFileSystem.inspect(transactionsRoot)).kind !==
+      "directory"
+  ) {
+    return;
+  }
+  for (const transactionId of await services.durableFileSystem.list(
+    transactionsRoot,
+  )) {
+    const root = transactionRoot(transactionId);
+    /* v8 ignore next -- only the driver creates an unmarked transaction ID */
+    if ((await services.durableFileSystem.inspect(root)).kind !== "directory") {
+      continue;
+    }
+    const progress = await services.durableFileSystem.inspect(
+      `${root}/progress.json`,
+    );
+    if (progress.kind !== "missing") continue;
+    const entries = await services.durableFileSystem.list(root);
+    /* v8 ignore next -- a pre-marker driver writes only progress.next */
+    if (entries.some((entry) => entry !== "progress.next")) continue;
+    const nextPath = `${root}/progress.next`;
+    const next = await services.durableFileSystem.inspect(nextPath);
+    if (next.kind === "file") {
+      await services.durableFileSystem.removeFile(nextPath);
+      /* v8 ignore start -- the validated scratch entry is missing or a file */
+    } else if (next.kind !== "missing") {
+      continue;
+    }
+    /* v8 ignore stop */
+    /* v8 ignore next -- progress.next was the only possible entry */
+    if ((await services.durableFileSystem.list(root)).length !== 0) continue;
+    await services.durableFileSystem.removeEmptyDirectory(root);
+    await services.durableFileSystem.syncDirectory(transactionsRoot);
+  }
+}
+
+async function assertExistingRoot(
+  rootMode: "existing" | "initialize",
+  services: TransactionServices,
+): Promise<void> {
+  let brain = await services.durableFileSystem.inspect(".brain");
+  let createdBrain = false;
+  if (rootMode === "initialize" && brain.kind === "missing") {
+    await services.durableFileSystem.createDirectory(".brain");
+    await services.durableFileSystem.syncDirectory(".");
+    brain = { kind: "directory" };
+    createdBrain = true;
+  }
+  if (brain.kind !== "directory") {
+    throw new TransactionFailure("runtime.state_corrupt", evidence(".brain"));
+  }
+
+  let transactions = await services.durableFileSystem.inspect(transactionsRoot);
+  if (rootMode === "initialize" && transactions.kind === "missing") {
+    if (
+      !createdBrain &&
+      (await services.durableFileSystem.list(".brain")).length !== 0
+    ) {
+      throw new TransactionFailure("runtime.state_corrupt", evidence(".brain"));
+    }
+    await services.durableFileSystem.createDirectory(transactionsRoot);
+    await services.durableFileSystem.syncDirectory(".brain");
+    transactions = { kind: "directory" };
+  }
+  if (transactions.kind !== "directory") {
+    throw new TransactionFailure(
+      "runtime.state_corrupt",
+      evidence(transactionsRoot),
+    );
+  }
+}
+
+async function validateTransactionLayout(
+  root: string,
+  services: TransactionServices,
+): Promise<void> {
+  const allowed = new Set([
+    "manifest.json",
+    "progress.json",
+    "progress.next",
+    "staging",
+  ]);
+  const entries = await services.durableFileSystem.list(root);
+  if (entries.some((entry) => !allowed.has(entry))) throw corrupt(root);
+
+  for (const file of ["manifest.json", "progress.json", "progress.next"]) {
+    const observed = await services.durableFileSystem.inspect(
+      `${root}/${file}`,
+    );
+    if (observed.kind !== "missing" && observed.kind !== "file") {
+      throw corrupt(`${root}/${file}`);
+    }
+  }
+  const staging = await services.durableFileSystem.inspect(`${root}/staging`);
+  if (staging.kind !== "missing" && staging.kind !== "directory") {
+    throw corrupt(`${root}/staging`);
+  }
+}
+
+async function validatePersistedIdentity(
+  progress: TransactionProgressV1,
+  root: string,
+  services: TransactionServices,
+): Promise<void> {
+  const progressPath = `${root}/progress.json`;
+  if (progress.manifestDigest === null) {
+    const identityToken = services.digests.sha256(
+      canonicalizeJson({
+        contractVersion: progress.contractVersion,
+        stateContract: progress.stateContract,
+        transactionId: progress.transactionId,
+        createdAt: progress.createdAt,
+      }),
+    );
+    if (progress.recoveryToken !== identityToken) throw corrupt(progressPath);
+  } else if (progress.recoveryToken !== progress.manifestDigest) {
+    throw corrupt(progressPath);
+  }
+
+  const manifestPath = `${root}/manifest.json`;
+  const manifestEntry = await services.durableFileSystem.inspect(manifestPath);
+  if (manifestEntry.kind === "missing") {
+    if (progress.manifestDigest !== null) throw corrupt(manifestPath);
+    return;
+  }
+  /* v8 ignore next -- validateTransactionLayout already proved file kind */
+  if (manifestEntry.kind !== "file") throw corrupt(manifestPath);
+  const { value: manifest, canonical } = await readManifest(
+    manifestPath,
+    services,
+  );
+  assertManifestSemantics(manifest, root, services);
+  if (
+    manifest.transactionId !== progress.transactionId ||
+    manifest.createdAt !== progress.createdAt ||
+    (progress.manifestDigest !== null &&
+      services.digests.sha256(canonical) !== progress.manifestDigest)
+  ) {
+    throw corrupt(manifestPath);
+  }
+}
+
+async function readRequiredManifest(
+  root: string,
+  progress: TransactionProgressV1,
+  services: TransactionServices,
+): Promise<TransactionManifestV1> {
+  const manifestPath = `${root}/manifest.json`;
+  const { value, canonical } = await readManifest(manifestPath, services);
+  assertManifestSemantics(value, root, services);
+  if (
+    value.transactionId !== progress.transactionId ||
+    value.createdAt !== progress.createdAt ||
+    (progress.manifestDigest !== null &&
+      services.digests.sha256(canonical) !== progress.manifestDigest)
+  ) {
+    throw corrupt(manifestPath);
+  }
+  return value;
+}
+
+function assertManifestSemantics(
+  manifest: TransactionManifestV1,
+  root: string,
+  services: TransactionServices,
+): void {
+  for (const [index, operation] of manifest.operations.entries()) {
+    const operationId = `operation-${String(index + 1).padStart(4, "0")}`;
+    if (
+      operation.operationId !== operationId ||
+      !isManagedDestination(operation.path)
+    ) {
+      throw corrupt(`${root}/manifest.json`);
+    }
+    switch (operation.kind) {
+      case "create_directory":
+        if (
+          operation.expected.kind !== "missing" ||
+          operation.result.kind !== "directory"
+        ) {
+          throw corrupt(`${root}/manifest.json`);
+        }
+        break;
+      case "write_file":
+        if (
+          operation.stagedPath !== `${root}/staging/${operationId}.payload` ||
+          operation.expected.kind === "directory" ||
+          operation.result.kind !== "file"
+        ) {
+          throw corrupt(`${root}/manifest.json`);
+        }
+        break;
+      case "delete_file":
+        if (
+          operation.expected.kind !== "file" ||
+          operation.result.kind !== "missing"
+        ) {
+          throw corrupt(`${root}/manifest.json`);
+        }
+        break;
+    }
+  }
+
+  const relativeOperations = manifest.operations.map((operation) =>
+    operation.stagedPath === null
+      ? operation
+      : {
+          ...operation,
+          stagedPath: `staging/${operation.operationId}.payload`,
+        },
+  );
+  const planDigest = services.digests.sha256(
+    canonicalizeJson({ operations: relativeOperations }),
+  );
+  if (manifest.planDigest !== planDigest) {
+    throw corrupt(`${root}/manifest.json`);
+  }
+}
+
+function isManagedDestination(path: string): boolean {
+  const segments = path.split("/");
+  return (
+    segments.length >= 2 &&
+    segments[0] === ".brain" &&
+    segments[1]?.toLowerCase() !== "transactions" &&
+    segments.every(
+      (segment) => segment !== "" && segment !== "." && segment !== "..",
+    ) &&
+    segments.join("/") === path
+  );
+}
+
+async function observeTransaction(
+  manifest: TransactionManifestV1,
+  services: TransactionServices,
+): Promise<{
+  readonly destinations: ReadonlyMap<string, PathFingerprint>;
+  readonly stagedPayloads: ReadonlyMap<string, PathFingerprint>;
+}> {
+  const destinations = new Map<string, PathFingerprint>();
+  const stagedPayloads = new Map<string, PathFingerprint>();
+  for (const operation of manifest.operations) {
+    destinations.set(
+      operation.path,
+      await observeFingerprint(operation.path, services),
+    );
+    if (operation.stagedPath !== null) {
+      stagedPayloads.set(
+        operation.stagedPath,
+        await observeFingerprint(operation.stagedPath, services),
+      );
+    }
+  }
+
+  const root = transactionRoot(manifest.transactionId);
+  const stagingRoot = `${root}/staging`;
+  const staging = await services.durableFileSystem.inspect(stagingRoot);
+  if (staging.kind === "directory") {
+    const known = new Set(
+      manifest.operations.flatMap((operation) =>
+        operation.stagedPath === null ? [] : [operation.stagedPath],
+      ),
+    );
+    for (const name of await services.durableFileSystem.list(stagingRoot)) {
+      const path = `${stagingRoot}/${name}`;
+      if (!known.has(path)) {
+        stagedPayloads.set(path, await observeFingerprint(path, services));
+      }
+    }
+    /* v8 ignore start -- transaction layout was validated immediately above */
+  } else if (staging.kind !== "missing") {
+    throw corrupt(stagingRoot);
+  }
+  /* v8 ignore stop */
+  return { destinations, stagedPayloads };
+}
+
+async function readProgress(
+  path: string,
+  services: TransactionServices,
+): Promise<TransactionProgressV1> {
+  const text = await readRegularText(path, services);
+  const parsed = parseCanonicalJson(text, path);
+  try {
+    return validateProgress(parsed, services);
+  } catch (error) {
+    if (error instanceof TransactionFailure) throw corrupt(path);
+    throw new TransactionFailure("runtime.internal_failure", []);
+  }
+}
+
+async function readManifest(
+  path: string,
+  services: TransactionServices,
+): Promise<{
+  readonly value: TransactionManifestV1;
+  readonly canonical: string;
+}> {
+  const text = await readRegularText(path, services);
+  const parsed = parseCanonicalJson(text, path);
+  try {
+    return {
+      value: validateManifest(parsed, services),
+      canonical: text.slice(0, -1),
+    };
+  } catch (error) {
+    if (error instanceof TransactionFailure) throw corrupt(path);
+    throw new TransactionFailure("runtime.internal_failure", []);
+  }
+}
+
+async function readRegularText(
+  path: string,
+  services: TransactionServices,
+): Promise<string> {
+  /* v8 ignore start -- callers validate the transaction layout before reading */
+  if ((await services.durableFileSystem.inspect(path)).kind !== "file") {
+    throw corrupt(path);
+  }
+  /* v8 ignore stop */
+  return services.durableFileSystem.readText(path);
+}
+
+function parseCanonicalJson(text: string, path: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (text !== `${canonicalizeJson(parsed)}\n`) throw corrupt(path);
+    return parsed;
+  } catch (error) {
+    if (error instanceof TransactionFailure) throw error;
+    throw corrupt(path);
+  }
+}
+
+function corrupt(path: string): TransactionFailure {
+  return new TransactionFailure("runtime.state_corrupt", evidence(path));
+}
+
+function createManifest(
+  plan: ManagedMutationPlan,
+  transactionId: string,
+  createdAt: string,
+  root: string,
+  services: TransactionServices,
+): TransactionManifestV1 {
+  const persisted = plan.operations.map((operation) => {
+    const value = toPersistedManagedOperation(operation);
+    return value.stagedPath === null
+      ? value
+      : { ...value, stagedPath: `${root}/${value.stagedPath}` };
+  });
+  const first = persisted[0];
+  if (first === undefined) {
+    throw new TransactionFailure("runtime.state_corrupt", []);
+  }
+  const manifest: TransactionManifestV1 = {
+    contractVersion,
+    stateContract,
+    transactionId,
+    planDigest: services.digests.sha256(
+      canonicalizeJson({
+        operations: plan.operations.map(toPersistedManagedOperation),
+      }),
+    ),
+    createdAt,
+    operations: [first, ...persisted.slice(1)],
+  };
+  return validateManifest(manifest, services);
+}
+
+function validateManifest(
+  value: unknown,
+  services: TransactionServices,
+): TransactionManifestV1 {
+  const result = services.schemaRegistry.validate({
+    id: "state.transaction-manifest",
+    version: CONTRACT_IDENTITIES.state,
+    value,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  if (result.kind === "invalid") {
+    throw new TransactionFailure("runtime.state_corrupt", []);
+  }
+  return result.value;
+}
+
+function validateProgress(
+  value: unknown,
+  services: TransactionServices,
+): TransactionProgressV1 {
+  const result = services.schemaRegistry.validate({
+    id: "state.transaction-progress",
+    version: CONTRACT_IDENTITIES.state,
+    value,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  if (result.kind === "invalid") {
+    throw new TransactionFailure("runtime.state_corrupt", []);
+  }
+  return result.value;
+}
+
+async function persistProgress(
+  progress: TransactionProgressV1,
+  services: TransactionServices,
+): Promise<TransactionProgressV1["directorySync"]> {
+  const validated = validateProgress(progress, services);
+  const root = transactionRoot(validated.transactionId);
+  const nextPath = `${root}/progress.next`;
+  const next = await services.durableFileSystem.inspect(nextPath);
+  if (next.kind === "file") {
+    await services.durableFileSystem.removeFile(nextPath);
+    await services.durableFileSystem.syncDirectory(root);
+  } else if (next.kind !== "missing") {
+    throw corrupt(nextPath);
+  }
+  await services.durableFileSystem.writeSynced(
+    nextPath,
+    `${canonicalizeJson(validated)}\n`,
+  );
+  await services.durableFileSystem.replaceFile(
+    nextPath,
+    `${root}/progress.json`,
+  );
+  return mergeDirectorySync(
+    validated.directorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+}
+
+async function publishPersistedOperation(
+  operation: TransactionManifestV1["operations"][number],
+  services: TransactionServices,
+): Promise<void> {
+  switch (operation.kind) {
+    case "create_directory":
+      await services.durableFileSystem.createDirectory(operation.path);
+      break;
+    case "write_file":
+      await services.durableFileSystem.replaceFile(
+        operation.stagedPath,
+        operation.path,
+      );
+      break;
+    case "delete_file":
+      await services.durableFileSystem.removeFile(operation.path);
+      break;
+  }
+}
+
+async function cleanupTransaction(
+  manifest: TransactionManifestV1,
+  currentDirectorySync: TransactionProgressV1["directorySync"],
+  services: TransactionServices,
+): Promise<TransactionProgressV1["directorySync"]> {
+  const root = transactionRoot(manifest.transactionId);
+  const stagingRoot = `${root}/staging`;
+  for (const operation of manifest.operations) {
+    if (operation.stagedPath === null) continue;
+    const payload = await services.durableFileSystem.inspect(
+      operation.stagedPath,
+    );
+    if (payload.kind === "file") {
+      await services.durableFileSystem.removeFile(operation.stagedPath);
+      /* v8 ignore start -- decideRecovery validates every known payload first */
+    } else if (payload.kind !== "missing") {
+      throw corrupt(operation.stagedPath);
+    }
+    /* v8 ignore stop */
+  }
+
+  const staging = await services.durableFileSystem.inspect(stagingRoot);
+  if (staging.kind === "directory") {
+    /* v8 ignore next -- decideRecovery blocks unknown staging content */
+    if ((await services.durableFileSystem.list(stagingRoot)).length !== 0) {
+      throw corrupt(stagingRoot);
+    }
+    await services.durableFileSystem.removeEmptyDirectory(stagingRoot);
+    /* v8 ignore start -- validated observation permits only directory or missing */
+  } else if (staging.kind !== "missing") {
+    throw corrupt(stagingRoot);
+  }
+  /* v8 ignore stop */
+
+  const nextPath = `${root}/progress.next`;
+  const next = await services.durableFileSystem.inspect(nextPath);
+  if (next.kind === "file") {
+    await services.durableFileSystem.removeFile(nextPath);
+    /* v8 ignore start -- validateTransactionLayout permits only file or missing */
+  } else if (next.kind !== "missing") {
+    throw corrupt(nextPath);
+  }
+  /* v8 ignore stop */
+  return mergeDirectorySync(
+    currentDirectorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+}
+
+async function recoverWithoutManifest(
+  initial: TransactionProgressV1,
+  services: TransactionServices,
+): Promise<TransactionReceipt> {
+  const root = transactionRoot(initial.transactionId);
+  const progressPath = `${root}/progress.json`;
+  /* v8 ignore next -- persisted identity rejects a digest without a manifest */
+  if (initial.manifestDigest !== null) {
+    throw corrupt(progressPath);
+  }
+
+  const stagingRoot = `${root}/staging`;
+  const staging = await services.durableFileSystem.inspect(stagingRoot);
+  const payloads: string[] = [];
+  if (staging.kind === "directory") {
+    for (const name of await services.durableFileSystem.list(stagingRoot)) {
+      if (!/^operation-[0-9]{4}\.payload$/u.test(name)) {
+        throw corrupt(`${stagingRoot}/${name}`);
+      }
+      const path = `${stagingRoot}/${name}`;
+      if ((await services.durableFileSystem.inspect(path)).kind !== "file") {
+        throw corrupt(path);
+      }
+      payloads.push(path);
+    }
+    /* v8 ignore start -- validateTransactionLayout proved the staging kind */
+  } else if (staging.kind !== "missing") {
+    throw corrupt(stagingRoot);
+  }
+  /* v8 ignore stop */
+
+  const nextPath = `${root}/progress.next`;
+  const next = await services.durableFileSystem.inspect(nextPath);
+  /* v8 ignore next -- validateTransactionLayout proved the scratch kind */
+  if (next.kind !== "file" && next.kind !== "missing") {
+    throw corrupt(nextPath);
+  }
+
+  let progress: TransactionProgressV1 = initial;
+  if (progress.phase === "begun") {
+    assertPhaseTransition(progress.phase, "aborted");
+    progress = validateProgress(
+      {
+        ...progress,
+        phase: "aborted",
+        publishedOperationIds: [],
+        updatedAt: services.clock.now().toISOString(),
+      },
+      services,
+    );
+    const directorySync = await persistProgress(progress, services);
+    progress = { ...progress, directorySync };
+  }
+
+  for (const path of payloads) {
+    await services.durableFileSystem.removeFile(path);
+  }
+  if (staging.kind === "directory") {
+    await services.durableFileSystem.removeEmptyDirectory(stagingRoot);
+  }
+  if ((await services.durableFileSystem.inspect(nextPath)).kind === "file") {
+    await services.durableFileSystem.removeFile(nextPath);
+  }
+  const directorySync = mergeDirectorySync(
+    progress.directorySync,
+    await services.durableFileSystem.syncDirectory(root),
+  );
+  return receiptFromProgress({ ...progress, directorySync });
+}
+
+async function hasCleanupEntries(
+  root: string,
+  services: TransactionServices,
+): Promise<boolean> {
+  return (
+    (await services.durableFileSystem.inspect(`${root}/staging`)).kind !==
+      "missing" ||
+    (await services.durableFileSystem.inspect(`${root}/progress.next`)).kind !==
+      "missing"
+  );
+}
+
+function receiptFromProgress(
+  progress: TransactionProgressV1,
+): TransactionReceipt {
+  /* v8 ignore next -- receipts are constructed only from terminal decisions */
+  if (progress.phase !== "committed" && progress.phase !== "aborted") {
+    throw corrupt(`${transactionRoot(progress.transactionId)}/progress.json`);
+  }
+  return {
+    transactionId: progress.transactionId,
+    manifestDigest: progress.manifestDigest,
+    recoveryToken: progress.recoveryToken,
+    phase: progress.phase,
+    directorySync: progress.directorySync,
+  };
+}
+
+function stagedPayloadPath(
+  root: string,
+  operation: Extract<ManagedOperation, { readonly kind: "write_file" }>,
+): string {
+  return `${root}/${operation.stagedPath}`;
+}
+
+async function assertPreconditions(
+  manifest: TransactionManifestV1,
+  services: TransactionServices,
+): Promise<void> {
+  for (const operation of manifest.operations) {
+    const observed = await observeFingerprint(operation.path, services);
+    if (!sameFingerprint(observed, operation.expected)) {
+      throw new TransactionFailure(
+        "runtime.revision_conflict",
+        evidence(operation.path),
+      );
+    }
+  }
+}
+
+async function assertPublishable(
+  operation: ManagedOperation,
+  services: TransactionServices,
+): Promise<void> {
+  const parent = await services.durableFileSystem.inspect(
+    parentOf(operation.path),
+  );
+  if (parent.kind !== "directory") {
+    throw new TransactionFailure(
+      "runtime.state_corrupt",
+      evidence(operation.path),
+    );
+  }
+  const observed = await observeFingerprint(operation.path, services);
+  if (!sameFingerprint(observed, operation.expected)) {
+    throw new TransactionFailure(
+      "runtime.revision_conflict",
+      evidence(operation.path),
+    );
+  }
+}
+
+async function publishOperation(
+  operation: ManagedOperation,
+  root: string,
+  services: TransactionServices,
+): Promise<void> {
+  switch (operation.kind) {
+    case "create_directory":
+      await services.durableFileSystem.createDirectory(operation.path);
+      break;
+    case "write_file":
+      await services.durableFileSystem.replaceFile(
+        stagedPayloadPath(root, operation),
+        operation.path,
+      );
+      break;
+    case "delete_file":
+      await services.durableFileSystem.removeFile(operation.path);
+      break;
+  }
+}
+
+async function assertResult(
+  operation: ManagedOperation,
+  services: TransactionServices,
+): Promise<void> {
+  const observed = await observeFingerprint(operation.path, services);
+  if (!sameFingerprint(observed, operation.result)) {
+    throw new TransactionFailure(
+      "runtime.state_corrupt",
+      evidence(operation.path),
+    );
+  }
+}
+
+async function assertResults(
+  manifest: TransactionManifestV1,
+  services: TransactionServices,
+): Promise<void> {
+  for (const operation of manifest.operations) {
+    const observed = await observeFingerprint(operation.path, services);
+    if (!sameFingerprint(observed, operation.result)) {
+      throw new TransactionFailure(
+        "runtime.state_corrupt",
+        evidence(operation.path),
+      );
+    }
+  }
+}
+
+async function observeFingerprint(
+  path: string,
+  services: TransactionServices,
+): Promise<PathFingerprint> {
+  return toFingerprint(await services.durableFileSystem.inspect(path), path);
+}
+
+function toFingerprint(entry: DurableEntry, path: string): PathFingerprint {
+  switch (entry.kind) {
+    case "missing":
+      return entry;
+    case "directory":
+      return { kind: "directory" };
+    case "file":
+      return { kind: "file", size: entry.size, sha256: entry.sha256 };
+    case "special":
+    case "symlink":
+      throw new TransactionFailure("runtime.state_corrupt", evidence(path));
+  }
+}
+
+function sameFingerprint(
+  left: PathFingerprint,
+  right: PathFingerprint,
+): boolean {
+  if (left.kind !== right.kind) return false;
+  if (left.kind !== "file" || right.kind !== "file") return true;
+  return left.size === right.size && left.sha256 === right.sha256;
+}
+
+function parentOf(path: string): string {
+  const separator = path.lastIndexOf("/");
+  /* v8 ignore next -- every managed destination begins with .brain/ */
+  return separator === -1 ? "." : path.slice(0, separator);
+}
+
+function mergeDirectorySync(
+  current: TransactionProgressV1["directorySync"],
+  observed: "supported" | "unsupported",
+): TransactionProgressV1["directorySync"] {
+  return current === "unsupported" || observed === "unsupported"
+    ? "unsupported"
+    : "supported";
+}
