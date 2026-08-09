@@ -95,6 +95,7 @@ describe("import extraction", () => {
       "node:path",
       "../../domain/project/index.js",
       "../../ports/index.js",
+      "./transactions.js",
     ]);
 
     expect(

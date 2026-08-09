@@ -15,6 +15,7 @@ import {
   fixedEnvironment,
   memoryFileSystem,
   memoryLocks,
+  memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
   stubGit,
@@ -47,11 +48,19 @@ import {
 const noDispose = (): Promise<void> => Promise.resolve();
 
 describe("durable filesystem contract suite", () => {
-  it("is ready for the memory and Node factories introduced by later tasks", () => {
+  it("exports the reusable contract factory shape", () => {
     expectTypeOf(describeDurableFileSystemContract).toEqualTypeOf<
       (label: string, factory: DurableFileSystemContractFactory) => void
     >();
     expect(describeDurableFileSystemContract).toBeTypeOf("function");
+  });
+});
+
+describeDurableFileSystemContract("memory", () => {
+  const storage = memoryTransactionStorage();
+  return Promise.resolve({
+    port: storage.durableFileSystem,
+    dispose: noDispose,
   });
 });
 
@@ -60,6 +69,12 @@ describeIdsContract("sequential", () => sequentialIds());
 describeFileSystemContract("memory", () =>
   Promise.resolve({
     port: memoryFileSystem(),
+    dispose: noDispose,
+  }),
+);
+describeFileSystemContract("memory transaction storage", () =>
+  Promise.resolve({
+    port: memoryTransactionStorage().fileSystem,
     dispose: noDispose,
   }),
 );
