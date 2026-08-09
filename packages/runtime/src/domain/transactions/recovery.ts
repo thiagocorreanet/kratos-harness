@@ -45,7 +45,12 @@ export function decideRecovery(
     );
     if (destinationFailure !== null) return blocked(destinationFailure);
 
-    if (progress.phase === "prepared") {
+    if (progress.phase === "begun") {
+      const payloads = inspectPayloads(manifest, observation);
+      if (payloads.blockedOperationId !== null) {
+        return blocked(payloads.blockedOperationId);
+      }
+    } else {
       const payloadFailure = findUnpublishablePayload(manifest, observation);
       if (payloadFailure !== null) return blocked(payloadFailure);
     }

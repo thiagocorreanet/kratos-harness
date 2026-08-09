@@ -142,6 +142,42 @@ describe("pure transaction recovery decisions", () => {
     });
   });
 
+  it("blocks the same corrupt known payload before and after persisting aborted", () => {
+    const corruptPayload = allPreconditions();
+    corruptPayload.stagedPayloads.set(manifest.operations[0].stagedPath, {
+      kind: "file",
+      size: 1,
+      sha256: "e".repeat(64),
+    });
+    const expected = {
+      kind: "blocked",
+      reasonCode: "runtime.state_corrupt",
+      operationId: "operation-0001",
+    } as const;
+
+    expect(decideRecovery(manifest, progress("begun"), corruptPayload)).toEqual(
+      expected,
+    );
+    expect(
+      decideRecovery(manifest, progress("aborted"), corruptPayload),
+    ).toEqual(expected);
+  });
+
+  it("aborts begun when known staged payloads are missing or correct", () => {
+    const missingPayload = allPreconditions();
+    missingPayload.stagedPayloads.set(
+      manifest.operations[0].stagedPath,
+      missing,
+    );
+
+    expect(decideRecovery(manifest, progress("begun"), missingPayload)).toEqual(
+      { kind: "abort" },
+    );
+    expect(
+      decideRecovery(manifest, progress("begun"), allPreconditions()),
+    ).toEqual({ kind: "abort" });
+  });
+
   it("records an observed publication before trusting progress", () => {
     const firstAlreadyPublished = allPreconditions();
     firstAlreadyPublished.destinations.set(
