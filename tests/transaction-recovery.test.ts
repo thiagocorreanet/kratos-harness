@@ -661,6 +661,202 @@ describe("managed transaction inspection and recovery", () => {
   });
 
   it.each([
+    { label: "empty", content: "" },
+    { label: "partial", content: '{"contractVersion":' },
+    { label: "arbitrary", content: "untrusted regular bytes" },
+  ])(
+    "aborts a begun transaction with an unbound $label manifest write",
+    async ({ content }) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      const root = ".brain/transactions/transaction-1";
+      const manifestPath = `${root}/manifest.json`;
+      const base = storage.durableFileSystem;
+      const boundary: DurableFileSystem = {
+        ...base,
+        writeSynced: async (path, intended) => {
+          if (path !== manifestPath) return base.writeSynced(path, intended);
+          await base.writeSynced(path, content);
+          throw new Error("interrupted manifest write");
+        },
+      };
+      const injected = { ...services(storage), durableFileSystem: boundary };
+
+      await expect(
+        executeManagedMutation(
+          writePlan(storage, "old", "new"),
+          { rootMode: "existing" },
+          injected,
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.recovery_required", [
+          { kind: "artifact", ref: `${root}/progress.json` },
+        ]),
+      );
+      expect(storage.snapshot().files[manifestPath]).toBe(content);
+      const [summary] = await inspectManagedTransactions(injected);
+      expect(summary).toMatchObject({ phase: "begun", manifestDigest: null });
+
+      const request = {
+        transactionId: summary?.transactionId ?? "missing",
+        recoveryToken: summary?.recoveryToken ?? "missing",
+      };
+      const first = await recoverManagedMutation(request, injected);
+      const second = await recoverManagedMutation(request, injected);
+      expect(first).toEqual({
+        transactionId: "transaction-1",
+        manifestDigest: null,
+        recoveryToken: summary?.recoveryToken,
+        phase: "aborted",
+        directorySync: "supported",
+      });
+      expect(second).toEqual(first);
+      expect(storage.snapshot().files).not.toHaveProperty(manifestPath);
+      expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+    },
+  );
+
+  it("preserves strict validation for a bound malformed manifest", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const injected = services(storage);
+    storage.fail({
+      operation: "sync_directory",
+      timing: "after",
+      occurrence: 6,
+    });
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        injected,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    const manifestPath = ".brain/transactions/transaction-1/manifest.json";
+    await storage.fileSystem.write(manifestPath, '{"contractVersion":');
+
+    await expect(inspectManagedTransactions(injected)).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: manifestPath },
+      ]),
+    );
+  });
+
+  it("preserves an unbound non-file manifest as corrupt evidence", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const initial = services(storage);
+    storage.fail({
+      operation: "sync_directory",
+      timing: "after",
+      occurrence: 5,
+    });
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        initial,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    const manifestPath = ".brain/transactions/transaction-1/manifest.json";
+    const base = storage.durableFileSystem;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path) =>
+        path === manifestPath ? { kind: "special" } : base.inspect(path),
+    };
+
+    await expect(
+      inspectManagedTransactions({
+        ...initial,
+        durableFileSystem: boundary,
+      }),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: manifestPath },
+      ]),
+    );
+    expect(storage.snapshot().files[manifestPath]).toBeDefined();
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+  });
+
+  it("requires recovery while an aborted unbound manifest awaits cleanup", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const injected = services(storage);
+    storage.fail({
+      operation: "sync_directory",
+      timing: "after",
+      occurrence: 5,
+    });
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        injected,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    const [begun] = await inspectManagedTransactions(injected);
+    const request = {
+      transactionId: begun?.transactionId ?? "missing",
+      recoveryToken: begun?.recoveryToken ?? "missing",
+    };
+    storage.fail({
+      operation: "remove_file",
+      timing: "before",
+      occurrence: 2,
+    });
+
+    await expect(recoverManagedMutation(request, injected)).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        {
+          kind: "artifact",
+          ref: ".brain/transactions/transaction-1/progress.json",
+        },
+      ]),
+    );
+    const [aborted] = await inspectManagedTransactions(injected);
+    expect(aborted).toMatchObject({ phase: "aborted", manifestDigest: null });
+    const manifestPath = ".brain/transactions/transaction-1/manifest.json";
+    expect(storage.snapshot().files[manifestPath]).toBeDefined();
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        injected,
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        {
+          kind: "artifact",
+          ref: ".brain/transactions/transaction-1/progress.json",
+        },
+      ]),
+    );
+
+    const first = await recoverManagedMutation(request, injected);
+    const second = await recoverManagedMutation(request, injected);
+    expect(first).toEqual({
+      transactionId: "transaction-1",
+      manifestDigest: null,
+      recoveryToken: begun?.recoveryToken,
+      phase: "aborted",
+      directorySync: "supported",
+    });
+    expect(second).toEqual(first);
+    expect(storage.snapshot().files).not.toHaveProperty(manifestPath);
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+  });
+
+  it.each([
     {
       label: "exclusive transaction directory creation",
       operation: "create_directory_exclusive" as const,

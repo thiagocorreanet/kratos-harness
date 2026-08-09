@@ -825,15 +825,20 @@ describe("managed transaction execution", () => {
     ) as { readonly phase?: unknown };
     expect(progress.phase).toBe("begun");
     const [summary] = await inspectManagedTransactions(injected);
-    await expect(
-      recoverManagedMutation(
-        {
-          transactionId: "transaction-1",
-          recoveryToken: summary?.recoveryToken ?? "missing",
-        },
-        injected,
-      ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    const request = {
+      transactionId: "transaction-1",
+      recoveryToken: summary?.recoveryToken ?? "missing",
+    };
+    const first = await recoverManagedMutation(request, injected);
+    const second = await recoverManagedMutation(request, injected);
+    expect(first).toEqual({
+      transactionId: "transaction-1",
+      manifestDigest: null,
+      recoveryToken: summary?.recoveryToken,
+      phase: "aborted",
+      directorySync: "supported",
+    });
+    expect(second).toEqual(first);
     expect(storage.snapshot().files[".brain/state.json"]).toBe("actual");
   });
 

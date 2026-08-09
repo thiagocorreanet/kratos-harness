@@ -616,9 +616,12 @@ async function driveRecovery(
   const manifestEntry = await services.durableFileSystem.inspect(
     `${root}/manifest.json`,
   );
-  if (manifestEntry.kind === "missing") {
+  if (progress.manifestDigest === null) {
     return recoverWithoutManifest(progress, services);
   }
+  /* v8 ignore next -- validated inspection already rejects a bound progress
+   * document whose required manifest is absent. */
+  if (manifestEntry.kind === "missing") throw corrupt(`${root}/manifest.json`);
   /* v8 ignore next -- inspection validated this entry before recovery */
   if (manifestEntry.kind !== "file") throw corrupt(`${root}/manifest.json`);
   const manifest = await readRequiredManifest(root, progress, services);
@@ -745,7 +748,13 @@ async function driveRecovery(
         break;
       }
       case "complete": {
-        if (await hasCleanupEntries(root, services)) {
+        if (
+          await hasCleanupEntries(
+            root,
+            services,
+            progress.manifestDigest === null,
+          )
+        ) {
           const directorySync = await cleanupTransaction(
             manifest,
             progress.directorySync,
@@ -828,7 +837,17 @@ async function firstIncompleteSummary(
     const next = await services.durableFileSystem.inspect(
       `${root}/progress.next`,
     );
-    if (staging.kind !== "missing" || next.kind !== "missing") return summary;
+    const unboundManifest =
+      summary.manifestDigest === null
+        ? await services.durableFileSystem.inspect(`${root}/manifest.json`)
+        : { kind: "missing" as const };
+    if (
+      staging.kind !== "missing" ||
+      next.kind !== "missing" ||
+      unboundManifest.kind !== "missing"
+    ) {
+      return summary;
+    }
   }
   return undefined;
 }
@@ -867,7 +886,13 @@ async function classifyDriverFailure(
       }
       if (current.phase === "committed" || current.phase === "aborted") {
         const root = transactionRoot(current.transactionId);
-        if (await hasCleanupEntries(root, services)) {
+        if (
+          await hasCleanupEntries(
+            root,
+            services,
+            current.manifestDigest === null,
+          )
+        ) {
           throw recoveryRequired(current);
         }
         const progress = await readProgress(`${root}/progress.json`, services);
@@ -1122,9 +1147,9 @@ async function validatePersistedIdentity(
 
   const manifestPath = `${root}/manifest.json`;
   const manifestEntry = await services.durableFileSystem.inspect(manifestPath);
+  if (progress.manifestDigest === null) return;
   if (manifestEntry.kind === "missing") {
-    if (progress.manifestDigest !== null) throw corrupt(manifestPath);
-    return;
+    throw corrupt(manifestPath);
   }
   /* v8 ignore next -- validateTransactionLayout already proved file kind */
   if (manifestEntry.kind !== "file") throw corrupt(manifestPath);
@@ -1136,8 +1161,7 @@ async function validatePersistedIdentity(
   if (
     manifest.transactionId !== progress.transactionId ||
     manifest.createdAt !== progress.createdAt ||
-    (progress.manifestDigest !== null &&
-      services.digests.sha256(canonical) !== progress.manifestDigest)
+    services.digests.sha256(canonical) !== progress.manifestDigest
   ) {
     throw corrupt(manifestPath);
   }
@@ -1610,6 +1634,16 @@ async function recoverWithoutManifest(
   if ((await services.durableFileSystem.inspect(nextPath)).kind === "file") {
     await services.durableFileSystem.removeFile(nextPath);
   }
+  const manifestPath = `${root}/manifest.json`;
+  const manifest = await services.durableFileSystem.inspect(manifestPath);
+  if (manifest.kind === "file") {
+    await services.durableFileSystem.removeFile(manifestPath);
+    /* v8 ignore start -- the initial validated transaction layout permits only
+     * a regular manifest or absence before this bounded cleanup. */
+  } else if (manifest.kind !== "missing") {
+    throw corrupt(manifestPath);
+  }
+  /* v8 ignore stop */
   const directorySync = mergeDirectorySync(
     progress.directorySync,
     await services.durableFileSystem.syncDirectory(root),
@@ -1625,12 +1659,16 @@ async function recoverWithoutManifest(
 async function hasCleanupEntries(
   root: string,
   services: TransactionServices,
+  removeUnboundManifest: boolean,
 ): Promise<boolean> {
   return (
     (await services.durableFileSystem.inspect(`${root}/staging`)).kind !==
       "missing" ||
     (await services.durableFileSystem.inspect(`${root}/progress.next`)).kind !==
-      "missing"
+      "missing" ||
+    (removeUnboundManifest &&
+      (await services.durableFileSystem.inspect(`${root}/manifest.json`))
+        .kind !== "missing")
   );
 }
 
