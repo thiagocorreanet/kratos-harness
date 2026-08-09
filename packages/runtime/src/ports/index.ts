@@ -3,6 +3,12 @@ import type {
   WorktreeLocation,
 } from "../domain/project/observation.js";
 
+export type {
+  Digests,
+  DurableEntry,
+  DurableFileSystem,
+} from "./transactions.js";
+
 /**
  * Injected effect boundaries.
  *

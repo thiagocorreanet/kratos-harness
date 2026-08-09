@@ -28,7 +28,7 @@ import {
   nodeLocks,
   nodeOutput,
 } from "@mestre-yoda/runtime/infra/node";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   describeClockContract,
@@ -39,8 +39,21 @@ import {
   describeLocksContract,
   describeOutputContract,
 } from "./support/port-contracts.js";
+import {
+  describeDurableFileSystemContract,
+  type DurableFileSystemContractFactory,
+} from "./support/transaction-port-contract.js";
 
 const noDispose = (): Promise<void> => Promise.resolve();
+
+describe("durable filesystem contract suite", () => {
+  it("is ready for the memory and Node factories introduced by later tasks", () => {
+    expectTypeOf(describeDurableFileSystemContract).toEqualTypeOf<
+      (label: string, factory: DurableFileSystemContractFactory) => void
+    >();
+    expect(describeDurableFileSystemContract).toBeTypeOf("function");
+  });
+});
 
 describeClockContract("fixed", () => fixedClock("2026-08-07T00:00:00.000Z"));
 describeIdsContract("sequential", () => sequentialIds());
