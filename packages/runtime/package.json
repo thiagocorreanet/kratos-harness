@@ -12,6 +12,7 @@
     "./domain/project": "./src/domain/project/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
     "./domain/schema": "./src/domain/schema/index.ts",
+    "./domain/transactions": "./src/domain/transactions/index.ts",
     "./infra/fake": "./src/infra/fake/index.ts",
     "./infra/node": "./src/infra/node/index.ts",
     "./infra/schema": "./src/infra/schema/index.ts",
