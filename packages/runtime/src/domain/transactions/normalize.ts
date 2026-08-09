@@ -129,16 +129,8 @@ function validateRelationships(effects: readonly ManagedEffect[]): void {
     }
   }
 
-  for (let leftIndex = 0; leftIndex < effects.length; leftIndex += 1) {
-    const left = effects[leftIndex];
-    if (left === undefined) continue;
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < effects.length;
-      rightIndex += 1
-    ) {
-      const right = effects[rightIndex];
-      if (right === undefined) continue;
+  for (const [leftIndex, left] of effects.entries()) {
+    for (const right of effects.slice(leftIndex + 1)) {
       const leftPath = collisionKey(left.path);
       const rightPath = collisionKey(right.path);
       if (leftPath === rightPath) throw invalidState();
@@ -262,11 +254,13 @@ function finalizeOperation(
 
 function sameFingerprint(
   left: PathFingerprint,
-  right: PathFingerprint,
+  right: Extract<PathFingerprint, { readonly kind: "file" }>,
 ): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind !== "file" || right.kind !== "file") return true;
-  return left.size === right.size && left.sha256 === right.sha256;
+  return (
+    left.kind === "file" &&
+    left.size === right.size &&
+    left.sha256 === right.sha256
+  );
 }
 
 function collisionKey(path: string): string {

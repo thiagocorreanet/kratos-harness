@@ -271,6 +271,42 @@ describe("managed mutation plan normalization", () => {
     expect(JSON.stringify(persisted)).not.toContain("content");
   });
 
+  it("persists directory creation and deletion without transient content", () => {
+    const deleted = { kind: "file", size: 3, sha256: "sha256:old" } as const;
+    const result = normalizeManagedMutationPlan(
+      planOf(
+        { kind: "create_directory", path: ".brain/new" },
+        { kind: "delete_file", path: ".brain/old.json" },
+      ),
+      observations([
+        [".brain/new", missing],
+        [".brain/old.json", deleted],
+      ]),
+      sha256,
+    );
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") return;
+
+    expect(result.plan.operations.map(toPersistedManagedOperation)).toEqual([
+      {
+        operationId: "operation-0001",
+        kind: "create_directory",
+        path: ".brain/new",
+        expected: missing,
+        result: directory,
+        stagedPath: null,
+      },
+      {
+        operationId: "operation-0002",
+        kind: "delete_file",
+        path: ".brain/old.json",
+        expected: deleted,
+        result: missing,
+        stagedPath: null,
+      },
+    ]);
+  });
+
   it.each([
     ["outside the managed root", "state.json"],
     ["the managed root itself", ".brain"],
@@ -361,6 +397,34 @@ describe("managed mutation plan normalization", () => {
       normalizeManagedMutationPlan(
         planOf({ kind: "write_file", path: ".brain/runs", content: "x" }),
         observations([[".brain/runs", directory]]),
+        sha256,
+      ),
+    ).toThrow(expect.objectContaining({ reasonCode: "runtime.state_corrupt" }));
+  });
+
+  it("rejects a write below an observed file parent", () => {
+    expect(() =>
+      normalizeManagedMutationPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/runs/state.json",
+          content: "x",
+        }),
+        observations([
+          [".brain/runs", { kind: "file", size: 1, sha256: "sha256:x" }],
+        ]),
+        sha256,
+      ),
+    ).toThrow(expect.objectContaining({ reasonCode: "runtime.state_corrupt" }));
+  });
+
+  it("rejects creating a directory over an observed file", () => {
+    expect(() =>
+      normalizeManagedMutationPlan(
+        planOf({ kind: "create_directory", path: ".brain/runs" }),
+        observations([
+          [".brain/runs", { kind: "file", size: 1, sha256: "sha256:x" }],
+        ]),
         sha256,
       ),
     ).toThrow(expect.objectContaining({ reasonCode: "runtime.state_corrupt" }));
