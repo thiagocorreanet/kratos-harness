@@ -154,12 +154,19 @@ describe("pure transaction recovery decisions", () => {
       reasonCode: "runtime.state_corrupt",
       operationId: "operation-0001",
     } as const;
+    const begun = progress("begun");
+    const abortedAfterMarker = {
+      ...begun,
+      phase: "aborted",
+    } satisfies TransactionProgressV1;
 
-    expect(decideRecovery(manifest, progress("begun"), corruptPayload)).toEqual(
-      expected,
-    );
+    expect(decideRecovery(manifest, begun, corruptPayload)).toEqual(expected);
+    expect(abortedAfterMarker).toMatchObject({
+      manifestDigest: null,
+      recoveryToken: identityToken,
+    });
     expect(
-      decideRecovery(manifest, progress("aborted"), corruptPayload),
+      decideRecovery(manifest, abortedAfterMarker, corruptPayload),
     ).toEqual(expected);
   });
 
