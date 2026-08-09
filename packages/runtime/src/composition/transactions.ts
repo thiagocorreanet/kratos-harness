@@ -258,7 +258,12 @@ function validateManagedRelationships(
       const rightPath = right.path.toLowerCase();
       if (leftPath === rightPath) throw invalidPlan();
       if (rightPath.startsWith(`${leftPath}/`)) {
-        if (left.kind !== "create_directory") throw invalidPlan();
+        if (
+          left.kind !== "create_directory" ||
+          right.expected.kind !== "missing"
+        ) {
+          throw invalidPlan();
+        }
       } else if (leftPath.startsWith(`${rightPath}/`)) {
         throw invalidPlan();
       }
@@ -809,7 +814,12 @@ async function classifyDriverFailure(
         );
       }
       if (current.phase === "publishing") {
-        await classifyPublishingState(current, services);
+        try {
+          await classifyPublishingState(current, services);
+        } catch (freshError) {
+          if (freshError instanceof TransactionFailure) throw freshError;
+          throw recoveryRequired(current);
+        }
       }
       if (typedFailure !== undefined) throw typedFailure;
       throw recoveryRequired(current);
