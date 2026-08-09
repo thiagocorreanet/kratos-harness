@@ -211,6 +211,212 @@ describe("memory transaction storage", () => {
     ]);
   });
 
+  it.each([
+    {
+      label: "write",
+      mutate: (storage: MemoryTransactionStorage) =>
+        storage.fileSystem.write(".brain/blocker/child.json", "child"),
+    },
+    {
+      label: "makeDirectory",
+      mutate: (storage: MemoryTransactionStorage) =>
+        storage.fileSystem.makeDirectory(".brain/blocker/child"),
+    },
+  ])(
+    "$label refuses a file ancestor without changing the shared model",
+    async ({ mutate }) => {
+      const storage = memoryTransactionStorage({
+        files: { ".brain/blocker": "unchanged" },
+      });
+      const before = storage.snapshot();
+      const encodedBefore = JSON.stringify(before);
+
+      await expect(mutate(storage)).rejects.toThrow("file ancestor");
+
+      expect(storage.snapshot()).toEqual(before);
+      expect(JSON.stringify(storage.snapshot())).toBe(encodedBefore);
+      await expect(
+        storage.durableFileSystem.inspect(".brain/blocker"),
+      ).resolves.toMatchObject({ kind: "file" });
+      await expect(storage.durableFileSystem.list(".brain")).resolves.toEqual([
+        "blocker",
+      ]);
+      await expect(
+        storage.durableFileSystem.inspect(".brain/blocker/child"),
+      ).resolves.toEqual({ kind: "missing" });
+    },
+  );
+
+  it.each([
+    {
+      label: "unsafe directory",
+      seed: { directories: ["../outside"] },
+      message: "escapes the project",
+    },
+    {
+      label: "unsafe file",
+      seed: { files: { "/outside": "content" } },
+      message: "escapes the project",
+    },
+    {
+      label: "file and directory at the same path",
+      seed: {
+        directories: [".brain/conflict"],
+        files: { ".brain/conflict": "content" },
+      },
+      message: "conflicting entries",
+    },
+    {
+      label: "file below a file",
+      seed: {
+        files: {
+          ".brain/file": "parent",
+          ".brain/file/child": "child",
+        },
+      },
+      message: "file ancestor",
+    },
+  ])("rejects a $label seed", ({ seed, message }) => {
+    expect(() => memoryTransactionStorage(seed)).toThrow(message);
+  });
+
+  it("normalizes harmless separators without creating duplicate entries", async () => {
+    const storage = memoryTransactionStorage();
+
+    await storage.fileSystem.write(".brain//./state.json", "state");
+
+    expect(storage.snapshot()).toEqual({
+      files: { ".brain/state.json": "state" },
+      directories: [".brain"],
+    });
+  });
+
+  it.each([
+    {
+      label: "write over a directory",
+      seed: { directories: [".brain/entry"] },
+      mutate: (storage: MemoryTransactionStorage) =>
+        storage.fileSystem.write(".brain/entry", "content"),
+      message: "directory",
+    },
+    {
+      label: "makeDirectory over a file",
+      seed: { files: { ".brain/entry": "content" } },
+      mutate: (storage: MemoryTransactionStorage) =>
+        storage.fileSystem.makeDirectory(".brain/entry"),
+      message: "file",
+    },
+  ])(
+    "refuses $label without changing storage",
+    async ({ seed, mutate, message }) => {
+      const storage = memoryTransactionStorage(seed);
+      const before = storage.snapshot();
+
+      await expect(mutate(storage)).rejects.toThrow(message);
+
+      expect(storage.snapshot()).toEqual(before);
+    },
+  );
+
+  it("removes a complete subtree through the simple view", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/remove/deep", ".brain/keep"],
+      files: {
+        ".brain/remove/a.json": "a",
+        ".brain/remove/deep/b.json": "b",
+        ".brain/keep/state.json": "keep",
+      },
+    });
+
+    await storage.fileSystem.remove(".brain/remove");
+
+    expect(storage.snapshot()).toEqual({
+      files: { ".brain/keep/state.json": "keep" },
+      directories: [".brain", ".brain/keep"],
+    });
+  });
+
+  it.each([
+    {
+      label: "file",
+      seed: { files: { ".brain/entry": "old" } },
+    },
+    {
+      label: "directory",
+      seed: { directories: [".brain/entry"] },
+    },
+  ])("writeSynced refuses an existing $label", async ({ seed }) => {
+    const storage = memoryTransactionStorage(seed);
+    const before = storage.snapshot();
+
+    await expect(
+      storage.durableFileSystem.writeSynced(".brain/entry", "new"),
+    ).rejects.toThrow("already has an entry");
+
+    expect(storage.snapshot()).toEqual(before);
+    expect(storage.calls()).toEqual(["open_file"]);
+  });
+
+  it("createDirectory refuses to replace a file", async () => {
+    const storage = memoryTransactionStorage({
+      files: { ".brain/entry": "content" },
+    });
+    const before = storage.snapshot();
+
+    await expect(
+      storage.durableFileSystem.createDirectory(".brain/entry"),
+    ).rejects.toThrow("has a file");
+
+    expect(storage.snapshot()).toEqual(before);
+  });
+
+  it("createDirectoryExclusive refuses to replace a file", async () => {
+    const storage = memoryTransactionStorage({
+      files: { ".brain/entry": "content" },
+    });
+    const before = storage.snapshot();
+
+    await expect(
+      storage.durableFileSystem.createDirectoryExclusive(".brain/entry"),
+    ).rejects.toThrow("already has an entry");
+
+    expect(storage.snapshot()).toEqual(before);
+  });
+
+  it.each([
+    {
+      label: "staged path is a directory",
+      seed: {
+        directories: [".brain/staged"],
+        files: { ".brain/target": "old" },
+      },
+      message: "no file",
+    },
+    {
+      label: "target path is a directory",
+      seed: {
+        directories: [".brain/target"],
+        files: { ".brain/staged": "new" },
+      },
+      message: "has a directory",
+    },
+  ])("replaceFile refuses when the $label", async ({ seed, message }) => {
+    const storage = memoryTransactionStorage(seed);
+    const before = storage.snapshot();
+
+    await expect(
+      storage.durableFileSystem.replaceFile(".brain/staged", ".brain/target"),
+    ).rejects.toThrow(message);
+
+    expect(storage.snapshot()).toEqual(before);
+  });
+
+  it("rejects the project root as a durable entry path", async () => {
+    await expect(
+      memoryTransactionStorage().durableFileSystem.inspect("."),
+    ).rejects.toThrow("escapes the project");
+  });
+
   it("provides the same deterministic SHA-256 capability as production", () => {
     expect(memoryTransactionStorage().digests.sha256("abc")).toBe(
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
@@ -305,6 +511,17 @@ describe("memory transaction storage", () => {
         operation: "inspect",
         timing: "before",
         occurrence: 0,
+      });
+    }).toThrow("positive integer");
+  });
+
+  it("rejects a fractional occurrence", () => {
+    const storage = memoryTransactionStorage();
+    expect(() => {
+      storage.fail({
+        operation: "inspect",
+        timing: "before",
+        occurrence: 1.5,
       });
     }).toThrow("positive integer");
   });

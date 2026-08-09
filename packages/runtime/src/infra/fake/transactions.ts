@@ -52,7 +52,7 @@ function normalizePath(path: string): string {
   };
   let hasControlCharacter = false;
   for (const character of path) {
-    const code = character.codePointAt(0) ?? 0;
+    const code = character.charCodeAt(0);
     if (code < 0x20 || code === 0x7f) hasControlCharacter = true;
   }
   if (
@@ -93,8 +93,8 @@ function immediateEntries(
   for (const candidate of [...files.keys(), ...directories]) {
     if (!candidate.startsWith(prefix)) continue;
     const rest = candidate.slice(prefix.length);
-    if (rest.length === 0) continue;
-    names.add(rest.split("/")[0] ?? rest);
+    const separator = rest.indexOf("/");
+    names.add(separator === -1 ? rest : rest.slice(0, separator));
   }
   return [...names].sort((left, right) => left.localeCompare(right, "en-US"));
 }
@@ -117,6 +117,13 @@ export function memoryTransactionStorage(
       parents.push(parent);
       parent = parentOf(parent);
     }
+    for (const candidate of parents) {
+      if (files.has(candidate)) {
+        throw new Error(
+          `Memory transaction storage has a file ancestor at ${candidate}`,
+        );
+      }
+    }
     for (const candidate of parents.reverse()) directories.add(candidate);
   }
 
@@ -133,16 +140,6 @@ export function memoryTransactionStorage(
     }
     files.set(normalized, content);
   }
-  for (const path of files.keys()) {
-    let parent = parentOf(path);
-    while (parent !== null) {
-      if (files.has(parent)) {
-        throw new Error("Memory transaction seed has conflicting entries");
-      }
-      parent = parentOf(parent);
-    }
-  }
-
   function injectedFailure(rule: FailureRule): Error {
     const fault = rule.fault ?? "generic";
     const suffix = fault === "generic" ? "" : ` (${fault})`;
