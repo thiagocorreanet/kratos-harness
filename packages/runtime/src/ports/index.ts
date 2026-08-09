@@ -2,6 +2,7 @@ import type {
   DirectoryProbe,
   WorktreeLocation,
 } from "../domain/project/observation.js";
+import type { Digests, DurableFileSystem } from "./transactions.js";
 
 export type {
   Digests,
@@ -95,6 +96,8 @@ export interface Workspace {
 export interface RuntimePorts {
   readonly clock: Clock;
   readonly ids: Ids;
+  readonly digests: Digests;
+  readonly durableFileSystem: DurableFileSystem;
   readonly fileSystem: FileSystem;
   readonly git: Git;
   readonly locks: Locks;

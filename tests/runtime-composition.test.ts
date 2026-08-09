@@ -9,6 +9,7 @@ import {
 import {
   fixedClock,
   memoryFileSystem,
+  memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
 } from "@mestre-yoda/runtime/infra/fake";
@@ -33,9 +34,16 @@ describe("composition root", () => {
 
   it("replaces exactly the overridden ports and nothing else", () => {
     const clock = fixedClock("2026-08-07T00:00:00.000Z");
-    const ports = createRuntime({ clock });
+    const storage = memoryTransactionStorage();
+    const ports = createRuntime({
+      clock,
+      digests: storage.digests,
+      durableFileSystem: storage.durableFileSystem,
+    });
 
     expect(ports.clock).toBe(clock);
+    expect(ports.digests).toBe(storage.digests);
+    expect(ports.durableFileSystem).toBe(storage.durableFileSystem);
     // An override must not quietly swap its neighbours for fakes.
     expect(ports.environment.workingDirectory()).toBe(process.cwd());
   });
@@ -43,6 +51,8 @@ describe("composition root", () => {
   it("exposes every port named by the contract", () => {
     expect(Object.keys(createRuntime()).sort()).toEqual([
       "clock",
+      "digests",
+      "durableFileSystem",
       "environment",
       "fileSystem",
       "git",

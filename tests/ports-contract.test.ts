@@ -28,6 +28,7 @@ import {
   nodeIds,
   nodeLocks,
   nodeOutput,
+  nodeDurableFileSystem,
 } from "@mestre-yoda/runtime/infra/node";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
@@ -62,6 +63,14 @@ describeDurableFileSystemContract("memory", () => {
     port: storage.durableFileSystem,
     dispose: noDispose,
   });
+});
+
+describeDurableFileSystemContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-transaction-port-"));
+  return {
+    port: nodeDurableFileSystem(root),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
 });
 
 describeClockContract("fixed", () => fixedClock("2026-08-07T00:00:00.000Z"));

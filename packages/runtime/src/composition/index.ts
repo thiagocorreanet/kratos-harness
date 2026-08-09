@@ -1,12 +1,14 @@
 import type { EffectPlan } from "../domain/effects.js";
 import {
   nodeClock,
+  nodeDurableFileSystem,
   nodeEnvironment,
   nodeFileSystem,
   nodeGit,
   nodeIds,
   nodeLocks,
   nodeOutput,
+  sha256Digests,
 } from "../infra/node/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
@@ -44,6 +46,8 @@ export function createRuntimeAt(
   return {
     clock: nodeClock(),
     ids: nodeIds(),
+    digests: sha256Digests(),
+    durableFileSystem: nodeDurableFileSystem(root),
     fileSystem: nodeFileSystem(root),
     git: nodeGit(root),
     locks: nodeLocks(root),

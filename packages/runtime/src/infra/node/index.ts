@@ -27,6 +27,13 @@ import type {
 } from "../../ports/index.js";
 
 export { nodeWorkspace } from "./workspace.js";
+export { sha256Digests } from "../digests.js";
+export {
+  nodeDurableFileSystem,
+  type DurableOperation,
+  type DurableOperationEvent,
+  type DurableOperationObserver,
+} from "./transactions.js";
 
 const run = promisify(execFile);
 
