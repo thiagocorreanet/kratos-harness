@@ -37,6 +37,10 @@ describe("schema-derived contract declarations", () => {
     expect(after).toContain("export interface ProjectConfigV1");
     expect(after).toContain("export interface TransactionManifestV1");
     expect(after).toContain("export type TransactionProgressV1");
+    const transactionDeclarations = after.slice(
+      after.indexOf("export namespace TransactionManifestV1Contract"),
+    );
+    expect(transactionDeclarations).not.toContain("[k: string]");
   });
 
   it("detects drift through an alternate generated path", async () => {
@@ -152,6 +156,217 @@ describe("schema-derived contract declarations", () => {
       expect(result.stdout).toContain(
         "'unexpected' does not exist in type '{ contractVersion:",
       );
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it.each([
+    [
+      "a write operation without a staged payload",
+      `
+        ({
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          transactionId: "transaction-01",
+          planDigest: "${"a".repeat(64)}",
+          createdAt: "2026-08-09T00:00:00.000Z",
+          operations: [{
+            operationId: "operation-0001",
+            kind: "write_file",
+            path: ".brain/state.json",
+            expected: { kind: "missing" },
+            result: { kind: "file", size: 3, sha256: "${"a".repeat(64)}" },
+            stagedPath: null,
+          }],
+        }) satisfies TransactionManifestV1;
+      `,
+    ],
+    [
+      "an additional operation property",
+      `
+        ({
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          transactionId: "transaction-01",
+          planDigest: "${"a".repeat(64)}",
+          createdAt: "2026-08-09T00:00:00.000Z",
+          operations: [{
+            operationId: "operation-0001",
+            kind: "write_file",
+            path: ".brain/state.json",
+            expected: { kind: "missing" },
+            result: { kind: "file", size: 3, sha256: "${"a".repeat(64)}" },
+            stagedPath: ".brain/transactions/transaction-01/staging/operation-0001.payload",
+            unexpected: true,
+          }],
+        }) satisfies TransactionManifestV1;
+      `,
+    ],
+    [
+      "prepared progress without a manifest digest",
+      `
+        ({
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          transactionId: "transaction-01",
+          manifestDigest: null,
+          recoveryToken: "${"a".repeat(64)}",
+          phase: "prepared",
+          publishedOperationIds: [],
+          fileSync: "required",
+          directorySync: "supported",
+          createdAt: "2026-08-09T00:00:00.000Z",
+          updatedAt: "2026-08-09T00:00:01.000Z",
+        }) satisfies TransactionProgressV1;
+      `,
+    ],
+    [
+      "an additional progress property",
+      `
+        ({
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          transactionId: "transaction-01",
+          manifestDigest: "${"a".repeat(64)}",
+          recoveryToken: "${"a".repeat(64)}",
+          phase: "prepared",
+          publishedOperationIds: [],
+          fileSync: "required",
+          directorySync: "supported",
+          createdAt: "2026-08-09T00:00:00.000Z",
+          updatedAt: "2026-08-09T00:00:01.000Z",
+          unexpected: true,
+        }) satisfies TransactionProgressV1;
+      `,
+    ],
+  ])("rejects %s in generated transaction types", async (_name, candidate) => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "invalid-transaction.mts");
+      await writeFile(
+        source,
+        `
+          import type {
+            TransactionManifestV1,
+            TransactionProgressV1,
+          } from "../packages/contracts/src/generated/contracts.js";
+          ${candidate}
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status, result.stdout).not.toBe(0);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("accepts every valid generated transaction variant", async () => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "valid-transactions.mts");
+      await writeFile(
+        source,
+        `
+          import type {
+            TransactionManifestV1,
+            TransactionProgressV1,
+          } from "../packages/contracts/src/generated/contracts.js";
+
+          const digest = "${"a".repeat(64)}";
+          ({
+            contractVersion: "1.0.0",
+            stateContract: "1.0.0",
+            transactionId: "transaction-01",
+            planDigest: digest,
+            createdAt: "2026-08-09T00:00:00.000Z",
+            operations: [
+              {
+                operationId: "operation-0001",
+                kind: "write_file",
+                path: ".brain/state.json",
+                expected: { kind: "missing" },
+                result: { kind: "file", size: 3, sha256: digest },
+                stagedPath: ".brain/transactions/transaction-01/staging/operation-0001.payload",
+              },
+              {
+                operationId: "operation-0002",
+                kind: "create_directory",
+                path: ".brain/runs",
+                expected: { kind: "missing" },
+                result: { kind: "directory" },
+                stagedPath: null,
+              },
+              {
+                operationId: "operation-0003",
+                kind: "delete_file",
+                path: ".brain/old.json",
+                expected: { kind: "file", size: 3, sha256: digest },
+                result: { kind: "missing" },
+                stagedPath: null,
+              },
+            ],
+          }) satisfies TransactionManifestV1;
+
+          const common = {
+            contractVersion: "1.0.0" as const,
+            stateContract: "1.0.0" as const,
+            transactionId: "transaction-01",
+            recoveryToken: digest,
+            publishedOperationIds: [] as string[],
+            fileSync: "required" as const,
+            directorySync: "supported" as const,
+            createdAt: "2026-08-09T00:00:00.000Z",
+            updatedAt: "2026-08-09T00:00:01.000Z",
+          };
+          ({ ...common, phase: "begun", manifestDigest: null }) satisfies TransactionProgressV1;
+          ({ ...common, phase: "prepared", manifestDigest: digest }) satisfies TransactionProgressV1;
+          ({ ...common, phase: "publishing", manifestDigest: digest }) satisfies TransactionProgressV1;
+          ({ ...common, phase: "committed", manifestDigest: digest }) satisfies TransactionProgressV1;
+          ({ ...common, phase: "aborted", manifestDigest: null }) satisfies TransactionProgressV1;
+          ({ ...common, phase: "aborted", manifestDigest: digest }) satisfies TransactionProgressV1;
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status, result.stdout).toBe(0);
     } finally {
       await rm(directory, { force: true, recursive: true });
     }

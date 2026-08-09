@@ -135,6 +135,8 @@ describe("contract versioning documentation", () => {
       "evidence.json",
       "lock.json",
       "migration.json",
+      "transaction-manifest.json",
+      "transaction-progress.json",
       "adapter-message.json",
       "version-cases.json",
     ]) {

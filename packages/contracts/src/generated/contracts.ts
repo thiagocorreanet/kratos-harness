@@ -273,23 +273,23 @@ export namespace TransactionManifestV1Contract {
   export type Id = string;
   export type Sha256 = string;
   export type Timestamp = string;
-  export type Operation = {
-    [k: string]: unknown | undefined;
-  } & {
-    operationId: Id;
-    kind: "create_directory" | "write_file" | "delete_file";
-    path: Reference;
-    expected: Fingerprint;
-    result: Fingerprint;
-    stagedPath: Reference | null;
-  } & {
-    operationId: Id;
-    kind: "create_directory" | "write_file" | "delete_file";
-    path: Reference;
-    expected: Fingerprint;
-    result: Fingerprint;
-    stagedPath: Reference | null;
-  };
+  export type Operation =
+    | {
+        operationId: Id;
+        kind: "write_file";
+        path: Reference;
+        expected: Fingerprint;
+        result: Fingerprint;
+        stagedPath: Reference;
+      }
+    | {
+        operationId: Id;
+        kind: "create_directory" | "delete_file";
+        path: Reference;
+        expected: Fingerprint;
+        result: Fingerprint;
+        stagedPath: null;
+      };
   export type Reference = string;
   export type Fingerprint =
     | {
@@ -320,21 +320,46 @@ export namespace TransactionManifestV1Contract {
 export type TransactionManifestV1 =
   TransactionManifestV1Contract.TransactionManifestV1;
 export namespace TransactionProgressV1Contract {
-  export type TransactionProgressV1 = {
-    [k: string]: unknown | undefined;
-  } & {
-    contractVersion: "1.0.0";
-    stateContract: "1.0.0";
-    transactionId: Id;
-    manifestDigest: Sha256 | null;
-    recoveryToken: Sha256;
-    phase: "begun" | "prepared" | "publishing" | "committed" | "aborted";
-    publishedOperationIds: Id[];
-    fileSync: "required";
-    directorySync: "not_attempted" | "supported" | "unsupported";
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-  };
+  export type TransactionProgressV1 =
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        transactionId: Id;
+        manifestDigest: null;
+        recoveryToken: Sha256;
+        phase: "begun";
+        publishedOperationIds: Id[];
+        fileSync: "required";
+        directorySync: "not_attempted" | "supported" | "unsupported";
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        transactionId: Id;
+        manifestDigest: Sha256;
+        recoveryToken: Sha256;
+        phase: "prepared" | "publishing" | "committed";
+        publishedOperationIds: Id[];
+        fileSync: "required";
+        directorySync: "not_attempted" | "supported" | "unsupported";
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        transactionId: Id;
+        manifestDigest: Sha256 | null;
+        recoveryToken: Sha256;
+        phase: "aborted";
+        publishedOperationIds: Id[];
+        fileSync: "required";
+        directorySync: "not_attempted" | "supported" | "unsupported";
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      };
   export type Id = string;
   export type Sha256 = string;
   export type Timestamp = string;

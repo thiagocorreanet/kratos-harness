@@ -255,6 +255,76 @@ describe("versioned state and host schemas", () => {
         ],
       }),
     ).toBe(false);
+    expect(
+      validate({ ...structuredClone(artifact.fixture), operations: [] }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [{ ...operation, unexpected: true }],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [
+          {
+            ...operation,
+            expected: {
+              ...(operation.expected as JsonObject),
+              unexpected: true,
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    for (const unsafeReference of [
+      "/absolute",
+      "../traversal",
+      "backslash\\path",
+      "https://example.test/payload",
+    ]) {
+      expect(
+        validate({
+          ...structuredClone(artifact.fixture),
+          operations: [{ ...operation, path: unsafeReference }],
+        }),
+        `path: ${unsafeReference}`,
+      ).toBe(false);
+      expect(
+        validate({
+          ...structuredClone(artifact.fixture),
+          operations: [{ ...operation, stagedPath: unsafeReference }],
+        }),
+        `stagedPath: ${unsafeReference}`,
+      ).toBe(false);
+    }
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        planDigest: "not-a-sha256",
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [
+          {
+            ...operation,
+            result: {
+              ...(operation.result as JsonObject),
+              sha256: "not-a-sha256",
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        operations: [{ ...operation, kind: "replace_file" }],
+      }),
+    ).toBe(false);
   });
 
   it("requires manifest digests after transaction preparation", () => {
@@ -286,10 +356,37 @@ describe("versioned state and host schemas", () => {
     expect(
       validate({
         ...structuredClone(artifact.fixture),
+        phase: "begun",
+        manifestDigest: "a".repeat(64),
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
         phase: "aborted",
         manifestDigest: null,
       }),
     ).toBe(true);
+    expect(
+      validate({
+        ...structuredClone(artifact.fixture),
+        phase: "aborted",
+        manifestDigest: "a".repeat(64),
+      }),
+    ).toBe(true);
+    for (const candidate of [
+      { recoveryToken: "not-a-sha256" },
+      { manifestDigest: "not-a-sha256" },
+      { phase: "recovering" },
+      { fileSync: "optional" },
+      { directorySync: "unknown" },
+      { publishedOperationIds: ["operation-0001", "operation-0001"] },
+    ]) {
+      expect(
+        validate({ ...structuredClone(artifact.fixture), ...candidate }),
+        JSON.stringify(candidate),
+      ).toBe(false);
+    }
   });
 
   it("ships ten payload fixtures plus the version-case table", async () => {
