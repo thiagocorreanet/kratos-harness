@@ -199,6 +199,9 @@ export function describeDurableFileSystemContract(
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);
         expect(["supported", "unsupported"]).toContain(
+          await fileSystem.syncDirectory("."),
+        );
+        expect(["supported", "unsupported"]).toContain(
           await fileSystem.syncDirectory(".brain"),
         );
         await expect(
@@ -218,7 +221,7 @@ export function describeDurableFileSystemContract(
       "a\nb",
     ] as const;
 
-    const pathOperations: readonly [
+    const durableEntryPathOperations: readonly [
       label: string,
       run: (fileSystem: DurableFileSystem, path: string) => Promise<unknown>,
     ][] = [
@@ -242,7 +245,6 @@ export function describeDurableFileSystemContract(
         "removeEmptyDirectory",
         (fileSystem, path) => fileSystem.removeEmptyDirectory(path),
       ],
-      ["syncDirectory", (fileSystem, path) => fileSystem.syncDirectory(path)],
       [
         "replaceFile staged path",
         (fileSystem, path) => fileSystem.replaceFile(path, ".brain/target"),
@@ -253,7 +255,27 @@ export function describeDurableFileSystemContract(
       ],
     ];
 
-    it.each(pathOperations)(
+    it.each(durableEntryPathOperations)(
+      "%s refuses the project root sentinel as a managed entry",
+      async (_operation, run) => {
+        await withFileSystem(async (fileSystem) => {
+          await expect(run(fileSystem, ".")).rejects.toThrow(
+            "escapes the project",
+          );
+        });
+      },
+    );
+
+    const unsafePathOperations = [
+      ...durableEntryPathOperations,
+      [
+        "syncDirectory",
+        (fileSystem: DurableFileSystem, path: string) =>
+          fileSystem.syncDirectory(path),
+      ] as const,
+    ];
+
+    it.each(unsafePathOperations)(
       "%s refuses every unsafe project-relative path",
       async (_operation, run) => {
         await withFileSystem(async (fileSystem) => {

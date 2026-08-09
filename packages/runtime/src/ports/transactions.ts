@@ -19,6 +19,7 @@ export interface DurableFileSystem {
   replaceFile(stagedPath: string, targetPath: string): Promise<void>;
   removeFile(path: string): Promise<void>;
   removeEmptyDirectory(path: string): Promise<void>;
+  /** This method alone accepts the exact `.` project-root sentinel. */
   syncDirectory(path: string): Promise<"supported" | "unsupported">;
 }
 

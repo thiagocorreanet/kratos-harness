@@ -397,9 +397,9 @@ export function memoryTransactionStorage(
       }),
     syncDirectory: (path) =>
       deferred(() => {
-        const normalized = normalizePath(path);
+        const normalized = path === "." ? null : normalizePath(path);
         return boundary("sync_directory", () => {
-          requireDirectory(normalized);
+          if (normalized !== null) requireDirectory(normalized);
           return "supported" as const;
         });
       }),

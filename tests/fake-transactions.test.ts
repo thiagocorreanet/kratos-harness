@@ -417,6 +417,17 @@ describe("memory transaction storage", () => {
     ).rejects.toThrow("escapes the project");
   });
 
+  it("synchronizes the implicit project root without materializing it", async () => {
+    const storage = memoryTransactionStorage();
+
+    await expect(storage.durableFileSystem.syncDirectory(".")).resolves.toBe(
+      "supported",
+    );
+
+    expect(storage.snapshot()).toEqual(empty);
+    expect(storage.calls()).toEqual(["sync_directory"]);
+  });
+
   it("provides the same deterministic SHA-256 capability as production", () => {
     expect(memoryTransactionStorage().digests.sha256("abc")).toBe(
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
