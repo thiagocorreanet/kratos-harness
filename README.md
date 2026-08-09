@@ -125,6 +125,12 @@ uses embedded schemas for validation before domain use and revalidates typed
 output before producing canonical JSON. Today this is validation infrastructure
 and project-configuration wiring only; it adds no state command or effect.
 
+The internal
+[atomic filesystem transaction contract](docs/architecture/atomic-transactions.md)
+now stages managed `.brain/` mutations, records incomplete work, and requires
+explicit token-bound crash recovery. It provides typed runtime infrastructure,
+not a public recovery command or a usable SDD trail.
+
 ### No global Yoda binary
 
 The new runtime is developed in TypeScript and distributed as a self-contained JavaScript ESM bundle inside the plugin. This avoids a separately installed global binary, PATH problems, and runtime/plugin version drift.
