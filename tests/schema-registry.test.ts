@@ -1,3 +1,6 @@
+import { execFileSync, spawnSync } from "node:child_process";
+import { join } from "node:path";
+
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
@@ -10,9 +13,28 @@ import {
   compileSchemaRegistry,
   type EmbeddedSchemaEntry,
 } from "@mestre-yoda/runtime/infra/schema";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 const registry = ajvSchemaRegistry();
+const repositoryRoot = join(import.meta.dirname, "..");
+const bundledRuntime = join(repositoryRoot, "dist/plugin/runtime/yoda.mjs");
+
+function runWithPrototypePollution(preloadSource: string) {
+  return spawnSync(
+    process.execPath,
+    [
+      "--import",
+      `data:text/javascript,${encodeURIComponent(preloadSource)}`,
+      bundledRuntime,
+      "--json",
+      "handshake",
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    },
+  );
+}
 
 const projectConfigRequest = (value: unknown) => ({
   id: "state.project-config" as const,
@@ -306,8 +328,7 @@ describe("Ajv schema registry", () => {
 
   it("fails closed on Object.prototype pollution present before module initialization", async () => {
     let calls = 0;
-    let constructionCalls: number;
-    let constructionError: unknown;
+    let importError: unknown;
     let importCalls: number;
     Object.defineProperty(Object.prototype, "language", {
       configurable: true,
@@ -319,23 +340,19 @@ describe("Ajv schema registry", () => {
 
     try {
       vi.resetModules();
-      const schemaModule = await import("@mestre-yoda/runtime/infra/schema");
-      importCalls = calls;
-      calls = 0;
       try {
-        schemaModule.ajvSchemaRegistry();
+        await import("@mestre-yoda/runtime/infra/schema");
       } catch (error) {
-        constructionError = error;
+        importError = error;
       }
-      constructionCalls = calls;
+      importCalls = calls;
     } finally {
       delete (Object.prototype as Record<string, unknown>).language;
       vi.resetModules();
     }
 
     expect(importCalls).toBe(0);
-    expect(constructionCalls).toBe(0);
-    expect(constructionError).toEqual(
+    expect(importError).toEqual(
       new Error("Embedded schema registry is invalid"),
     );
   });
@@ -971,5 +988,60 @@ describe("Ajv schema registry", () => {
     expect(() => compileSchemaRegistry(EMBEDDED_SCHEMA_CATALOG, [])).toThrow(
       new Error("Embedded schema registry is invalid"),
     );
+  });
+});
+
+describe("schema registry fresh-process preflight", () => {
+  beforeAll(() => {
+    execFileSync(process.execPath, ["scripts/build.mjs"], {
+      cwd: repositoryRoot,
+      stdio: "pipe",
+    });
+  });
+
+  it("rejects a throwing allowlisted accessor before any hostile execution", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      Object.defineProperty(Object.prototype, "hasOwnProperty", {
+        configurable: true,
+        enumerable: false,
+        get() {
+          calls += 1;
+          throw new Error("attacker-allowlisted-accessor");
+        },
+      });
+    `);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+    expect(result.stderr).not.toContain("attacker-allowlisted-accessor");
+  });
+
+  it("rejects a hostile allowlisted data function before invoking it", () => {
+    const result = runWithPrototypePollution(`
+      let calls = 0;
+      const intrinsic = Object.prototype.hasOwnProperty;
+      process.on("exit", () => {
+        process.stderr.write("\\nMESTRE_YODA_PROBE_CALLS=" + calls + "\\n");
+      });
+      function hostile(...args) {
+        calls += 1;
+        return Reflect.apply(intrinsic, this, args);
+      }
+      Object.defineProperty(Object.prototype, "hasOwnProperty", {
+        configurable: true,
+        enumerable: false,
+        value: hostile,
+        writable: true,
+      });
+    `);
+
+    expect(result.stderr).toContain("MESTRE_YODA_PROBE_CALLS=0");
+    expect(result.stderr).toContain("Embedded schema registry is invalid");
+    expect(result.status).not.toBe(0);
   });
 });

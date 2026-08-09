@@ -1,9 +1,9 @@
-import {
-  classifyContractVersion,
-  contractFailureResult,
-  type ContractClassification,
+import type {
+  ContractClassification,
+  classifyContractVersion as classifyVersion,
+  contractFailureResult as contractFailure,
 } from "@mestre-yoda/contracts";
-import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
+import type { ValidateFunction } from "ajv/dist/2020.js";
 
 import type {
   ContractId,
@@ -12,22 +12,31 @@ import type {
   SchemaRegistry,
   ValidationDiagnostic,
 } from "../../domain/schema/index.js";
-import {
-  EMBEDDED_SCHEMA_CATALOG,
-  EMBEDDED_SCHEMA_DEPENDENCIES,
-  assertSchemaCatalog,
-} from "./catalog.js";
-import {
-  isInertJsonData,
-  isObjectPrototypeEnvironmentSafe,
-} from "./data-shape.js";
-import {
-  dataShapeDiagnostics,
-  normalizeAjvDiagnostics,
-} from "./diagnostics.js";
+import { assertObjectPrototypeEnvironmentSafe } from "./prototype-environment.js";
 import type { EmbeddedSchemaEntry } from "./types.js";
 
 const REGISTRY_INTEGRITY_ERROR = "Embedded schema registry is invalid";
+
+assertObjectPrototypeEnvironmentSafe();
+
+const contractsModule = await import("@mestre-yoda/contracts");
+const ajvModule = await import("ajv/dist/2020.js");
+const catalogModule = await import("./catalog.js");
+const dataShapeModule = await import("./data-shape.js");
+const diagnosticsModule = await import("./diagnostics.js");
+
+const classifyContractVersion: typeof classifyVersion =
+  contractsModule.classifyContractVersion;
+const contractFailureResult: typeof contractFailure =
+  contractsModule.contractFailureResult;
+const { Ajv2020 } = ajvModule;
+const {
+  EMBEDDED_SCHEMA_CATALOG,
+  EMBEDDED_SCHEMA_DEPENDENCIES,
+  assertSchemaCatalog,
+} = catalogModule;
+const { isInertJsonData } = dataShapeModule;
+const { dataShapeDiagnostics, normalizeAjvDiagnostics } = diagnosticsModule;
 
 function registryIntegrityError(): Error {
   return new Error(REGISTRY_INTEGRITY_ERROR);
@@ -95,7 +104,7 @@ export function compileSchemaRegistry(
   const families = new Map<ContractId, "state" | "host">();
 
   try {
-    if (!isObjectPrototypeEnvironmentSafe()) throw registryIntegrityError();
+    assertObjectPrototypeEnvironmentSafe();
     assertSchemaCatalog(entries);
     const ajv = new Ajv2020({
       allErrors: true,
