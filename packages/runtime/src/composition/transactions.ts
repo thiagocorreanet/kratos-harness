@@ -125,7 +125,10 @@ async function assertPreflightRoot(
   if (brain.kind !== "directory") throw corrupt(".brain");
   const transactions =
     await services.durableFileSystem.inspect(transactionsRoot);
-  if (transactions.kind === "missing" && rootMode === "initialize") return;
+  if (transactions.kind === "missing" && rootMode === "initialize") {
+    await assertInitializeNamespaceAvailable(false, services);
+    return;
+  }
   if (transactions.kind !== "directory") throw corrupt(transactionsRoot);
 }
 
@@ -1045,12 +1048,7 @@ async function assertExistingRoot(
 
   let transactions = await services.durableFileSystem.inspect(transactionsRoot);
   if (rootMode === "initialize" && transactions.kind === "missing") {
-    if (
-      !createdBrain &&
-      (await services.durableFileSystem.list(".brain")).length !== 0
-    ) {
-      throw new TransactionFailure("runtime.state_corrupt", evidence(".brain"));
-    }
+    await assertInitializeNamespaceAvailable(createdBrain, services);
     await services.durableFileSystem.createDirectory(transactionsRoot);
     await services.durableFileSystem.syncDirectory(".brain");
     transactions = { kind: "directory" };
@@ -1060,6 +1058,18 @@ async function assertExistingRoot(
       "runtime.state_corrupt",
       evidence(transactionsRoot),
     );
+  }
+}
+
+async function assertInitializeNamespaceAvailable(
+  createdBrain: boolean,
+  services: TransactionServices,
+): Promise<void> {
+  if (
+    !createdBrain &&
+    (await services.durableFileSystem.list(".brain")).length !== 0
+  ) {
+    throw corrupt(".brain");
   }
 }
 

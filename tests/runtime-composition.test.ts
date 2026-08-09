@@ -1018,18 +1018,81 @@ describe("effect plan application", () => {
     },
   );
 
-  it("keeps an explicit initialize no-op free of bootstrap metadata", async () => {
-    const { storage, ports } = fakeRuntime({});
+  it.each([
+    { label: "a missing root", directories: [] as readonly string[] },
+    { label: "an empty root", directories: [".brain"] as readonly string[] },
+  ])(
+    "keeps an explicit initialize no-op free of bootstrap metadata from $label",
+    async ({ directories }) => {
+      const { storage, ports } = fakeRuntime({ directories });
 
-    await applyPlan(
-      planOf({ kind: "delete_file", path: ".brain/missing.json" }),
-      ports,
-      { rootMode: "initialize" },
-    );
+      await expect(
+        applyPlan(
+          planOf({ kind: "delete_file", path: ".brain/missing.json" }),
+          ports,
+          { rootMode: "initialize" },
+        ),
+      ).resolves.toEqual({ kind: "noop" });
 
-    expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
-    expect(storage.calls()).not.toContain("create_directory_exclusive");
+      expect(storage.snapshot()).toEqual({ files: {}, directories });
+      expect(storage.calls()).not.toContain("create_directory");
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
+
+  it("bootstraps a ready initialize plan beneath an empty root", async () => {
+    const { storage, ports } = fakeRuntime({ directories: [".brain"] });
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        ports,
+        { rootMode: "initialize" },
+      ),
+    ).resolves.toEqual({ kind: "committed" });
+
+    expect(storage.snapshot().directories).toContain(".brain/transactions");
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("state");
   });
+
+  it.each([
+    {
+      label: "delete is already satisfied",
+      plan: planOf({ kind: "delete_file", path: ".brain/missing.json" }),
+    },
+    {
+      label: "write is already satisfied",
+      plan: planOf({
+        kind: "write_file",
+        path: ".brain/existing.json",
+        content: "existing",
+      }),
+    },
+  ])(
+    "rejects initialize when transactions are absent from a non-empty root and $label",
+    async ({ plan }) => {
+      const { storage, ports } = fakeRuntime({
+        directories: [".brain"],
+        files: { ".brain/existing.json": "existing" },
+      });
+      const before = storage.snapshot();
+
+      await expect(
+        applyPlan(plan, ports, { rootMode: "initialize" }),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: ".brain" },
+        ]),
+      );
+      expect(storage.snapshot()).toEqual(before);
+      expect(storage.calls()).not.toContain("create_directory");
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
 
   it("never uses the ordinary filesystem for managed mutations", async () => {
     const { storage, ports } = fakeRuntime();
