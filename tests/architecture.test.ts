@@ -104,6 +104,7 @@ describe("import extraction", () => {
       ),
     ).toEqual([
       "../domain/effects.js",
+      "../domain/transactions/index.js",
       "../infra/node/index.js",
       "../ports/index.js",
       "./schema.js",

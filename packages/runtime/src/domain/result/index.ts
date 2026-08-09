@@ -1,10 +1,16 @@
 export {
   internalFailure,
   resultFor,
+  transactionFailureResult,
   usageFailure,
   USAGE_WHY,
 } from "./result.js";
-export type { EvidenceRef, Result, ResultDetail } from "./result.js";
+export type {
+  EvidenceRef,
+  Result,
+  ResultDetail,
+  TransactionFailureDetail,
+} from "./result.js";
 export {
   ResultContractError,
   validatePublicText,

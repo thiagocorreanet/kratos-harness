@@ -6,6 +6,7 @@ import { runCli } from "@mestre-yoda/runtime";
 import {
   createRuntime,
   createSchemaRegistry,
+  TransactionFailure,
 } from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import { planOf } from "@mestre-yoda/runtime/domain/effects";
@@ -16,9 +17,14 @@ import {
 } from "@mestre-yoda/runtime/domain/result";
 import type { SchemaRegistry } from "@mestre-yoda/runtime/domain/schema";
 import {
+  fixedClock,
   memoryFileSystem,
+  memoryTransactionStorage,
   recordingOutput,
+  sequentialIds,
 } from "@mestre-yoda/runtime/infra/fake";
+import type { EvidenceRef } from "@mestre-yoda/runtime/domain/result";
+import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 
 async function run(argv: readonly string[]) {
   const output = recordingOutput();
@@ -29,6 +35,67 @@ async function run(argv: readonly string[]) {
     stderr: output.human_.join(""),
   };
 }
+
+const transactionReasons = [
+  {
+    reasonCode: "guard.outside_allow" as const,
+    status: "failure",
+    exitCode: 2,
+    retryable: true,
+    recovery:
+      "Move the change inside an allowed scope or obtain an explicit reviewed scope update.",
+    evidence: [
+      { kind: "artifact", ref: ".brain/request.json" },
+    ] satisfies readonly EvidenceRef[],
+  },
+  {
+    reasonCode: "runtime.internal_failure" as const,
+    status: "failure",
+    exitCode: 2,
+    retryable: false,
+    recovery:
+      "Capture an authorized redacted diagnostic bundle and report the stable reason without blindly retrying.",
+    evidence: [
+      { kind: "artifact", ref: ".brain/private-payload.json" },
+    ] satisfies readonly EvidenceRef[],
+  },
+  {
+    reasonCode: "runtime.recovery_required" as const,
+    status: "blocked",
+    exitCode: 4,
+    retryable: true,
+    recovery:
+      "Run the explicit transaction recovery operation, verify its event evidence, and then repeat the original request.",
+    evidence: [
+      {
+        kind: "artifact",
+        ref: ".brain/transactions/transaction-1/progress.json",
+      },
+    ] satisfies readonly EvidenceRef[],
+  },
+  {
+    reasonCode: "runtime.revision_conflict" as const,
+    status: "blocked",
+    exitCode: 5,
+    retryable: true,
+    recovery:
+      "Reload canonical state, recompute the decision from the new revision, and submit a fresh mutation.",
+    evidence: [
+      { kind: "artifact", ref: ".brain/state.json" },
+    ] satisfies readonly EvidenceRef[],
+  },
+  {
+    reasonCode: "runtime.state_corrupt" as const,
+    status: "blocked",
+    exitCode: 4,
+    retryable: true,
+    recovery:
+      "Preserve the rejected state, run the explicit integrity audit, and retry only after verified repair or rebuild.",
+    evidence: [
+      { kind: "artifact", ref: ".brain/events.jsonl" },
+    ] satisfies readonly EvidenceRef[],
+  },
+] as const;
 
 describe("composed command line", () => {
   it("delegates the process entry to the composed pipeline", async () => {
@@ -161,6 +228,143 @@ describe("composed command line", () => {
     );
     expect(output.human_.join("")).not.toContain("secret-token");
     expect(output.structured_.join("")).toBe("");
+  });
+
+  it.each(transactionReasons)(
+    "maps $reasonCode through the catalog in human and JSON modes",
+    async ({ reasonCode, status, exitCode, retryable, recovery, evidence }) => {
+      const registry = [
+        {
+          path: ["transaction-failure"],
+          summary: "Raise a typed transaction failure.",
+          flags: [],
+          positionals: { min: 0, max: 0 },
+          jsonContract: "result@1.0.0" as const,
+          handler: () => {
+            const failure = new TransactionFailure(reasonCode, evidence);
+            failure.message =
+              "/home/someone/project/.brain private-payload-content";
+            throw failure;
+          },
+        },
+      ];
+
+      const humanOutput = recordingOutput();
+      const humanExit = await runCommandLine(
+        ["transaction-failure"],
+        createRuntime({ output: humanOutput }),
+        registry,
+      );
+      const human = humanOutput.human_.join("");
+      expect(humanExit).toBe(exitCode);
+      expect(humanOutput.structured_.join("")).toBe("");
+      expect(human).toContain(`Reason: ${reasonCode}`);
+      expect(human).toContain(`Retryable: ${String(retryable)}`);
+      expect(human).toContain(`Recovery: ${recovery}`);
+      const expectedEvidence =
+        reasonCode === "runtime.internal_failure" ? [] : evidence;
+      for (const item of expectedEvidence) {
+        expect(human).toContain(`Evidence: ${item.kind} ${item.ref}`);
+      }
+      if (reasonCode === "runtime.internal_failure") {
+        expect(human).not.toContain("Evidence:");
+      }
+      expect(human).not.toContain("/home/someone");
+      expect(human).not.toContain("private-payload-content");
+
+      const jsonOutput = recordingOutput();
+      const jsonExit = await runCommandLine(
+        ["--json", "transaction-failure"],
+        createRuntime({ output: jsonOutput }),
+        registry,
+      );
+      const jsonText = jsonOutput.structured_.join("");
+      expect(jsonExit).toBe(exitCode);
+      expect(jsonOutput.human_.join("")).toBe("");
+      expect(JSON.parse(jsonText)).toMatchObject({
+        status,
+        exitCode,
+        reasonCode,
+        evidence: expectedEvidence,
+        stateChanged: false,
+        retryable,
+        recovery,
+      });
+      expect(jsonText).not.toContain("/home/someone");
+      expect(jsonText).not.toContain("private-payload-content");
+    },
+  );
+
+  it("does not classify an error by its name or message", async () => {
+    const output = recordingOutput();
+    const lookalike = [
+      {
+        path: ["lookalike"],
+        summary: "Raise an untyped lookalike.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => {
+          const error = new Error("Managed transaction failed");
+          error.name = "TransactionFailure";
+          throw error;
+        },
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "lookalike"],
+        createRuntime({ output }),
+        lookalike,
+      ),
+    ).toBe(2);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+      evidence: [],
+    });
+  });
+
+  it("renders the append_event refusal without exposing its payload", async () => {
+    const output = recordingOutput();
+    const append = [
+      {
+        path: ["append"],
+        summary: "Attempt an event append.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "result@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("trail.ok", {
+            evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
+          }),
+          plan: planOf({
+            kind: "append_event" as const,
+            event: "private-event-payload",
+          }),
+          humanStdout: null,
+          payload: null,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "append"],
+        createRuntime({ output }),
+        append,
+      ),
+    ).toBe(4);
+    const rendered = output.structured_.join("");
+    expect(JSON.parse(rendered)).toMatchObject({
+      status: "blocked",
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      evidence: [{ kind: "artifact", ref: ".brain/events.jsonl" }],
+      stateChanged: false,
+      retryable: true,
+    });
+    expect(rendered).not.toContain("private-event-payload");
   });
 
   it("validates a decision before applying its effect plan", async () => {
@@ -431,7 +635,9 @@ describe("composed command line", () => {
   it("prepares adapter output before applying effects and publishing", async () => {
     const events: string[] = [];
     const output = recordingOutput();
-    const fileSystem = memoryFileSystem();
+    const storage = memoryTransactionStorage({
+      directories: [".brain", ".brain/transactions"],
+    });
     const productionRegistry = createSchemaRegistry();
     const schemaRegistry: SchemaRegistry = {
       validate(request) {
@@ -452,7 +658,7 @@ describe("composed command line", () => {
           }),
           plan: planOf({
             kind: "write_file" as const,
-            path: "changed.txt",
+            path: ".brain/changed.json",
             content: "written",
           }),
           humanStdout: null,
@@ -461,16 +667,22 @@ describe("composed command line", () => {
       },
     ];
 
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      async replaceFile(stagedPath, targetPath) {
+        await storage.durableFileSystem.replaceFile(stagedPath, targetPath);
+        if (targetPath === ".brain/changed.json") events.push("effect");
+      },
+    };
+
     const exitCode = await runCommandLine(
       ["--json", "ordered-adapter"],
       createRuntime({
-        fileSystem: {
-          ...fileSystem,
-          async write(path, content) {
-            events.push("effect");
-            await fileSystem.write(path, content);
-          },
-        },
+        clock: fixedClock("2026-08-09T00:00:00.000Z"),
+        ids: sequentialIds("transaction"),
+        fileSystem: storage.fileSystem,
+        durableFileSystem,
+        digests: storage.digests,
         output: {
           structured(text) {
             events.push("output");
@@ -487,7 +699,7 @@ describe("composed command line", () => {
 
     expect(exitCode).toBe(0);
     expect(events).toEqual(["validate", "effect", "output"]);
-    expect(await fileSystem.read("changed.txt")).toBe("written");
+    expect(storage.snapshot().files[".brain/changed.json"]).toBe("written");
   });
 
   it("fails closed when a non-result command has no payload", async () => {

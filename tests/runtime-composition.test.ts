@@ -5,14 +5,19 @@ import {
   configurationValidator,
   createRuntime,
   createSchemaRegistry,
+  TransactionFailure,
 } from "@mestre-yoda/runtime/composition";
 import {
   fixedClock,
-  memoryFileSystem,
   memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
 } from "@mestre-yoda/runtime/infra/fake";
+import type {
+  DurableEntry,
+  DurableFileSystem,
+  FileSystem,
+} from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
 
 describe("composition root", () => {
@@ -64,78 +69,626 @@ describe("composition root", () => {
 });
 
 describe("effect plan application", () => {
-  function fakeRuntime() {
+  function fakeRuntime(
+    seed: Parameters<typeof memoryTransactionStorage>[0] = {
+      directories: [".brain", ".brain/transactions"],
+    },
+  ) {
     const output = recordingOutput();
-    const fileSystem = memoryFileSystem();
+    const storage = memoryTransactionStorage(seed);
     return {
       output,
-      fileSystem,
+      storage,
       ports: createRuntime({
-        clock: fixedClock("2026-08-07T00:00:00.000Z"),
-        ids: sequentialIds(),
-        fileSystem,
+        clock: fixedClock("2026-08-09T00:00:00.000Z"),
+        ids: sequentialIds("transaction"),
+        fileSystem: storage.fileSystem,
+        durableFileSystem: storage.durableFileSystem,
+        digests: storage.digests,
         output,
       }),
     };
   }
 
-  it("applies effects in declared order", async () => {
-    const { fileSystem, ports } = fakeRuntime();
+  it("commits managed effects in their declared order", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [".brain", ".brain/transactions"],
+      files: { ".brain/delete.json": "old" },
+    });
 
     await applyPlan(
       planOf(
-        { kind: "write_file", path: "a.txt", content: "first" },
-        { kind: "write_file", path: "a.txt", content: "second" },
+        { kind: "create_directory", path: ".brain/nested" },
+        {
+          kind: "write_file",
+          path: ".brain/nested/first.json",
+          content: "one",
+        },
+        {
+          kind: "write_file",
+          path: ".brain/second.json",
+          content: "two",
+        },
+        { kind: "delete_file", path: ".brain/delete.json" },
       ),
       ports,
     );
 
-    expect(await fileSystem.read("a.txt")).toBe("second");
+    const snapshot = storage.snapshot();
+    expect(snapshot.files[".brain/nested/first.json"]).toBe("one");
+    expect(snapshot.files[".brain/second.json"]).toBe("two");
+    expect(snapshot.files).not.toHaveProperty(".brain/delete.json");
+    const manifest = JSON.parse(
+      snapshot.files[".brain/transactions/transaction-1/manifest.json"] ?? "",
+    ) as { operations: readonly { path: string }[] };
+    expect(manifest.operations.map(({ path }) => path)).toEqual([
+      ".brain/nested",
+      ".brain/nested/first.json",
+      ".brain/second.json",
+      ".brain/delete.json",
+    ]);
   });
 
-  it("performs every effect kind", async () => {
-    const { fileSystem, output, ports } = fakeRuntime();
+  it("does not apply a valid prefix when a later destination is forbidden", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf(
+          {
+            kind: "write_file",
+            path: ".brain/first.json",
+            content: "one",
+          },
+          {
+            kind: "write_file",
+            path: ".brain/transactions/forbidden",
+            content: "two",
+          },
+        ),
+        ports,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "guard.outside_allow" });
+    expect(storage.snapshot().files).not.toHaveProperty(".brain/first.json");
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("emits in declared output order only after the transaction commits", async () => {
+    const output = recordingOutput();
+    const storage = memoryTransactionStorage({
+      directories: [".brain", ".brain/transactions"],
+    });
+    const phasesAtOutput: string[] = [];
+    const observeCommitted = (): void => {
+      const progress = JSON.parse(
+        storage.snapshot().files[
+          ".brain/transactions/transaction-1/progress.json"
+        ] ?? "",
+      ) as { phase: string };
+      phasesAtOutput.push(progress.phase);
+    };
+    const ports = createRuntime({
+      clock: fixedClock("2026-08-09T00:00:00.000Z"),
+      ids: sequentialIds("transaction"),
+      fileSystem: storage.fileSystem,
+      durableFileSystem: storage.durableFileSystem,
+      digests: storage.digests,
+      output: {
+        structured(text) {
+          observeCommitted();
+          output.structured(text);
+        },
+        human(text) {
+          observeCommitted();
+          output.human(text);
+        },
+      },
+    });
 
     await applyPlan(
       planOf(
-        { kind: "create_directory", path: ".brain" },
-        { kind: "write_file", path: ".brain/state.json", content: "{}" },
-        { kind: "write_file", path: ".brain/scratch.json", content: "{}" },
-        { kind: "delete_file", path: ".brain/scratch.json" },
-        { kind: "append_event", event: "started" },
-        { kind: "emit", channel: "structured", text: "{}\n" },
-        { kind: "emit", channel: "human", text: "ok\n" },
+        {
+          kind: "emit",
+          channel: "structured",
+          text: "first\n",
+        },
+        {
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        },
+        { kind: "emit", channel: "human", text: "second\n" },
+        { kind: "emit", channel: "structured", text: "third\n" },
       ),
       ports,
     );
 
-    expect(await fileSystem.read(".brain/state.json")).toBe("{}");
-    expect(await fileSystem.stat(".brain/scratch.json")).toBeNull();
-    expect(await fileSystem.read(".brain/events.jsonl")).toBe("started\n");
-    expect(output.structured_).toEqual(["{}\n"]);
-    expect(output.human_).toEqual(["ok\n"]);
+    expect(phasesAtOutput).toEqual(["committed", "committed", "committed"]);
+    expect(output.structured_).toEqual(["first\n", "third\n"]);
+    expect(output.human_).toEqual(["second\n"]);
   });
 
-  it("appends to an existing event log instead of replacing it", async () => {
-    const { fileSystem, ports } = fakeRuntime();
+  it("emits nothing when publication does not commit", async () => {
+    const { storage, output, ports } = fakeRuntime();
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      replaceFile(stagedPath, targetPath) {
+        if (targetPath === ".brain/state.json") {
+          return Promise.reject(new Error("publication stopped"));
+        }
+        return storage.durableFileSystem.replaceFile(stagedPath, targetPath);
+      },
+    };
 
-    await applyPlan(planOf({ kind: "append_event", event: "first" }), ports);
-    await applyPlan(planOf({ kind: "append_event", event: "second" }), ports);
+    await expect(
+      applyPlan(
+        planOf(
+          { kind: "emit", channel: "human", text: "not yet\n" },
+          {
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "state",
+          },
+        ),
+        { ...ports, durableFileSystem },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    expect(output.human_).toEqual([]);
+    expect(output.structured_).toEqual([]);
+  });
 
-    // Truncating here would be silent, unrecoverable loss in the precursor to
-    // the event store.
-    expect(await fileSystem.read(".brain/events.jsonl")).toBe(
-      "first\nsecond\n",
+  it("refuses append_event until the canonical append operation exists", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf(
+          {
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "state",
+          },
+          { kind: "append_event", event: "payload-must-not-appear" },
+        ),
+        ports,
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain/events.jsonl" },
+      ]),
+    );
+    expect(storage.snapshot().files).not.toHaveProperty(".brain/state.json");
+    expect(storage.snapshot().files).not.toHaveProperty(".brain/events.jsonl");
+  });
+
+  it.each(["special", "symlink"] as const)(
+    "rejects a %s managed-path observation before creating a transaction",
+    async (kind) => {
+      const { storage, ports } = fakeRuntime();
+      const durableFileSystem: DurableFileSystem = {
+        ...storage.durableFileSystem,
+        inspect(path): Promise<DurableEntry> {
+          if (path === ".brain/state.json") return Promise.resolve({ kind });
+          return storage.durableFileSystem.inspect(path);
+        },
+      };
+
+      await expect(
+        applyPlan(
+          planOf({
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "state",
+          }),
+          { ...ports, durableFileSystem },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: ".brain/state.json" },
+        ]),
+      );
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
+
+  it.each(["file", "special", "symlink"] as const)(
+    "observes and rejects a %s managed root before descendant paths",
+    async (kind) => {
+      const { storage, ports } = fakeRuntime();
+      const inspected: string[] = [];
+      const durableFileSystem: DurableFileSystem = {
+        ...storage.durableFileSystem,
+        inspect(path): Promise<DurableEntry> {
+          inspected.push(path);
+          if (path === ".brain") {
+            return Promise.resolve(
+              kind === "file"
+                ? { kind, size: 0, sha256: storage.digests.sha256("") }
+                : { kind },
+            );
+          }
+          return Promise.reject(new Error("descendant must not be observed"));
+        },
+      };
+
+      await expect(
+        applyPlan(
+          planOf({
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "state",
+          }),
+          { ...ports, durableFileSystem },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: ".brain" },
+        ]),
+      );
+      expect(inspected).toEqual([".brain"]);
+    },
+  );
+
+  it("sanitizes an unexpected durable observation failure", async () => {
+    const { storage, ports } = fakeRuntime();
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path) {
+        if (path === ".brain/state.json") {
+          return Promise.reject(new Error("/absolute/private-payload"));
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        { ...ports, durableFileSystem },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
+
+  it("sanitizes an unexpected no-op marker inspection failure", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [".brain", ".brain/transactions"],
+      files: { ".brain/state.json": "same" },
+    });
+    let brainInspections = 0;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path) {
+        if (path === ".brain" && ++brainInspections === 2) {
+          return Promise.reject(new Error("/absolute/private-marker"));
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "same",
+        }),
+        { ...ports, durableFileSystem },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
+
+  it("sanitizes an unexpected no-op transaction-list failure", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [".brain", ".brain/transactions"],
+      files: { ".brain/state.json": "same" },
+    });
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      list(path) {
+        if (path === ".brain/transactions") {
+          return Promise.reject(new Error("/absolute/private-marker"));
+        }
+        return storage.durableFileSystem.list(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "same",
+        }),
+        { ...ports, durableFileSystem },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
+
+  it("sanitizes an unexpected digest failure during normalization", async () => {
+    const { ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "private-payload",
+        }),
+        {
+          ...ports,
+          digests: {
+            sha256() {
+              throw new Error("/absolute/private-payload");
+            },
+          },
+        },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
+
+  it("rejects malformed managed relationships before mutation", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf(
+          { kind: "delete_file", path: ".brain/parent" },
+          {
+            kind: "write_file",
+            path: ".brain/parent/child.json",
+            content: "child",
+          },
+        ),
+        ports,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it.each([
+    "",
+    ".brain\\state.json",
+    "C:/state.json",
+    ".brain/state.json\n",
+    ".brain",
+    "outside/state.json",
+    ".brain//state.json",
+    ".brain/./state.json",
+    ".brain/../state.json",
+  ])(
+    "rejects malformed destination spelling %j before mutation",
+    async (path) => {
+      const { storage, ports } = fakeRuntime();
+
+      await expect(
+        applyPlan(
+          planOf({ kind: "write_file", path, content: "state" }),
+          ports,
+        ),
+      ).rejects.toMatchObject({ reasonCode: "guard.outside_allow" });
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
+
+  it("does not create a marker for a satisfied no-op plan", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [".brain", ".brain/transactions"],
+      files: { ".brain/state.json": "same" },
+    });
+
+    await applyPlan(
+      planOf({
+        kind: "write_file",
+        path: ".brain/state.json",
+        content: "same",
+      }),
+      ports,
+    );
+
+    expect(storage.snapshot().directories).toEqual([
+      ".brain",
+      ".brain/transactions",
+    ]);
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("observes an already-satisfied managed directory as a no-op", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [".brain", ".brain/transactions", ".brain/existing"],
+    });
+
+    await applyPlan(
+      planOf({ kind: "create_directory", path: ".brain/existing" }),
+      ports,
+    );
+
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("refuses a no-op mutation while an incomplete marker exists", async () => {
+    const { storage, output, ports } = fakeRuntime();
+    const interrupted: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      replaceFile(stagedPath, targetPath) {
+        if (targetPath === ".brain/state.json") {
+          return Promise.reject(new Error("publication stopped"));
+        }
+        return storage.durableFileSystem.replaceFile(stagedPath, targetPath);
+      },
+    };
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        { ...ports, durableFileSystem: interrupted },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    await expect(
+      applyPlan(
+        planOf(
+          { kind: "delete_file", path: ".brain/state.json" },
+          { kind: "emit", channel: "human", text: "not available\n" },
+        ),
+        ports,
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        {
+          kind: "artifact",
+          ref: ".brain/transactions/transaction-1/progress.json",
+        },
+      ]),
+    );
+    expect(output.human_).toEqual([]);
+  });
+
+  it("lets the transaction driver reconcile a safe unmarked crash directory", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [
+        ".brain",
+        ".brain/transactions",
+        ".brain/transactions/orphan",
+      ],
+    });
+
+    await applyPlan(
+      planOf({
+        kind: "write_file",
+        path: ".brain/state.json",
+        content: "state",
+      }),
+      ports,
+    );
+
+    expect(storage.snapshot().directories).not.toContain(
+      ".brain/transactions/orphan",
+    );
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("state");
+  });
+
+  it("defaults to an existing root and bootstraps only when explicit", async () => {
+    const refused = fakeRuntime({});
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        refused.ports,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(refused.storage.snapshot().directories).toEqual([]);
+
+    const initialized = fakeRuntime({});
+    await applyPlan(
+      planOf({
+        kind: "write_file",
+        path: ".brain/state.json",
+        content: "state",
+      }),
+      initialized.ports,
+      { rootMode: "initialize" },
+    );
+    expect(initialized.storage.snapshot().files[".brain/state.json"]).toBe(
+      "state",
     );
   });
 
-  it("produces byte-identical output across two fixed runs", async () => {
+  it.each([
+    { directories: [] as readonly string[], evidenceRef: ".brain" },
+    {
+      directories: [".brain"] as readonly string[],
+      evidenceRef: ".brain/transactions",
+    },
+  ])(
+    "applies existing-root policy to a no-op when $evidenceRef is missing",
+    async ({ directories, evidenceRef }) => {
+      const { storage, ports } = fakeRuntime({ directories });
+
+      await expect(
+        applyPlan(
+          planOf({ kind: "delete_file", path: ".brain/missing.json" }),
+          ports,
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: evidenceRef },
+        ]),
+      );
+      expect(storage.snapshot().directories).toEqual(directories);
+    },
+  );
+
+  it("keeps an explicit initialize no-op free of bootstrap metadata", async () => {
+    const { storage, ports } = fakeRuntime({});
+
+    await applyPlan(
+      planOf({ kind: "delete_file", path: ".brain/missing.json" }),
+      ports,
+      { rootMode: "initialize" },
+    );
+
+    expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("never uses the ordinary filesystem for managed mutations", async () => {
+    const { storage, ports } = fakeRuntime();
+    const used: (keyof FileSystem)[] = [];
+    const fileSystem: FileSystem = {
+      read(path) {
+        used.push("read");
+        return storage.fileSystem.read(path);
+      },
+      write(path, content) {
+        used.push("write");
+        return storage.fileSystem.write(path, content);
+      },
+      remove(path) {
+        used.push("remove");
+        return storage.fileSystem.remove(path);
+      },
+      makeDirectory(path) {
+        used.push("makeDirectory");
+        return storage.fileSystem.makeDirectory(path);
+      },
+      list(path) {
+        used.push("list");
+        return storage.fileSystem.list(path);
+      },
+      stat(path) {
+        used.push("stat");
+        return storage.fileSystem.stat(path);
+      },
+    };
+
+    await applyPlan(
+      planOf({
+        kind: "write_file",
+        path: ".brain/state.json",
+        content: "state",
+      }),
+      { ...ports, fileSystem },
+    );
+
+    expect(used).toEqual([]);
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("state");
+  });
+
+  it("produces byte-identical output across two fixed emit-only runs", async () => {
     const run = async (): Promise<string> => {
       const { output, ports } = fakeRuntime();
       await applyPlan(
         planOf(
-          { kind: "create_directory", path: ".brain" },
-          { kind: "append_event", event: ports.ids.next() },
           {
             kind: "emit",
             channel: "structured",
@@ -148,27 +701,6 @@ describe("effect plan application", () => {
       return output.structured_.join("|");
     };
 
-    // Determinism is the whole reason the clock and ids are ports at all.
     expect(await run()).toBe(await run());
-  });
-
-  it("stops at the first failing effect without applying later ones", async () => {
-    const { fileSystem, ports } = fakeRuntime();
-
-    await expect(
-      applyPlan(
-        planOf(
-          { kind: "write_file", path: "before.txt", content: "written" },
-          { kind: "write_file", path: "../escape.txt", content: "x" },
-          { kind: "write_file", path: "after.txt", content: "x" },
-        ),
-        ports,
-      ),
-    ).rejects.toThrow("escapes the project");
-
-    expect(await fileSystem.read("before.txt")).toBe("written");
-    // A refused effect must not be stepped over; RUN-05 owns making the
-    // already-applied prefix roll back.
-    expect(await fileSystem.stat("after.txt")).toBeNull();
   });
 });

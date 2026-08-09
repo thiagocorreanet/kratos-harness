@@ -10,6 +10,7 @@ import {
   internalFailure,
   renderResultHuman,
   renderResultJson,
+  transactionFailureResult,
   validatePublicText,
   validateResult,
   type Result,
@@ -22,6 +23,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan } from "./index.js";
 import { createSchemaRegistry } from "./schema.js";
+import { TransactionFailure } from "./transactions.js";
 
 function write(
   text: string,
@@ -104,7 +106,10 @@ export async function runCommandLine(
     await applyPlan(decision.plan, ports);
     write(stdout, "stdout", ports);
     return decision.result.exitCode;
-  } catch {
+  } catch (error) {
+    if (error instanceof TransactionFailure) {
+      return publish(transactionFailureResult(error), json, ports);
+    }
     return publish(internalFailure(), json, ports);
   }
 }
