@@ -1212,6 +1212,61 @@ describe("managed transaction inspection and recovery", () => {
     expect(storage.snapshot().files[".brain/state.json"]).toBe("new");
   });
 
+  it("uses the validated recovery context when drive and classification scans fail", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions"],
+      files: { ".brain/state.json": "old" },
+    });
+    const initial = services(storage);
+    storage.fail({
+      operation: "replace_file",
+      timing: "after",
+      occurrence: 3,
+    });
+    await expect(
+      executeManagedMutation(
+        writePlan(storage, "old", "new"),
+        { rootMode: "existing" },
+        initial,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    const [summary] = await inspectManagedTransactions(initial);
+    const progressPath = ".brain/transactions/transaction-1/progress.json";
+    const base = storage.durableFileSystem;
+    let brainInspections = 0;
+    let driveFailed = false;
+    const boundary: DurableFileSystem = {
+      ...base,
+      inspect: async (path) => {
+        if (path !== ".brain") return base.inspect(path);
+        brainInspections += 1;
+        if (brainInspections === 2) {
+          driveFailed = true;
+          throw new Error("recovery drive detail");
+        }
+        if (driveFailed) throw new Error("classification scan detail");
+        return base.inspect(path);
+      },
+    };
+
+    await expect(
+      recoverManagedMutation(
+        {
+          transactionId: "transaction-1",
+          recoveryToken: summary?.recoveryToken ?? "missing",
+        },
+        { ...initial, durableFileSystem: boundary },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        { kind: "artifact", ref: progressPath },
+      ]),
+    );
+    const [preserved] = await inspectManagedTransactions(initial);
+    expect(preserved?.phase).toBe("publishing");
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("old");
+  });
+
   it.each([
     { label: "altered", action: "alter" as const },
     { label: "missing", action: "remove" as const },

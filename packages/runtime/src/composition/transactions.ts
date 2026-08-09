@@ -53,6 +53,12 @@ export interface TransactionServices {
   readonly schemaRegistry: SchemaRegistry;
 }
 
+interface TransactionFailureContext {
+  transactionId?: string;
+  recoveryToken?: string;
+  publishingAuthorized: boolean;
+}
+
 export class TransactionFailure extends Error {
   public constructor(
     public readonly reasonCode:
@@ -80,13 +86,13 @@ export async function executeManagedMutation(
     if (error instanceof TransactionFailure) throw error;
     throw new TransactionFailure("runtime.internal_failure", []);
   }
-  const attempt: { transactionId?: string } = {};
+  const attempt: TransactionFailureContext = { publishingAuthorized: false };
   try {
     await reconcileUnmarkedTransactions(services);
     await rejectIncompleteTransactions(services);
     return await driveExecution(frozenPlan, options, services, attempt);
   } catch (error) {
-    return classifyDriverFailure(error, services, attempt.transactionId);
+    return classifyDriverFailure(error, services, attempt);
   }
 }
 
@@ -269,6 +275,21 @@ function validateManagedRelationships(
       }
     }
   }
+
+  const createdDirectories = new Set<string>();
+  for (const operation of operations) {
+    let beneathCreatedDirectory = false;
+    for (const prefix of managedPathPrefixes(operation.path).slice(0, -1)) {
+      if (createdDirectories.has(prefix.toLowerCase())) {
+        beneathCreatedDirectory = true;
+      } else if (beneathCreatedDirectory) {
+        throw invalidPlan();
+      }
+    }
+    if (operation.kind === "create_directory") {
+      createdDirectories.add(operation.path.toLowerCase());
+    }
+  }
 }
 
 function managedPathPrefixes(path: string): readonly string[] {
@@ -313,7 +334,7 @@ async function driveExecution(
   plan: ManagedMutationPlan,
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
-  attempt: { transactionId?: string },
+  attempt: TransactionFailureContext,
 ): Promise<TransactionReceipt> {
   await assertExistingRoot(options.rootMode, services);
 
@@ -417,6 +438,7 @@ async function driveExecution(
     services,
   );
   directorySync = await persistProgress(progress, services);
+  attempt.publishingAuthorized = true;
 
   const publishedOperationIds: string[] = [];
   for (const operation of plan.operations) {
@@ -513,6 +535,11 @@ export async function recoverManagedMutation(
   request: { readonly transactionId: string; readonly recoveryToken: string },
   services: TransactionServices,
 ): Promise<TransactionReceipt> {
+  const attempt: TransactionFailureContext = {
+    transactionId: request.transactionId,
+    recoveryToken: request.recoveryToken,
+    publishingAuthorized: false,
+  };
   try {
     const summaries = await inspectManagedTransactions(services);
     const summary = summaries.find(
@@ -526,14 +553,11 @@ export async function recoverManagedMutation(
     if (summary.recoveryToken !== request.recoveryToken) {
       throw recoveryRequired(summary);
     }
+    attempt.publishingAuthorized =
+      summary.phase === "publishing" || summary.phase === "committed";
     return await driveRecovery(summary, services);
   } catch (error) {
-    return classifyDriverFailure(
-      error,
-      services,
-      request.transactionId,
-      request.recoveryToken,
-    );
+    return classifyDriverFailure(error, services, attempt);
   }
 }
 
@@ -781,9 +805,9 @@ function recoveryRequired(summary: TransactionSummary): TransactionFailure {
 async function classifyDriverFailure(
   error: unknown,
   services: TransactionServices,
-  transactionId?: string,
-  recoveryToken?: string,
+  context: TransactionFailureContext,
 ): Promise<TransactionReceipt> {
+  const { transactionId, recoveryToken } = context;
   const typedFailure = error instanceof TransactionFailure ? error : undefined;
   if (typedFailure !== undefined && transactionId === undefined) {
     throw typedFailure;
@@ -828,9 +852,21 @@ async function classifyDriverFailure(
     if (incomplete !== undefined) throw recoveryRequired(incomplete);
   } catch (inspectionError) {
     if (inspectionError instanceof TransactionFailure) throw inspectionError;
+    if (context.publishingAuthorized && transactionId !== undefined) {
+      throw recoveryRequiredForTransaction(transactionId);
+    }
   }
   if (typedFailure !== undefined) throw typedFailure;
   throw new TransactionFailure("runtime.internal_failure", []);
+}
+
+function recoveryRequiredForTransaction(
+  transactionId: string,
+): TransactionFailure {
+  return new TransactionFailure(
+    "runtime.recovery_required",
+    evidence(`${transactionRoot(transactionId)}/progress.json`),
+  );
 }
 
 async function classifyPublishingState(
