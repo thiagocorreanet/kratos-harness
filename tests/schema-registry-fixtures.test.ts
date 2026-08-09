@@ -1,4 +1,5 @@
 import manifest from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
+import versionCases from "../fixtures/contracts/v1/version-cases.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
@@ -111,6 +112,9 @@ const fixtures = [
 ] as const satisfies readonly FixtureCase[];
 
 const registry = ajvSchemaRegistry();
+const registryVersionCases = versionCases.filter(
+  ({ family }) => family !== "plugin",
+);
 
 function mutableFixture(fixture: object): Record<string, unknown> {
   return structuredClone(fixture) as Record<string, unknown>;
@@ -137,6 +141,14 @@ function expectInvalidWithReason(
 }
 
 describe("compiled schema registry fixtures", () => {
+  it("routes every published non-plugin version case through the registry", () => {
+    expect(registryVersionCases.map(({ name }) => name)).toEqual(
+      versionCases
+        .filter(({ family }) => family !== "plugin")
+        .map(({ name }) => name),
+    );
+  });
+
   it("covers every manifest schema exactly once", () => {
     expect(fixtures.map(({ id, version }) => ({ id, version }))).toEqual(
       manifest.schemas.map(({ id, version }) => ({ id, version })),
@@ -195,6 +207,88 @@ describe("compiled schema registry fixtures", () => {
       ],
     });
   });
+
+  it.each(fixtures)(
+    "rejects the family-applicable previous $id version first",
+    (fixture) => {
+      const candidate = mutableFixture(fixture.fixture);
+      candidate[fixture.versionField] = "0.9.0";
+      const result = registry.validate({
+        id: fixture.id,
+        version: "0.9.0",
+        value: candidate,
+        structuralReasonCode: fixture.structuralReasonCode,
+      });
+      expect(result).toMatchObject({
+        kind: "invalid",
+        diagnostics: [
+          {
+            version: "0.9.0",
+            pointer: "",
+            reasonCode: fixture.unsupportedVersionReason,
+          },
+        ],
+      });
+    },
+  );
+
+  it.each(registryVersionCases)(
+    "classifies the published $name case through the registry",
+    (versionCase) => {
+      const fixture = versionCase.family === "host" ? fixtures[0] : fixtures[1];
+      const result = registry.validate({
+        id: fixture.id,
+        version: versionCase.value,
+        value: null,
+        structuralReasonCode: fixture.structuralReasonCode,
+      });
+
+      if (versionCase.classification === "current") {
+        expect(result.kind).toBe("invalid");
+        if (result.kind === "valid") return;
+        expect(result.diagnostics.length).toBeGreaterThan(0);
+        expect(
+          result.diagnostics.every(
+            ({ keyword, reasonCode, version }) =>
+              keyword !== "version" &&
+              reasonCode === fixture.structuralReasonCode &&
+              version === fixture.version,
+          ),
+        ).toBe(true);
+        return;
+      }
+
+      const migrationOnly = versionCase.classification === "migration_required";
+      expect(result).toMatchObject({
+        kind: "invalid",
+        diagnostics: [
+          {
+            version:
+              versionCase.name === "state previous"
+                ? "0.9.0"
+                : versionCase.classification === "invalid" || migrationOnly
+                  ? null
+                  : versionCase.value,
+            pointer: "",
+            keyword: "version",
+            reasonCode: migrationOnly
+              ? "contract.state_version_unsupported"
+              : versionCase.reasonCode,
+          },
+        ],
+      });
+      if (migrationOnly) {
+        expect(result).toMatchObject({
+          diagnostics: [
+            {
+              recovery:
+                "Create and authorize an explicit migration plan for the persisted project state.",
+            },
+          ],
+        });
+      }
+    },
+  );
 
   it.each(fixtures)("rejects an unexpected $id root property", (fixture) => {
     expectInvalidWithReason(
