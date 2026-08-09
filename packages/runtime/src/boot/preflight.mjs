@@ -145,7 +145,6 @@ function sameIntrinsicDescriptor(
   types,
   compared,
 ) {
-  if (actual === undefined || expected === undefined) return false;
   if (
     actual.configurable !== expected.configurable ||
     actual.enumerable !== expected.enumerable

@@ -41,8 +41,9 @@ The registry processes a request in a fixed order:
 1. resolve the closed contract identifier and its family;
 2. classify the requested version with the published compatibility policy;
 3. select the one embedded schema for that identifier and accepted version;
-4. validate the unknown value structurally;
-5. return the typed value or normalized diagnostics.
+4. require inert JSON data without observing accessors or proxy traps;
+5. validate the unknown value structurally;
+6. return the typed value or normalized diagnostics.
 
 Ajv never sees a payload whose version is invalid, unsupported, future, or
 migration-only. Version failures use the existing compatibility reason and a
@@ -78,8 +79,9 @@ An invalid result contains only these fields:
 | `recovery` | recovery text from the committed reason catalog |
 
 Required property names are escaped as JSON Pointer segments. Diagnostics are
-deduplicated, then sorted by pointer, keyword, reason code, and contract.
-Repeated validation is therefore independent of Ajv traversal order.
+deduplicated, then sorted by pointer and keyword; reason code and contract are
+fixed inputs for one normalization request. Repeated validation is therefore
+independent of Ajv traversal order.
 
 Engine messages, schema paths, rejected values, property contents, absolute
 paths, and JavaScript exception text never cross the boundary. Invalid user
@@ -105,8 +107,8 @@ Composition constructs one production registry instance when its schema module
 is evaluated. The same instance serves startup and project discovery: the entry
 point evaluates the composition module for its integrity check, and discovery
 reuses a cached configuration adapter built from that registry. Tests still
-inject a registry into `configurationValidator` or a validator into
-`discoverProject`; domain code never locates an ambient service.
+inject a registry into `configurationValidator` and `runCommandLine`, or a
+validator into `discoverProject`; domain code never locates an ambient service.
 
 The build embeds Ajv and every schema document in `yoda.core.mjs`. Runtime
 validation does not scan a `schemas/` directory, open a checkout-relative
@@ -122,9 +124,19 @@ Unknown input is validated before domain use:
 ```text
 external or persisted unknown value
   -> select contract and version
+  -> reject non-inert data
   -> validate
   -> typed domain value
 ```
+
+The inert-data guard recursively inspects own data descriptors rather than
+reading property values. It accepts ordinary and null-prototype objects plus
+dense ordinary arrays, while rejecting accessors, inherited or custom
+prototypes, proxies, cycles, symbol keys, sparse arrays, and unsupported JSON
+values. The runtime also compares `Object.prototype`, `Function.prototype`,
+`Function.prototype.call`, and the Array intrinsic graph with a clean realm.
+Pollution present before startup fails the launcher preflight; later pollution
+rejects input without invoking a hostile getter or replacement intrinsic.
 
 Typed output is not trusted merely because TypeScript accepted it. The
 `prepareContract` helper crosses the same registry again and serializes only a
@@ -138,8 +150,12 @@ typed domain output
 ```
 
 If revalidation fails, the helper returns diagnostics and never invokes the
-serializer. This issue supplies that reusable output boundary but deliberately
-does not add a state writer, host effect, or publication command.
+serializer. The existing `adapter-message@1.0.0` handshake crosses
+`prepareContract` with the current host identity before any effect plan or
+stdout write. Its canonical text is the published payload representation in
+both invocation modes; an invalid adapter payload produces only the sanitized
+internal failure and applies no effect. This issue deliberately does not add a
+state writer, host effect, or publication command.
 
 ## Canonical JSON
 
@@ -191,3 +207,7 @@ output boundaries described here when they are implemented.
 
 This infrastructure adds no legacy differential or end-to-end evidence. Parity
 remains exactly `0 / 400 (0.00%)`.
+
+The 100% statement, branch, function, and line coverage gate includes the
+complete `packages/runtime/src/infra/schema/**` implementation, in addition to
+the domain and composition allowlist.

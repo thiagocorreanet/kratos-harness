@@ -71,6 +71,18 @@ describe("embedded schema catalog", () => {
     expectInconsistent(entries);
   });
 
+  it.each([undefined, ""])(
+    "rejects a missing or empty schema identity",
+    (id) => {
+      const entries = mutableEntries();
+      const schema = objectRecord(entryAt(entries, 0).schema);
+      if (id === undefined) delete schema.$id;
+      else schema.$id = id;
+
+      expectInconsistent(entries);
+    },
+  );
+
   it.each([
     ["path", "schemas/state/not-approval.v1.schema.json"],
     ["family", "host"],
@@ -93,6 +105,41 @@ describe("embedded schema catalog", () => {
     stateContract.const = "9.9.9";
 
     expectInconsistent(entries);
+  });
+
+  it("rejects a non-object family-version constraint", () => {
+    const entries = mutableEntries();
+    const approval = objectRecord(entryAt(entries, 1).schema);
+    const properties = objectRecord(approval.properties);
+    properties.stateContract = null;
+
+    expectInconsistent(entries);
+  });
+
+  it("accepts an enum-backed current family version", () => {
+    const entries = mutableEntries();
+    const approval = objectRecord(entryAt(entries, 1).schema);
+    const properties = objectRecord(approval.properties);
+    const stateContract = objectRecord(properties.stateContract);
+    delete stateContract.const;
+    stateContract.enum = ["1.0.0"];
+
+    expect(() => {
+      assertSchemaCatalog(entries);
+    }).not.toThrow();
+  });
+
+  it("rejects an iterable catalog entry without a manifest position", () => {
+    const entries = mutableEntries();
+    const forged = {
+      length: entries.length,
+      *entries() {
+        yield* entries.entries();
+        yield [entries.length, entryAt(entries, 0)] as const;
+      },
+    } as unknown as readonly EmbeddedSchemaEntry[];
+
+    expectInconsistent(forged);
   });
 
   it("binds every schema identity to its exact catalog entry", () => {

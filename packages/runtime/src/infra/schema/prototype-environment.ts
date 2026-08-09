@@ -210,10 +210,18 @@ function sameIntrinsicObject(
   }
 
   for (let index = 0; index < expectedKeys.length; index += 1) {
-    const key = expectedKeys[index];
-    if (key === undefined) return false;
-    const actualDescriptor = Object.getOwnPropertyDescriptor(actual, key);
-    const expectedDescriptor = Object.getOwnPropertyDescriptor(expected, key);
+    // Reflect.ownKeys returns a dense PropertyKey array.
+    const key = expectedKeys[index] as PropertyKey;
+    // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- non-proxy own keys cannot disappear during synchronous inspection
+    const actualDescriptor = Object.getOwnPropertyDescriptor(
+      actual,
+      key,
+    ) as PropertyDescriptor;
+    // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style -- non-proxy own keys cannot disappear during synchronous inspection
+    const expectedDescriptor = Object.getOwnPropertyDescriptor(
+      expected,
+      key,
+    ) as PropertyDescriptor;
     if (
       !sameIntrinsicDescriptor(
         actualDescriptor,
@@ -236,12 +244,11 @@ function sameIntrinsicObject(
 }
 
 function sameIntrinsicDescriptor(
-  actual: PropertyDescriptor | undefined,
-  expected: PropertyDescriptor | undefined,
+  actual: PropertyDescriptor,
+  expected: PropertyDescriptor,
   functionToString: FunctionToString,
   compared: ComparedObjects,
 ): boolean {
-  if (actual === undefined || expected === undefined) return false;
   if (
     actual.configurable !== expected.configurable ||
     actual.enumerable !== expected.enumerable

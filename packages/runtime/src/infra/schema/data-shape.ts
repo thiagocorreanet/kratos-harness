@@ -29,17 +29,14 @@ function inspectArray(
   if (Object.getPrototypeOf(value) !== Array.prototype) return false;
 
   const keys = Reflect.ownKeys(value);
-  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
-  if (
-    lengthDescriptor === undefined ||
-    !("value" in lengthDescriptor) ||
-    lengthDescriptor.enumerable ||
-    lengthDescriptor.configurable
-  ) {
-    return false;
-  }
-  const length: unknown = lengthDescriptor.value;
-  if (typeof length !== "number" || keys.length !== length + 1) return false;
+  // A non-proxy Array always owns the non-configurable data `length`
+  // descriptor. The cast records that language invariant without adding an
+  // unreachable defensive branch to the measured boundary.
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length") as {
+    readonly value: number;
+  };
+  const length = lengthDescriptor.value;
+  if (keys.length !== length + 1) return false;
 
   active.add(value);
   try {

@@ -80,9 +80,7 @@ export function normalizeAjvDiagnostics(
   return [...unique.values()].sort(
     (left, right) =>
       compareText(left.pointer, right.pointer) ||
-      compareText(left.keyword, right.keyword) ||
-      compareText(left.reasonCode, right.reasonCode) ||
-      compareText(left.contract, right.contract),
+      compareText(left.keyword, right.keyword),
   );
 }
 

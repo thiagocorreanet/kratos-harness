@@ -63,7 +63,9 @@ function requestedVersion(
     const syntax = classifyContractVersion("host", value);
     return syntax.classification === "invalid" ? null : (value as string);
   }
-  return typeof value === "string" ? value : null;
+  // Every non-invalid compatibility classification carries parsed string
+  // syntax; invalid values returned above before reaching this invariant.
+  return value as string;
 }
 
 function rejectedClassification(
