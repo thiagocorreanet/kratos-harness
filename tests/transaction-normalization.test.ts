@@ -122,6 +122,70 @@ describe("managed mutation plan normalization", () => {
     });
   });
 
+  it("makes missing parents explicit before a deep directory creation", () => {
+    const result = normalizeManagedMutationPlan(
+      planOf({ kind: "create_directory", path: ".brain/runs/a" }),
+      new Map(),
+      sha256,
+    );
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      plan: {
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "create_directory",
+            path: ".brain/runs",
+          },
+          {
+            operationId: "operation-0002",
+            kind: "create_directory",
+            path: ".brain/runs/a",
+          },
+        ],
+      },
+    });
+  });
+
+  it("creates each missing parent once before a following write", () => {
+    const result = normalizeManagedMutationPlan(
+      planOf(
+        { kind: "create_directory", path: ".brain/runs/a" },
+        {
+          kind: "write_file",
+          path: ".brain/runs/a/state.json",
+          content: "state",
+        },
+      ),
+      new Map(),
+      sha256,
+    );
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      plan: {
+        operations: [
+          {
+            operationId: "operation-0001",
+            kind: "create_directory",
+            path: ".brain/runs",
+          },
+          {
+            operationId: "operation-0002",
+            kind: "create_directory",
+            path: ".brain/runs/a",
+          },
+          {
+            operationId: "operation-0003",
+            kind: "write_file",
+            path: ".brain/runs/a/state.json",
+          },
+        ],
+      },
+    });
+  });
+
   it("removes an already-equal write and returns a no-op", () => {
     expect(
       normalizeManagedMutationPlan(

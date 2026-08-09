@@ -50,7 +50,7 @@ export function normalizeManagedMutationPlan(
   const observedState = new Map(observations);
   const drafts: DraftOperation[] = [];
   for (const effect of managedEffects) {
-    if (effect.kind === "write_file") {
+    if (effect.kind === "create_directory" || effect.kind === "write_file") {
       synthesizeMissingParents(effect.path, observedState, drafts);
     }
 
