@@ -19,6 +19,14 @@ import type {
   Workspace,
 } from "../../ports/index.js";
 
+export {
+  memoryTransactionStorage,
+  type DurableOperation,
+  type FailureRule,
+  type MemoryTransactionStorage,
+  type MemoryTransactionStorageSeed,
+} from "./transactions.js";
+
 /**
  * Deterministic in-memory port implementations.
  *

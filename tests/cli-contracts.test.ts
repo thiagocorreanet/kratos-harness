@@ -5,9 +5,13 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createRuntime } from "@mestre-yoda/runtime/composition";
+import {
+  createRuntime,
+  TransactionFailure,
+} from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import { DEFAULT_REGISTRY } from "@mestre-yoda/runtime/domain/cli";
+import { transactionFailureResult } from "@mestre-yoda/runtime/domain/result";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import {
   memoryFileSystem,
@@ -87,6 +91,37 @@ describe("output safety", () => {
       }
     }
   });
+});
+
+describe("transaction failure result contract", () => {
+  it.each([
+    ["guard.outside_allow", "failure", 2, true],
+    ["runtime.internal_failure", "failure", 2, false],
+    ["runtime.recovery_required", "blocked", 4, true],
+    ["runtime.revision_conflict", "blocked", 5, true],
+    ["runtime.state_corrupt", "blocked", 4, true],
+  ] as const)(
+    "maps %s to catalog policy and schema-valid evidence",
+    (reasonCode, status, exitCode, retryable) => {
+      const result = transactionFailureResult(
+        new TransactionFailure(reasonCode, [
+          { kind: "artifact", ref: ".brain/events.jsonl" },
+        ]),
+      );
+      expect(result).toMatchObject({
+        status,
+        exitCode,
+        reasonCode,
+        stateChanged: false,
+        retryable,
+        evidence:
+          reasonCode === "runtime.internal_failure"
+            ? []
+            : [{ kind: "artifact", ref: ".brain/events.jsonl" }],
+      });
+      expect(validators.get("result@1.0.0")?.(result)).toBe(true);
+    },
+  );
 });
 
 describe("determinism", () => {

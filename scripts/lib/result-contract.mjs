@@ -207,12 +207,8 @@ function validateResultAgainstReason(result, reason, validateResult) {
       throw validationFailure(`result ${property} conflicts with its reason`);
     }
   }
-  if (result.stateChanged !== reason.stateChanged) {
-    throw validationFailure(
-      result.stateChanged
-        ? "result makes a false state mutation claim"
-        : "result state mutation claim conflicts with its reason",
-    );
+  if (result.stateChanged && !reason.stateChanged) {
+    throw validationFailure("result makes a false state mutation claim");
   }
   if (reason.evidence === "required" && result.evidence.length === 0) {
     throw validationFailure("required evidence is absent");

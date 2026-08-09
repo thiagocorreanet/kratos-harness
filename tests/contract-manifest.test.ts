@@ -123,7 +123,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every current payload schema once with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(8);
+    expect(manifest.schemas).toHaveLength(10);
     const ids = manifest.schemas.map(({ id }) => id);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(ids).toEqual([...ids].sort());

@@ -1,4 +1,8 @@
-import type { ProjectConfigV1 } from "@mestre-yoda/contracts";
+import type {
+  ProjectConfigV1,
+  TransactionManifestV1,
+  TransactionProgressV1,
+} from "@mestre-yoda/contracts";
 import type {
   ContractId,
   ContractRequest,
@@ -21,11 +25,19 @@ describe("schema registry vocabulary", () => {
       "state.migration",
       "state.project-config",
       "state.snapshot",
+      "state.transaction-manifest",
+      "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(8);
+    expect(ids).toHaveLength(10);
     expectTypeOf<
       ContractValue<"state.project-config">
     >().toEqualTypeOf<ProjectConfigV1>();
+    expectTypeOf<
+      ContractValue<"state.transaction-manifest">
+    >().toEqualTypeOf<TransactionManifestV1>();
+    expectTypeOf<
+      ContractValue<"state.transaction-progress">
+    >().toEqualTypeOf<TransactionProgressV1>();
   });
 
   it("requires the caller to select an existing structural failure policy", () => {

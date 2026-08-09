@@ -15,6 +15,7 @@ import {
   fixedEnvironment,
   memoryFileSystem,
   memoryLocks,
+  memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
   stubGit,
@@ -27,8 +28,9 @@ import {
   nodeIds,
   nodeLocks,
   nodeOutput,
+  nodeDurableFileSystem,
 } from "@mestre-yoda/runtime/infra/node";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   describeClockContract,
@@ -39,14 +41,49 @@ import {
   describeLocksContract,
   describeOutputContract,
 } from "./support/port-contracts.js";
+import {
+  describeDurableFileSystemContract,
+  type DurableFileSystemContractFactory,
+} from "./support/transaction-port-contract.js";
 
 const noDispose = (): Promise<void> => Promise.resolve();
+
+describe("durable filesystem contract suite", () => {
+  it("exports the reusable contract factory shape", () => {
+    expectTypeOf(describeDurableFileSystemContract).toEqualTypeOf<
+      (label: string, factory: DurableFileSystemContractFactory) => void
+    >();
+    expect(describeDurableFileSystemContract).toBeTypeOf("function");
+  });
+});
+
+describeDurableFileSystemContract("memory", () => {
+  const storage = memoryTransactionStorage();
+  return Promise.resolve({
+    port: storage.durableFileSystem,
+    dispose: noDispose,
+  });
+});
+
+describeDurableFileSystemContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-transaction-port-"));
+  return {
+    port: nodeDurableFileSystem(root),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
+});
 
 describeClockContract("fixed", () => fixedClock("2026-08-07T00:00:00.000Z"));
 describeIdsContract("sequential", () => sequentialIds());
 describeFileSystemContract("memory", () =>
   Promise.resolve({
     port: memoryFileSystem(),
+    dispose: noDispose,
+  }),
+);
+describeFileSystemContract("memory transaction storage", () =>
+  Promise.resolve({
+    port: memoryTransactionStorage().fileSystem,
     dispose: noDispose,
   }),
 );

@@ -27,6 +27,16 @@ export interface ResultDetail {
   readonly stateChanged?: boolean;
 }
 
+export interface TransactionFailureDetail {
+  readonly reasonCode:
+    | "guard.outside_allow"
+    | "runtime.internal_failure"
+    | "runtime.recovery_required"
+    | "runtime.revision_conflict"
+    | "runtime.state_corrupt";
+  readonly evidence: readonly EvidenceRef[];
+}
+
 /** Build a result whose policy comes from the reason it reports. */
 export function resultFor(code: string, detail: ResultDetail = {}): Result {
   const policy = reasonPolicy(code);
@@ -62,5 +72,19 @@ export function internalFailure(): Result {
   return resultFor("runtime.internal_failure", {
     summary: "The operation stopped after an unexpected internal failure.",
     why: ["A sanitized runtime boundary caught an unexpected condition."],
+  });
+}
+
+/** Render a typed transaction failure through the universal reason catalog. */
+export function transactionFailureResult(
+  error: TransactionFailureDetail,
+): Result {
+  if (error.reasonCode === "runtime.internal_failure") {
+    return internalFailure();
+  }
+  return resultFor(error.reasonCode, {
+    evidence: error.evidence,
+    summary: "The managed transaction did not reach a committed state.",
+    why: ["The durable transaction boundary reported a blocked condition."],
   });
 }

@@ -41,6 +41,26 @@ function mergeConstraint(base, constraint) {
   return { ...base, ...constraint };
 }
 
+function closedObjectVariant(schema, constraints) {
+  if (schema.properties === undefined || !Array.isArray(schema.required)) {
+    throw new Error("closed schema cannot produce a generated union");
+  }
+  const properties = Object.fromEntries(
+    Object.entries(schema.properties).map(([name, definition]) => [
+      name,
+      constraints[name] === undefined
+        ? definition
+        : mergeConstraint(definition, constraints[name]),
+    ]),
+  );
+  return {
+    type: schema.type,
+    additionalProperties: schema.additionalProperties,
+    required: schema.required,
+    properties,
+  };
+}
+
 function conditionalUnion(schema) {
   if (
     !Array.isArray(schema.allOf) ||
@@ -56,21 +76,10 @@ function conditionalUnion(schema) {
     if (exitConstraint === undefined || thenProperties === undefined) {
       throw new Error("conditional schema branch is incomplete");
     }
-    const constraints = { exitCode: exitConstraint, ...thenProperties };
-    const properties = Object.fromEntries(
-      Object.entries(schema.properties).map(([name, definition]) => [
-        name,
-        constraints[name] === undefined
-          ? definition
-          : mergeConstraint(definition, constraints[name]),
-      ]),
-    );
-    return {
-      type: schema.type,
-      additionalProperties: schema.additionalProperties,
-      required: schema.required,
-      properties,
-    };
+    return closedObjectVariant(schema, {
+      exitCode: exitConstraint,
+      ...thenProperties,
+    });
   });
   return {
     $schema: schema.$schema,
@@ -79,6 +88,60 @@ function conditionalUnion(schema) {
     oneOf: variants,
     $defs: schema.$defs,
   };
+}
+
+function transactionManifestTypeSchema(schema) {
+  const operation = schema.$defs?.operation;
+  if (operation === undefined) {
+    throw new Error("transaction manifest operation schema is missing");
+  }
+  const writeOperation = closedObjectVariant(operation, {
+    kind: { const: "write_file" },
+    stagedPath: { $ref: "#/$defs/reference" },
+  });
+  const metadataOnlyOperation = closedObjectVariant(operation, {
+    kind: { enum: ["create_directory", "delete_file"] },
+    stagedPath: { type: "null" },
+  });
+  return {
+    ...schema,
+    $defs: {
+      ...schema.$defs,
+      operation: { oneOf: [writeOperation, metadataOnlyOperation] },
+    },
+  };
+}
+
+function transactionProgressTypeSchema(schema) {
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: [
+      closedObjectVariant(schema, {
+        phase: { const: "begun" },
+        manifestDigest: { type: "null" },
+      }),
+      closedObjectVariant(schema, {
+        phase: { enum: ["prepared", "publishing", "committed"] },
+        manifestDigest: { $ref: "#/$defs/sha256" },
+      }),
+      closedObjectVariant(schema, {
+        phase: { const: "aborted" },
+      }),
+    ],
+    $defs: schema.$defs,
+  };
+}
+
+function schemaForTypeGeneration(id, schema) {
+  if (id === "state.transaction-manifest") {
+    return transactionManifestTypeSchema(schema);
+  }
+  if (id === "state.transaction-progress") {
+    return transactionProgressTypeSchema(schema);
+  }
+  return schema;
 }
 
 export async function generateContractTypes({
@@ -106,23 +169,27 @@ export async function generateContractTypes({
       `// source: ${schema.$id} sha256:${createHash("sha256").update(schemaText).digest("hex")}`,
     );
     schema.title = entry.typeName;
-    const compiled = await compile(schema, entry.typeName, {
-      bannerComment: "",
-      cwd: repositoryRoot,
-      format: false,
-      ignoreMinAndMaxItems: false,
-      strictIndexSignatures: true,
-      $refOptions: {
-        resolve: {
-          http: false,
-          universalResult: {
-            order: 1,
-            canRead: /^https:\/\/mestre-yoda\.dev\/schemas\/result\/v1$/u,
-            read: generatedResultSchemaText,
+    const compiled = await compile(
+      schemaForTypeGeneration(entry.id, schema),
+      entry.typeName,
+      {
+        bannerComment: "",
+        cwd: repositoryRoot,
+        format: false,
+        ignoreMinAndMaxItems: false,
+        strictIndexSignatures: true,
+        $refOptions: {
+          resolve: {
+            http: false,
+            universalResult: {
+              order: 1,
+              canRead: /^https:\/\/mestre-yoda\.dev\/schemas\/result\/v1$/u,
+              read: generatedResultSchemaText,
+            },
           },
         },
       },
-    });
+    );
     const namespace = `${entry.typeName}Contract`;
     declarations.push(
       `export namespace ${namespace} {\n${indent(compiled)}\n}\nexport type ${entry.typeName} = ${namespace}.${entry.typeName};`,

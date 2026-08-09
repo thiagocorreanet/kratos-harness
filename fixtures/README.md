@@ -16,6 +16,8 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `evidence.json`;
 - `lock.json`;
 - `migration.json`;
+- `transaction-manifest.json`;
+- `transaction-progress.json`;
 - `adapter-message.json`.
 
 Its `version-cases.json` table covers current, previous, future, malformed,

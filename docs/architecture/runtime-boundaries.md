@@ -180,26 +180,36 @@ schema discovery.
 The domain does not call ports. It returns an ordered `EffectPlan` describing
 what should happen, and the caller applies it.
 
-That separation is what makes a dry run the same decision with the plan rendered
-instead of applied, rather than a parallel code path that can drift from the
-real one.
+That separation keeps the decision previewable without creating a second
+decision path. The normalized managed plan is currently internal to execution;
+public dry-run wiring is outside these foundation issues. A future dry-run
+surface must render that same normalized plan instead of deriving a parallel
+plan that can drift from the applied one.
 
-`applyPlan` switches exhaustively over the effect kinds. Exhaustiveness is
-enforced by assigning the default case to `never`: because the function returns
-`void`, the switch would otherwise carry no obligation at all and a new variant
-would be silently no-op'd. Effects are applied in declared order.
+`applyPlan` snapshots the effect plan before its first asynchronous boundary.
+It normalizes managed create, write, and delete effects into one exact ordered
+plan, then commits them through the
+[atomic transaction boundary](atomic-transactions.md). Structured and human
+emits remain outside that transaction and run in declared order only after a
+commit. `append_event` remains refused until its owning event-store issue
+supplies the canonical append operation.
 
-A failing effect **stops** the run rather than being stepped over. The
-already-applied prefix is not rolled back: atomicity is `RUN-05`'s transaction
-boundary, and this issue does not claim to provide it.
+Normal execution follows the fixed prepare-and-publish sequence and does not use
+`decideRecovery` as its control loop. That pure policy is limited to explicit
+recovery and failure classification after an execution attempt rejects. A
+rejected promise is not proof that its effect did not happen: those paths use
+fresh destination fingerprints. Explicit recovery may abort before
+`publishing`; once `publishing` is durable, it only rolls forward to `committed`
+or blocks on unexpected evidence.
 
 ## Scope
 
-These foundation issues deliver the runtime and schema boundaries; they define
-no workflow policy, transition, state writer, or new command. The objective
-lifecycle, guardrails, event store, locks, and host adapters fill them in
-through their own issues. Read-only project discovery now uses the schema
-registry without changing the shipped command surface.
+These foundation issues deliver runtime, schema, and internal durable mutation
+boundaries; they define no workflow policy, objective transition, event writer,
+or new command. The objective lifecycle, guardrails, event store, locks, and
+host adapters fill them in through their own issues. Read-only project
+discovery and typed transaction inspection remain internal and do not change
+the shipped command surface.
 
 Parity remains `0 / 400 (0.00%)`. This is internal structure and adds no
 differential, integration, or E2E evidence to any row.

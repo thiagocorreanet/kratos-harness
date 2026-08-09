@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mestre-yoda.dev/schemas/state/transaction-progress/v1",
+  "title": "Mestre Yoda transaction progress v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "transactionId",
+    "manifestDigest",
+    "recoveryToken",
+    "phase",
+    "publishedOperationIds",
+    "fileSync",
+    "directorySync",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "stateContract": { "const": "1.0.0" },
+    "transactionId": { "$ref": "#/$defs/id" },
+    "manifestDigest": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "recoveryToken": { "$ref": "#/$defs/sha256" },
+    "phase": {
+      "enum": ["begun", "prepared", "publishing", "committed", "aborted"]
+    },
+    "publishedOperationIds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" },
+      "uniqueItems": true
+    },
+    "fileSync": { "const": "required" },
+    "directorySync": {
+      "enum": ["not_attempted", "supported", "unsupported"]
+    },
+    "createdAt": { "$ref": "#/$defs/timestamp" },
+    "updatedAt": { "$ref": "#/$defs/timestamp" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "phase": { "enum": ["prepared", "publishing", "committed"] }
+        },
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": { "manifestDigest": { "$ref": "#/$defs/sha256" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "phase": { "const": "begun" } },
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": { "manifestDigest": { "type": "null" } }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$"
+    }
+  }
+}

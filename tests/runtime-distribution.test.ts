@@ -34,7 +34,8 @@ interface ReasonEntry {
 let manifest: DistributionManifest;
 let entry: string;
 let core: Buffer;
-let reason: ReasonEntry | undefined;
+let nodeUnsupportedReason: ReasonEntry | undefined;
+let recoveryRequiredReason: ReasonEntry | undefined;
 
 const embeddedSchemaInputs = [
   "schemas/host/adapter-message.v1.schema.json",
@@ -46,6 +47,8 @@ const embeddedSchemaInputs = [
   "schemas/state/migration.v1.schema.json",
   "schemas/state/project-config.v1.schema.json",
   "schemas/state/snapshot.v1.schema.json",
+  "schemas/state/transaction-manifest.v1.schema.json",
+  "schemas/state/transaction-progress.v1.schema.json",
 ] as const;
 
 beforeAll(async () => {
@@ -60,7 +63,7 @@ beforeAll(async () => {
     readFile(
       join(
         repositoryRoot,
-        "packages/contracts/catalogs/reason-codes.v1.2.json",
+        "packages/contracts/catalogs/reason-codes.v1.3.json",
       ),
       "utf8",
     ),
@@ -68,8 +71,13 @@ beforeAll(async () => {
   manifest = JSON.parse(manifestText) as DistributionManifest;
   entry = entryText;
   core = coreBytes;
-  reason = (JSON.parse(catalogText) as { reasons: ReasonEntry[] }).reasons.find(
+  const reasons = (JSON.parse(catalogText) as { reasons: ReasonEntry[] })
+    .reasons;
+  nodeUnsupportedReason = reasons.find(
     ({ code }) => code === "runtime.node_unsupported",
+  );
+  recoveryRequiredReason = reasons.find(
+    ({ code }) => code === "runtime.recovery_required",
   );
 });
 
@@ -102,11 +110,15 @@ describe("runtime distribution", () => {
   });
 
   it("keeps the preflight text identical to the catalog", () => {
-    expect(reason).toBeDefined();
+    expect(nodeUnsupportedReason).toBeDefined();
     // Slicing the JSON quotes off yields the exact escaped literal the build
     // embedded, so a drifting copy fails here instead of shipping.
-    expect(entry).toContain(JSON.stringify(reason?.recovery).slice(1, -1));
-    expect(entry).toContain(JSON.stringify(reason?.description).slice(1, -1));
+    expect(entry).toContain(
+      JSON.stringify(nodeUnsupportedReason?.recovery).slice(1, -1),
+    );
+    expect(entry).toContain(
+      JSON.stringify(nodeUnsupportedReason?.description).slice(1, -1),
+    );
   });
 
   it("keeps the shebang off the core bundle", () => {
@@ -143,6 +155,19 @@ describe("runtime distribution", () => {
       expect(output.inputs[schema]?.bytesInOutput).toBeGreaterThan(0);
     }
     expect(core.toString("utf8")).not.toMatch(/(?:\.\.\/)+schemas\//u);
+  });
+
+  it("embeds the catalog-backed explicit recovery policy", () => {
+    expect(recoveryRequiredReason).toBeDefined();
+    const bundle = core.toString("utf8");
+    for (const value of [
+      recoveryRequiredReason?.code,
+      recoveryRequiredReason?.description,
+      recoveryRequiredReason?.recovery,
+    ]) {
+      expect(value).toBeDefined();
+      expect(bundle).toContain(value);
+    }
   });
 
   it("stages exactly the manifest, core, and entry point", async () => {

@@ -8,6 +8,8 @@ import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with {
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json" with { type: "json" };
+import transactionManifestSchema from "../../../../../schemas/state/transaction-manifest.v1.schema.json" with { type: "json" };
+import transactionProgressSchema from "../../../../../schemas/state/transaction-progress.v1.schema.json" with { type: "json" };
 
 import type { EmbeddedSchemaEntry } from "./types.js";
 
@@ -82,6 +84,20 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       path: "schemas/state/snapshot.v1.schema.json",
       schema: snapshotSchema,
     },
+    {
+      id: "state.transaction-manifest",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/transaction-manifest.v1.schema.json",
+      schema: transactionManifestSchema,
+    },
+    {
+      id: "state.transaction-progress",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/transaction-progress.v1.schema.json",
+      schema: transactionProgressSchema,
+    },
   ] as const satisfies readonly EmbeddedSchemaEntry[]);
 
 export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
@@ -99,6 +115,10 @@ const EXPECTED_SCHEMA_IDS = {
   "state.project-config":
     "https://mestre-yoda.dev/schemas/state/project-config/v1",
   "state.snapshot": "https://mestre-yoda.dev/schemas/state/snapshot/v1",
+  "state.transaction-manifest":
+    "https://mestre-yoda.dev/schemas/state/transaction-manifest/v1",
+  "state.transaction-progress":
+    "https://mestre-yoda.dev/schemas/state/transaction-progress/v1",
 } as const satisfies Readonly<Record<EmbeddedSchemaEntry["id"], string>>;
 
 function failCatalogIntegrity(): never {
