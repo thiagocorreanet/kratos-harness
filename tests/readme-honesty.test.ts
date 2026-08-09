@@ -8,19 +8,35 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 let readme: string;
 let roadmap: string;
+let schemaRegistry: string;
 let packageManifest: { scripts: Record<string, string> };
 
 beforeAll(async () => {
-  const [readmeText, roadmapText, packageText] = await Promise.all([
-    readFile(join(repositoryRoot, "README.md"), "utf8"),
-    readFile(join(repositoryRoot, "ROADMAP.md"), "utf8"),
-    readFile(join(repositoryRoot, "package.json"), "utf8"),
-  ]);
+  const [readmeText, roadmapText, schemaRegistryText, packageText] =
+    await Promise.all([
+      readFile(join(repositoryRoot, "README.md"), "utf8"),
+      readFile(join(repositoryRoot, "ROADMAP.md"), "utf8"),
+      readFile(
+        join(repositoryRoot, "docs/architecture/schema-registry.md"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, "package.json"), "utf8"),
+    ]);
   readme = readmeText;
   roadmap = roadmapText;
+  schemaRegistry = schemaRegistryText;
   packageManifest = JSON.parse(packageText) as {
     scripts: Record<string, string>;
   };
+});
+
+describe("schema registry documentation", () => {
+  it("publishes exact ordering and production lifecycle rules", () => {
+    expect(schemaRegistry).toContain("Unicode code point");
+    expect(schemaRegistry).toContain("one production registry instance");
+    expect(schemaRegistry).toContain("startup and project discovery");
+    expect(schemaRegistry).toContain("accessor-backed");
+  });
 });
 
 describe("README honesty", () => {
@@ -91,6 +107,15 @@ describe("README honesty", () => {
     expect(readme).toContain("Node.js 24");
     expect(readme).toContain("project discovery contract");
     expect(readme).toContain("no new runnable command");
+  });
+
+  it("publishes the schema validation boundary without overstating it", () => {
+    expect(readme).toContain(
+      "[schema registry contract](docs/architecture/schema-registry.md)",
+    );
+    expect(readme).toContain("embedded schemas");
+    expect(readme).toContain("validation before domain use");
+    expect(readme).toContain("canonical JSON");
   });
 
   it("links every required public path", () => {

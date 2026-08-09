@@ -21,6 +21,12 @@ allow it fails CI.
 adding `import { readFile } from "node:fs/promises"` to a policy module fails CI
 rather than review.
 
+Neither layer may import Ajv, a schema JSON path, or `infra/schema`. Validation
+types belong to `domain/schema`; the engine and embedded documents remain an
+infrastructure implementation detail. Architecture fixtures exercise all three
+forbidden routes from both `domain` and `ports` while retaining valid
+ports-to-domain imports.
+
 A builtin is recognized by resolving against Node's own builtin list, not by the
 `node:` prefix. `import { readFileSync } from "fs"` is legal Node and resolves
 fine, so a prefix check would let four dropped characters walk through the rule.
@@ -75,6 +81,9 @@ that imports it, which is what the layering exists to prevent.
 uses it before a project root exists; only after discovery succeeds does
 `createRuntimeAt` construct mutation-capable ports at that root. See the
 [project discovery contract](project-discovery.md) for precedence and safety.
+Its production configuration adapter crosses the
+[schema registry contract](schema-registry.md) before a configuration value can
+enter the domain.
 
 `Git` and `Locks` ship deliberately thin implementations. `RUN-08` owns
 repository classification and approved scope deltas; `RUN-07` owns lease expiry,
@@ -155,6 +164,17 @@ keeps the real filesystem rooted at `process.cwd()`, so applying a plan through
 it would write into the working tree. Override every port whose effects a test
 must not perform.
 
+Schema validation follows the same dependency direction. Closed identifiers,
+typed results, and canonical JSON live in `domain/schema`; embedded schema
+documents and Ajv live in `infra/schema`; and `composition/schema` constructs
+one real registry and adapts project configuration. Module evaluation compiles
+that embedded catalog once at startup; project discovery reuses the same
+instance through its cached configuration adapter. A malformed catalog is a
+package integrity failure, not a user-state diagnostic. Tests retain explicit
+registry and validator injection, and no domain module locates composition as a
+service. The registry has no port and no capability for filesystem or network
+schema discovery.
+
 ## Effect plans
 
 The domain does not call ports. It returns an ordered `EffectPlan` describing
@@ -175,10 +195,11 @@ boundary, and this issue does not claim to provide it.
 
 ## Scope
 
-This issue delivers the boundary; it defines no policy, no transition, and no
-command. The objective lifecycle, guardrails, event store, locks, and host
-adapters fill it in through their own issues. Read-only project discovery now
-uses the boundary without changing the shipped command surface.
+These foundation issues deliver the runtime and schema boundaries; they define
+no workflow policy, transition, state writer, or new command. The objective
+lifecycle, guardrails, event store, locks, and host adapters fill them in
+through their own issues. Read-only project discovery now uses the schema
+registry without changing the shipped command surface.
 
 Parity remains `0 / 400 (0.00%)`. This is internal structure and adds no
 differential, integration, or E2E evidence to any row.

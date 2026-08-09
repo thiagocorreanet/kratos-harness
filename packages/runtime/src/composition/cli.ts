@@ -1,3 +1,5 @@
+import { CONTRACT_IDENTITIES } from "@mestre-yoda/contracts";
+
 import {
   DEFAULT_REGISTRY,
   dispatch,
@@ -12,9 +14,14 @@ import {
   validateResult,
   type Result,
 } from "../domain/result/index.js";
+import {
+  prepareContract,
+  type SchemaRegistry,
+} from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan } from "./index.js";
+import { createSchemaRegistry } from "./schema.js";
 
 function write(
   text: string,
@@ -45,30 +52,33 @@ function validatePlan(
   }
 }
 
-function encodePayload(payload: unknown): string {
-  const encoded: unknown = JSON.stringify(
-    payload,
-    (key: string, value: unknown): unknown => {
-      validatePublicText(key);
-      if (typeof value === "string") validatePublicText(value);
-      return value;
-    },
-  );
-  if (typeof encoded !== "string") {
-    throw new Error("Command payload cannot be encoded");
+function prepareAdapterPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): string {
+  const prepared = prepareContract(registry, {
+    id: "host.adapter-message",
+    version: CONTRACT_IDENTITIES.host,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
   }
-  return encoded;
+  validatePublicText(prepared.canonical);
+  return `${prepared.canonical}\n`;
 }
 
 /** Parse, validate, apply, and publish one command line. */
 export async function runCommandLine(
   argv: readonly string[],
   ports: RuntimePorts,
-  registry: CommandRegistry = DEFAULT_REGISTRY,
+  commandRegistry: CommandRegistry = DEFAULT_REGISTRY,
+  schemaRegistry: SchemaRegistry = createSchemaRegistry(),
 ): Promise<number> {
   const json = argv.includes("--json");
   try {
-    const parsed = parseInvocation(argv, registry);
+    const parsed = parseInvocation(argv, commandRegistry);
     if (parsed.kind === "result") {
       return publish(parsed.result, parsed.json, ports);
     }
@@ -80,13 +90,13 @@ export async function runCommandLine(
     }
 
     let stdout: string;
-    if (json && parsed.invocation.command.jsonContract === "result@1.0.0") {
-      stdout = renderResultJson(decision.result).stdout;
-    } else if (json) {
+    if (parsed.invocation.command.jsonContract === "adapter-message@1.0.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
-      stdout = `${encodePayload(decision.payload)}\n`;
+      stdout = prepareAdapterPayload(decision.payload, schemaRegistry);
+    } else if (json) {
+      stdout = renderResultJson(decision.result).stdout;
     } else {
       stdout = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(stdout);

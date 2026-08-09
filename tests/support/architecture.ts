@@ -16,6 +16,8 @@ export interface Violation {
   readonly reason: string;
 }
 
+type Target = Layer | "node" | "ajv" | "schemas";
+
 /**
  * Remove comments before scanning, so a specifier mentioned in a comment is not
  * mistaken for a dependency. Only whole-line `//` comments are stripped, so a
@@ -85,8 +87,16 @@ function isBuiltin(specifier: string): boolean {
 }
 
 /** The layer a specifier resolves to, or null when it is not layered source. */
-function targetLayer(specifier: string): Layer | "node" | null {
+function targetLayer(specifier: string): Target | null {
   if (isBuiltin(specifier)) return "node";
+  if (specifier === "ajv" || specifier.startsWith("ajv/")) return "ajv";
+  if (
+    specifier.includes("schemas/") ||
+    specifier.includes("/infra/schema/") ||
+    specifier.endsWith("/infra/schema")
+  ) {
+    return "schemas";
+  }
   if (specifier.startsWith("@mestre-yoda/contracts")) return "contracts";
   if (specifier.includes("/domain/") || specifier.endsWith("/domain")) {
     return "domain";
@@ -113,10 +123,7 @@ function targetLayer(specifier: string): Layer | "node" | null {
  * entry rules dead code and lets a layer reach a builtin indirectly through an
  * entry module. Resolving the real path is what closes that.
  */
-function resolveTarget(
-  fromPath: string,
-  specifier: string,
-): Layer | "node" | null {
+function resolveTarget(fromPath: string, specifier: string): Target | null {
   const direct = targetLayer(specifier);
   if (direct !== null) return direct;
   if (!specifier.startsWith(".")) return null;
@@ -132,28 +139,32 @@ function resolveTarget(
  */
 const rules: {
   readonly from: Layer;
-  readonly forbidden: readonly (Layer | "node")[];
-  readonly reason: (target: Layer | "node") => string;
+  readonly forbidden: readonly Target[];
+  readonly reason: (target: Target) => string;
 }[] = [
   {
     from: "domain",
-    forbidden: ["node", "infra", "composition", "entry"],
+    forbidden: ["node", "infra", "composition", "entry", "ajv", "schemas"],
     reason: (target) =>
       target === "node"
         ? "domain must not import Node.js builtins"
-        : target === "composition"
-          ? "only an entry point may import composition"
-          : `domain must not import ${target}`,
+        : target === "ajv" || target === "schemas"
+          ? "domain must not import schema infrastructure"
+          : target === "composition"
+            ? "only an entry point may import composition"
+            : `domain must not import ${target}`,
   },
   {
     from: "ports",
-    forbidden: ["node", "infra", "composition", "entry"],
+    forbidden: ["node", "infra", "composition", "entry", "ajv", "schemas"],
     reason: (target) =>
       target === "node"
         ? "ports must not import Node.js builtins"
-        : target === "composition"
-          ? "only an entry point may import composition"
-          : `ports must not import ${target}`,
+        : target === "ajv" || target === "schemas"
+          ? "ports must not import schema infrastructure"
+          : target === "composition"
+            ? "only an entry point may import composition"
+            : `ports must not import ${target}`,
   },
   {
     from: "infra",

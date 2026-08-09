@@ -1,8 +1,12 @@
 import { YODA_VERSION } from "@mestre-yoda/contracts";
+import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import { describe, expect, it } from "vitest";
 
 import { runCli } from "@mestre-yoda/runtime";
-import { createRuntime } from "@mestre-yoda/runtime/composition";
+import {
+  createRuntime,
+  createSchemaRegistry,
+} from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import { planOf } from "@mestre-yoda/runtime/domain/effects";
 import {
@@ -10,6 +14,7 @@ import {
   usageFailure,
   USAGE_WHY,
 } from "@mestre-yoda/runtime/domain/result";
+import type { SchemaRegistry } from "@mestre-yoda/runtime/domain/schema";
 import {
   memoryFileSystem,
   recordingOutput,
@@ -382,6 +387,107 @@ describe("composed command line", () => {
       ),
     ).toBe(0);
     expect(output.structured_.join("")).toBe("Summary fallback.\n");
+  });
+
+  it("rejects an invalid adapter payload before effects or output", async () => {
+    const output = recordingOutput();
+    const fileSystem = memoryFileSystem();
+    const invalidAdapter = [
+      {
+        path: ["invalid-adapter"],
+        summary: "Return an invalid adapter payload.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "adapter-message@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("trail.ok", {
+            evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
+          }),
+          plan: planOf({
+            kind: "write_file" as const,
+            path: "must-not-change.txt",
+            content: "forbidden",
+          }),
+          humanStdout: null,
+          payload: { not: "an adapter message" },
+        }),
+      },
+    ];
+
+    const exitCode = await runCommandLine(
+      ["--json", "invalid-adapter"],
+      createRuntime({ fileSystem, output }),
+      invalidAdapter,
+    );
+
+    expect(exitCode).toBe(2);
+    expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
+    expect(output.structured_.join("")).not.toContain("an adapter message");
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+  });
+
+  it("prepares adapter output before applying effects and publishing", async () => {
+    const events: string[] = [];
+    const output = recordingOutput();
+    const fileSystem = memoryFileSystem();
+    const productionRegistry = createSchemaRegistry();
+    const schemaRegistry: SchemaRegistry = {
+      validate(request) {
+        events.push("validate");
+        return productionRegistry.validate(request);
+      },
+    };
+    const ordered = [
+      {
+        path: ["ordered-adapter"],
+        summary: "Return a valid adapter payload.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "adapter-message@1.0.0" as const,
+        handler: () => ({
+          result: resultFor("trail.ok", {
+            evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
+          }),
+          plan: planOf({
+            kind: "write_file" as const,
+            path: "changed.txt",
+            content: "written",
+          }),
+          humanStdout: null,
+          payload: structuredClone(adapterMessage),
+        }),
+      },
+    ];
+
+    const exitCode = await runCommandLine(
+      ["--json", "ordered-adapter"],
+      createRuntime({
+        fileSystem: {
+          ...fileSystem,
+          async write(path, content) {
+            events.push("effect");
+            await fileSystem.write(path, content);
+          },
+        },
+        output: {
+          structured(text) {
+            events.push("output");
+            output.structured(text);
+          },
+          human(text) {
+            output.human(text);
+          },
+        },
+      }),
+      ordered,
+      schemaRegistry,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(events).toEqual(["validate", "effect", "output"]);
+    expect(await fileSystem.read("changed.txt")).toBe("written");
   });
 
   it("fails closed when a non-result command has no payload", async () => {

@@ -53,12 +53,16 @@ Discovery creates, changes, and removes nothing.
 
 1. JSON syntax;
 2. `stateContract` identity and support;
-3. schema validation through `ConfigurationValidator`.
+3. structural validation through the registry-backed
+   `ConfigurationValidator`.
 
-`RUN-04` owns the schema registry and supplies that validator. Discovery does
-not duplicate schema interpretation while that contract is being implemented.
-Missing, corrupt, unsupported, migration-required, and schema-invalid inputs
-remain distinct typed outcomes.
+The [schema registry contract](schema-registry.md) (`RUN-04`) now supplies that
+production validator. Discovery continues to classify JSON syntax and `stateContract`
+compatibility before invoking it, so version selection precedes structural
+validation. Pure resolver tests can still inject a deterministic validator;
+production composition defaults to the cached adapter backed by the single
+production registry. Missing, corrupt, unsupported, migration-required, and
+schema-invalid inputs remain distinct typed outcomes.
 
 Effective values follow one explicit precedence:
 

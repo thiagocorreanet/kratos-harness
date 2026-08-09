@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createRuntime } from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import { DEFAULT_REGISTRY } from "@mestre-yoda/runtime/domain/cli";
+import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import {
   memoryFileSystem,
   recordingOutput,
@@ -94,6 +95,14 @@ describe("determinism", () => {
       await run(["--json", "handshake"]),
     );
     expect(await run(["--help"])).toEqual(await run(["--help"]));
+  });
+
+  it("publishes the handshake as canonical adapter text", async () => {
+    const result = await run(["--json", "handshake"]);
+
+    expect(result.stdout).toBe(
+      `${canonicalizeJson(JSON.parse(result.stdout))}\n`,
+    );
   });
 });
 

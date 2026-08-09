@@ -105,6 +105,7 @@ describe("import extraction", () => {
       "../domain/effects.js",
       "../infra/node/index.js",
       "../ports/index.js",
+      "./schema.js",
     ]);
   });
 });
@@ -140,6 +141,44 @@ describe("dependency direction", () => {
       },
     ]);
   });
+
+  it.each([
+    "ajv",
+    "../../../../../schemas/state/approval.v1.schema.json",
+    "../infra/schema/index.js",
+  ])(
+    "rejects a domain module importing schema infrastructure through %s",
+    (specifier) => {
+      const path = "packages/runtime/src/domain/policy.ts";
+
+      expect(violations([{ path, imports: [specifier] }])).toEqual([
+        {
+          path,
+          specifier,
+          reason: "domain must not import schema infrastructure",
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    "ajv",
+    "../../../../../schemas/state/approval.v1.schema.json",
+    "../infra/schema/index.js",
+  ])(
+    "rejects a ports module importing schema infrastructure through %s",
+    (specifier) => {
+      const path = "packages/runtime/src/ports/schema.ts";
+
+      expect(violations([{ path, imports: [specifier] }])).toEqual([
+        {
+          path,
+          specifier,
+          reason: "ports must not import schema infrastructure",
+        },
+      ]);
+    },
+  );
 
   it.each([
     [
@@ -195,6 +234,7 @@ describe("dependency direction", () => {
     ["packages/runtime/src/domain/policy.ts", "../ports/clock.js"],
     ["packages/runtime/src/domain/policy.ts", "./effects.js"],
     ["packages/runtime/src/domain/policy.ts", "@mestre-yoda/contracts"],
+    ["packages/runtime/src/ports/schema.ts", "../domain/schema/index.js"],
     ["packages/runtime/src/ports/clock.ts", "../domain/effects.js"],
     ["packages/runtime/src/infra/node/clock.ts", "node:fs/promises"],
     ["packages/runtime/src/infra/node/clock.ts", "../../ports/clock.js"],

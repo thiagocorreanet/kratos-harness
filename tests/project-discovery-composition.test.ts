@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { ProjectConfigV1 } from "@mestre-yoda/contracts";
+import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import {
   createDiscoveryPorts,
   createRuntimeAt,
@@ -33,6 +34,30 @@ const configuration: ProjectConfigV1 = {
 const validator = () => ({ kind: "valid", value: configuration }) as const;
 
 describe("project discovery composition", () => {
+  it("uses production schema validation when no override is provided", async () => {
+    const root = "/project";
+    const request = {
+      workingDirectory: root,
+      explicitRoot: null,
+      worktreeMode: "principal" as const,
+    };
+    const ports = {
+      workspace: memoryWorkspace({
+        directories: [root, `${root}/.brain`],
+        files: {
+          [`${root}/.brain/config.json`]: JSON.stringify(projectConfig),
+        },
+      }),
+      environment: fixedEnvironment({}, root),
+    };
+
+    await expect(discoverProject(request, ports)).resolves.toEqual({
+      kind: "initialized",
+      root,
+      configuration: projectConfig,
+    });
+  });
+
   it("collects a linked workspace and resolves its local project", async () => {
     const local = "/worktrees/project";
     const principal = "/repos/project";
@@ -60,11 +85,18 @@ describe("project discovery composition", () => {
 
     const observed = await observeWorkspace(request, ports);
     expect(observed.principalAncestors[0]?.path).toBe(principal);
-    expect(await discoverProject(request, ports, validator)).toEqual({
+    const validated: unknown[] = [];
+    expect(
+      await discoverProject(request, ports, (value) => {
+        validated.push(value);
+        return validator();
+      }),
+    ).toEqual({
       kind: "initialized",
       root: local,
       configuration,
     });
+    expect(validated).toEqual([configuration]);
     expect(await observeWorkspace(request, ports)).toEqual(observed);
   });
 

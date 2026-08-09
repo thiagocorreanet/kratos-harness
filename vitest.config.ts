@@ -8,6 +8,7 @@ export default defineConfig({
         "packages/runtime/src/handshake.ts",
         "packages/runtime/src/domain/**",
         "packages/runtime/src/composition/**",
+        "packages/runtime/src/infra/schema/**",
       ],
       provider: "v8",
       reporter: ["text", "json-summary"],

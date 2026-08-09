@@ -10,6 +10,8 @@ import {
 } from "../infra/node/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
+export { configurationValidator, createSchemaRegistry } from "./schema.js";
+
 /**
  * The one place effect implementations are chosen.
  *
