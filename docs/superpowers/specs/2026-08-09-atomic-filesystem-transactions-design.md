@@ -128,6 +128,15 @@ nothing. Execution re-observes those preconditions, rejects drift, allocates the
 transaction identity, and binds the same canonical plan digest into the durable
 manifest.
 
+Execution also carries a root mode. `existing` is the default and refuses a
+missing or unusable `.brain` directory. The explicitly selected `initialize`
+mode may create only the empty `.brain/` and `.brain/transactions/` directories,
+then synchronize their parents before creating `begun`. Directory creation is a
+single idempotent bootstrap effect, not accepted workflow state. If the process
+stops there, a later initialization sees empty reserved directories and retries;
+no state file exists outside a manifest. No other operation may select this
+mode.
+
 ### D3: Versioned immutable manifest and atomic progress document
 
 Each transaction owns this project-local directory:
@@ -142,6 +151,11 @@ Each transaction owns this project-local directory:
 
 The transaction manager owns `.brain/transactions/**`. A caller cannot target,
 delete, or shadow that namespace through an effect plan.
+
+The empty transaction namespace is bootstrap metadata, not a managed operation
+supplied by the caller. Outside explicit initialization, the transaction manager
+requires both `.brain/` and its reserved namespace to be real, no-follow
+directories before it creates a transaction identifier.
 
 `manifest.json` is written once and becomes immutable before the transaction
 enters `prepared`. Its versioned schema contains:
@@ -206,15 +220,17 @@ The normal sequence is:
    for a mutating operation.
 2. Normalize and render the managed mutation plan.
 3. Inspect every destination and bind its precondition.
-4. Create the transaction directory exclusively and persist `begun`.
-5. Write, hash, and synchronize every payload in staging.
-6. Persist and synchronize the immutable manifest.
-7. Reinspect all preconditions and persist `prepared`.
-8. Persist `publishing` before the first destination mutation.
-9. Apply operations in manifest order. Before each operation, revalidate its
+4. In explicit initialization mode only, create and synchronize the empty
+   managed root and transaction namespace if absent.
+5. Create the transaction directory exclusively and persist `begun`.
+6. Write, hash, and synchronize every payload in staging.
+7. Persist and synchronize the immutable manifest.
+8. Reinspect all preconditions and persist `prepared`.
+9. Persist `publishing` before the first destination mutation.
+10. Apply operations in manifest order. Before each operation, revalidate its
    target and parent. After it, synchronize the affected directory, inspect the
    result, and atomically advance progress.
-10. Reinspect every destination against the manifest, persist `committed`, and
+11. Reinspect every destination against the manifest, persist `committed`, and
     remove staged payload bytes.
 
 Writes use an atomic rename from a staged file on the same `.brain` filesystem.
@@ -382,6 +398,7 @@ planManagedMutation(
 
 executeManagedMutation(
   plan: ManagedMutationPlan,
+  options: { readonly rootMode: "existing" | "initialize" },
   ports: TransactionPorts,
 ): Promise<TransactionReceipt>;
 
@@ -409,6 +426,8 @@ versioned internal contracts until an owning public command exposes them.
   transaction marker.
 - Duplicate, overlapping, contradictory, outside-allowlist, reserved, and
   unsafe paths are rejected.
+- `existing` mode never creates `.brain/`; `initialize` mode creates only the
+  empty managed root and reserved namespace before `begun`.
 - Canonical plan and manifest digests are stable under repeated serialization.
 - Random valid plans plus a crash at every action boundary satisfy the model:
   before publication, destinations remain at preconditions; after explicit
