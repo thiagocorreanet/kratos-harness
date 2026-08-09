@@ -39,6 +39,7 @@ export interface MemoryTransactionStorage {
   readonly durableFileSystem: DurableFileSystem;
   readonly digests: Digests;
   readonly fail: (rule: FailureRule) => void;
+  readonly failureHits: () => readonly FailureRule[];
   readonly calls: () => readonly DurableOperation[];
   readonly snapshot: () => {
     readonly files: Readonly<Record<string, string>>;
@@ -125,6 +126,7 @@ export function memoryTransactionStorage(
   const trace: DurableOperation[] = [];
   const occurrences = new Map<DurableOperation, number>();
   const rules: FailureRule[] = [];
+  const failureHits: FailureRule[] = [];
   const digests = sha256Digests();
 
   function addParents(path: string): void {
@@ -181,10 +183,16 @@ export function memoryTransactionStorage(
     const occurrence = (occurrences.get(operation) ?? 0) + 1;
     occurrences.set(operation, occurrence);
     const before = matchingRule(operation, "before", occurrence);
-    if (before !== undefined) throw injectedFailure(before);
+    if (before !== undefined) {
+      failureHits.push({ ...before });
+      throw injectedFailure(before);
+    }
     const result = effect();
     const after = matchingRule(operation, "after", occurrence);
-    if (after !== undefined) throw injectedFailure(after);
+    if (after !== undefined) {
+      failureHits.push({ ...after });
+      throw injectedFailure(after);
+    }
     return result;
   }
 
@@ -432,6 +440,7 @@ export function memoryTransactionStorage(
       }
       rules.push({ ...rule });
     },
+    failureHits: () => failureHits.map((rule) => ({ ...rule })),
     calls: () => [...trace],
     snapshot: () => ({
       files: Object.fromEntries(

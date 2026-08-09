@@ -187,6 +187,7 @@ async function executeCapturing(
 function expectTerminalDestinations(
   storage: ReturnType<typeof memoryTransactionStorage>,
   terminal: "committed" | "aborted",
+  manifestBound: boolean,
 ): void {
   const snapshot = storage.snapshot();
   expect(snapshot.files[".brain/a.json"]).toBe(
@@ -204,6 +205,18 @@ function expectTerminalDestinations(
   ).toEqual([]);
   expect(
     snapshot.directories.filter((path) => path.endsWith("/staging")),
+  ).toEqual([]);
+  const receiptRoot = ".brain/transactions/transaction-1";
+  expect(
+    Object.keys(snapshot.files)
+      .filter((path) => path.startsWith(`${receiptRoot}/`))
+      .map((path) => path.slice(receiptRoot.length + 1))
+      .sort((left, right) => left.localeCompare(right, "en-US")),
+  ).toEqual(
+    manifestBound ? ["manifest.json", "progress.json"] : ["progress.json"],
+  );
+  expect(
+    snapshot.directories.filter((path) => path.startsWith(`${receiptRoot}/`)),
   ).toEqual([]);
 }
 
@@ -236,6 +249,7 @@ describe("transaction fault campaign", () => {
       storage.fail(entry);
       const injected = services(storage);
       const execution = await executeCapturing(storage);
+      expect(storage.failureHits(), label).toEqual([entry]);
       let summaries;
       try {
         summaries = await inspectManagedTransactions(injected);
@@ -307,7 +321,11 @@ describe("transaction fault campaign", () => {
           phase: terminal,
         },
       ]);
-      expectTerminalDestinations(storage, terminal);
+      expectTerminalDestinations(
+        storage,
+        terminal,
+        firstRecovery.manifestDigest !== null,
+      );
     }
   });
 

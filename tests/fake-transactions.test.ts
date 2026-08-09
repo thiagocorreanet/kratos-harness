@@ -485,7 +485,12 @@ describe("memory transaction storage", () => {
 
   it("targets an exact occurrence once", async () => {
     const storage = memoryTransactionStorage({ directories: [".brain"] });
-    storage.fail({ operation: "inspect", timing: "before", occurrence: 2 });
+    const rule = {
+      operation: "inspect" as const,
+      timing: "before" as const,
+      occurrence: 2,
+    };
+    storage.fail(rule);
 
     await expect(
       storage.durableFileSystem.inspect(".brain/missing"),
@@ -496,6 +501,27 @@ describe("memory transaction storage", () => {
     await expect(
       storage.durableFileSystem.inspect(".brain/missing"),
     ).resolves.toEqual({ kind: "missing" });
+    expect(storage.failureHits()).toEqual([rule]);
+  });
+
+  it("returns isolated readonly evidence for reached failure rules", async () => {
+    const storage = memoryTransactionStorage();
+    const rule = {
+      operation: "inspect" as const,
+      timing: "after" as const,
+      occurrence: 1,
+      fault: "permission" as const,
+    };
+    storage.fail(rule);
+
+    await expect(
+      storage.durableFileSystem.inspect(".brain/state.json"),
+    ).rejects.toThrow("permission");
+    const first = storage.failureHits();
+    expect(first).toEqual([rule]);
+
+    (first as (typeof rule)[]).push({ ...rule });
+    expect(storage.failureHits()).toEqual([rule]);
   });
 
   it.each(["permission", "disk_full"] as const)(

@@ -22,6 +22,9 @@ const workerSource = join(
   "tests/fixtures/transactions/worker.ts",
 );
 const workerTimeoutMilliseconds = 10_000;
+const testTimeoutMilliseconds = 30_000;
+const expectedDirectorySync =
+  process.platform === "win32" ? "unsupported" : "supported";
 const privatePayloads = {
   first: "PRIVATE_PROCESS_PAYLOAD_ALPHA_19375",
   second: "PRIVATE_PROCESS_PAYLOAD_BETA_24826",
@@ -161,6 +164,8 @@ interface WorkerSession {
   readonly output: { stderr: string; stdout: string };
 }
 
+type WorkerExit = Awaited<WorkerSession["exit"]>;
+
 let bundleRoot = "";
 let workerBundle = "";
 
@@ -233,6 +238,27 @@ function spawnWorker(args: readonly string[]): WorkerSession {
   return { child, exit, output };
 }
 
+async function waitForExit(
+  session: WorkerSession,
+  context: string,
+): Promise<WorkerExit> {
+  return new Promise<WorkerExit>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Worker timed out while ${context}`));
+    }, workerTimeoutMilliseconds);
+    session.exit.then(
+      (exit) => {
+        clearTimeout(timer);
+        resolve(exit);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 async function waitForWorker(
   session: WorkerSession,
   expected: "barrier" | "result",
@@ -299,7 +325,7 @@ async function forceTerminate(session: WorkerSession): Promise<void> {
       ? session.child.kill()
       : session.child.kill("SIGKILL");
   expect(killed).toBe(true);
-  const exited = await session.exit;
+  const exited = await waitForExit(session, "waiting for forced termination");
   if (process.platform !== "win32") {
     expect(exited).toEqual({ code: null, signal: "SIGKILL" });
   }
@@ -311,7 +337,7 @@ async function terminateIfRunning(session: WorkerSession): Promise<void> {
   }
   if (process.platform === "win32") session.child.kill();
   else session.child.kill("SIGKILL");
-  await session.exit;
+  await waitForExit(session, "cleaning up a worker");
 }
 
 async function runFreshWorker(
@@ -322,7 +348,9 @@ async function runFreshWorker(
   const session = spawnWorker([mode, root, "null", JSON.stringify(value)]);
   try {
     const message = await waitForWorker(session, "result");
-    expect(await session.exit).toEqual({ code: 0, signal: null });
+    expect(
+      await waitForExit(session, "waiting for a result worker to exit"),
+    ).toEqual({ code: 0, signal: null });
     return {
       message,
       output: `${session.output.stdout}${session.output.stderr}`,
@@ -419,7 +447,7 @@ describe("transaction recovery after process termination", () => {
           manifestDigest: summary?.manifestDigest ?? null,
           recoveryToken: summary?.recoveryToken,
           phase: terminalPhase,
-          directorySync: "supported",
+          directorySync: expectedDirectorySync,
         });
         expect(second.message.value).toEqual(first.message.value);
 
@@ -444,7 +472,15 @@ describe("transaction recovery after process termination", () => {
         }
 
         const receiptRoot = join(root, ".brain/transactions/transaction-1");
-        expect(await readdir(receiptRoot)).not.toContain("staging");
+        expect(
+          (await readdir(receiptRoot)).sort((left, right) =>
+            left.localeCompare(right, "en-US"),
+          ),
+        ).toEqual(
+          summary?.manifestDigest === null
+            ? ["progress.json"]
+            : ["manifest.json", "progress.json"],
+        );
         const ipc = JSON.stringify({
           first: first.message,
           inspected: inspected.message,
@@ -455,5 +491,6 @@ describe("transaction recovery after process termination", () => {
         expect(ipc).not.toContain(privatePayloads.second);
       });
     },
+    testTimeoutMilliseconds,
   );
 });
