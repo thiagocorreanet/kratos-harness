@@ -21,6 +21,7 @@ import { configurationValidator, createSchemaRegistry } from "./schema.js";
 import {
   executeManagedMutation,
   inspectManagedTransactions,
+  preflightManagedTransactions,
   recoverManagedMutation,
   TransactionFailure,
   type TransactionReceipt,
@@ -33,6 +34,7 @@ export {
   createSchemaRegistry,
   executeManagedMutation,
   inspectManagedTransactions,
+  preflightManagedTransactions,
   recoverManagedMutation,
   TransactionFailure,
 };
@@ -75,8 +77,14 @@ export function createRuntimeAt(
 /** Reserved destination for the future canonical append operation. */
 const eventLogPath = ".brain/events.jsonl";
 
+export type ApplyPlanOutcome =
+  { readonly kind: "committed" } | { readonly kind: "noop" };
+
 /**
  * Commit every managed effect through one durable transaction, then emit.
+ *
+ * The outcome lets orchestration report the concrete mutation fact: a command
+ * may be allowed to mutate state while its already-satisfied plan is a no-op.
  */
 export async function applyPlan(
   plan: EffectPlan,
@@ -84,14 +92,11 @@ export async function applyPlan(
   options: { readonly rootMode: "existing" | "initialize" } = {
     rootMode: "existing",
   },
-): Promise<void> {
-  const emits = selectEmitEffects(plan);
-  const append = plan.effects.find(({ kind }) => kind === "append_event");
-  if (append !== undefined) {
-    throw new TransactionFailure("runtime.state_corrupt", [
-      { kind: "artifact", ref: eventLogPath },
-    ]);
-  }
+): Promise<ApplyPlanOutcome> {
+  const input = snapshotApplyInput(plan, options);
+  const frozenPlan = input.plan;
+  const frozenOptions = { rootMode: input.rootMode };
+  const emits = selectEmitEffects(frozenPlan);
 
   const services: TransactionServices = {
     clock: ports.clock,
@@ -100,11 +105,22 @@ export async function applyPlan(
     durableFileSystem: ports.durableFileSystem,
     schemaRegistry: createSchemaRegistry(),
   };
-  const observations = await observeManagedPaths(plan, ports);
+  if (hasManagedEffects(frozenPlan)) {
+    await preflightManagedTransactions(frozenOptions, services);
+  }
+  const append = frozenPlan.effects.find(({ kind }) => kind === "append_event");
+  if (append !== undefined) {
+    throw new TransactionFailure("runtime.state_corrupt", [
+      { kind: "artifact", ref: eventLogPath },
+    ]);
+  }
+  const observations = await observeManagedPaths(frozenPlan, ports);
   let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
   try {
-    normalized = normalizeManagedMutationPlan(plan, observations, (text) =>
-      ports.digests.sha256(text),
+    normalized = normalizeManagedMutationPlan(
+      frozenPlan,
+      observations,
+      (text) => ports.digests.sha256(text),
     );
   } catch (error) {
     if (error instanceof TransactionPolicyError) {
@@ -118,15 +134,13 @@ export async function applyPlan(
     throw new TransactionFailure("runtime.internal_failure", []);
   }
 
+  let outcome: ApplyPlanOutcome;
   if (normalized.kind === "noop") {
-    if (hasManagedEffects(plan)) {
-      await assertNoopRoot(options.rootMode, services);
-      await rejectIncompleteMarker(services);
-    }
+    outcome = { kind: "noop" };
   } else {
     const receipt = await executeManagedMutation(
       normalized.plan,
-      options,
+      frozenOptions,
       services,
     );
     /* v8 ignore start -- normal execution returns committed or throws; aborted
@@ -140,39 +154,80 @@ export async function applyPlan(
       ]);
     }
     /* v8 ignore stop */
+    outcome = { kind: "committed" };
   }
 
   for (const effect of emits) {
     if (effect.channel === "structured") ports.output.structured(effect.text);
     else ports.output.human(effect.text);
   }
+  return outcome;
 }
 
-async function assertNoopRoot(
-  rootMode: "existing" | "initialize",
-  services: TransactionServices,
-): Promise<void> {
-  if (rootMode === "initialize") return;
+function snapshotApplyInput(
+  plan: unknown,
+  options: unknown,
+): {
+  readonly plan: EffectPlan;
+  readonly rootMode: "existing" | "initialize";
+} {
   try {
-    if (
-      (await services.durableFileSystem.inspect(".brain")).kind !== "directory"
-    ) {
-      throw new TransactionFailure("runtime.state_corrupt", [
-        { kind: "artifact", ref: ".brain" },
-      ]);
+    if (!isRecord(plan) || !Array.isArray(plan.effects)) {
+      throw invalidApplyInput();
     }
-    if (
-      (await services.durableFileSystem.inspect(".brain/transactions")).kind !==
-      "directory"
-    ) {
-      throw new TransactionFailure("runtime.state_corrupt", [
-        { kind: "artifact", ref: ".brain/transactions" },
-      ]);
+    if (!isRecord(options)) throw invalidApplyInput();
+    const rootMode = options.rootMode;
+    if (rootMode !== "existing" && rootMode !== "initialize") {
+      throw invalidApplyInput();
     }
+    return {
+      plan: { effects: plan.effects.map(snapshotEffect) },
+      rootMode,
+    };
   } catch (error) {
     if (error instanceof TransactionFailure) throw error;
     throw new TransactionFailure("runtime.internal_failure", []);
   }
+}
+
+function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
+  if (!isRecord(value) || typeof value.kind !== "string") {
+    throw invalidApplyInput();
+  }
+  switch (value.kind) {
+    case "write_file":
+      if (typeof value.path !== "string" || typeof value.content !== "string") {
+        throw invalidApplyInput();
+      }
+      return { kind: value.kind, path: value.path, content: value.content };
+    case "delete_file":
+    case "create_directory":
+      if (typeof value.path !== "string") throw invalidApplyInput();
+      return { kind: value.kind, path: value.path };
+    case "append_event":
+      if (typeof value.event !== "string") throw invalidApplyInput();
+      return { kind: value.kind, event: value.event };
+    case "emit":
+      if (
+        (value.channel !== "structured" && value.channel !== "human") ||
+        typeof value.text !== "string"
+      ) {
+        throw invalidApplyInput();
+      }
+      return { kind: value.kind, channel: value.channel, text: value.text };
+    default:
+      throw invalidApplyInput();
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function invalidApplyInput(): TransactionFailure {
+  return new TransactionFailure("runtime.state_corrupt", [
+    { kind: "artifact", ref: ".brain" },
+  ]);
 }
 
 function selectEmitEffects(
@@ -213,25 +268,6 @@ function hasManagedEffects(plan: EffectPlan): boolean {
       kind === "delete_file" ||
       kind === "write_file",
   );
-}
-
-async function rejectIncompleteMarker(
-  services: TransactionServices,
-): Promise<void> {
-  try {
-    const summaries = await inspectManagedTransactions(services);
-    const incomplete = summaries.find(
-      ({ phase }) => phase !== "committed" && phase !== "aborted",
-    );
-    if (incomplete !== undefined) {
-      throw new TransactionFailure("runtime.recovery_required", [
-        { kind: "artifact", ref: incomplete.evidenceRef },
-      ]);
-    }
-  } catch (error) {
-    if (error instanceof TransactionFailure) throw error;
-    throw new TransactionFailure("runtime.internal_failure", []);
-  }
 }
 
 async function observeManagedPaths(

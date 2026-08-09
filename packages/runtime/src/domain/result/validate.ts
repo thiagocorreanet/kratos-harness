@@ -203,12 +203,8 @@ export function validateResult(result: Result): Result {
       );
     }
   }
-  if (result.stateChanged !== policy.stateChanged) {
-    throw new ResultContractError(
-      result.stateChanged
-        ? "result makes a false state mutation claim"
-        : "result state mutation claim conflicts with its reason",
-    );
+  if (result.stateChanged && !policy.stateChanged) {
+    throw new ResultContractError("result makes a false state mutation claim");
   }
   if (policy.evidence === "required" && result.evidence.length === 0) {
     throw new ResultContractError("required evidence is absent");

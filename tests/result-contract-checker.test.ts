@@ -103,6 +103,18 @@ describe("result contract completeness CLI", () => {
     );
   });
 
+  it("accepts a no-op result when its reason permits mutation", async () => {
+    const paths = await mutationPaths((_catalog, examples) => {
+      const success = examples.find(({ exitCode }) => exitCode === 0);
+      if (success === undefined) throw new Error("missing success example");
+      success.stateChanged = false;
+    });
+
+    const result = run(...paths);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+  });
+
   it.each([
     [
       "missing legacy reason",
@@ -148,14 +160,6 @@ describe("result contract completeness CLI", () => {
         const blocked = examples.find(({ exitCode }) => exitCode === 3);
         if (blocked === undefined) throw new Error("missing blocked example");
         blocked.stateChanged = true;
-      },
-    ],
-    [
-      "missing mutation claim",
-      (_catalog: JsonObject, examples: JsonObject[]) => {
-        const success = examples.find(({ exitCode }) => exitCode === 0);
-        if (success === undefined) throw new Error("missing success example");
-        success.stateChanged = false;
       },
     ],
     [

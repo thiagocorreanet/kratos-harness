@@ -1,10 +1,13 @@
 import {
+  applyPlan,
+  createRuntime,
   executeManagedMutation,
   inspectManagedTransactions,
   recoverManagedMutation,
   TransactionFailure,
   type TransactionServices,
 } from "@mestre-yoda/runtime/composition";
+import { planOf } from "@mestre-yoda/runtime/domain/effects";
 import type { ManagedMutationPlan } from "@mestre-yoda/runtime/domain/transactions";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import type {
@@ -84,6 +87,31 @@ function twoWritePlan(
       },
     ],
   };
+}
+
+async function addTerminalResidue(
+  storage: ReturnType<typeof memoryTransactionStorage>,
+  residue: "staging" | "progress.next",
+): Promise<void> {
+  const root = ".brain/transactions/transaction-1";
+  if (residue === "staging") {
+    await storage.durableFileSystem.createDirectory(`${root}/staging`);
+  } else {
+    await storage.durableFileSystem.writeSynced(
+      `${root}/progress.next`,
+      "terminal residue",
+    );
+  }
+}
+
+function runtimePorts(storage: ReturnType<typeof memoryTransactionStorage>) {
+  return createRuntime({
+    clock: fixedClock("2026-08-09T00:00:00.000Z"),
+    ids: sequentialIds("transaction"),
+    digests: storage.digests,
+    durableFileSystem: storage.durableFileSystem,
+    fileSystem: storage.fileSystem,
+  });
 }
 
 describe("managed transaction inspection and recovery", () => {
@@ -175,6 +203,105 @@ describe("managed transaction inspection and recovery", () => {
     expect(storage.calls()).not.toContain("remove_file");
     expect(storage.calls()).not.toContain("remove_empty_directory");
   });
+
+  it.each(["staging", "progress.next"] as const)(
+    "blocks a no-op while a committed transaction retains %s",
+    async (residue) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain", ".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      const injected = services(storage);
+      await expect(
+        executeManagedMutation(
+          writePlan(storage, "old", "new"),
+          { rootMode: "existing" },
+          injected,
+        ),
+      ).resolves.toMatchObject({ phase: "committed" });
+      await addTerminalResidue(storage, residue);
+      const exclusiveCreates = storage
+        .calls()
+        .filter((call) => call === "create_directory_exclusive").length;
+
+      await expect(
+        applyPlan(
+          planOf({
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "new",
+          }),
+          runtimePorts(storage),
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.recovery_required", [
+          {
+            kind: "artifact",
+            ref: ".brain/transactions/transaction-1/progress.json",
+          },
+        ]),
+      );
+      expect(
+        storage.calls().filter((call) => call === "create_directory_exclusive")
+          .length,
+      ).toBe(exclusiveCreates);
+    },
+  );
+
+  it.each(["staging", "progress.next"] as const)(
+    "blocks a no-op while an aborted transaction retains %s",
+    async (residue) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain", ".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      const injected = services(storage);
+      storage.fail({
+        operation: "sync_directory",
+        timing: "after",
+        occurrence: 6,
+      });
+      await expect(
+        executeManagedMutation(
+          writePlan(storage, "old", "new"),
+          { rootMode: "existing" },
+          injected,
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+      const [prepared] = await inspectManagedTransactions(injected);
+      await expect(
+        recoverManagedMutation(
+          {
+            transactionId: "transaction-1",
+            recoveryToken: prepared?.recoveryToken ?? "missing",
+          },
+          injected,
+        ),
+      ).resolves.toMatchObject({ phase: "aborted" });
+      await addTerminalResidue(storage, residue);
+      const exclusiveCreates = storage
+        .calls()
+        .filter((call) => call === "create_directory_exclusive").length;
+
+      await expect(
+        applyPlan(
+          planOf({ kind: "delete_file", path: ".brain/missing.json" }),
+          runtimePorts(storage),
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.recovery_required", [
+          {
+            kind: "artifact",
+            ref: ".brain/transactions/transaction-1/progress.json",
+          },
+        ]),
+      );
+      expect(
+        storage.calls().filter((call) => call === "create_directory_exclusive")
+          .length,
+      ).toBe(exclusiveCreates);
+    },
+  );
 
   it.each([
     {

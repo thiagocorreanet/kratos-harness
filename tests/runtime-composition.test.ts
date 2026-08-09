@@ -5,6 +5,7 @@ import {
   configurationValidator,
   createRuntime,
   createSchemaRegistry,
+  preflightManagedTransactions,
   TransactionFailure,
 } from "@mestre-yoda/runtime/composition";
 import {
@@ -89,6 +90,29 @@ describe("effect plan application", () => {
       }),
     };
   }
+
+  it("exposes a preflight that sanitizes unexpected storage failures", async () => {
+    const { storage, ports } = fakeRuntime();
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect() {
+        return Promise.reject(new Error("/absolute/private-preflight"));
+      },
+    };
+
+    await expect(
+      preflightManagedTransactions(
+        { rootMode: "existing" },
+        {
+          clock: ports.clock,
+          ids: ports.ids,
+          digests: ports.digests,
+          durableFileSystem,
+          schemaRegistry: createSchemaRegistry(),
+        },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+  });
 
   it("commits managed effects in their declared order", async () => {
     const { storage, ports } = fakeRuntime({
@@ -208,6 +232,184 @@ describe("effect plan application", () => {
     expect(output.human_).toEqual(["second\n"]);
   });
 
+  it("snapshots plan effects and root mode before the first await", async () => {
+    const { storage, output, ports } = fakeRuntime({});
+    const write = {
+      kind: "write_file" as const,
+      path: ".brain/original.json",
+      content: "original",
+    };
+    const emit = {
+      kind: "emit" as const,
+      channel: "human" as const,
+      text: "original output\n",
+    };
+    const options: { rootMode: "existing" | "initialize" } = {
+      rootMode: "initialize",
+    };
+    let releaseFirstInspection: (() => void) | undefined;
+    let signalFirstInspection: (() => void) | undefined;
+    const firstInspection = new Promise<void>((resolve) => {
+      signalFirstInspection = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      releaseFirstInspection = resolve;
+    });
+    let hasBlocked = false;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      async inspect(path): Promise<DurableEntry> {
+        if (!hasBlocked && path === ".brain") {
+          hasBlocked = true;
+          signalFirstInspection?.();
+          await blocked;
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    const applying = applyPlan(
+      planOf(write, emit),
+      { ...ports, durableFileSystem },
+      options,
+    );
+    await firstInspection;
+    options.rootMode = "existing";
+    write.path = ".brain/mutated.json";
+    write.content = "mutated";
+    emit.text = "mutated output\n";
+    releaseFirstInspection?.();
+
+    await expect(applying).resolves.toEqual({ kind: "committed" });
+    expect(storage.snapshot().files[".brain/original.json"]).toBe("original");
+    expect(storage.snapshot().files).not.toHaveProperty(".brain/mutated.json");
+    expect(output.human_).toEqual(["original output\n"]);
+  });
+
+  it("rejects non-primitive apply input without crossing a runtime boundary", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        {
+          effects: [
+            {
+              kind: "write_file",
+              path: ".brain/state.json",
+              content: 42,
+            },
+          ],
+        } as unknown as Parameters<typeof applyPlan>[0],
+        ports,
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain" },
+      ]),
+    );
+    await expect(
+      applyPlan(planOf(), ports, {
+        rootMode: "unexpected",
+      } as unknown as Parameters<typeof applyPlan>[2]),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain" },
+      ]),
+    );
+    const invalidInputs = [
+      () =>
+        applyPlan(null as unknown as Parameters<typeof applyPlan>[0], ports),
+      () =>
+        applyPlan(
+          { effects: "not-an-array" } as unknown as Parameters<
+            typeof applyPlan
+          >[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          planOf(),
+          ports,
+          null as unknown as Parameters<typeof applyPlan>[2],
+        ),
+      () =>
+        applyPlan(
+          { effects: [null] } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          { effects: [{ kind: 7 }] } as unknown as Parameters<
+            typeof applyPlan
+          >[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          {
+            effects: [{ kind: "write_file", path: 7, content: "content" }],
+          } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          {
+            effects: [{ kind: "delete_file", path: 7 }],
+          } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          {
+            effects: [{ kind: "append_event", event: 7 }],
+          } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          {
+            effects: [{ kind: "emit", channel: "private", text: "text" }],
+          } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          {
+            effects: [{ kind: "emit", channel: "human", text: 7 }],
+          } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      () =>
+        applyPlan(
+          { effects: [{ kind: "unknown" }] } as unknown as Parameters<
+            typeof applyPlan
+          >[0],
+          ports,
+        ),
+    ];
+    for (const invalidInput of invalidInputs) {
+      await expect(invalidInput()).rejects.toMatchObject({
+        reasonCode: "runtime.state_corrupt",
+        evidence: [{ kind: "artifact", ref: ".brain" }],
+      });
+    }
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("sanitizes a throwing apply-input accessor", async () => {
+    const { storage, ports } = fakeRuntime();
+    const plan = Object.defineProperty({}, "effects", {
+      get() {
+        throw new Error("/absolute/private-input");
+      },
+    });
+
+    await expect(
+      applyPlan(plan as Parameters<typeof applyPlan>[0], ports),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).toEqual([]);
+  });
+
   it("emits nothing when publication does not commit", async () => {
     const { storage, output, ports } = fakeRuntime();
     const durableFileSystem: DurableFileSystem = {
@@ -291,6 +493,40 @@ describe("effect plan application", () => {
     },
   );
 
+  it("rejects a managed root changed after transaction preflight", async () => {
+    const { storage, ports } = fakeRuntime();
+    let brainInspections = 0;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path): Promise<DurableEntry> {
+        if (path === ".brain" && ++brainInspections === 4) {
+          return Promise.resolve({
+            kind: "file",
+            size: 0,
+            sha256: storage.digests.sha256(""),
+          });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        { ...ports, durableFileSystem },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain" },
+      ]),
+    );
+    expect(brainInspections).toBe(4);
+  });
+
   it.each(["file", "special", "symlink"] as const)(
     "observes and rejects a %s managed root before descendant paths",
     async (kind) => {
@@ -325,7 +561,7 @@ describe("effect plan application", () => {
           { kind: "artifact", ref: ".brain" },
         ]),
       );
-      expect(inspected).toEqual([".brain"]);
+      expect(inspected).toEqual([".brain", ".brain"]);
     },
   );
 
@@ -496,6 +732,31 @@ describe("effect plan application", () => {
     expect(storage.calls()).not.toContain("create_directory_exclusive");
   });
 
+  it("reports whether managed state committed", async () => {
+    const { ports } = fakeRuntime();
+    const plan = planOf({
+      kind: "write_file",
+      path: ".brain/state.json",
+      content: "state",
+    });
+
+    await expect(applyPlan(plan, ports)).resolves.toEqual({
+      kind: "committed",
+    });
+    await expect(applyPlan(plan, ports)).resolves.toEqual({ kind: "noop" });
+  });
+
+  it("reports emit-only application as a no-op", async () => {
+    const { ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf({ kind: "emit", channel: "human", text: "message\n" }),
+        ports,
+      ),
+    ).resolves.toEqual({ kind: "noop" });
+  });
+
   it("observes an already-satisfied managed directory as a no-op", async () => {
     const { storage, ports } = fakeRuntime({
       directories: [".brain", ".brain/transactions", ".brain/existing"],
@@ -548,6 +809,135 @@ describe("effect plan application", () => {
       ]),
     );
     expect(output.human_).toEqual([]);
+  });
+
+  it("rejects a publishing marker before inspecting a managed target", async () => {
+    const { storage, ports } = fakeRuntime();
+    const interrupted: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      replaceFile(stagedPath, targetPath) {
+        if (targetPath === ".brain/state.json") {
+          return Promise.reject(new Error("publication stopped"));
+        }
+        return storage.durableFileSystem.replaceFile(stagedPath, targetPath);
+      },
+    };
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        { ...ports, durableFileSystem: interrupted },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const inspected: string[] = [];
+    const specialTarget: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path): Promise<DurableEntry> {
+        inspected.push(path);
+        if (path === ".brain/state.json") {
+          return Promise.resolve({ kind: "special" });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        { ...ports, durableFileSystem: specialTarget },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.recovery_required", [
+        {
+          kind: "artifact",
+          ref: ".brain/transactions/transaction-1/progress.json",
+        },
+      ]),
+    );
+    expect(inspected).not.toContain(".brain/state.json");
+  });
+
+  it.each([
+    { label: "empty", files: {} },
+    {
+      label: "progress scratch",
+      files: {
+        ".brain/transactions/orphan/progress.next": "partial",
+      },
+    },
+  ])(
+    "reconciles a safe $label unmarked transaction for a no-op",
+    async ({ files }) => {
+      const { storage, ports } = fakeRuntime({
+        directories: [
+          ".brain",
+          ".brain/transactions",
+          ".brain/transactions/orphan",
+        ],
+        files: {
+          ".brain/state.json": "same",
+          ...files,
+        },
+      });
+
+      await expect(
+        applyPlan(
+          planOf({
+            kind: "write_file",
+            path: ".brain/state.json",
+            content: "same",
+          }),
+          ports,
+        ),
+      ).resolves.toEqual({ kind: "noop" });
+
+      expect(storage.snapshot().directories).not.toContain(
+        ".brain/transactions/orphan",
+      );
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
+
+  it("preserves unknown unmarked content when a no-op fails closed", async () => {
+    const unknown = ".brain/transactions/orphan/unknown";
+    const { storage, ports } = fakeRuntime({
+      directories: [
+        ".brain",
+        ".brain/transactions",
+        ".brain/transactions/orphan",
+      ],
+      files: {
+        ".brain/state.json": "same",
+        [unknown]: "preserve",
+      },
+    });
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "same",
+        }),
+        ports,
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain/transactions/orphan" },
+      ]),
+    );
+    expect(storage.snapshot().files[unknown]).toBe("preserve");
+    expect(storage.calls()).not.toContain("remove_file");
+    expect(storage.calls()).not.toContain("remove_empty_directory");
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
   });
 
   it("lets the transaction driver reconcile a safe unmarked crash directory", async () => {

@@ -49,7 +49,7 @@ function validatePlan(
   if (plan.effects.some(({ kind }) => kind === "emit")) {
     throw new Error("A command decision cannot own output effects");
   }
-  if ((plan.effects.length !== 0) !== result.stateChanged) {
+  if (plan.effects.length !== 0 && !result.stateChanged) {
     throw new Error("A command effect plan conflicts with its result");
   }
 }
@@ -91,21 +91,27 @@ export async function runCommandLine(
       return publish(decision.result, json, ports);
     }
 
-    let stdout: string;
+    let preparedOutput: string | undefined;
     if (parsed.invocation.command.jsonContract === "adapter-message@1.0.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
-      stdout = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (json) {
-      stdout = renderResultJson(decision.result).stdout;
-    } else {
-      stdout = decision.humanStdout ?? `${decision.result.summary}\n`;
-      validatePublicText(stdout);
+      preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
+    } else if (!json) {
+      preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
+      validatePublicText(preparedOutput);
     }
-    await applyPlan(decision.plan, ports);
+    const outcome = await applyPlan(decision.plan, ports);
+    const result =
+      outcome.kind === "noop" && decision.result.stateChanged
+        ? { ...decision.result, stateChanged: false }
+        : decision.result;
+    validateResult(result);
+    // A result-contract command prepares human output above; the only absent
+    // value here is therefore result-contract JSON, rendered after outcome.
+    const stdout = preparedOutput ?? renderResultJson(result).stdout;
     write(stdout, "stdout", ports);
-    return decision.result.exitCode;
+    return result.exitCode;
   } catch (error) {
     if (error instanceof TransactionFailure) {
       return publish(transactionFailureResult(error), json, ports);

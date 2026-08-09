@@ -715,7 +715,8 @@ describe("managed transaction execution", () => {
       ),
     ).resolves.toMatchObject({ phase: "committed" });
 
-    expect(storage.calls().slice(0, 8)).toEqual([
+    expect(storage.calls().slice(0, 9)).toEqual([
+      "inspect",
       "inspect",
       "inspect",
       "inspect",
@@ -756,8 +757,48 @@ describe("managed transaction execution", () => {
       ]),
     );
     expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
-    expect(storage.calls()).toEqual(["inspect", "inspect", "inspect"]);
+    expect(storage.calls()).toEqual(["inspect", "inspect"]);
   });
+
+  it.each([
+    { path: ".brain", evidenceRef: ".brain" },
+    {
+      path: ".brain/transactions",
+      evidenceRef: ".brain/transactions",
+    },
+  ])(
+    "rejects $path changing after the repeated preflight",
+    async ({ path, evidenceRef }) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain", ".brain/transactions"],
+        files: { ".brain/state.json": "old" },
+      });
+      let inspections = 0;
+      const boundary: DurableFileSystem = {
+        ...storage.durableFileSystem,
+        inspect(candidate): Promise<DurableEntry> {
+          if (candidate === path && ++inspections === 4) {
+            return Promise.resolve({ kind: "special" });
+          }
+          return storage.durableFileSystem.inspect(candidate);
+        },
+      };
+
+      await expect(
+        executeManagedMutation(
+          replacementPlan(storage),
+          { rootMode: "existing" },
+          { ...services(storage), durableFileSystem: boundary },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: evidenceRef },
+        ]),
+      );
+      expect(inspections).toBe(4);
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
 
   it("leaves a pre-publication revision conflict explicitly abortable", async () => {
     const storage = memoryTransactionStorage({

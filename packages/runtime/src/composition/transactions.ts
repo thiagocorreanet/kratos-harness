@@ -92,12 +92,41 @@ export async function executeManagedMutation(
     publishingAuthorized: false,
   };
   try {
-    await reconcileUnmarkedTransactions(services);
-    await rejectIncompleteTransactions(services);
+    // applyPlan performs this preflight before observing caller destinations;
+    // repeat it here after normalization to close that asynchronous race.
+    await preflightManagedTransactions(options, services);
     return await driveExecution(frozenPlan, options, services, attempt);
   } catch (error) {
     return classifyDriverFailure(error, services, attempt);
   }
+}
+
+/** Reconcile safe orphans and reject every transaction requiring recovery. */
+export async function preflightManagedTransactions(
+  options: { readonly rootMode: "existing" | "initialize" },
+  services: TransactionServices,
+): Promise<void> {
+  try {
+    await reconcileUnmarkedTransactions(services);
+    await assertPreflightRoot(options.rootMode, services);
+    await rejectIncompleteTransactions(services);
+  } catch (error) {
+    if (error instanceof TransactionFailure) throw error;
+    throw new TransactionFailure("runtime.internal_failure", []);
+  }
+}
+
+async function assertPreflightRoot(
+  rootMode: "existing" | "initialize",
+  services: TransactionServices,
+): Promise<void> {
+  const brain = await services.durableFileSystem.inspect(".brain");
+  if (brain.kind === "missing" && rootMode === "initialize") return;
+  if (brain.kind !== "directory") throw corrupt(".brain");
+  const transactions =
+    await services.durableFileSystem.inspect(transactionsRoot);
+  if (transactions.kind === "missing" && rootMode === "initialize") return;
+  if (transactions.kind !== "directory") throw corrupt(transactionsRoot);
 }
 
 function freezeManagedPlan(

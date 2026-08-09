@@ -593,6 +593,104 @@ describe("composed command line", () => {
     expect(output.structured_.join("")).toBe("Summary fallback.\n");
   });
 
+  it("reports the concrete managed-state outcome for successful commands", async () => {
+    const runTrailPlan = async (
+      plan: ReturnType<typeof planOf>,
+      seed: Parameters<typeof memoryTransactionStorage>[0],
+      json: boolean,
+    ) => {
+      const storage = memoryTransactionStorage(seed);
+      const output = recordingOutput();
+      const registry = [
+        {
+          path: ["state-outcome"],
+          summary: "Report a concrete state outcome.",
+          flags: [],
+          positionals: { min: 0, max: 0 },
+          jsonContract: "result@1.0.0" as const,
+          handler: () => ({
+            result: resultFor("trail.ok", {
+              summary: "State outcome recorded.",
+              evidence: [
+                { kind: "event" as const, ref: ".brain/events.jsonl" },
+              ],
+            }),
+            plan,
+            humanStdout: null,
+            payload: null,
+          }),
+        },
+      ];
+      const exitCode = await runCommandLine(
+        json ? ["--json", "state-outcome"] : ["state-outcome"],
+        createRuntime({
+          clock: fixedClock("2026-08-09T00:00:00.000Z"),
+          ids: sequentialIds("transaction"),
+          fileSystem: storage.fileSystem,
+          durableFileSystem: storage.durableFileSystem,
+          digests: storage.digests,
+          output,
+        }),
+        registry,
+      );
+      return { exitCode, output, storage };
+    };
+
+    const satisfiedPlan = planOf({
+      kind: "write_file",
+      path: ".brain/state.json",
+      content: "same",
+    });
+    const satisfied = await runTrailPlan(
+      satisfiedPlan,
+      {
+        directories: [".brain", ".brain/transactions"],
+        files: { ".brain/state.json": "same" },
+      },
+      true,
+    );
+    expect(satisfied.exitCode).toBe(0);
+    expect(JSON.parse(satisfied.output.structured_.join(""))).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: false,
+    });
+    expect(satisfied.storage.calls()).not.toContain(
+      "create_directory_exclusive",
+    );
+
+    const committed = await runTrailPlan(
+      satisfiedPlan,
+      { directories: [".brain", ".brain/transactions"] },
+      true,
+    );
+    expect(JSON.parse(committed.output.structured_.join(""))).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    const unmanaged = await runTrailPlan(
+      planOf(),
+      { directories: [".brain", ".brain/transactions"] },
+      true,
+    );
+    expect(JSON.parse(unmanaged.output.structured_.join(""))).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: false,
+    });
+
+    const human = await runTrailPlan(
+      satisfiedPlan,
+      {
+        directories: [".brain", ".brain/transactions"],
+        files: { ".brain/state.json": "same" },
+      },
+      false,
+    );
+    expect(human).toMatchObject({ exitCode: 0 });
+    expect(human.output.structured_.join("")).toBe("State outcome recorded.\n");
+    expect(human.output.human_).toEqual([]);
+  });
+
   it("rejects an invalid adapter payload before effects or output", async () => {
     const output = recordingOutput();
     const fileSystem = memoryFileSystem();

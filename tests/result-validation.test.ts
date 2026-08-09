@@ -31,16 +31,14 @@ describe("result validation", () => {
     );
   });
 
-  it("rejects a missing state mutation claim", () => {
+  it("accepts no mutation when the reason only permits a state change", () => {
     const result = {
       ...resultFor("trail.ok", {
         evidence: [{ kind: "event", ref: ".brain/events.jsonl" }],
       }),
       stateChanged: false,
     };
-    expect(() => validateResult(result)).toThrow(
-      "state mutation claim conflicts with its reason",
-    );
+    expect(validateResult(result)).toEqual(result);
   });
 
   it("rejects forbidden evidence", () => {
