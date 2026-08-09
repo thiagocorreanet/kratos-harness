@@ -8,5 +8,9 @@ export {
   type ManagedWriteFileOperation,
   type PathFingerprint,
   type PersistedManagedOperation,
+  type RecoveryDecision,
+  type TransactionObservation,
 } from "./model.js";
 export { normalizeManagedMutationPlan } from "./normalize.js";
+export { decideRecovery } from "./recovery.js";
+export { assertPhaseTransition } from "./transition.js";

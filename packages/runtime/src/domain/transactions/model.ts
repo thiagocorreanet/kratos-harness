@@ -44,6 +44,24 @@ export interface ManagedMutationPlan {
   readonly operations: readonly ManagedOperation[];
 }
 
+export interface TransactionObservation {
+  readonly destinations: ReadonlyMap<string, PathFingerprint>;
+  readonly stagedPayloads: ReadonlyMap<string, PathFingerprint>;
+}
+
+export type RecoveryDecision =
+  | { readonly kind: "abort" }
+  | { readonly kind: "record_published"; readonly operationId: string }
+  | { readonly kind: "publish"; readonly operationId: string }
+  | { readonly kind: "commit" }
+  | { readonly kind: "cleanup"; readonly terminal: "committed" | "aborted" }
+  | { readonly kind: "complete"; readonly terminal: "committed" | "aborted" }
+  | {
+      readonly kind: "blocked";
+      readonly reasonCode: "runtime.state_corrupt";
+      readonly operationId: string | null;
+    };
+
 export class TransactionPolicyError extends Error {
   public constructor(
     public readonly reasonCode: "guard.outside_allow" | "runtime.state_corrupt",
