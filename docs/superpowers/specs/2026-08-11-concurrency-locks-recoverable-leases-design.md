@@ -94,9 +94,12 @@ needs project authority acquires only `project`; it never nests run leases.
 
 The resource-to-path mapping is closed and portable: `project` maps to
 `.brain/locks/project/`, and `run:<run-id>` maps to
-`.brain/locks/runs/<run-id>/`. The colon is therefore contract data, never a
-filesystem character. Run identifiers retain the existing bounded identifier
-grammar and cannot select a reserved lock namespace.
+`.brain/locks/runs/<encoded-run-id>/`. The resource separator is removed and
+the ASCII schema-valid run identifier is encoded as canonical unpadded
+Base64URL. The mapping is reversible and collision-free, uses only portable
+filename characters, and expands the 128-character source maximum to at most
+171 characters. Run identifiers retain the existing bounded identifier grammar
+and cannot select a reserved lock namespace.
 
 An internal admission claim below `.brain/locks/.admission/` serializes only
 scope-family changes. Run acquisition checks for an active project lease while
@@ -142,7 +145,7 @@ Each normalized scope owns one bounded directory:
 |   `-- claim/
 |       `-- claim.json
 `-- runs/
-    `-- <run-id>/
+    `-- <encoded-run-id>/
         |-- lease.json
         |-- events.jsonl
         `-- claim/
