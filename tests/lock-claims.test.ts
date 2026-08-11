@@ -318,6 +318,76 @@ describe("durable lock claims", () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
+  it("contains admission cleanup inspection and read failures", async () => {
+    const inspectionStorage = lockStorage();
+    const baseInspect = inspectionStorage.durableFileSystem.inspect;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(inspectionStorage, {
+          inspect: async (path) =>
+            path === lockPaths("project").admissionRecord
+              ? Promise.reject(new Error("cleanup inspect"))
+              : baseInspect(path),
+        }),
+      ),
+    ).resolves.toMatchObject({ resource: "project" });
+
+    const readStorage = lockStorage();
+    const baseRead = readStorage.durableFileSystem.readText;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(readStorage, {
+          readText: async (path) =>
+            path === lockPaths("project").admissionRecord
+              ? Promise.reject(new Error("cleanup read"))
+              : baseRead(path),
+        }),
+      ),
+    ).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it("contains a write race whose winner cannot be safely reread", async () => {
+    const storage = lockStorage();
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    const baseRead = storage.durableFileSystem.readText;
+    const target = lockPaths("project").claimRecord;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          writeSynced: async (path, content) => {
+            await baseWrite(path, content);
+            if (path === target) throw new Error("raced");
+          },
+          readText: async (path) =>
+            path === target
+              ? Promise.reject(new Error("raced read"))
+              : baseRead(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("does not delete a claim when its durable removal fails", async () => {
+    const storage = lockStorage();
+    const claimed = await acquireClaim(projectClaim, services(storage));
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: claimed },
+        withDurable(storage, {
+          removeFile: async (path) => {
+            if (path === lockPaths("project").claimRecord)
+              throw new Error("remove fault");
+            return baseRemove(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it.each([
     ["lease", lockPaths("project").lease],
     ["events", lockPaths("project").events],
