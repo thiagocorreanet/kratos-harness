@@ -658,12 +658,7 @@ async function withAdmission<T>(
   try {
     return await operation();
   } finally {
-    const current = await readAdmissionClaim(services).catch(
-      (error: unknown) => {
-        if (error instanceof LockFailure) throw error;
-        throw internal();
-      },
-    );
+    const current = await readAdmissionClaim(services);
     if (current !== null) {
       if (sameClaim(current, admission)) {
         try {
