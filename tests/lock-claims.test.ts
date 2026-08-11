@@ -616,6 +616,46 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("inspects a fully materialized run namespace and normalizes its listing failure", async () => {
+    const storage = lockStorage();
+    await acquireClaim(
+      { resource: "run:run-01", owner: "codex:session-01", observed: null },
+      services(storage),
+    );
+    await expect(
+      inspectLease("run:run-01", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+    const baseList = storage.durableFileSystem.list;
+    await expect(
+      inspectLease(
+        "run:run-01",
+        withDurable(storage, {
+          list: async (path) =>
+            path === ".brain/locks/runs"
+              ? Promise.reject(new Error("list"))
+              : baseList(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("normalizes direct claim and lease metadata inspection failures", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    const target = lockPaths("project").events;
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          inspect: async (path) =>
+            path === target
+              ? Promise.reject(new Error("inspect"))
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
   it("normalizes lease binding read failures", async () => {
     const storage = lockStorage({ files: boundLeaseFiles() });
     const baseRead = storage.durableFileSystem.readText;
