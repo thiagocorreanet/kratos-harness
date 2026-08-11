@@ -45,6 +45,15 @@ interface AdmissionRecoveryMarker {
   readonly claimSha256: string;
 }
 
+function markerGeneration(marker: AdmissionRecoveryMarker): AdmissionLocation {
+  const directory = `${admissionClaim}/.claim-${marker.claimSha256}`;
+  return Object.freeze({
+    directory,
+    recordPath: `${directory}/claim.json`,
+    legacy: false,
+  });
+}
+
 interface AdmissionTombstone {
   readonly path: string;
   readonly claimSha256: string;
@@ -1264,6 +1273,19 @@ async function helpAdmissionRecovery(
   }
   const expected = holder ?? retired;
   if (expected === null) {
+    const generation = markerGeneration(marker);
+    const generationEntry = await services.durableFileSystem.inspect(
+      generation.directory,
+    );
+    if (generationEntry.kind === "directory") {
+      if (
+        (await removePublishedAdmissionLocation(generation, services)) ===
+        "lost"
+      )
+        return { kind: "lost" };
+    } else if (generationEntry.kind !== "missing") {
+      throw corrupt(generation.directory);
+    }
     return { kind: await removeAdmissionMarker(marker, services) };
   }
   const tombstone = tombstoneFor(expected, services);
