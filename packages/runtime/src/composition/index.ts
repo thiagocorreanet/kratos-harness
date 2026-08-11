@@ -187,14 +187,22 @@ export async function applyPlan<State = JsonState>(
   } else {
     const receipt = await executeManagedMutation(
       normalized.plan,
-      frozenOptions,
-      services,
       prepared === undefined
-        ? {}
+        ? frozenOptions
         : {
-            beforeCreateTransaction: () =>
-              assertPreparedAppendIsFresh(prepared, ports),
+            ...frozenOptions,
+            eventStorePreconditions: [
+              {
+                path: prepared.paths.events,
+                expected: preparedFingerprint(prepared, prepared.paths.events),
+              },
+              {
+                path: prepared.paths.snapshot,
+                expected: preparedFingerprint(prepared, prepared.paths.snapshot),
+              },
+            ],
           },
+      services,
     );
     /* v8 ignore start -- normal execution returns committed or throws; aborted
      * is returned only by the separate explicit-recovery operation. */
@@ -215,6 +223,16 @@ export async function applyPlan<State = JsonState>(
     else ports.output.human(effect.text);
   }
   return outcome;
+}
+
+function preparedFingerprint(
+  prepared: PreparedEventAppend,
+  path: string,
+): PathFingerprint {
+  const expected = prepared.expected.get(path);
+  if (expected === undefined)
+    throw new TransactionFailure("runtime.internal_failure", []);
+  return expected;
 }
 
 function snapshotApplyInput(
@@ -497,8 +515,7 @@ async function assertPreparedAppendIsFresh(
     try {
       const entry = await ports.durableFileSystem.inspect(path);
       observed = freshFingerprint(entry);
-    } catch (error) {
-      if (error instanceof TransactionFailure) throw error;
+    } catch {
       throw new TransactionFailure("runtime.internal_failure", []);
     }
     if (observed === undefined || !sameFingerprint(expected, observed)) {

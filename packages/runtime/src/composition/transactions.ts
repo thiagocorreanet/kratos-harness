@@ -3,6 +3,7 @@ import {
   type TransactionManifestV1,
   type TransactionProgressV1,
 } from "@mestre-yoda/contracts";
+import { types } from "node:util";
 
 import type { EvidenceRef } from "../domain/result/index.js";
 import {
@@ -53,6 +54,16 @@ export interface TransactionServices {
   readonly schemaRegistry: SchemaRegistry;
 }
 
+export interface EventStorePrecondition {
+  readonly path: string;
+  readonly expected: PathFingerprint;
+}
+
+export interface ExecuteManagedMutationOptions {
+  readonly rootMode: "existing" | "initialize";
+  readonly eventStorePreconditions?: readonly EventStorePrecondition[];
+}
+
 interface TransactionFailureContext {
   transactionId?: string;
   recoveryToken?: string;
@@ -79,14 +90,13 @@ export class TransactionFailure extends Error {
 
 export async function executeManagedMutation(
   plan: ManagedMutationPlan,
-  options: { readonly rootMode: "existing" | "initialize" },
+  options: ExecuteManagedMutationOptions,
   services: TransactionServices,
-  execution: {
-    readonly beforeCreateTransaction?: () => Promise<void>;
-  } = {},
 ): Promise<TransactionReceipt> {
   let frozenPlan: ManagedMutationPlan;
+  let frozenOptions: ExecuteManagedMutationOptions;
   try {
+    frozenOptions = freezeExecuteOptions(options);
     frozenPlan = freezeManagedPlan(plan, services);
   } catch (error) {
     if (error instanceof TransactionFailure) throw error;
@@ -99,15 +109,94 @@ export async function executeManagedMutation(
   try {
     // applyPlan performs this preflight before observing caller destinations;
     // repeat it here after normalization to close that asynchronous race.
-    await preflightManagedTransactions(options, services);
-    if (execution.beforeCreateTransaction !== undefined) {
-      await execution.beforeCreateTransaction();
-      await assertPreconditions(frozenPlan, services);
-    }
-    return await driveExecution(frozenPlan, options, services, attempt);
+    await preflightManagedTransactions(frozenOptions, services);
+    await assertDeclaredEventStorePreconditions(
+      frozenOptions.eventStorePreconditions,
+      services,
+    );
+    return await driveExecution(frozenPlan, frozenOptions, services, attempt);
   } catch (error) {
     return classifyDriverFailure(error, services, attempt);
   }
+}
+
+function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
+  if (typeof value !== "object" || value === null || types.isProxy(value))
+    throw new TransactionFailure("runtime.internal_failure", []);
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string") || !keys.includes("rootMode"))
+    throw new TransactionFailure("runtime.internal_failure", []);
+  const root = Object.getOwnPropertyDescriptor(value, "rootMode");
+  if (
+    root === undefined ||
+    !("value" in root) ||
+    (root.value !== "existing" && root.value !== "initialize")
+  )
+    throw new TransactionFailure("runtime.internal_failure", []);
+  const declared = Object.getOwnPropertyDescriptor(
+    value,
+    "eventStorePreconditions",
+  );
+  const rootMode = root.value as "existing" | "initialize";
+  if (declared === undefined) return { rootMode };
+  const rawEntries =
+    "value" in declared ? (declared.value as unknown) : undefined;
+  if (!Array.isArray(rawEntries) || types.isProxy(rawEntries))
+    throw new TransactionFailure("runtime.internal_failure", []);
+  const preconditions: EventStorePrecondition[] = [];
+  for (const entry of rawEntries as unknown[]) {
+    if (typeof entry !== "object" || entry === null || types.isProxy(entry))
+      throw new TransactionFailure("runtime.internal_failure", []);
+    const entryKeys = Reflect.ownKeys(entry);
+    if (
+      entryKeys.length !== 2 ||
+      !entryKeys.includes("path") ||
+      !entryKeys.includes("expected")
+    )
+      throw new TransactionFailure("runtime.internal_failure", []);
+    const path = Object.getOwnPropertyDescriptor(entry, "path");
+    const expected = Object.getOwnPropertyDescriptor(entry, "expected");
+    if (
+      path === undefined ||
+      expected === undefined ||
+      !("value" in path) ||
+      !("value" in expected) ||
+      typeof path.value !== "string"
+    )
+      throw new TransactionFailure("runtime.internal_failure", []);
+    preconditions.push({
+      path: path.value,
+      expected: freezeFingerprint(expected.value as unknown),
+    });
+  }
+  return { rootMode, eventStorePreconditions: preconditions };
+}
+
+async function assertDeclaredEventStorePreconditions(
+  entries: readonly EventStorePrecondition[] | undefined,
+  services: TransactionServices,
+): Promise<void> {
+  if (entries === undefined) return;
+  const evidence: EvidenceRef[] = [];
+  for (const entry of entries) {
+    let observed: PathFingerprint;
+    try {
+      observed = await observeFingerprint(entry.path, services);
+    } catch {
+      throw new TransactionFailure("runtime.internal_failure", []);
+    }
+    if (!sameFingerprint(observed, entry.expected)) {
+      const kind =
+        /^\.brain\/runs\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\/events\.jsonl$/u.test(
+          entry.path,
+        )
+          ? "event"
+          : "artifact";
+      evidence.push({ kind, ref: entry.path });
+    }
+  }
+  if (evidence.length !== 0)
+    throw new TransactionFailure("runtime.revision_conflict", evidence);
 }
 
 /** Reconcile safe orphans and reject every transaction requiring recovery. */
