@@ -324,7 +324,9 @@ function exactRecord(value: unknown): LockClaimRecord | null {
       resource !== "project" &&
       (typeof resource !== "string" || !resource.startsWith("run:"))) ||
     typeof record.owner !== "string" ||
-    (record.leaseId !== null && typeof record.leaseId !== "string") ||
+    (record.leaseId !== null &&
+      (typeof record.leaseId !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(record.leaseId))) ||
     (record.leaseId === null) !== (fencingToken === null) ||
     (fencingToken !== null &&
       (!Number.isSafeInteger(fencingToken) ||

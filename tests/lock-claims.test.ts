@@ -887,6 +887,51 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it.each([
+    { leaseId: "lease-01", fencingToken: null },
+    { leaseId: null, fencingToken: 1 },
+    { leaseId: "?", fencingToken: 1 },
+  ])("rejects invalid persisted lease/token claim pairs", async (change) => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").claimRecord]: canonicalizeJson({
+          ...observedClaim.observed,
+          ...change,
+        }),
+      },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("rejects invalid release and recovery observations before I/O", async () => {
+    const storage = lockStorage();
+    const fail = withDurable(storage, {
+      inspect: async () => {
+        throw new Error("must not run");
+      },
+    });
+    await expect(
+      releaseClaim(
+        {
+          resource: "project",
+          observed: { ...observedClaim.observed, owner: "invalid" },
+        },
+        fail,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    await expect(
+      recoverClaim(
+        {
+          ...observedClaim,
+          observed: { ...observedClaim.observed, resource: "run:other" },
+        },
+        fail,
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("rejects a non-directory runs root and observes the active run holder", async () => {
     const corrupt = lockStorage({ files: { ".brain/locks/runs": "bad" } });
     await expect(
