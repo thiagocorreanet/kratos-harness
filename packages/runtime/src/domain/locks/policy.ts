@@ -1,10 +1,18 @@
 import type { LockLeaseV1 } from "@mestre-yoda/contracts";
 
-import { classifyLeaseTime, parseOwner, validateTtl } from "./scope.js";
+import {
+  classifyLeaseTime,
+  lockPaths,
+  parseOwner,
+  validateTtl,
+} from "./scope.js";
 import type { LeaseBinding, LockLifecycleAction } from "./lifecycle.js";
 import { LeasePolicyError, type LeaseResource } from "./model.js";
 
 export type LeasePolicyBinding = Pick<LeaseBinding, "action" | "lease">;
+
+const contractTimestamp =
+  /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?Z$/u;
 
 export type ExpectedLeaseIdentity = Pick<
   LockLeaseV1,
@@ -61,7 +69,13 @@ function invalidInput(): never {
 function validNow(now: Date): string {
   const time = now.getTime();
   if (!Number.isFinite(time)) invalidInput();
-  return now.toISOString();
+  const timestamp = now.toISOString();
+  if (!contractTimestamp.test(timestamp)) invalidInput();
+  return timestamp;
+}
+
+function validateLeaseId(leaseId: string): void {
+  lockPaths(`run:${leaseId}`);
 }
 
 function validRevision(value: number): number {
@@ -85,8 +99,7 @@ function exactIdentity(
 function nextExpiry(now: Date, ttlMs: number): string {
   const time = now.getTime() + validateTtl(ttlMs);
   const expiresAt = new Date(time);
-  if (!Number.isFinite(expiresAt.getTime())) invalidInput();
-  return expiresAt.toISOString();
+  return validNow(expiresAt);
 }
 
 function nextFencingToken(token: number): number {
@@ -124,10 +137,14 @@ function currentState(
 export function decideAcquire(input: DecideAcquireInput): LeasePolicyDecision {
   const acquiredAt = validNow(input.now);
   const stateRevision = validRevision(input.stateRevision);
+  lockPaths(input.resource);
   parseOwner(input.owner);
+  validateLeaseId(input.leaseId);
   validateTtl(input.ttlMs);
   if (input.current !== null) {
     if (input.current.action === "release") {
+      if (input.current.lease.resource !== input.resource)
+        throw new LeasePolicyError("invalid_transition");
       return transition("acquire", {
         ...input.current.lease,
         owner: input.owner,
@@ -199,6 +216,7 @@ export function decideTakeover(
   const acquiredAt = validNow(input.now);
   const stateRevision = validRevision(input.stateRevision);
   parseOwner(input.owner);
+  validateLeaseId(input.leaseId);
   validateTtl(input.ttlMs);
   if (!exactIdentity(input.current.lease, input.expectedIdentity))
     return conflict();

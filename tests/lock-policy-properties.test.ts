@@ -333,4 +333,70 @@ describe("lease transition policy", () => {
       }),
     ).toThrow(LeasePolicyError);
   });
+
+  it("closes acquisition resource and lease identity to the released lease", () => {
+    const released = { action: "release" as const, lease: lease() };
+    expect(() =>
+      decideAcquire({
+        now: new Date("2026-08-11T00:00:00.000Z"),
+        current: null,
+        resource: "run:",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideAcquire({
+        now: new Date("2026-08-11T00:00:00.000Z"),
+        current: released,
+        resource: "project",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toThrow(LeasePolicyError);
+  });
+
+  it("rejects lease IDs and timestamps outside the lock contract grammar", () => {
+    const active = { action: "acquire" as const, lease: lease() };
+    for (const decide of [
+      () =>
+        decideAcquire({
+          now: new Date("2026-08-11T00:00:00.000Z"),
+          current: null,
+          resource: "run:run-01",
+          owner: "codex:session-02",
+          leaseId: "?",
+          ttlMs: 5_000,
+          stateRevision: 8,
+        }),
+      () =>
+        decideTakeover({
+          now: new Date("2026-08-11T00:00:00.000Z"),
+          current: {
+            ...active,
+            lease: { ...active.lease, expiresAt: "2026-08-10T23:59:55.000Z" },
+          },
+          expectedIdentity: active.lease,
+          owner: "codex:session-02",
+          leaseId: "?",
+          ttlMs: 5_000,
+          stateRevision: 8,
+        }),
+      () =>
+        decideAcquire({
+          now: new Date("+010000-01-01T00:00:00.000Z"),
+          current: null,
+          resource: "run:run-01",
+          owner: "codex:session-02",
+          leaseId: "lease-02",
+          ttlMs: 5_000,
+          stateRevision: 8,
+        }),
+    ])
+      expect(decide).toThrow(LeasePolicyError);
+  });
 });
