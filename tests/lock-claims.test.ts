@@ -25,7 +25,10 @@ import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import { prepareLeaseTransition } from "@mestre-yoda/runtime/domain/locks";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
 import { types } from "node:util";
-import { TransactionFailure } from "@mestre-yoda/runtime/composition";
+import {
+  LockFailure,
+  TransactionFailure,
+} from "@mestre-yoda/runtime/composition";
 import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
 
@@ -86,8 +89,11 @@ function expiredClaimStorage() {
   });
 }
 
-function boundLeaseFiles(expiresAt = "2026-08-11T00:02:00.000Z") {
-  const paths = lockPaths("project");
+function boundLeaseFiles(
+  expiresAt = "2026-08-11T00:02:00.000Z",
+  resource: LeaseResource = "project",
+) {
+  const paths = lockPaths(resource);
   const prepared = prepareLeaseTransition(
     {
       action: "acquire",
@@ -95,7 +101,7 @@ function boundLeaseFiles(expiresAt = "2026-08-11T00:02:00.000Z") {
       lease: {
         contractVersion: "1.0.0",
         stateContract: "1.0.0",
-        resource: "project",
+        resource,
         owner: "codex:session-01",
         leaseId: "lease-01",
         acquiredAt: "2026-08-11T00:00:00.000Z",
@@ -137,6 +143,16 @@ function observeClaim(
       ...fingerprint,
     },
   };
+}
+
+/** Test-equivalent of the closed sibling recovery marker namespace. */
+function admissionRecoveryMarker(
+  record: { readonly expiresAt: string } & Record<string, unknown>,
+): string {
+  const admissionRoot = lockPaths("project").admissionClaim.slice(0, -6);
+  return `${admissionRoot}/.recovery-${String(Date.parse(record.expiresAt))}-${sha256Digests().sha256(
+    canonicalizeJson(record),
+  )}`;
 }
 
 function acquiredClaim(
@@ -413,6 +429,496 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("preserves typed durable failures and rejects malformed sibling markers", async () => {
+    const fault = lockStorage();
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(fault, {
+          inspect: async () => {
+            throw new LockFailure("runtime.recovery_required", []);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    for (const seed of [
+      { files: { [marker]: "bad" } },
+      { directories: [marker, `${marker}/not-empty`] },
+      {
+        directories: [
+          marker,
+          admissionRecoveryMarker({ ...stale, claimId: "two" }),
+        ],
+      },
+    ]) {
+      await expect(
+        inspectLease("project", services(lockStorage(seed))),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    }
+  });
+
+  it("rejects recovery markers that are not yet eligible", async () => {
+    const pending = {
+      claimId: "admission-pending",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:02:00.000Z",
+    };
+    for (const seed of [
+      { directories: [admissionRecoveryMarker(pending)] },
+      {
+        files: {
+          [lockPaths("project").admissionRecord]: canonicalizeJson(pending),
+        },
+        directories: [admissionRecoveryMarker(pending)],
+      },
+    ]) {
+      await expect(
+        inspectLease("project", services(lockStorage(seed))),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    }
+  });
+
+  it.each([
+    ["active", "2026-08-11T00:02:00.000Z"],
+    ["skew", "2026-08-11T00:00:59.000Z"],
+  ])(
+    "excludes a run claim while the project lease is %s",
+    async (_name, expiresAt) => {
+      const storage = lockStorage({ files: boundLeaseFiles(expiresAt) });
+      await expect(
+        acquireClaim(
+          { resource: "run:run-01", owner: "codex:session-01", observed: null },
+          services(storage),
+        ),
+      ).resolves.toMatchObject({
+        kind: "conflict",
+        conflict: { resource: "project" },
+      });
+    },
+  );
+
+  it("contains active-run listing failures during project family exclusion", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path === ".brain/locks/runs") throw new Error("fault");
+            return storage.durableFileSystem.list(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it.each(["inspect", "special"] as const)(
+    "contains sibling marker cleanup %s failures",
+    async (mode) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const marker = admissionRecoveryMarker(stale);
+      const storage = lockStorage({
+        files: {
+          [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+      const baseInspect = storage.durableFileSystem.inspect;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path === marker) throw new Error("fault");
+              return baseRemove(path);
+            },
+            inspect: async (path) =>
+              path === marker
+                ? mode === "inspect"
+                  ? Promise.reject(new Error("fault"))
+                  : { kind: "special" as const }
+                : baseInspect(path),
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mode === "special"
+            ? "runtime.state_corrupt"
+            : "runtime.internal_failure",
+      });
+    },
+  );
+
+  it.each(["lost", "replaced"] as const)(
+    "never removes a changed admission record during sibling recovery: %s",
+    async (mode) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const paths = lockPaths("project");
+      const marker = admissionRecoveryMarker(stale);
+      const storage = lockStorage({
+        files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseWrite = storage.durableFileSystem.writeSynced;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            removeFile: async (path) => {
+              if (path !== paths.admissionRecord) return baseRemove(path);
+              await baseRemove(path);
+              if (mode === "replaced")
+                await baseWrite(
+                  path,
+                  canonicalizeJson({ ...stale, claimId: "admission-new" }),
+                );
+              throw new Error("race");
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mode === "lost"
+            ? "runtime.recovery_required"
+            : "runtime.state_corrupt",
+      });
+    },
+  );
+
+  it("normalizes transaction residue inspection faults", async () => {
+    const storage = expiredClaimStorage();
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      recoverClaim(observedClaim, {
+        ...services(storage),
+        inspectTransactions: async () => [
+          {
+            transactionId: "tx-terminal",
+            manifestDigest: null,
+            recoveryToken: "token",
+            phase: "committed",
+            evidenceRef: ".brain/transactions/tx-terminal/progress.json",
+          },
+        ],
+        durableFileSystem: {
+          ...storage.durableFileSystem,
+          inspect: async (path) =>
+            path === ".brain/transactions/tx-terminal/progress.next"
+              ? Promise.reject(new Error("fault"))
+              : baseInspect(path),
+        },
+      }),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("preserves typed directory setup and election failures", async () => {
+    const setup = lockStorage();
+    await expect(
+      ensureLockNamespace(
+        "project",
+        withDurable(setup, {
+          createDirectory: async () => {
+            throw new LockFailure("runtime.recovery_required", []);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const election = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+    });
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(election, {
+          createDirectoryExclusive: async () => {
+            throw new LockFailure("runtime.recovery_required", []);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+  });
+
+  it("stops at a newly observed admission holder when election creation loses", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+    });
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          createDirectoryExclusive: async () =>
+            Promise.reject(new Error("lost")),
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict", claimId: "admission-stale" });
+  });
+
+  it("preserves a typed admission write failure", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          writeSynced: async (path, text) => {
+            if (path === lockPaths("project").admissionRecord)
+              throw new LockFailure("runtime.recovery_required", []);
+            return storage.durableFileSystem.writeSynced(path, text);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+  });
+
+  it("uses a project scope claim as a run-family exclusion", async () => {
+    const storage = lockStorage();
+    await acquireClaim(projectClaim, services(storage));
+    await expect(
+      acquireClaim(
+        { resource: "run:run-01", owner: "codex:session-02", observed: null },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      conflict: { resource: "project" },
+    });
+  });
+
+  it("preserves typed marker removal failures and detects a marker that disappears with a holder", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const typed = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(typed, {
+          removeEmptyDirectory: async (path) => {
+            if (path === marker)
+              throw new LockFailure("runtime.recovery_required", []);
+            return typed.durableFileSystem.removeEmptyDirectory(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const lost = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    const baseRead = lost.durableFileSystem.readText;
+    const baseRemove = lost.durableFileSystem.removeEmptyDirectory;
+    let reads = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(lost, {
+          readText: async (path) => {
+            if (path === lockPaths("project").admissionRecord && ++reads === 3)
+              await baseRemove(marker);
+            return baseRead(path);
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict", claimId: "admission-stale" });
+  });
+
+  it("fails closed when the old admission fingerprint changes before recovery deletion", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [admissionRecoveryMarker(stale)],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (
+              path === lockPaths("project").admissionRecord &&
+              entry.kind === "file" &&
+              ++inspections >= 4
+            )
+              return { ...entry, sha256: "f".repeat(64) };
+            return entry;
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("rejects a marker whose no-follow kind changes during cleanup", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+    let markerInspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path === marker) throw new Error("fault");
+            return baseRemove(path);
+          },
+          inspect: async (path) => {
+            if (path !== marker) return baseInspect(path);
+            markerInspections += 1;
+            if (markerInspections >= 5) return { kind: "special" as const };
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("preserves typed namespace inspection failures and contains marker reread faults", async () => {
+    const typed = lockStorage();
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(typed, {
+          inspect: async () => {
+            throw new LockFailure("runtime.recovery_required", []);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+    let markerInspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path === marker) throw new Error("fault");
+            return baseRemove(path);
+          },
+          inspect: async (path) => {
+            if (path !== marker) return baseInspect(path);
+            markerInspections += 1;
+            if (markerInspections >= 5) throw new Error("reread fault");
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("rejects a claim record bound to a different resource", async () => {
     const storage = lockStorage({
       files: {
@@ -663,7 +1169,7 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.snapshot().files[target]).toBeTypeOf("string");
   });
 
@@ -884,7 +1390,7 @@ describe("durable lock claims", () => {
     ).resolves.toMatchObject({ resource: "project" });
   });
 
-  it("returns verified contention when another contender owns admission recovery", async () => {
+  it("helps a matching stale sibling marker when no remover remains", async () => {
     const admissionRecord = {
       claimId: "admission-stale",
       resource: "admission",
@@ -897,20 +1403,15 @@ describe("durable lock claims", () => {
     const paths = lockPaths("project");
     const storage = lockStorage({
       files: { [paths.admissionRecord]: canonicalizeJson(admissionRecord) },
-      directories: [`${paths.admissionClaim}/.recovery`],
+      directories: [admissionRecoveryMarker(admissionRecord)],
     });
     await expect(
       acquireClaim(projectClaim, services(storage, "2026-08-11T00:00:35.000Z")),
-    ).resolves.toMatchObject({
-      kind: "conflict",
-      owner: "codex:session-02",
-    });
-    expect(storage.snapshot().files[paths.admissionRecord]).toBe(
-      canonicalizeJson(admissionRecord),
-    );
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().files[paths.admissionRecord]).toBeUndefined();
   });
 
-  it("keeps A's replacement when B loses a scheduled admission recovery election", async () => {
+  it("lets only the contender that removes the sibling marker continue", async () => {
     const paths = lockPaths("project");
     const stale = {
       claimId: "admission-stale",
@@ -937,7 +1438,7 @@ describe("durable lock claims", () => {
     const lockServices = withDurable(storage, {
       createDirectoryExclusive: async (path) => {
         await baseExclusive(path);
-        if (path === `${paths.admissionClaim}/.recovery` && ++ordinal === 1) {
+        if (path === admissionRecoveryMarker(stale) && ++ordinal === 1) {
           opened();
           await releaseA;
         }
@@ -953,9 +1454,12 @@ describe("durable lock claims", () => {
       { ...projectClaim, owner: "codex:session-03" },
       { ...lockServices, clock: fixedClock(clock) },
     );
-    expect(contenderB).toMatchObject({ kind: "conflict" });
+    expect(contenderB).toMatchObject({ resource: "project" });
     continueA();
-    const winner = acquiredClaim(await contenderA);
+    await expect(contenderA).rejects.toMatchObject({
+      reasonCode: "runtime.recovery_required",
+    });
+    const winner = acquiredClaim(contenderB);
     expect(winner.claimId).not.toBe("admission-stale");
     expect(storage.snapshot().files[paths.claimRecord]).toBe(
       canonicalizeJson({
@@ -1000,7 +1504,7 @@ describe("durable lock claims", () => {
         withDurable(storage, {
           createDirectoryExclusive: async (path) => {
             await baseExclusive(path);
-            if (path === `${paths.admissionClaim}/.recovery`) {
+            if (path === admissionRecoveryMarker(stale)) {
               await baseRemove(paths.admissionRecord);
               await baseWrite(
                 paths.admissionRecord,
@@ -1011,16 +1515,16 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).resolves.toMatchObject({ kind: "conflict", owner: "codex:session-03" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.snapshot().files[paths.admissionRecord]).toBe(
       canonicalizeJson(replacement),
     );
-    expect(storage.snapshot().directories).not.toContain(
-      `${paths.admissionClaim}/.recovery`,
+    expect(storage.snapshot().directories).toContain(
+      admissionRecoveryMarker(stale),
     );
   });
 
-  it("returns the observed holder when admission disappears after marker election", async () => {
+  it("continues only after removing an elected marker whose record already disappeared", async () => {
     const paths = lockPaths("project");
     const stale = {
       claimId: "admission-stale",
@@ -1046,7 +1550,7 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).resolves.toMatchObject({ kind: "conflict", claimId: "admission-stale" });
+    ).resolves.toMatchObject({ resource: "project" });
   });
 
   it("fails recoverably when the elected recovery marker cannot be removed", async () => {
@@ -1069,14 +1573,14 @@ describe("durable lock claims", () => {
         projectClaim,
         withDurable(storage, {
           removeEmptyDirectory: async (path) =>
-            path === `${paths.admissionClaim}/.recovery`
+            path === admissionRecoveryMarker(stale)
               ? Promise.reject(new Error("marker cleanup"))
               : baseRemove(path),
         }),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
     expect(storage.snapshot().directories).toContain(
-      `${paths.admissionClaim}/.recovery`,
+      admissionRecoveryMarker(stale),
     );
   });
 
@@ -1250,7 +1754,12 @@ describe("durable lock claims", () => {
                 : baseSync(path),
           }),
         ),
-      ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+      ).rejects.toMatchObject({
+        reasonCode:
+          _name === "admission-parent"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
     },
   );
 
@@ -1445,7 +1954,7 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     const paths = lockPaths("project");
     const leaseOnly = lockStorage({
       files: { [paths.lease]: "{}" },
@@ -1994,14 +2503,109 @@ describe("durable lock claims", () => {
   });
 
   it("accepts an empty canonical sibling admission recovery marker", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
     const storage = lockStorage({
-      directories: [
-        ".brain/locks/.admission/.recovery-1786406435000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      ],
+      directories: [admissionRecoveryMarker(stale)],
     });
     await expect(
       inspectLease("project", services(storage)),
     ).resolves.toMatchObject({ kind: "empty" });
+  });
+
+  it("rejects a sibling recovery marker not bound to the old admission bytes", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [
+        admissionRecoveryMarker({ ...stale, claimId: "different" }),
+      ],
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("helps a deterministic sibling marker after its old admission record is already absent", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const storage = lockStorage({ directories: [marker] });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:00:35.000Z")),
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().directories).not.toContain(marker);
+  });
+
+  it.each([
+    ["active", "2026-08-11T00:02:00.000Z"],
+    ["skew", "2026-08-11T00:00:59.000Z"],
+  ])(
+    "excludes a project claim while a sibling run lease is %s",
+    async (_name, expiresAt) => {
+      const storage = lockStorage({
+        files: boundLeaseFiles(expiresAt, "run:run-01"),
+      });
+      await expect(
+        acquireClaim(projectClaim, services(storage)),
+      ).resolves.toMatchObject({
+        kind: "conflict",
+        conflict: { resource: "run:run-01" },
+      });
+    },
+  );
+
+  it("revalidates the supplied lease guard after admission and before creating a scope claim", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    const observed = await inspectLease("project", services(storage));
+    if (observed.guard === null) throw new Error("Lease guard was absent");
+    const target = lockPaths("project").lease;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let leaseInspections = 0;
+    await expect(
+      acquireClaim(
+        { ...projectClaim, observed: observed.guard },
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (
+              path === target &&
+              entry.kind === "file" &&
+              ++leaseInspections >= 2
+            )
+              return { ...entry, sha256: "f".repeat(64) };
+            return entry;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+    expect(
+      storage.snapshot().files[lockPaths("project").claimRecord],
+    ).toBeUndefined();
   });
 
   it("accepts an admission namespace whose claim child is absent", async () => {
