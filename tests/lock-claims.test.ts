@@ -302,6 +302,41 @@ describe("durable lock claims", () => {
             : { files: { [recordPath]: "{}" } };
       await expect(
         inspectLease("project", services(lockStorage(seed))),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mode === "generation-file"
+            ? "runtime.internal_failure"
+            : "runtime.state_corrupt",
+      });
+    },
+  );
+
+  it.each(["generation-child", "mixed-layout"] as const)(
+    "rejects malformed published generation %s",
+    async (mode) => {
+      const record: LockClaimRecord = {
+        claimId: "generation-invalid",
+        resource: "admission",
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const path = publishedAdmissionRecord(record);
+      const generation = parentDirectory(path);
+      const seed =
+        mode === "generation-child"
+          ? { files: { [`${generation}/unexpected`]: "bad" } }
+          : {
+              files: {
+                [path]: canonicalizeJson(record),
+                [`${lockPaths("project").admissionClaim}/claim.json`]:
+                  canonicalizeJson(record),
+              },
+            };
+      await expect(
+        inspectLease("project", services(lockStorage(seed))),
       ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     },
   );
