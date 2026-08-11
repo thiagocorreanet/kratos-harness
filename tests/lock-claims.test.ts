@@ -206,6 +206,16 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("recovers exactly at the expiry plus skew boundary", async () => {
+    const storage = expiredClaimStorage();
+    await expect(
+      recoverClaim(
+        observedClaim,
+        services(storage, "2026-08-11T00:00:35.000Z"),
+      ),
+    ).resolves.toEqual({ kind: "recovered" });
+  });
+
   it("admits multiple canonical run directories", async () => {
     const storage = lockStorage();
     await acquireClaim(
@@ -256,6 +266,29 @@ describe("durable lock claims", () => {
         services(storage),
       ),
     ).resolves.toMatchObject({ resource: "run:run-b" });
+  });
+
+  it("rejects unknown namespace children and synthetic symlink observations", async () => {
+    const unknown = lockStorage({ directories: [".brain/locks/unknown"] });
+    await expect(
+      acquireClaim(projectClaim, services(unknown)),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+
+    const storage = lockStorage();
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          inspect: async (path) =>
+            path === ".brain"
+              ? { kind: "symlink" as const }
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
   it.each([
