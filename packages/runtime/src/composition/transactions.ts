@@ -67,7 +67,9 @@ export class TransactionFailure extends Error {
       | "runtime.internal_failure"
       | "runtime.recovery_required"
       | "runtime.revision_conflict"
-      | "runtime.state_corrupt",
+      | "runtime.state_corrupt"
+      | "contract.state_version_invalid"
+      | "contract.state_version_unsupported",
     public readonly evidence: readonly EvidenceRef[],
   ) {
     super("Managed transaction failed");
