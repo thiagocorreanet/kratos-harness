@@ -188,6 +188,26 @@ describe("durable lock claims", () => {
     ).resolves.toEqual({ kind: "absent" });
   });
 
+  it("propagates a release conflict during claim recovery", async () => {
+    const storage = expiredClaimStorage();
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let observations = 0;
+    await expect(
+      recoverClaim(
+        observedClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path === target && entry.kind === "file" && ++observations >= 2)
+              return { ...entry, sha256: "f".repeat(64) };
+            return entry;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+  });
+
   it("keeps inspection read-only when the lock namespace is absent", async () => {
     const storage = lockStorage();
     await expect(
