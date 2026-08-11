@@ -121,55 +121,109 @@ export async function executeManagedMutation(
 }
 
 function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
-  if (typeof value !== "object" || value === null || types.isProxy(value))
-    throw new TransactionFailure("runtime.internal_failure", []);
-  const keys = Reflect.ownKeys(value);
-  if (keys.some((key) => typeof key !== "string") || !keys.includes("rootMode"))
-    throw new TransactionFailure("runtime.internal_failure", []);
-  const root = Object.getOwnPropertyDescriptor(value, "rootMode");
-  if (
-    root === undefined ||
-    !("value" in root) ||
-    (root.value !== "existing" && root.value !== "initialize")
-  )
-    throw new TransactionFailure("runtime.internal_failure", []);
-  const declared = Object.getOwnPropertyDescriptor(
-    value,
-    "eventStorePreconditions",
-  );
-  const rootMode = root.value as "existing" | "initialize";
-  if (declared === undefined) return { rootMode };
-  const rawEntries =
-    "value" in declared ? (declared.value as unknown) : undefined;
-  if (!Array.isArray(rawEntries) || types.isProxy(rawEntries))
-    throw new TransactionFailure("runtime.internal_failure", []);
-  const preconditions: EventStorePrecondition[] = [];
-  for (const entry of rawEntries as unknown[]) {
-    if (typeof entry !== "object" || entry === null || types.isProxy(entry))
-      throw new TransactionFailure("runtime.internal_failure", []);
-    const entryKeys = Reflect.ownKeys(entry);
+  try {
+    const root = exactData(
+      value,
+      ["rootMode", "eventStorePreconditions"],
+      true,
+    );
+    const rootMode = root.rootMode;
+    if (rootMode !== "existing" && rootMode !== "initialize") throw new Error();
+    if (!("eventStorePreconditions" in root)) return { rootMode };
+    const tuple = root.eventStorePreconditions;
     if (
-      entryKeys.length !== 2 ||
-      !entryKeys.includes("path") ||
-      !entryKeys.includes("expected")
+      !Array.isArray(tuple) ||
+      types.isProxy(tuple) ||
+      Object.getPrototypeOf(tuple) !== Array.prototype ||
+      tuple.length !== 2 ||
+      Reflect.ownKeys(tuple).length !== 3
     )
-      throw new TransactionFailure("runtime.internal_failure", []);
-    const path = Object.getOwnPropertyDescriptor(entry, "path");
-    const expected = Object.getOwnPropertyDescriptor(entry, "expected");
+      throw new Error();
+    const first = arrayData(tuple, 0);
+    const second = arrayData(tuple, 1);
+    const preconditions = [
+      freezePrecondition(first),
+      freezePrecondition(second),
+    ];
+    const match =
+      /^\.brain\/runs\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/(events\.jsonl|state\.json)$/u;
+    const firstPrecondition = preconditions[0];
+    const secondPrecondition = preconditions[1];
+    if (firstPrecondition === undefined || secondPrecondition === undefined)
+      throw new Error();
+    const left = match.exec(firstPrecondition.path);
+    const right = match.exec(secondPrecondition.path);
     if (
-      path === undefined ||
-      expected === undefined ||
-      !("value" in path) ||
-      !("value" in expected) ||
-      typeof path.value !== "string"
+      left?.[2] !== "events.jsonl" ||
+      right?.[2] !== "state.json" ||
+      left[1] !== right[1]
     )
-      throw new TransactionFailure("runtime.internal_failure", []);
-    preconditions.push({
-      path: path.value,
-      expected: freezeFingerprint(expected.value as unknown),
-    });
+      throw new Error();
+    return { rootMode, eventStorePreconditions: preconditions };
+  } catch {
+    throw new TransactionFailure("runtime.internal_failure", []);
   }
-  return { rootMode, eventStorePreconditions: preconditions };
+}
+
+function exactData(
+  value: unknown,
+  allowed: readonly string[],
+  optional = false,
+): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    types.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    throw new Error();
+  const keys = Reflect.ownKeys(value);
+  if (
+    keys.some((key) => typeof key !== "string" || !allowed.includes(key)) ||
+    (!optional && keys.length !== allowed.length) ||
+    (optional && (keys.length < 1 || keys.length > allowed.length))
+  )
+    throw new Error();
+  const copy: Record<string, unknown> = {};
+  let index = 0;
+  while (index < keys.length) {
+    const key = keys[index];
+    if (typeof key !== "string") throw new Error();
+    const d = Object.getOwnPropertyDescriptor(value, key);
+    if (d === undefined || !("value" in d)) throw new Error();
+    copy[key] = d.value;
+    index += 1;
+  }
+  if (!("rootMode" in copy) && allowed.includes("rootMode")) throw new Error();
+  return copy;
+}
+function arrayData(value: unknown[], index: number): unknown {
+  const d = Object.getOwnPropertyDescriptor(value, String(index));
+  if (d === undefined || !("value" in d)) throw new Error();
+  return d.value;
+}
+function freezePrecondition(value: unknown): EventStorePrecondition {
+  const entry = exactData(value, ["path", "expected"]);
+  if (typeof entry.path !== "string") throw new Error();
+  return {
+    path: entry.path,
+    expected: freezeFingerprintStrict(entry.expected),
+  };
+}
+function freezeFingerprintStrict(value: unknown): PathFingerprint {
+  const entry = exactData(value, ["kind", "size", "sha256"], true);
+  if (entry.kind === "missing" && Reflect.ownKeys(value as object).length === 1)
+    return { kind: "missing" };
+  if (
+    entry.kind === "file" &&
+    typeof entry.size === "number" &&
+    Number.isSafeInteger(entry.size) &&
+    entry.size >= 0 &&
+    typeof entry.sha256 === "string" &&
+    /^[a-f0-9]{64}$/u.test(entry.sha256)
+  )
+    return { kind: "file", size: entry.size, sha256: entry.sha256 };
+  throw new Error();
 }
 
 async function assertDeclaredEventStorePreconditions(
