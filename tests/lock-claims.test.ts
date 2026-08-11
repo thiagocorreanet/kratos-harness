@@ -943,6 +943,91 @@ describe("durable lock claims", () => {
     expect(storage.snapshot().directories).not.toContain(marker);
   });
 
+  it("does not let delayed B delete A's replacement after atomic retirement", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const paths = lockPaths("project");
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseReplace = storage.durableFileSystem.replaceFile;
+    let opened!: () => void;
+    const renamed = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const a = acquireClaim(
+      projectClaim,
+      withDurable(storage, {
+        replaceFile: async (source, target) => {
+          await baseReplace(source, target);
+          opened();
+          await paused;
+        },
+      }),
+    );
+    await renamed;
+    const b = await acquireClaim(
+      { ...projectClaim, owner: "codex:session-03" },
+      services(storage),
+    );
+    expect(b).toMatchObject({ resource: "project", owner: "codex:session-03" });
+    resume();
+    await expect(a).rejects.toMatchObject({
+      reasonCode: "runtime.recovery_required",
+    });
+    expect(storage.snapshot().files[paths.claimRecord]).toBeTypeOf("string");
+  });
+
+  it.each(["rename", "tombstone-delete", "parent-delete"] as const)(
+    "resumes recovery after a crash at %s",
+    async (boundary) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const marker = admissionRecoveryMarker(stale);
+      const tombstone = admissionTombstone(stale);
+      const seed =
+        boundary === "rename"
+          ? {
+              files: {
+                [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+              },
+              directories: [marker],
+            }
+          : boundary === "tombstone-delete"
+            ? {
+                files: { [tombstone]: canonicalizeJson(stale) },
+                directories: [marker],
+              }
+            : { directories: [marker] };
+      const storage = lockStorage(seed);
+      await expect(
+        acquireClaim(
+          projectClaim,
+          services(storage, "2026-08-11T00:00:35.000Z"),
+        ),
+      ).resolves.toMatchObject({ resource: "project" });
+      expect(storage.snapshot().directories).not.toContain(marker);
+    },
+  );
+
   it("rejects a claim record bound to a different resource", async () => {
     const storage = lockStorage({
       files: {
