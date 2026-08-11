@@ -51,6 +51,14 @@ const embeddedSchemaInputs = [
   "schemas/state/transaction-progress.v1.schema.json",
 ] as const;
 
+const eventImplementationInputs = [
+  "packages/runtime/src/domain/events/seal.ts",
+  "packages/runtime/src/domain/events/parse.ts",
+  "packages/runtime/src/domain/events/verify.ts",
+  "packages/runtime/src/domain/events/reduce.ts",
+  "packages/runtime/src/composition/events.ts",
+] as const;
+
 beforeAll(async () => {
   execFileSync(process.execPath, ["scripts/build.mjs"], {
     cwd: repositoryRoot,
@@ -153,6 +161,9 @@ describe("runtime distribution", () => {
     ).toBe(true);
     for (const schema of embeddedSchemaInputs) {
       expect(output.inputs[schema]?.bytesInOutput).toBeGreaterThan(0);
+    }
+    for (const implementation of eventImplementationInputs) {
+      expect(output.inputs[implementation]?.bytesInOutput).toBeGreaterThan(0);
     }
     expect(core.toString("utf8")).not.toMatch(/(?:\.\.\/)+schemas\//u);
   });
