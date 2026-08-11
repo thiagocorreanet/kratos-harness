@@ -86,6 +86,26 @@ describe("managed transaction execution", () => {
   });
 
   it.each([
+    ["options proxy", () => new Proxy({ rootMode: "existing" }, {})],
+    ["tuple proxy", () => ({ rootMode: "existing", eventStorePreconditions: new Proxy([], {}) })],
+    ["tuple index accessor", () => ({ rootMode: "existing", eventStorePreconditions: Object.defineProperty([{}, {}], "0", { get() { throw new Error("private"); } }) })],
+    ["tuple symbol", () => { const value = [{}, {}]; Object.defineProperty(value, Symbol("extra"), { value: true }); return { rootMode: "existing", eventStorePreconditions: value }; }],
+    ["tuple hole", () => ({ rootMode: "existing", eventStorePreconditions: Object.assign(new Array(2), { 1: {} }) })],
+    ["three entries", () => ({ rootMode: "existing", eventStorePreconditions: [{}, {}, {}] })],
+    ["entry proxy", () => ({ rootMode: "existing", eventStorePreconditions: [new Proxy({}, {}), {}] })],
+    ["entry extra", () => ({ rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/events.jsonl", expected: { kind: "missing" }, extra: true }, {}] })],
+    ["expected proxy", () => ({ rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/events.jsonl", expected: new Proxy({ kind: "missing" }, {}) }, {}] })],
+    ["expected symbol", () => { const expected = { kind: "missing" }; Object.defineProperty(expected, Symbol("x"), { value: true }); return { rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/events.jsonl", expected }, {}] }; }],
+    ["reordered pair", () => ({ rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/state.json", expected: { kind: "missing" } }, { path: ".brain/runs/run-01/events.jsonl", expected: { kind: "missing" } }] })],
+    ["different runs", () => ({ rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/events.jsonl", expected: { kind: "missing" } }, { path: ".brain/runs/run-02/state.json", expected: { kind: "missing" } }] })],
+    ["case alias", () => ({ rootMode: "existing", eventStorePreconditions: [{ path: ".brain/runs/run-01/EVENTS.JSONL", expected: { kind: "missing" } }, { path: ".brain/runs/run-01/state.json", expected: { kind: "missing" } }] })],
+  ])("sanitizes hostile eventStorePreconditions: %s", async (_label, build) => {
+    const storage = memoryTransactionStorage({ directories: [".brain", ".brain/transactions"] });
+    await expect(executeManagedMutation(replacementPlan(storage), build() as never, services(storage))).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it.each([
     {
       label: "non-object plan",
       reasonCode: "runtime.state_corrupt",
