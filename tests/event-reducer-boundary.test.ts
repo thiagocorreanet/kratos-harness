@@ -6,6 +6,7 @@ import {
   EventIntegrityError,
   replayEventStream,
   sealEvent,
+  snapshotEventReducerRegistry,
   verifyEventStream,
   type EventDraftV1,
   type EventReducerRegistry,
@@ -46,6 +47,24 @@ const seed: TestState = {
   lineage: { prdDigest: "a".repeat(64), specDigest: "b".repeat(64) },
   createdAt: "2026-08-10T00:00:00Z",
 };
+
+it("snapshots a closed deeply frozen reducer registry without retaining source mutation", () => {
+  const mutable = { ...seed, lineage: { ...seed.lineage } };
+  const registry: EventReducerRegistry<TestState> = {
+    seed: mutable,
+    reducers: { "policy-01": (state) => ({ ...state }) },
+    materialize: snapshot,
+  };
+  const frozen = snapshotEventReducerRegistry(registry, replayServices);
+  mutable.lineage.prdDigest = "c".repeat(64);
+
+  expect(Object.isFrozen(frozen)).toBe(true);
+  expect(Object.isFrozen(frozen.seed)).toBe(true);
+  expect(Object.isFrozen(frozen.seed.lineage)).toBe(true);
+  expect(Object.isFrozen(frozen.reducers)).toBe(true);
+  expect(frozen.seed.lineage.prdDigest).toBe("a".repeat(64));
+  expect(Object.keys(frozen.reducers)).toEqual(["policy-01"]);
+});
 
 function draft(): EventDraftV1 {
   return {
