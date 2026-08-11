@@ -19,6 +19,7 @@ import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import { prepareLeaseTransition } from "@mestre-yoda/runtime/domain/locks";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
 import { types } from "node:util";
+import { TransactionFailure } from "@mestre-yoda/runtime/composition";
 import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
 
@@ -288,6 +289,27 @@ describe("durable lock claims", () => {
               : baseInspect(path),
         }),
       ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("rejects file namespace roots and canonical run aliases during admission", async () => {
+    const root = lockStorage();
+    const baseInspect = root.durableFileSystem.inspect;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(root, {
+          inspect: async (path) =>
+            path === ".brain"
+              ? { kind: "special" as const }
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+
+    const aliases = lockStorage({ directories: [".brain/locks/runs/YQ=="] });
+    await expect(
+      acquireClaim(projectClaim, services(aliases)),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
@@ -625,6 +647,16 @@ describe("durable lock claims", () => {
     expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
   });
 
+  it("rejects invalid owner after namespace validation", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        { resource: "project", owner: "invalid", observed: null },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("treats a post-write non-file claim observation as corruption", async () => {
     const storage = lockStorage();
     const target = lockPaths("project").claimRecord;
@@ -660,6 +692,22 @@ describe("durable lock claims", () => {
       reasonCode: "runtime.state_corrupt",
     });
   });
+
+  it.each(["runtime.recovery_required", "runtime.state_corrupt"] as const)(
+    "maps transaction inspection %s failures",
+    async (reasonCode) => {
+      const storage = expiredClaimStorage();
+      const lockServices: LockServices = {
+        ...services(storage),
+        inspectTransactions: async () => {
+          throw new TransactionFailure(reasonCode, []);
+        },
+      };
+      await expect(
+        recoverClaim(observedClaim, lockServices),
+      ).rejects.toMatchObject({ reasonCode });
+    },
+  );
 
   it.each(["prepared", "publishing"] as const)(
     "does not recover while a %s transaction is incomplete",
