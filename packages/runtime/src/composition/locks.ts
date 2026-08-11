@@ -489,7 +489,32 @@ async function withAdmission<T>(
           await services.durableFileSystem.readText(paths.admissionRecord),
         ),
       );
-      if (holder?.resource === "admission") return conflict(holder) as T;
+      if (holder?.resource === "admission") {
+        if (
+          Date.parse(holder.expiresAt) + LEASE_SKEW_MS <=
+          services.clock.now().getTime()
+        ) {
+          try {
+            const text = canonicalizeJson(holder);
+            if (
+              (await services.durableFileSystem.readText(
+                paths.admissionRecord,
+              )) === text
+            ) {
+              await services.durableFileSystem.removeFile(
+                paths.admissionRecord,
+              );
+              await services.durableFileSystem.syncDirectory(
+                paths.admissionClaim,
+              );
+              return withAdmission(owner, services, operation);
+            }
+          } catch {
+            throw internal();
+          }
+        }
+        return conflict(holder) as T;
+      }
     }
     throw internal();
   }
