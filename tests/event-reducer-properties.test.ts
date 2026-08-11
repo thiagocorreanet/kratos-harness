@@ -129,12 +129,19 @@ function invalidEvent(run: () => unknown): EventIntegrityError {
 
 const replayCases = (() => {
   const random = generator(0x21_08_2026);
+  const verifiedByLength = new Map<number, ReturnType<typeof stream>>();
   return Array.from({ length: 200 }, (_, index) => {
     const caseSeed = random();
+    const count = (index % 32) + 1;
+    let verified = verifiedByLength.get(count);
+    if (verified === undefined) {
+      verified = stream(count, generator(caseSeed));
+      verifiedByLength.set(count, verified);
+    }
     return {
       caseSeed,
       index,
-      verified: stream((index % 32) + 1, generator(caseSeed)),
+      verified: structuredClone(verified),
     };
   });
 })();
@@ -154,7 +161,7 @@ describe("event reducer replay properties", () => {
           replayEventStream(
             verified,
             { ...stableRegistry, seed: structuredClone(seed) },
-            services.schemaRegistry,
+            services,
           ).canonical,
       );
       expect(
@@ -196,7 +203,7 @@ describe("event reducer replay properties", () => {
       const originalEvents = canonicalizeJson(verified.events);
 
       const error = invalidEvent(() =>
-        replayEventStream(verified, registry(reducer), createSchemaRegistry()),
+        replayEventStream(verified, registry(reducer), services),
       );
 
       expect(error.kind).toBe("invalid_event");
@@ -215,7 +222,7 @@ describe("event reducer replay properties", () => {
           ...state,
           currentStep: `step-${String(calls++)}`,
         })),
-        createSchemaRegistry(),
+        services,
       ),
     );
 
@@ -236,11 +243,7 @@ describe("event reducer replay properties", () => {
 
     expect(
       invalidEvent(() =>
-        replayEventStream(
-          stream(1, generator(9)),
-          invalidRegistry,
-          createSchemaRegistry(),
-        ),
+        replayEventStream(stream(1, generator(9)), invalidRegistry, services),
       ).kind,
     ).toBe("invalid_event");
   });

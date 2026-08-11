@@ -10,6 +10,11 @@ import type { VerifiedEventStream } from "./verify.js";
 
 export type JsonState = unknown;
 
+export interface ReplayServices {
+  readonly isProxy: (value: object) => boolean;
+  readonly schemaRegistry: SchemaRegistry;
+}
+
 export interface EventReducerRegistry<State = JsonState> {
   readonly seed: State;
   readonly reducers: Readonly<
@@ -24,82 +29,331 @@ export interface ReplayResult<State = JsonState> {
   readonly canonical: string;
 }
 
-function cloneJson<Value>(value: Value): Value {
-  return JSON.parse(canonicalizeJson(value)) as Value;
+const MISSING_REDUCER = Symbol("missing reducer");
+
+interface TrackedViews {
+  attempted: boolean;
+  readonly rawByView: WeakMap<object, object>;
+  readonly viewByRaw: WeakMap<object, object>;
+}
+
+interface InertRegistry<State> {
+  readonly materialize: EventReducerRegistry<State>["materialize"];
+  readonly reducers: ReadonlyMap<
+    string,
+    (state: State, event: EventV1) => State
+  >;
+  readonly seed: State;
 }
 
 function invalidEvent(): never {
   throw new EventIntegrityError("invalid_event");
 }
 
-function reducerFor<State>(
-  registry: EventReducerRegistry<State>,
-  policyVersion: string,
-): (state: State, event: EventV1) => State {
-  const descriptor = Object.getOwnPropertyDescriptor(
-    registry.reducers,
-    policyVersion,
-  );
-  if (descriptor === undefined) {
-    throw new EventIntegrityError("unsupported_policy");
+function isProxy(value: object, services: ReplayServices): boolean {
+  try {
+    return services.isProxy(value);
+  } catch {
+    return invalidEvent();
   }
-  if (!("value" in descriptor) || typeof descriptor.value !== "function") {
+}
+
+function ownData(value: object, key: PropertyKey): PropertyDescriptor {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined || !("value" in descriptor)) invalidEvent();
+  return descriptor;
+}
+
+function plainObject(value: object, services: ReplayServices): void {
+  if (isProxy(value, services) || Array.isArray(value)) invalidEvent();
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) invalidEvent();
+}
+
+function snapshotJson(
+  value: unknown,
+  services: ReplayServices,
+  tracked?: TrackedViews,
+): JsonState {
+  return snapshotValue(value, services, tracked, new WeakSet<object>());
+}
+
+function snapshotValue(
+  value: unknown,
+  services: ReplayServices,
+  tracked: TrackedViews | undefined,
+  active: WeakSet<object>,
+): JsonState {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) invalidEvent();
+    return value;
+  }
+  if (typeof value !== "object") invalidEvent();
+
+  if (tracked?.rawByView.has(value) === true) {
+    return snapshotValue(
+      tracked.rawByView.get(value),
+      services,
+      tracked,
+      active,
+    );
+  }
+  if (isProxy(value, services) || active.has(value)) invalidEvent();
+  active.add(value);
+  try {
+    if (Array.isArray(value))
+      return snapshotArray(value, services, tracked, active);
+    return snapshotObject(value, services, tracked, active);
+  } finally {
+    active.delete(value);
+  }
+}
+
+function snapshotArray(
+  value: unknown[],
+  services: ReplayServices,
+  tracked: TrackedViews | undefined,
+  active: WeakSet<object>,
+): JsonState {
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key === "symbol")) invalidEvent();
+  const entries = keys.filter((key) => key !== "length");
+  if (entries.length !== value.length || !keys.includes("length"))
+    invalidEvent();
+
+  const copy: JsonState[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const key = String(index);
+    if (!entries.includes(key)) invalidEvent();
+    const descriptor = ownData(value, key);
+    if (!descriptor.enumerable) invalidEvent();
+    copy.push(snapshotValue(descriptor.value, services, tracked, active));
+  }
+  return copy;
+}
+
+function snapshotObject(
+  value: object,
+  services: ReplayServices,
+  tracked: TrackedViews | undefined,
+  active: WeakSet<object>,
+): JsonState {
+  plainObject(value, services);
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string")) invalidEvent();
+
+  const copy = Object.create(null) as Record<string, JsonState>;
+  for (const key of keys) {
+    const descriptor = ownData(value, key);
+    if (!descriptor.enumerable) invalidEvent();
+    Object.defineProperty(copy, key, {
+      configurable: true,
+      enumerable: true,
+      value: snapshotValue(descriptor.value, services, tracked, active),
+      writable: true,
+    });
+  }
+  return copy;
+}
+
+function exactDataRecord(
+  value: unknown,
+  keys: readonly string[],
+  services: ReplayServices,
+): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null) invalidEvent();
+  plainObject(value, services);
+  const actual = Reflect.ownKeys(value);
+  if (
+    actual.length !== keys.length ||
+    actual.some((key) => typeof key !== "string" || !keys.includes(key))
+  ) {
     invalidEvent();
   }
-  return descriptor.value as (state: State, event: EventV1) => State;
+  const copy = Object.create(null) as Record<string, unknown>;
+  for (const key of keys) {
+    const descriptor = ownData(value, key);
+    if (!descriptor.enumerable) invalidEvent();
+    copy[key] = descriptor.value;
+  }
+  return copy;
+}
+
+function snapshotRegistry<State>(
+  value: EventReducerRegistry<State>,
+  services: ReplayServices,
+): InertRegistry<State> {
+  const root = exactDataRecord(
+    value,
+    ["seed", "reducers", "materialize"],
+    services,
+  );
+  const reducersValue = root.reducers;
+  if (typeof reducersValue !== "object" || reducersValue === null)
+    invalidEvent();
+  plainObject(reducersValue, services);
+  const reducers = new Map<string, (state: State, event: EventV1) => State>();
+  for (const key of Reflect.ownKeys(reducersValue)) {
+    if (typeof key !== "string") invalidEvent();
+    const descriptor = ownData(reducersValue, key);
+    const reducer: unknown = descriptor.value;
+    if (!descriptor.enumerable || typeof reducer !== "function") invalidEvent();
+    if (isProxy(reducer, services)) invalidEvent();
+    reducers.set(key, reducer as (state: State, event: EventV1) => State);
+  }
+  if (
+    typeof root.materialize !== "function" ||
+    isProxy(root.materialize, services)
+  ) {
+    invalidEvent();
+  }
+  return {
+    materialize: root.materialize as EventReducerRegistry<State>["materialize"],
+    reducers,
+    seed: snapshotJson(root.seed, services) as State,
+  };
+}
+
+function snapshotStream(
+  stream: VerifiedEventStream,
+  services: ReplayServices,
+): { readonly cursor: EventChainCursor; readonly events: readonly EventV1[] } {
+  const value = snapshotJson(stream, services) as Readonly<
+    Record<string, unknown>
+  >;
+  const sourceEvents = value.events;
+  const cursor = value.cursor;
+  if (!Array.isArray(sourceEvents) || sourceEvents.length === 0) invalidEvent();
+  const events: readonly unknown[] = sourceEvents;
+  if (typeof cursor !== "object" || cursor === null || Array.isArray(cursor)) {
+    invalidEvent();
+  }
+  const last = events.at(-1);
+  if (typeof last !== "object" || last === null || Array.isArray(last))
+    invalidEvent();
+  const cursorRecord = cursor as Readonly<Record<string, unknown>>;
+  const lastEvent = last as Readonly<Record<string, unknown>>;
+  if (
+    typeof cursorRecord.revision !== "number" ||
+    typeof cursorRecord.hash !== "string" ||
+    cursorRecord.revision !== lastEvent.resultingRevision ||
+    cursorRecord.hash !== lastEvent.eventHash
+  ) {
+    invalidEvent();
+  }
+  return {
+    cursor: { hash: cursorRecord.hash, revision: cursorRecord.revision },
+    events: events as readonly EventV1[],
+  };
+}
+
+function trackedViews(): TrackedViews {
+  return {
+    attempted: false,
+    rawByView: new WeakMap<object, object>(),
+    viewByRaw: new WeakMap<object, object>(),
+  };
+}
+
+function trackedView<Value>(value: Value, tracked: TrackedViews): Value {
+  if (typeof value !== "object" || value === null) return value;
+  const existing = tracked.viewByRaw.get(value);
+  if (existing !== undefined) return existing as Value;
+  const view = new Proxy(value, {
+    defineProperty: () => {
+      tracked.attempted = true;
+      return false;
+    },
+    deleteProperty: () => {
+      tracked.attempted = true;
+      return false;
+    },
+    get(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (descriptor !== undefined && "value" in descriptor) {
+        const propertyValue: unknown = descriptor.value;
+        return trackedView(propertyValue, tracked);
+      }
+      return Reflect.get(target, key, target);
+    },
+    getOwnPropertyDescriptor(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (descriptor === undefined || !("value" in descriptor))
+        return descriptor;
+      const propertyValue: unknown = descriptor.value;
+      return { ...descriptor, value: trackedView(propertyValue, tracked) };
+    },
+    preventExtensions: () => {
+      tracked.attempted = true;
+      return false;
+    },
+    set: () => {
+      tracked.attempted = true;
+      return false;
+    },
+    setPrototypeOf: () => {
+      tracked.attempted = true;
+      return false;
+    },
+  });
+  tracked.rawByView.set(view, value);
+  tracked.viewByRaw.set(value, view);
+  return view;
 }
 
 function reduceOnce<State>(
   reducer: (state: State, event: EventV1) => State,
   state: State,
   event: EventV1,
-): { readonly canonical: string; readonly result: State } {
-  const stateInput = cloneJson(state);
-  const eventInput = cloneJson(event);
-  const stateBefore = canonicalizeJson(stateInput);
-  const eventBefore = canonicalizeJson(eventInput);
-  let result: State;
-  try {
-    result = reducer(stateInput, eventInput);
-  } catch {
-    return invalidEvent();
-  }
-  if (
-    canonicalizeJson(stateInput) !== stateBefore ||
-    canonicalizeJson(eventInput) !== eventBefore
-  ) {
-    return invalidEvent();
-  }
-  return { canonical: canonicalizeJson(result), result };
+  services: ReplayServices,
+): State {
+  const tracked = trackedViews();
+  const stateInput = trackedView(
+    snapshotJson(state, services) as State,
+    tracked,
+  );
+  const eventInput = trackedView(
+    snapshotJson(event, services) as EventV1,
+    tracked,
+  );
+  const result = reducer(stateInput, eventInput);
+  if (tracked.attempted) invalidEvent();
+  return snapshotJson(result, services, tracked) as State;
 }
 
 function materializeOnce<State>(
   materialize: EventReducerRegistry<State>["materialize"],
   state: State,
   cursor: EventChainCursor,
-): string {
-  const stateInput = cloneJson(state);
-  const cursorInput = cloneJson(cursor);
-  const stateBefore = canonicalizeJson(stateInput);
-  const cursorBefore = canonicalizeJson(cursorInput);
-  let snapshot: SnapshotV1;
-  try {
-    snapshot = materialize(stateInput, cursorInput);
-  } catch {
-    return invalidEvent();
-  }
-  if (
-    canonicalizeJson(stateInput) !== stateBefore ||
-    canonicalizeJson(cursorInput) !== cursorBefore
-  ) {
-    return invalidEvent();
-  }
-  return canonicalizeJson(snapshot);
+  services: ReplayServices,
+): SnapshotV1 {
+  const tracked = trackedViews();
+  const stateInput = trackedView(
+    snapshotJson(state, services) as State,
+    tracked,
+  );
+  const cursorInput = trackedView(
+    snapshotJson(cursor, services) as EventChainCursor,
+    tracked,
+  );
+  const result = materialize(stateInput, cursorInput);
+  if (tracked.attempted) invalidEvent();
+  return snapshotJson(result, services, tracked) as SnapshotV1;
 }
 
 function hasFinalBindings(
   snapshot: SnapshotV1,
-  stream: VerifiedEventStream,
+  stream: {
+    readonly cursor: EventChainCursor;
+    readonly events: readonly EventV1[];
+  },
 ): boolean {
   const event = stream.events.at(-1);
   return (
@@ -111,55 +365,66 @@ function hasFinalBindings(
   );
 }
 
+function replay<State>(
+  stream: VerifiedEventStream,
+  registry: EventReducerRegistry<State>,
+  services: ReplayServices,
+): ReplayResult<State> | typeof MISSING_REDUCER {
+  const verified = snapshotStream(stream, services);
+  const inert = snapshotRegistry(registry, services);
+  let state = inert.seed;
+  for (const event of verified.events) {
+    const reducer = inert.reducers.get(event.policyVersion);
+    if (reducer === undefined) return MISSING_REDUCER;
+    const first = reduceOnce(reducer, state, event, services);
+    const second = reduceOnce(reducer, state, event, services);
+    if (canonicalizeJson(first) !== canonicalizeJson(second)) invalidEvent();
+    state = snapshotJson(first, services) as State;
+  }
+
+  const firstSnapshot = materializeOnce(
+    inert.materialize,
+    state,
+    verified.cursor,
+    services,
+  );
+  const secondSnapshot = materializeOnce(
+    inert.materialize,
+    state,
+    verified.cursor,
+    services,
+  );
+  const firstCanonical = canonicalizeJson(firstSnapshot);
+  if (firstCanonical !== canonicalizeJson(secondSnapshot)) invalidEvent();
+  if (!hasFinalBindings(firstSnapshot, verified)) invalidEvent();
+
+  const prepared = prepareContract(services.schemaRegistry, {
+    id: "state.snapshot",
+    version: "1.0.0",
+    value: firstSnapshot,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  if (prepared.kind === "invalid") invalidEvent();
+  return {
+    canonical: prepared.canonical,
+    snapshot: snapshotJson(prepared.value, services) as SnapshotV1,
+    state: snapshotJson(state, services) as State,
+  };
+}
+
 export function replayEventStream<State = JsonState>(
   stream: VerifiedEventStream,
   registry: EventReducerRegistry<State>,
-  schemaRegistry: SchemaRegistry,
+  services: ReplayServices,
 ): ReplayResult<State> {
+  let result: ReplayResult<State> | typeof MISSING_REDUCER;
   try {
-    if (stream.events.length === 0) invalidEvent();
-
-    let state = cloneJson(registry.seed);
-    for (const event of stream.events) {
-      const reducer = reducerFor(registry, event.policyVersion);
-      const first = reduceOnce(reducer, state, event);
-      const second = reduceOnce(reducer, state, event);
-      if (first.canonical !== second.canonical) invalidEvent();
-      state = cloneJson(first.result);
-    }
-
-    const firstSnapshot = materializeOnce(
-      (materializedState, materializedCursor) =>
-        registry.materialize(materializedState, materializedCursor),
-      state,
-      stream.cursor,
-    );
-    const secondSnapshot = materializeOnce(
-      (materializedState, materializedCursor) =>
-        registry.materialize(materializedState, materializedCursor),
-      state,
-      stream.cursor,
-    );
-    if (firstSnapshot !== secondSnapshot) invalidEvent();
-
-    const snapshot = JSON.parse(firstSnapshot) as SnapshotV1;
-    if (!hasFinalBindings(snapshot, stream)) invalidEvent();
-
-    const prepared = prepareContract(schemaRegistry, {
-      id: "state.snapshot",
-      version: "1.0.0",
-      value: snapshot,
-      structuralReasonCode: "runtime.state_corrupt",
-    });
-    if (prepared.kind === "invalid") invalidEvent();
-
-    return {
-      state: cloneJson(state),
-      snapshot: cloneJson(prepared.value),
-      canonical: prepared.canonical,
-    };
-  } catch (error: unknown) {
-    if (error instanceof EventIntegrityError) throw error;
+    result = replay(stream, registry, services);
+  } catch {
     throw new EventIntegrityError("invalid_event");
   }
+  if (result === MISSING_REDUCER) {
+    throw new EventIntegrityError("unsupported_policy");
+  }
+  return result;
 }

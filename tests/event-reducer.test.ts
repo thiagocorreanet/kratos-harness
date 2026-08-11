@@ -124,11 +124,7 @@ describe("event reducer replay", () => {
   it("replays verified events into a snapshot bound to the final cursor", () => {
     const verified = stream();
 
-    const replay = replayEventStream(
-      verified,
-      registry,
-      createSchemaRegistry(),
-    );
+    const replay = replayEventStream(verified, registry, services);
 
     expect(replay.snapshot.eventCursor).toBe(verified.cursor.revision);
     expect(replay.snapshot.eventHash).toBe(verified.cursor.hash);
@@ -138,11 +134,7 @@ describe("event reducer replay", () => {
   });
 
   it("does not accept a persisted snapshot with a changed bound field", () => {
-    const replay = replayEventStream(
-      stream(),
-      registry,
-      createSchemaRegistry(),
-    );
+    const replay = replayEventStream(stream(), registry, services);
     const persisted = { ...replay.snapshot, eventCursor: 99 };
 
     expect(canonicalizeJson(persisted)).not.toBe(replay.canonical);
@@ -151,11 +143,7 @@ describe("event reducer replay", () => {
   it("rejects an empty verified stream", () => {
     expect(
       errorKind(() =>
-        replayEventStream(
-          verifyEventStream("", services),
-          registry,
-          services.schemaRegistry,
-        ),
+        replayEventStream(verifyEventStream("", services), registry, services),
       ),
     ).toBe("invalid_event");
   });
@@ -170,9 +158,7 @@ describe("event reducer replay", () => {
     };
 
     expect(
-      errorKind(() =>
-        replayEventStream(unsupported, registry, services.schemaRegistry),
-      ),
+      errorKind(() => replayEventStream(unsupported, registry, services)),
     ).toBe("unsupported_policy");
   });
 });

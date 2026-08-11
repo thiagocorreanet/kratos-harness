@@ -19,5 +19,6 @@ export {
   replayEventStream,
   type EventReducerRegistry,
   type JsonState,
+  type ReplayServices,
   type ReplayResult,
 } from "./reduce.js";
