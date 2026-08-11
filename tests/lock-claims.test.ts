@@ -1792,6 +1792,41 @@ describe("durable lock claims", () => {
     );
   });
 
+  it("returns conflict when a scope claim appears after admission acquisition", async () => {
+    const paths = lockPaths("project");
+    const raced = {
+      claimId: "claim-raced",
+      resource: "project",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:01:30.000Z",
+    };
+    const storage = lockStorage();
+    const baseSync = storage.durableFileSystem.syncDirectory;
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    let injected = false;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          syncDirectory: async (path) => {
+            const value = await baseSync(path);
+            if (!injected && path === paths.admissionClaim) {
+              injected = true;
+              await baseWrite(paths.claimRecord, canonicalizeJson(raced));
+            }
+            return value;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict", claimId: "claim-raced" });
+    expect(storage.snapshot().files[paths.claimRecord]).toBe(
+      canonicalizeJson(raced),
+    );
+  });
+
   it("uses synthetic fallback conflict fields for a guard against an empty scope", async () => {
     const storage = lockStorage();
     await expect(
