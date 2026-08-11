@@ -1109,6 +1109,39 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("maps a marker loser follow-up admission inspection fault to internal failure", async () => {
+    const paths = lockPaths("project");
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let lost = false;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          createDirectoryExclusive: async () => {
+            lost = true;
+            throw new Error("lost");
+          },
+          inspect: async (path) =>
+            path === paths.admissionRecord && lost
+              ? Promise.reject(new Error("fault"))
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it.each(["directory", "symlink", "special"] as const)(
     "rejects a %s admission claim record entry",
     async (kind) => {
