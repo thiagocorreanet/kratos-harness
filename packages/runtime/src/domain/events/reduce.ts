@@ -347,8 +347,8 @@ function reduceOnce<State>(
     tracked,
   );
   const result = reducer(stateInput, eventInput);
-  if (tracked.attempted) invalidEvent();
   rejectNativePromise(result, services, tracked);
+  if (tracked.attempted) invalidEvent();
   return normalizeJson(result, services, tracked) as State;
 }
 
@@ -368,8 +368,8 @@ function materializeOnce<State>(
     tracked,
   );
   const result = materialize(stateInput, cursorInput);
-  if (tracked.attempted) invalidEvent();
   rejectNativePromise(result, services, tracked);
+  if (tracked.attempted) invalidEvent();
   return normalizeJson(result, services, tracked) as SnapshotV1;
 }
 

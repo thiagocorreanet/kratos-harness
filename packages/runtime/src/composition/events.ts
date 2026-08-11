@@ -59,7 +59,13 @@ class DependencyTracker {
 
   public call<Value>(operation: () => Value): Value {
     try {
-      return operation();
+      const value = operation();
+      if (isNativePromise(value)) {
+        void Promise.prototype.then.call(value, undefined, () => undefined);
+        this.failed = true;
+        throw new DependencyFailure();
+      }
+      return value;
     } catch {
       this.failed = true;
       throw new DependencyFailure();
@@ -69,6 +75,12 @@ class DependencyTracker {
   public assert(): void {
     if (this.failed) throw new DependencyFailure();
   }
+}
+
+function isNativePromise(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" && value !== null && value instanceof Promise
+  );
 }
 
 export interface EventStorePaths {

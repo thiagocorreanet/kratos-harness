@@ -4,6 +4,7 @@ import type { SnapshotV1 } from "@mestre-yoda/contracts";
 import {
   eventStorePaths,
   prepareEventAppend,
+  type EventAppendServices,
 } from "@mestre-yoda/runtime/composition/events";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { TransactionFailure } from "@mestre-yoda/runtime/composition";
@@ -213,6 +214,60 @@ describe("event-store append preparation", () => {
     },
   );
 
+  it.each([
+    [
+      "digest",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        digests: { sha256: () => Promise.reject(new Error("private digest")) },
+      }),
+    ],
+    [
+      "schema registry",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        schemaRegistry: {
+          validate: () => Promise.reject(new Error("private schema")),
+        } as never,
+      }),
+    ],
+    [
+      "proxy detector",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        isProxy: () => Promise.reject(new Error("private proxy")) as never,
+      }),
+    ],
+  ] as const)(
+    "sanitizes a rejected native Promise from %s without an unhandled rejection",
+    async (_label, override) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions", ".brain/runs/run-01"],
+      });
+      const unhandled: unknown[] = [];
+      const observe = (reason: unknown) => unhandled.push(reason);
+      process.on("unhandledRejection", observe);
+      try {
+        await expect(
+          prepareEventAppend(
+            { runId: "run-01", event: draft(1) },
+            override(
+              services(storage),
+            ) as unknown as EventAppendServices<State>,
+          ),
+        ).rejects.toMatchObject({
+          reasonCode: "runtime.internal_failure",
+          evidence: [],
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off("unhandledRejection", observe);
+      }
+    },
+  );
+
   it("rejects a missing stream/snapshot pair without reading or writing", async () => {
     const files = await firstFiles();
     const storage = memoryTransactionStorage({
@@ -400,6 +455,31 @@ describe("event-store append preparation", () => {
       ).toBe(reasonCode);
     },
   );
+
+  it("publishes a real prepared version failure without forbidden evidence", async () => {
+    const files = await firstFiles();
+    const snapshot = `${canonicalizeJson({
+      ...(JSON.parse(files.snapshot) as Record<string, unknown>),
+      stateContract: "2.0.0",
+    })}\n`;
+    const storage = persistedStorage({ ...files, snapshot });
+    let failure: TransactionFailure | undefined;
+    try {
+      await prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        services(storage),
+      );
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(TransactionFailure);
+      failure = error as TransactionFailure;
+    }
+    if (failure === undefined) throw new Error("expected version failure");
+
+    const result = transactionFailureResult(failure);
+    expect(failure.reasonCode).toBe("contract.state_version_unsupported");
+    expect(result.evidence).toEqual([]);
+    expect(() => validateResult(result)).not.toThrow();
+  });
 
   it("snapshots an in-flight draft mutation before the first read", async () => {
     const files = await firstFiles();
