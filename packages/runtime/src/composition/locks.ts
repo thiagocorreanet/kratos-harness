@@ -696,8 +696,9 @@ async function locateAdmission(
   if (generations.length > 1 || (generations.length !== 0 && legacy))
     throw corrupt(admissionClaim);
   if (generations.length === 0) return legacy ? legacyAdmissionLocation : null;
-  const location = generations[0];
-  if (location === undefined) throw internal();
+  // `generations.length === 0` returned above, so index zero is established.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const location = generations[0]!;
   try {
     const entry = await services.durableFileSystem.inspect(location.directory);
     if (entry.kind !== "directory") throw corrupt(location.directory);
@@ -861,12 +862,10 @@ function recoveryMarkerFor(
 }
 
 function tombstoneFor(
-  record: LockClaimRecord,
+  record: LocatedAdmissionClaim,
   services: LockServices,
 ): AdmissionTombstone {
-  const location =
-    (record as Partial<LocatedAdmissionClaim>).location ??
-    admissionLocationFor(record, services);
+  const { location } = record;
   return Object.freeze({
     path: `${location.directory}/.retired-${services.digests.sha256(
       canonicalizeJson(persistedRecord(record)),
