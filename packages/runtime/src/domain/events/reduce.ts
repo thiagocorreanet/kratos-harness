@@ -244,6 +244,30 @@ function snapshotRegistry<State>(
   };
 }
 
+/** Create the closed, immutable registry view used by replay. */
+export function snapshotEventReducerRegistry<State>(
+  value: EventReducerRegistry<State>,
+  services: ReplayServices,
+): EventReducerRegistry<State> {
+  const inert = snapshotRegistry(value, services);
+  const reducers = Object.create(null) as Record<
+    string,
+    (state: State, event: EventV1) => State
+  >;
+  for (const [key, reducer] of inert.reducers) reducers[key] = reducer;
+  return Object.freeze({
+    seed: freezeJson(inert.seed) as State,
+    reducers: Object.freeze(reducers),
+    materialize: inert.materialize,
+  });
+}
+
+function freezeJson(value: JsonState): JsonState {
+  if (typeof value !== "object" || value === null) return value;
+  for (const child of Object.values(value)) freezeJson(child);
+  return Object.freeze(value);
+}
+
 function snapshotStream(
   stream: VerifiedEventStream,
   services: ReplayServices,

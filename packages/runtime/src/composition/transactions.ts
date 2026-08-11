@@ -81,6 +81,7 @@ export async function executeManagedMutation(
   plan: ManagedMutationPlan,
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
+  assertBeforeTransaction = false,
 ): Promise<TransactionReceipt> {
   let frozenPlan: ManagedMutationPlan;
   try {
@@ -97,6 +98,8 @@ export async function executeManagedMutation(
     // applyPlan performs this preflight before observing caller destinations;
     // repeat it here after normalization to close that asynchronous race.
     await preflightManagedTransactions(options, services);
+    if (assertBeforeTransaction)
+      await assertPreconditions(frozenPlan, services);
     return await driveExecution(frozenPlan, options, services, attempt);
   } catch (error) {
     return classifyDriverFailure(error, services, attempt);
@@ -1698,10 +1701,10 @@ function stagedPayloadPath(
 }
 
 async function assertPreconditions(
-  manifest: TransactionManifestV1,
+  plan: Pick<TransactionManifestV1, "operations"> | ManagedMutationPlan,
   services: TransactionServices,
 ): Promise<void> {
-  for (const operation of manifest.operations) {
+  for (const operation of plan.operations) {
     const observed = await observeFingerprint(operation.path, services);
     if (!sameFingerprint(observed, operation.expected)) {
       throw new TransactionFailure(

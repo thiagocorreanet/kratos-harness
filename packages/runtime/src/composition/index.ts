@@ -6,11 +6,14 @@ import type {
   EffectPlan,
 } from "../domain/effects.js";
 import {
+  EventIntegrityError,
   snapshotEventDraft,
+  snapshotEventReducerRegistry,
   type EventReducerRegistry,
   type JsonState,
 } from "../domain/events/index.js";
 import {
+  managedPathCollisionKey,
   normalizeManagedMutationPlan,
   TransactionPolicyError,
   type PathFingerprint,
@@ -124,13 +127,16 @@ export async function applyPlan<State = JsonState>(
     schemaRegistry: createSchemaRegistry(),
   };
   const append = selectAppendEffect(frozenPlan);
-  const eventReducers = input.eventReducers;
   if (append !== undefined)
     assertAppendDestinationsExclusive(frozenPlan, append);
 
   let prepared: PreparedEventAppend | undefined;
   if (append !== undefined) {
-    if (eventReducers === undefined) throw invalidApplyInput();
+    const eventReducers = snapshotAppendReducers(
+      input.options,
+      append,
+      services.schemaRegistry,
+    );
     await preflightManagedTransactions(frozenOptions, services);
     prepared = await prepareEventAppend(
       { runId: append.runId, event: append.event },
@@ -148,9 +154,11 @@ export async function applyPlan<State = JsonState>(
     prepared === undefined
       ? frozenPlan
       : expandAppendEffect(frozenPlan, prepared);
-  const observations = await observeManagedPaths(expandedPlan, ports);
-  if (prepared !== undefined)
-    assertPreparedAppendIsFresh(prepared, observations);
+  const observations = await observeManagedPaths(
+    expandedPlan,
+    ports,
+    prepared?.expected,
+  );
   let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
   try {
     normalized = normalizeManagedMutationPlan(
@@ -170,6 +178,9 @@ export async function applyPlan<State = JsonState>(
     throw new TransactionFailure("runtime.internal_failure", []);
   }
 
+  if (prepared !== undefined)
+    await assertPreparedAppendIsFresh(prepared, ports);
+
   let outcome: ApplyPlanOutcome;
   if (normalized.kind === "noop") {
     outcome = { kind: "noop" };
@@ -178,6 +189,7 @@ export async function applyPlan<State = JsonState>(
       normalized.plan,
       frozenOptions,
       services,
+      prepared !== undefined,
     );
     /* v8 ignore start -- normal execution returns committed or throws; aborted
      * is returned only by the separate explicit-recovery operation. */
@@ -200,29 +212,27 @@ export async function applyPlan<State = JsonState>(
   return outcome;
 }
 
-function snapshotApplyInput<State>(
+function snapshotApplyInput(
   plan: unknown,
   options: unknown,
 ): {
   readonly plan: EffectPlan;
   readonly rootMode: "existing" | "initialize";
-  readonly eventReducers: EventReducerRegistry<State> | undefined;
+  readonly options: Record<string, unknown>;
 } {
   try {
-    if (!isRecord(plan) || !Array.isArray(plan.effects)) {
+    if (!isSafeRecord(plan) || !isSafeRecord(options))
       throw invalidApplyInput();
-    }
-    if (!isRecord(options)) throw invalidApplyInput();
-    const rootMode = options.rootMode;
+    const effects = ownData(plan, "effects");
+    if (!Array.isArray(effects)) throw invalidApplyInput();
+    const rootMode = ownData(options, "rootMode");
     if (rootMode !== "existing" && rootMode !== "initialize") {
       throw invalidApplyInput();
     }
-    const eventReducers = options.eventReducers as
-      EventReducerRegistry<State> | undefined;
     return {
-      plan: { effects: plan.effects.map(snapshotEffect) },
+      plan: { effects: effects.map(snapshotEffect) },
       rootMode,
-      eventReducers,
+      options,
     };
   } catch (error) {
     if (error instanceof TransactionFailure) throw error;
@@ -231,41 +241,91 @@ function snapshotApplyInput<State>(
 }
 
 function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
-  if (!isRecord(value) || typeof value.kind !== "string") {
-    throw invalidApplyInput();
-  }
-  switch (value.kind) {
-    case "write_file":
-      if (typeof value.path !== "string" || typeof value.content !== "string") {
+  if (!isSafeRecord(value)) throw invalidApplyInput();
+  const kind = ownData(value, "kind");
+  if (typeof kind !== "string") throw invalidApplyInput();
+  switch (kind) {
+    case "write_file": {
+      const path = ownData(value, "path");
+      const content = ownData(value, "content");
+      if (typeof path !== "string" || typeof content !== "string") {
         throw invalidApplyInput();
       }
-      return { kind: value.kind, path: value.path, content: value.content };
+      return { kind, path, content };
+    }
     case "delete_file":
-    case "create_directory":
-      if (typeof value.path !== "string") throw invalidApplyInput();
-      return { kind: value.kind, path: value.path };
+    case "create_directory": {
+      const path = ownData(value, "path");
+      if (typeof path !== "string") throw invalidApplyInput();
+      return { kind, path };
+    }
     case "append_event":
-      if (typeof value.runId !== "string") throw invalidApplyInput();
-      return {
-        kind: value.kind,
-        runId: value.runId,
-        event: snapshotEventDraft(value.event, types.isProxy),
-      };
-    case "emit":
+      return snapshotAppendEffect(value);
+    case "emit": {
+      const channel = ownData(value, "channel");
+      const text = ownData(value, "text");
       if (
-        (value.channel !== "structured" && value.channel !== "human") ||
-        typeof value.text !== "string"
+        (channel !== "structured" && channel !== "human") ||
+        typeof text !== "string"
       ) {
         throw invalidApplyInput();
       }
-      return { kind: value.kind, channel: value.channel, text: value.text };
+      return { kind, channel, text };
+    }
     default:
       throw invalidApplyInput();
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isSafeRecord(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !types.isProxy(value) &&
+    !Array.isArray(value)
+  );
+}
+
+function ownData(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined || !("value" in descriptor))
+    throw invalidApplyInput();
+  return descriptor.value;
+}
+
+function snapshotAppendEffect(
+  value: Record<string, unknown>,
+): AppendEventEffect {
+  const keys = Reflect.ownKeys(value);
+  if (
+    keys.length !== 3 ||
+    keys.some(
+      (key) =>
+        typeof key !== "string" || !["kind", "runId", "event"].includes(key),
+    )
+  )
+    throw invalidApplyInput();
+  const kind = ownData(value, "kind");
+  const runId = ownData(value, "runId");
+  const event = ownData(value, "event");
+  if (kind !== "append_event" || typeof runId !== "string")
+    throw invalidApplyInput();
+  let paths: ReturnType<typeof eventStorePaths> | undefined;
+  try {
+    paths = eventStorePaths(runId);
+  } catch {
+    throw invalidApplyInput();
+  }
+  try {
+    return { kind, runId, event: snapshotEventDraft(event, types.isProxy) };
+  } catch (error) {
+    if (error instanceof EventIntegrityError)
+      throw new TransactionFailure(
+        "runtime.state_corrupt",
+        eventEvidence(paths),
+      );
+    throw error;
+  }
 }
 
 function invalidApplyInput(): TransactionFailure {
@@ -329,20 +389,60 @@ function assertAppendDestinationsExclusive(
   plan: EffectPlan,
   append: AppendEventEffect,
 ): void {
-  let paths: ReturnType<typeof eventStorePaths>;
+  let paths: ReturnType<typeof eventStorePaths> | undefined;
   try {
     paths = eventStorePaths(append.runId);
   } catch {
     throw invalidApplyInput();
   }
+  const owned = [
+    managedPathCollisionKey(paths.events),
+    managedPathCollisionKey(paths.snapshot),
+  ];
   for (const effect of plan.effects) {
     if (
       (effect.kind === "write_file" || effect.kind === "delete_file") &&
-      (effect.path === paths.events || effect.path === paths.snapshot)
+      owned.includes(managedPathCollisionKey(effect.path))
     ) {
       throw invalidApplyInput();
     }
   }
+}
+
+function snapshotAppendReducers<State>(
+  options: Record<string, unknown>,
+  append: AppendEventEffect,
+  schemaRegistry: TransactionServices["schemaRegistry"],
+): EventReducerRegistry<State> {
+  let paths: ReturnType<typeof eventStorePaths> | undefined;
+  try {
+    paths = eventStorePaths(append.runId);
+    const registry = ownData(options, "eventReducers");
+    if (registry === undefined) throw invalidApplyInput();
+    return snapshotEventReducerRegistry(
+      registry as EventReducerRegistry<State>,
+      { isProxy: types.isProxy, schemaRegistry },
+    );
+  } catch (error) {
+    const evidence =
+      paths === undefined
+        ? ([{ kind: "artifact", ref: ".brain" }] as const)
+        : eventEvidence(paths);
+    if (error instanceof TransactionFailure) {
+      throw new TransactionFailure("runtime.state_corrupt", evidence);
+    }
+    if (error instanceof EventIntegrityError) {
+      throw new TransactionFailure("runtime.state_corrupt", evidence);
+    }
+    throw new TransactionFailure("runtime.state_corrupt", evidence);
+  }
+}
+
+function eventEvidence(paths: ReturnType<typeof eventStorePaths>) {
+  return [
+    { kind: "event" as const, ref: paths.events },
+    { kind: "artifact" as const, ref: paths.snapshot },
+  ];
 }
 
 function expandAppendEffect(
@@ -357,13 +457,19 @@ function expandAppendEffect(
   return { effects };
 }
 
-function assertPreparedAppendIsFresh(
+async function assertPreparedAppendIsFresh(
   prepared: PreparedEventAppend,
-  observations: ReadonlyMap<string, PathFingerprint>,
-): void {
+  ports: RuntimePorts,
+): Promise<void> {
   const changed: string[] = [];
   for (const [path, expected] of prepared.expected) {
-    const observed = observations.get(path);
+    let observed: PathFingerprint | undefined;
+    try {
+      const entry = await ports.durableFileSystem.inspect(path);
+      observed = freshFingerprint(entry);
+    } catch {
+      observed = undefined;
+    }
     if (observed === undefined || !sameFingerprint(expected, observed)) {
       changed.push(path);
     }
@@ -374,6 +480,11 @@ function assertPreparedAppendIsFresh(
       evidenceForChangedPaths(changed, prepared),
     );
   }
+}
+
+function freshFingerprint(entry: DurableEntry): PathFingerprint | undefined {
+  if (entry.kind === "special" || entry.kind === "symlink") return undefined;
+  return durableEntryFingerprint(entry, "");
 }
 
 function sameFingerprint(
@@ -405,10 +516,16 @@ function evidenceForChangedPaths(
 async function observeManagedPaths(
   plan: EffectPlan,
   ports: RuntimePorts,
+  expected?: ReadonlyMap<string, PathFingerprint>,
 ): Promise<ReadonlyMap<string, PathFingerprint>> {
   const observations = new Map<string, PathFingerprint>();
   try {
     for (const path of managedObservationPaths(plan)) {
+      const prepared = expected?.get(path);
+      if (prepared !== undefined) {
+        observations.set(path, prepared);
+        continue;
+      }
       const entry = await ports.durableFileSystem.inspect(path);
       if (path === ".brain" && entry.kind === "file") {
         throw new TransactionFailure("runtime.state_corrupt", [

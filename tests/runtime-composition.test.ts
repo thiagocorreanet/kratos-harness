@@ -206,6 +206,31 @@ describe("effect plan application", () => {
     ]);
   });
 
+  it("does not read event reducers for an ordinary managed plan", async () => {
+    const { ports } = fakeRuntime();
+    let reads = 0;
+    const options = {
+      rootMode: "existing" as const,
+      get eventReducers() {
+        reads += 1;
+        throw new Error("must not read event reducers");
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({
+          kind: "write_file",
+          path: ".brain/state.json",
+          content: "state",
+        }),
+        ports,
+        options as never,
+      ),
+    ).resolves.toEqual({ kind: "committed" });
+    expect(reads).toBe(0);
+  });
+
   it("does not apply a valid prefix when a later destination is forbidden", async () => {
     const { storage, ports } = fakeRuntime();
 
@@ -459,7 +484,11 @@ describe("effect plan application", () => {
 
     await expect(
       applyPlan(plan as Parameters<typeof applyPlan>[0], ports),
-    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "artifact", ref: ".brain" },
+      ]),
+    );
     expect(storage.calls()).toEqual([]);
   });
 

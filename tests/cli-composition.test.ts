@@ -376,7 +376,10 @@ describe("composed command line", () => {
       status: "blocked",
       exitCode: 4,
       reasonCode: "runtime.state_corrupt",
-      evidence: [{ kind: "artifact", ref: ".brain" }],
+      evidence: [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ],
       stateChanged: false,
       retryable: true,
     });

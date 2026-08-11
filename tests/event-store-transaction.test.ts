@@ -168,6 +168,25 @@ describe("event-store transaction integration", () => {
     expect(storage.calls()).toEqual([]);
   });
 
+  it("classifies an invalid draft as paired event-store corruption before I/O", async () => {
+    const { storage, ports } = fakeRuntime();
+    const event = new Proxy(draft(1), {});
+
+    await expect(
+      applyPlan(
+        planOf({ kind: "append_event", runId: "run-01", event }),
+        ports,
+        { rootMode: "existing", eventReducers: reducers },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ]),
+    );
+    expect(storage.calls()).toEqual([]);
+  });
+
   it.each([
     {
       kind: "write_file" as const,
@@ -185,6 +204,25 @@ describe("event-store transaction integration", () => {
           planOf(
             { kind: "append_event", runId: "run-01", event: draft(1) },
             effect,
+          ),
+          ports,
+          { rootMode: "existing", eventReducers: reducers },
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      expect(storage.calls()).toEqual([]);
+    },
+  );
+
+  it.each([".brain/runs/run-01/EVENTS.JSONL", ".brain/runs/RUN-01/state.json"])(
+    "rejects a case-colliding direct destination %s before I/O",
+    async (path) => {
+      const { storage, ports } = fakeRuntime();
+
+      await expect(
+        applyPlan(
+          planOf(
+            { kind: "append_event", runId: "run-01", event: draft(1) },
+            { kind: "write_file", path, content: "forged" },
           ),
           ports,
           { rootMode: "existing", eventReducers: reducers },

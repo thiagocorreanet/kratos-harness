@@ -267,6 +267,13 @@ function collisionKey(path: string): string {
   return path.toLowerCase();
 }
 
+/** Validate a caller spelling under the managed-path policy and return its
+ * case-insensitive collision key. Composition uses this for owned paths. */
+export function managedPathCollisionKey(path: string): string {
+  assertManagedPath(path);
+  return collisionKey(path);
+}
+
 function hasControlCharacter(path: string): boolean {
   for (const character of path) {
     const codePoint = character.codePointAt(0);
