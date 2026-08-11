@@ -222,15 +222,40 @@ async function inspectLockNamespace(
     if (admission.kind !== "directory") throw corrupt(admissionRoot);
     await assertOnlyChildren(admissionRoot, ["claim"], services);
     const claim = await inspect(admissionClaim);
-    if (claim.kind !== "missing") {
-      if (claim.kind !== "directory") throw corrupt(admissionClaim);
-      await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+    switch (claim.kind) {
+      case "missing":
+        break;
+      case "directory":
+        await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+        break;
+      case "file":
+        throw corrupt(admissionClaim);
     }
   }
   const runs = await inspect(`${locksRoot}/runs`);
   if (runs.kind !== "missing") {
     if (runs.kind !== "directory") throw corrupt(`${locksRoot}/runs`);
     await assertCanonicalRunChildren(services);
+  }
+  const projectRoot = `${locksRoot}/project`;
+  const project = await inspect(projectRoot);
+  if (project.kind !== "missing") {
+    if (project.kind !== "directory") throw corrupt(projectRoot);
+    await assertOnlyChildren(
+      projectRoot,
+      ["claim", "events.jsonl", "lease.json"],
+      services,
+    );
+    const projectClaim = await inspect(`${projectRoot}/claim`);
+    if (projectClaim.kind !== "missing") {
+      if (projectClaim.kind !== "directory")
+        throw corrupt(`${projectRoot}/claim`);
+      await assertOnlyChildren(
+        `${projectRoot}/claim`,
+        ["claim.json"],
+        services,
+      );
+    }
   }
   const chain = [
     ".brain",
@@ -515,7 +540,7 @@ async function withAdmission<T>(
               await services.durableFileSystem.syncDirectory(
                 paths.admissionClaim,
               );
-              return withAdmission(owner, services, operation);
+              return await withAdmission(owner, services, operation);
             }
           } catch {
             throw internal();
@@ -542,6 +567,7 @@ async function withAdmission<T>(
           await services.durableFileSystem.syncDirectory(paths.admissionClaim);
         } catch {
           // A stale admission record is recoverable; do not expose port text.
+          // eslint-disable-next-line no-unsafe-finally
           throw new LockFailure("runtime.recovery_required", [
             { kind: "artifact", ref: paths.admissionRecord },
           ]);
@@ -572,12 +598,6 @@ async function acquireClaimHeld(
   request: AcquireClaimRequest,
   services: LockServices,
 ): Promise<AcquireClaimOutcome> {
-  try {
-    lockPaths(request.resource);
-    parseOwner(request.owner);
-  } catch {
-    throw internal();
-  }
   const existing = await readClaim(request.resource, services);
   if (existing !== null) return conflict(existing);
   const family =

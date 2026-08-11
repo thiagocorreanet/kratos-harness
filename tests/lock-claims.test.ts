@@ -2,6 +2,7 @@
 
 import {
   acquireClaim,
+  ensureLockNamespace,
   inspectLease,
   recoverClaim,
   releaseClaim,
@@ -1191,4 +1192,237 @@ describe("durable lock claims", () => {
       ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
     },
   );
+
+  it.each([
+    ["locks", ".brain/locks/unknown"],
+    ["admission", ".brain/locks/.admission/unknown"],
+    ["project", ".brain/locks/project/unknown"],
+  ])(
+    "rejects hidden unknown %s siblings during empty inspection",
+    async (_name, directory) => {
+      const storage = lockStorage({ directories: [directory] });
+      await expect(
+        inspectLease("run:missing", services(storage)),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it("returns absent for idempotent recovery with no scope claim", async () => {
+    const storage = lockStorage();
+    await expect(
+      recoverClaim(observedClaim, services(storage)),
+    ).resolves.toEqual({
+      kind: "absent",
+    });
+  });
+
+  it.each([
+    ["a non-directory brain", { files: { ".brain": "bad" } }],
+    ["a missing locks child", { directories: [".brain"] }],
+    ["a non-directory locks root", { files: { ".brain/locks": "bad" } }],
+    [
+      "a non-directory admission root",
+      { files: { ".brain/locks/.admission": "bad" } },
+    ],
+    [
+      "a non-directory admission claim",
+      { files: { ".brain/locks/.admission/claim": "bad" } },
+    ],
+    ["a non-directory runs root", { files: { ".brain/locks/runs": "bad" } }],
+    [
+      "a non-directory project root",
+      { files: { ".brain/locks/project": "bad" } },
+    ],
+    [
+      "a non-directory project claim",
+      { files: { ".brain/locks/project/claim": "bad" } },
+    ],
+  ])("validates %s during inspection", async (_name, seed) => {
+    const storage = lockStorage(seed);
+    const result = inspectLease("run:missing", services(storage));
+    if (_name === "a missing locks child")
+      await expect(result).resolves.toMatchObject({ kind: "empty" });
+    else
+      await expect(result).rejects.toMatchObject({
+        reasonCode: "runtime.state_corrupt",
+      });
+  });
+
+  it.each([
+    ["non-canonical", "MB"],
+    ["undecodable to a valid run id", "AA"],
+  ])("rejects %s canonical run children", async (_name, child) => {
+    const storage = lockStorage({
+      directories: [`.brain/locks/runs/${child}`],
+    });
+    await expect(
+      inspectLease("run:missing", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("returns absent when recovery loses the claim before release", async () => {
+    const storage = expiredClaimStorage();
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let reads = 0;
+    await expect(
+      recoverClaim(
+        observedClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path === target && ++reads === 2) return { kind: "missing" };
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).resolves.toEqual({ kind: "absent" });
+  });
+
+  it("maps direct namespace validation and inspection faults to internal failure", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    await expect(
+      ensureLockNamespace("run:bad id" as LeaseResource, services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    const target = lockPaths("run:missing").root;
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "run:missing",
+        withDurable(storage, {
+          inspect: async (path) =>
+            path === target
+              ? Promise.reject(new Error("fault"))
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("rechecks canonical run children for a missing requested run scope", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    await expect(
+      inspectLease("run:missing", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+  });
+
+  it("maps failed expired-admission rereads to internal failure", async () => {
+    const admission = {
+      claimId: "admission",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(admission),
+      },
+    });
+    const baseRead = storage.durableFileSystem.readText;
+    let reads = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          writeSynced: async () => Promise.reject(new Error("fault")),
+          readText: async (path) =>
+            path === lockPaths("project").admissionRecord && ++reads === 2
+              ? Promise.reject(new Error("fault"))
+              : baseRead(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("validates present admission claims and non-directory requested claims", async () => {
+    const admission = lockStorage({
+      directories: [".brain/locks/.admission/claim"],
+    });
+    await expect(
+      inspectLease("project", services(admission)),
+    ).resolves.toMatchObject({ kind: "empty" });
+    const target = lockPaths("run:missing").claim;
+    const malformed = lockStorage({ files: { [target]: "bad" } });
+    await expect(
+      inspectLease("run:missing", services(malformed)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("accepts a structurally complete observed guard", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        {
+          resource: "project",
+          owner: "codex:session-01",
+          observed: {
+            resource: "project",
+            owner: "codex:session-01",
+            leaseId: "lease-01",
+            fencingToken: 1,
+            stateRevision: 1,
+            leaseFingerprint: { kind: "file", size: 1, sha256: "digest" },
+            eventsFingerprint: { kind: "file", size: 1, sha256: "digest" },
+          },
+        },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ leaseId: "lease-01", fencingToken: 1 });
+  });
+
+  it("inspects a materialized admission claim layout", async () => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson({
+          claimId: "admission",
+          resource: "admission",
+          owner: "codex:session-01",
+          leaseId: null,
+          fencingToken: null,
+          acquiredAt: "2026-08-11T00:00:00.000Z",
+          expiresAt: "2026-08-11T00:01:30.000Z",
+        }),
+      },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+  });
+
+  it("rejects a materialized non-directory admission claim", async () => {
+    const storage = lockStorage({
+      files: { ".brain/locks/.admission/claim": "bad" },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("accepts an admission namespace whose claim child is absent", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/.admission"] });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+  });
+
+  it.each([
+    { resource: 1, leaseId: null, fencingToken: null },
+    { leaseId: 1, fencingToken: 1 },
+    { leaseId: "lease-01", fencingToken: "one" },
+    { leaseId: "lease-01", fencingToken: -1 },
+  ])("rejects malformed claim field variants", async (change) => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").claimRecord]: canonicalizeJson({
+          ...observedClaim.observed,
+          ...change,
+        }),
+      },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
 });
