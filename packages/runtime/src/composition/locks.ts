@@ -380,12 +380,7 @@ async function activeRunClaim(
   if (runs.kind === "missing") return null;
   if (runs.kind !== "directory") throw corrupt(root);
   for (const name of await services.durableFileSystem.list(root)) {
-    let decoded: string;
-    try {
-      decoded = Buffer.from(name, "base64url").toString("utf8");
-    } catch {
-      throw corrupt(`${root}/${name}`);
-    }
+    const decoded = Buffer.from(name, "base64url").toString("utf8");
     let paths;
     try {
       paths = lockPaths(`run:${decoded}`);

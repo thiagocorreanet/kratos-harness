@@ -656,6 +656,43 @@ describe("durable lock claims", () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
+  it("rejects a run child whose no-follow kind changes during inspection", async () => {
+    const storage = lockStorage();
+    await acquireClaim(
+      { resource: "run:run-01", owner: "codex:session-01", observed: null },
+      services(storage),
+    );
+    const child = lockPaths("run:run-01").root;
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "run:run-01",
+        withDurable(storage, {
+          inspect: async (path) =>
+            path === child ? { kind: "special" as const } : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("normalizes a direct existing claim inspection failure", async () => {
+    const storage = lockStorage();
+    await acquireClaim(projectClaim, services(storage));
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          inspect: async (path) =>
+            path === target
+              ? Promise.reject(new Error("claim inspect"))
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("normalizes lease binding read failures", async () => {
     const storage = lockStorage({ files: boundLeaseFiles() });
     const baseRead = storage.durableFileSystem.readText;
