@@ -1496,6 +1496,79 @@ describe("durable lock claims", () => {
   );
 
   it.each([
+    ["generation", "raw"],
+    ["generation", "typed"],
+    ["generation", "lost"],
+    ["parent", "raw"],
+    ["parent", "lost"],
+    ["marker", "raw"],
+    ["marker", "lost"],
+  ] as const)(
+    "contains recovery %s removal %s outcomes",
+    async (stage, outcome) => {
+      const stale: LockClaimRecord = {
+        claimId: "admission-boundary",
+        resource: "admission",
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const record = publishedAdmissionRecord(stale);
+      const generation = parentDirectory(record);
+      const parent = lockPaths("project").admissionClaim;
+      const marker = admissionRecoveryMarker(stale);
+      const tombstone = admissionTombstone(stale);
+      const storage = lockStorage({
+        files: { [tombstone]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            const matches =
+              (stage === "generation" && path === generation) ||
+              (stage === "parent" && path === parent) ||
+              (stage === "marker" && path === marker);
+            if (!matches) return baseRemove(path);
+            if (outcome === "typed")
+              throw new LockFailure("runtime.recovery_required", []);
+            if (outcome === "lost") await baseRemove(path);
+            throw new Error("boundary fault");
+          },
+        }),
+      );
+      await expect(result).rejects.toMatchObject({
+        reasonCode:
+          outcome === "typed"
+            ? "runtime.recovery_required"
+            : outcome === "raw" && stage !== "parent"
+              ? "runtime.internal_failure"
+              : "runtime.recovery_required",
+      });
+      if (outcome === "lost")
+        expect(storage.snapshot().directories).not.toContain(
+          stage === "generation"
+            ? generation
+            : stage === "parent"
+              ? parent
+              : marker,
+        );
+      else
+        expect(storage.snapshot().directories).toContain(
+          stage === "generation"
+            ? generation
+            : stage === "parent"
+              ? parent
+              : marker,
+        );
+    },
+  );
+
+  it.each([
     [
       "leading-zero marker epoch",
       {
