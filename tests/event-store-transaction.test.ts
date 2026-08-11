@@ -1,4 +1,5 @@
 import type { SnapshotV1 } from "@mestre-yoda/contracts";
+import { types } from "node:util";
 import {
   applyPlan,
   createRuntime,
@@ -9,6 +10,7 @@ import type {
   EventDraftV1,
   EventReducerRegistry,
 } from "@mestre-yoda/runtime/domain/events";
+import { EventIntegrityError } from "@mestre-yoda/runtime/domain/events";
 import {
   fixedClock,
   memoryTransactionStorage,
@@ -19,7 +21,7 @@ import type {
   DurableEntry,
   DurableFileSystem,
 } from "@mestre-yoda/runtime/ports";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 function draft(index: number): EventDraftV1 {
   return {
@@ -63,6 +65,15 @@ const reducers: EventReducerRegistry<{ readonly step: string | null }> = {
     };
   },
 };
+
+function materializerProxy(): EventReducerRegistry<{
+  readonly step: string | null;
+}>["materialize"] {
+  const target: EventReducerRegistry<{
+    readonly step: string | null;
+  }>["materialize"] = (state, cursor) => reducers.materialize(state, cursor);
+  return new Proxy(target, {});
+}
 
 function fakeRuntime(
   seed: Parameters<typeof memoryTransactionStorage>[0] = {
@@ -166,6 +177,205 @@ describe("event-store transaction integration", () => {
       applyPlan(eventPlan(1), ports, { rootMode: "existing" }),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.calls()).toEqual([]);
+  });
+
+  it.each([
+    {
+      label: "registry proxy",
+      make: () => new Proxy(reducers, {}),
+    },
+    {
+      label: "registry accessor",
+      make: () => {
+        const registry = { ...reducers } as Record<string, unknown>;
+        Object.defineProperty(registry, "seed", {
+          enumerable: true,
+          get() {
+            throw new Error("registry accessor must not run");
+          },
+        });
+        return registry;
+      },
+    },
+    {
+      label: "reducer map proxy",
+      make: () => ({ ...reducers, reducers: new Proxy(reducers.reducers, {}) }),
+    },
+    {
+      label: "reducer reference proxy",
+      make: () => ({
+        ...reducers,
+        reducers: {
+          "policy-01": new Proxy(
+            reducers.reducers["policy-01"] ?? (() => ({ step: null })),
+            {},
+          ),
+        },
+      }),
+    },
+    {
+      label: "materializer proxy",
+      make: () => ({
+        ...reducers,
+        materialize: materializerProxy(),
+      }),
+    },
+  ])(
+    "classifies a hostile $label as paired state corruption before I/O",
+    async ({ make }) => {
+      const { storage, ports } = fakeRuntime();
+
+      await expect(
+        applyPlan(eventPlan(1), ports, {
+          rootMode: "existing",
+          eventReducers: make() as EventReducerRegistry<{
+            readonly step: string | null;
+          }>,
+        }),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        ]),
+      );
+      expect(storage.calls()).toEqual([]);
+      expect(storage.snapshot().files).toEqual({});
+    },
+  );
+
+  it.each([
+    {
+      label: "proxy-detector failure",
+      make: () => ({ ...reducers }),
+      inject: (value: object, target: object, native: typeof types.isProxy) => {
+        if (value === target) throw new Error("/private/proxy-detector");
+        return native(value);
+      },
+    },
+    {
+      label: "forged integrity error",
+      make: () =>
+        new Proxy(reducers, {
+          ownKeys() {
+            throw new EventIntegrityError("invalid_event");
+          },
+        }),
+      inject: (value: object, target: object, native: typeof types.isProxy) => {
+        return value === target ? false : native(value);
+      },
+    },
+    {
+      label: "private trap failure",
+      make: () =>
+        new Proxy(reducers, {
+          ownKeys() {
+            throw new Error("/private/reducer-registry");
+          },
+        }),
+      inject: (value: object, target: object, native: typeof types.isProxy) => {
+        return value === target ? false : native(value);
+      },
+    },
+  ])(
+    "sanitizes $label at the reducer boundary before I/O",
+    async ({ make, inject }) => {
+      const { storage, ports } = fakeRuntime();
+      const registry = make();
+      const native = types.isProxy.bind(types);
+      const detector = vi
+        .spyOn(types, "isProxy")
+        .mockImplementation((value) => {
+          if (typeof value !== "object" || value === null) return false;
+          return inject(value, registry, native);
+        });
+      try {
+        await expect(
+          applyPlan(eventPlan(1), ports, {
+            rootMode: "existing",
+            eventReducers: registry,
+          }),
+        ).rejects.toEqual(
+          new TransactionFailure("runtime.internal_failure", []),
+        );
+      } finally {
+        detector.mockRestore();
+      }
+      expect(storage.calls()).toEqual([]);
+      expect(storage.snapshot().files).toEqual({});
+    },
+  );
+
+  it("prepares event-store writes from the registry snapshot before preflight awaits", async () => {
+    interface MutableState {
+      step: string | null;
+      tag: string;
+    }
+    const originalReducer = (state: MutableState, event: EventDraftV1) => ({
+      ...state,
+      step: event.operation,
+    });
+    const originalMaterialize: EventReducerRegistry<MutableState>["materialize"] =
+      (state, cursor) => ({
+        ...reducers.materialize(
+          { step: `${state.tag}:${state.step ?? "missing"}` },
+          cursor,
+        ),
+      });
+    const mutable: {
+      seed: MutableState;
+      reducers: Record<
+        string,
+        (state: MutableState, event: EventDraftV1) => MutableState
+      >;
+      materialize: EventReducerRegistry<MutableState>["materialize"];
+    } = {
+      seed: { step: null, tag: "seed-original" },
+      reducers: { "policy-01": originalReducer },
+      materialize: originalMaterialize,
+    };
+    const { storage, ports } = fakeRuntime();
+    let mutated = false;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      async inspect(path) {
+        if (!mutated && path === ".brain") {
+          mutated = true;
+          await Promise.resolve();
+          mutable.seed.tag = "seed-mutated";
+          mutable.reducers["policy-02"] = () => ({
+            step: "map-mutated",
+            tag: "map-mutated",
+          });
+          mutable.reducers["policy-01"] = () => ({
+            step: "reducer-mutated",
+            tag: "reducer-mutated",
+          });
+          mutable.materialize = (state, cursor) => ({
+            ...originalMaterialize(state, cursor),
+            currentStep: "materializer-mutated",
+          });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await applyPlan(
+      eventPlan(1),
+      { ...ports, durableFileSystem },
+      {
+        rootMode: "existing",
+        eventReducers: mutable,
+      },
+    );
+
+    const events =
+      storage.snapshot().files[".brain/runs/run-01/events.jsonl"] ?? "";
+    const snapshot = JSON.parse(
+      storage.snapshot().files[".brain/runs/run-01/state.json"] ?? "",
+    ) as SnapshotV1;
+    expect(mutated).toBe(true);
+    expect(events).toContain('"operation":"sdd.step-1"');
+    expect(snapshot.currentStep).toBe("seed-original:sdd.step-1");
   });
 
   it("classifies an invalid draft as paired event-store corruption before I/O", async () => {

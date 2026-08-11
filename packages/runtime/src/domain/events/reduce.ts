@@ -30,6 +30,7 @@ export interface ReplayResult<State = JsonState> {
 }
 
 const MISSING_REDUCER = Symbol("missing reducer");
+const recognizedReducerRegistryFailures = new WeakSet<EventIntegrityError>();
 
 interface TrackedViews {
   attempted: boolean;
@@ -47,7 +48,19 @@ interface InertRegistry<State> {
 }
 
 function invalidEvent(): never {
-  throw new EventIntegrityError("invalid_event");
+  const error = new EventIntegrityError("invalid_event");
+  recognizedReducerRegistryFailures.add(error);
+  throw error;
+}
+
+/** The composition boundary must not trust caller-forged integrity errors. */
+export function isRecognizedReducerRegistryFailure(
+  error: unknown,
+): error is EventIntegrityError {
+  return (
+    error instanceof EventIntegrityError &&
+    recognizedReducerRegistryFailures.has(error)
+  );
 }
 
 function isProxy(value: object, services: ReplayServices): boolean {

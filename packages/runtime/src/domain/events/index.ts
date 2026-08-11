@@ -17,6 +17,7 @@ export {
 export { verifyEventStream, type VerifiedEventStream } from "./verify.js";
 export {
   replayEventStream,
+  isRecognizedReducerRegistryFailure,
   snapshotEventReducerRegistry,
   type EventReducerRegistry,
   type JsonState,

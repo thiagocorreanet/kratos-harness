@@ -7,6 +7,7 @@ import type {
 } from "../domain/effects.js";
 import {
   EventIntegrityError,
+  isRecognizedReducerRegistryFailure,
   snapshotEventDraft,
   snapshotEventReducerRegistry,
   type EventReducerRegistry,
@@ -100,6 +101,8 @@ export interface ApplyPlanOptions<State = JsonState> {
   readonly rootMode: "existing" | "initialize";
   readonly eventReducers?: EventReducerRegistry<State>;
 }
+
+class MissingReducerRegistry extends Error {}
 
 /**
  * Commit every managed effect through one durable transaction, then emit.
@@ -466,26 +469,43 @@ function snapshotAppendReducers<State>(
   schemaRegistry: TransactionServices["schemaRegistry"],
 ): EventReducerRegistry<State> {
   let paths: ReturnType<typeof eventStorePaths> | undefined;
+  const dependencyState = { proxyDetectorFailed: false };
   try {
     paths = eventStorePaths(append.runId);
-    const registry = ownData(options, "eventReducers");
-    if (registry === undefined) throw invalidApplyInput();
+    let registry: unknown;
+    try {
+      registry = ownData(options, "eventReducers");
+    } catch {
+      throw new MissingReducerRegistry();
+    }
+    if (registry === undefined) throw new MissingReducerRegistry();
     return snapshotEventReducerRegistry(
       registry as EventReducerRegistry<State>,
-      { isProxy: types.isProxy, schemaRegistry },
+      {
+        isProxy(value) {
+          try {
+            return types.isProxy(value);
+          } catch {
+            dependencyState.proxyDetectorFailed = true;
+            throw new Error("Reducer proxy detector failed");
+          }
+        },
+        schemaRegistry,
+      },
     );
   } catch (error) {
     const evidence =
       paths === undefined
         ? ([{ kind: "artifact", ref: ".brain" }] as const)
         : eventEvidence(paths);
-    if (error instanceof TransactionFailure) {
+    if (
+      !dependencyState.proxyDetectorFailed &&
+      (error instanceof MissingReducerRegistry ||
+        isRecognizedReducerRegistryFailure(error))
+    ) {
       throw new TransactionFailure("runtime.state_corrupt", evidence);
     }
-    if (error instanceof EventIntegrityError) {
-      throw new TransactionFailure("runtime.state_corrupt", evidence);
-    }
-    throw new TransactionFailure("runtime.state_corrupt", evidence);
+    throw new TransactionFailure("runtime.internal_failure", []);
   }
 }
 
