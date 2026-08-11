@@ -793,6 +793,60 @@ describe("durable lock claims", () => {
     });
   });
 
+  it("recovers an expired admission at the skew boundary before acquiring", async () => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson({
+          claimId: "admission",
+          resource: "admission",
+          owner: "codex:session-02",
+          leaseId: null,
+          fencingToken: null,
+          acquiredAt: "2026-08-11T00:00:00.000Z",
+          expiresAt: "2026-08-11T00:00:30.000Z",
+        }),
+      },
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:00:35.000Z")),
+    ).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it.each(["removeFile", "syncDirectory"] as const)(
+    "returns typed recovery-required when admission cleanup %s fails",
+    async (failure) => {
+      const storage = lockStorage();
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseSync = storage.durableFileSystem.syncDirectory;
+      const result = expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            removeFile: async (path) =>
+              failure === "removeFile" &&
+              path === lockPaths("project").admissionRecord
+                ? Promise.reject(new Error("fault"))
+                : baseRemove(path),
+            syncDirectory: async (path) =>
+              failure === "syncDirectory" &&
+              path === lockPaths("project").admissionClaim
+                ? Promise.reject(new Error("fault"))
+                : baseSync(path),
+          }),
+        ),
+      );
+      if (failure === "syncDirectory")
+        await result.resolves.toMatchObject({
+          kind: "conflict",
+          resource: "admission",
+        });
+      else
+        await result.rejects.toMatchObject({
+          reasonCode: "runtime.recovery_required",
+        });
+    },
+  );
+
   it("rejects invalid acquire input before durable inspection", async () => {
     const storage = lockStorage();
     await expect(
