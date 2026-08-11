@@ -171,18 +171,23 @@ export function nodeDurableFileSystem(
   root: string,
   observer?: DurableOperationObserver,
 ): DurableFileSystem {
-  const canonicalRoot = realpath(root).then(
-    async (path): Promise<CanonicalRootIdentity> => {
-      const details = await lstat(path);
-      if (details.isSymbolicLink() || !details.isDirectory()) {
-        throw new Error("Runtime project root is not a directory");
-      }
-      return { path, device: details.dev, inode: details.ino };
-    },
-  );
+  let canonicalRoot: Promise<CanonicalRootIdentity> | undefined;
+
+  function loadCanonicalRoot(): Promise<CanonicalRootIdentity> {
+    canonicalRoot ??= realpath(root).then(
+      async (path): Promise<CanonicalRootIdentity> => {
+        const details = await lstat(path);
+        if (details.isSymbolicLink() || !details.isDirectory()) {
+          throw new Error("Runtime project root is not a directory");
+        }
+        return { path, device: details.dev, inode: details.ino };
+      },
+    );
+    return canonicalRoot;
+  }
 
   async function validatedRoot(): Promise<string> {
-    const expected = await canonicalRoot;
+    const expected = await loadCanonicalRoot();
     try {
       const details = await lstat(expected.path);
       if (
