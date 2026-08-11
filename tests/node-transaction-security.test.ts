@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { lstatSync, renameSync } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -56,42 +57,121 @@ describe("node durable filesystem security", () => {
   });
 
   it.each([
-    "before resolution",
-    "between resolution and resolved identity",
-    "between resolved identity and post identity",
-  ] as const)("stores a refusal when the root swaps %s", (cutPoint) => {
-    let swapped = false;
-    let lstatCalls = 0;
+    "after pre-lstat/before realpath",
+    "after realpath/before resolved lstat",
+    "after resolved lstat/before post lstat",
+  ] as const)(
+    "refuses a real-directory root substitution %s and preserves the outside sentinel",
+    async (cutPoint) => {
+      const container = await mkdtemp(
+        join(tmpdir(), "yoda-node-capture-swap-"),
+      );
+      const root = join(container, "project");
+      const displaced = join(container, "project-original");
+      const outside = join(container, "outside");
+      let swapped = false;
+      let lstatCalls = 0;
+      try {
+        await mkdir(join(root, ".brain"), { recursive: true });
+        await mkdir(join(outside, ".brain"), { recursive: true });
+        await writeFile(join(root, ".brain/state.json"), "ORIGINAL", "utf8");
+        await writeFile(join(outside, ".brain/state.json"), "SENTINEL", "utf8");
+
+        const swap = () => {
+          if (swapped) return;
+          renameSync(root, displaced);
+          renameSync(outside, root);
+          swapped = true;
+        };
+        const result = captureCanonicalRoot(root, {
+          lstat(path) {
+            lstatCalls += 1;
+            if (
+              cutPoint === "after realpath/before resolved lstat" &&
+              lstatCalls === 2
+            ) {
+              swap();
+            }
+            if (
+              cutPoint === "after resolved lstat/before post lstat" &&
+              lstatCalls === 3
+            ) {
+              swap();
+            }
+            return lstatSync(path);
+          },
+          realpath(path) {
+            if (cutPoint === "after pre-lstat/before realpath") swap();
+            return path;
+          },
+        });
+
+        expect(result).toBeInstanceOf(Error);
+        expect(await readFile(join(root, ".brain/state.json"), "utf8")).toBe(
+          "SENTINEL",
+        );
+        expect(
+          await readFile(join(displaced, ".brain/state.json"), "utf8"),
+        ).toBe("ORIGINAL");
+      } finally {
+        await rm(container, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it("accepts capture only when directory type, device, and inode all match", () => {
     const directory = {
-      dev: 1,
-      ino: 1,
+      dev: 7,
+      ino: 11,
       isDirectory: () => true,
       isSymbolicLink: () => false,
     };
-    const symlinkRoot = {
-      dev: 2,
-      ino: 2,
-      isDirectory: () => false,
-      isSymbolicLink: () => true,
-    };
+
+    expect(
+      captureCanonicalRoot("/project", {
+        lstat: () => directory,
+        realpath: () => "/canonical-project",
+      }),
+    ).toEqual({ path: "/canonical-project", device: 7, inode: 11 });
+  });
+
+  it("rejects capture when equal inodes have different devices", () => {
     const result = captureCanonicalRoot("/project", {
-      lstat(path) {
-        lstatCalls += 1;
-        if (
-          cutPoint === "between resolved identity and post identity" &&
-          lstatCalls === 3
-        ) {
-          swapped = true;
-        }
-        return path === "/project" && swapped ? symlinkRoot : directory;
-      },
-      realpath() {
-        if (cutPoint === "before resolution") swapped = true;
-        if (cutPoint === "between resolution and resolved identity") {
-          swapped = true;
-        }
-        return "/project";
-      },
+      lstat: (path) => ({
+        dev: path === "/project" ? 7 : 8,
+        ino: 11,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      }),
+      realpath: () => "/canonical-project",
+    });
+
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  it("rejects capture when equal devices have different inodes", () => {
+    const result = captureCanonicalRoot("/project", {
+      lstat: (path) => ({
+        dev: 7,
+        ino: path === "/project" ? 11 : 12,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      }),
+      realpath: () => "/canonical-project",
+    });
+
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  it("rejects capture when the resolved identity changes type", () => {
+    const result = captureCanonicalRoot("/project", {
+      lstat: (path) => ({
+        dev: 7,
+        ino: 11,
+        isDirectory: () => path === "/project",
+        isSymbolicLink: () => false,
+      }),
+      realpath: () => "/canonical-project",
     });
 
     expect(result).toBeInstanceOf(Error);
