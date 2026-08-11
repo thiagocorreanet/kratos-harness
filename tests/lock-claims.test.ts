@@ -537,4 +537,44 @@ describe("durable lock claims", () => {
       ).toBeTypeOf("string");
     },
   );
+
+  it.each(["progress.next", "staging"] as const)(
+    "does not recover across terminal transaction %s residue",
+    async (residue) => {
+      const root = ".brain/transactions/tx-terminal";
+      const storage = lockStorage({
+        files: {
+          [lockPaths("project").claimRecord]: canonicalizeJson(
+            observedClaim.observed,
+          ),
+        },
+        directories: residue === "staging" ? [`${root}/staging`] : [root],
+        ...(residue === "progress.next"
+          ? {
+              files: {
+                [lockPaths("project").claimRecord]: canonicalizeJson(
+                  observedClaim.observed,
+                ),
+                [`${root}/progress.next`]: "residue",
+              },
+            }
+          : {}),
+      });
+      const lockServices: LockServices = {
+        ...services(storage),
+        inspectTransactions: async () => [
+          {
+            transactionId: "tx-terminal",
+            manifestDigest: null,
+            recoveryToken: "token",
+            phase: "committed",
+            evidenceRef: `${root}/progress.json`,
+          },
+        ],
+      };
+      await expect(
+        recoverClaim(observedClaim, lockServices),
+      ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    },
+  );
 });
