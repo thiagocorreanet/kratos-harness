@@ -318,6 +318,7 @@ describe("durable lock claims", () => {
   it.each([
     ["invalid Base64URL run name", ".brain/locks/runs/!!"],
     ["noncanonical Base64URL run name", ".brain/locks/runs/YQ=="],
+    ["non-reversible Base64URL run name", ".brain/locks/runs/AA"],
   ])("rejects %s", async (_name, directory) => {
     const storage = lockStorage({ directories: [directory] });
     await expect(

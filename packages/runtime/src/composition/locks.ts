@@ -165,6 +165,14 @@ async function assertCanonicalRunChildren(
     for (const name of await services.durableFileSystem.list(root)) {
       // Canonical unpadded Base64URL is the output alphabet of lockPaths().
       if (!/^[A-Za-z0-9_-]{2,171}$/u.test(name)) throw corrupt(root);
+      const decoded = Buffer.from(name, "base64url").toString("utf8");
+      try {
+        if (lockPaths(`run:${decoded}`).root !== `${root}/${name}`)
+          throw corrupt(`${root}/${name}`);
+      } catch (error) {
+        if (error instanceof LockFailure) throw error;
+        throw corrupt(`${root}/${name}`);
+      }
       if (
         (await services.durableFileSystem.inspect(`${root}/${name}`)).kind !==
         "directory"
