@@ -585,7 +585,7 @@ export async function recoverClaim(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "recovered" | "absent" }> {
+): Promise<{ readonly kind: "recovered" | "absent" } | ClaimConflict> {
   await ensureLockNamespace(request.resource, services);
   return withAdmission(request.owner, services, () =>
     recoverClaimHeld(request, services),
@@ -599,7 +599,7 @@ async function recoverClaimHeld(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "recovered" | "absent" }> {
+): Promise<{ readonly kind: "recovered" | "absent" } | ClaimConflict> {
   let summaries;
   try {
     summaries = await (services.inspectTransactions?.() ??
@@ -648,10 +648,13 @@ async function recoverClaimHeld(
       services.clock.now().getTime()
   )
     throw corrupt(claimRecordPath(request.resource));
-  return releaseClaimHeld(
+  const outcome = await releaseClaimHeld(
     { resource: request.resource, observed: current },
     services,
-  ).then(() => ({ kind: "recovered" as const }));
+  );
+  if (outcome.kind === "conflict") return outcome;
+  if (outcome.kind !== "released") return { kind: "absent" };
+  return { kind: "recovered" };
 }
 
 export async function inspectLease(
