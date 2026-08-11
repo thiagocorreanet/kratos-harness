@@ -1060,6 +1060,28 @@ describe("durable lock claims", () => {
   });
 
   it.each([
+    ["noncanonical", '{"owner":"x"}'],
+    [
+      "wrong-resource",
+      canonicalizeJson({
+        claimId: "x",
+        resource: "project",
+        owner: "codex:session-01",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      }),
+    ],
+  ])("rejects %s admission claim bytes", async (_name, text) => {
+    const paths = lockPaths("project");
+    const storage = lockStorage({ files: { [paths.admissionRecord]: text } });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each([
     [
       "stale-record",
       (paths: { readonly admissionRecord: string }) => paths.admissionRecord,
