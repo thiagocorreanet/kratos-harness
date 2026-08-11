@@ -59,6 +59,12 @@ export interface ObservedLockClaim extends LockClaimRecord {
   readonly fingerprint: PathFingerprint;
 }
 
+export type AcquireClaimOutcome = ObservedLockClaim | ClaimConflict;
+export type ReleaseClaimOutcome =
+  { readonly kind: "released" | "absent" } | ClaimConflict;
+export type RecoverClaimOutcome =
+  { readonly kind: "recovered" | "absent" } | ClaimConflict;
+
 export interface AcquireClaimRequest {
   readonly resource: LeaseResource;
   readonly owner: string;
@@ -546,7 +552,7 @@ async function withAdmission<T>(
 export async function acquireClaim(
   request: AcquireClaimRequest,
   services: LockServices,
-): Promise<LockClaimRecord> {
+): Promise<AcquireClaimOutcome> {
   try {
     lockPaths(request.resource);
     parseOwner(request.owner);
@@ -563,7 +569,7 @@ export async function acquireClaim(
 async function acquireClaimHeld(
   request: AcquireClaimRequest,
   services: LockServices,
-): Promise<LockClaimRecord> {
+): Promise<AcquireClaimOutcome> {
   try {
     lockPaths(request.resource);
     parseOwner(request.owner);
@@ -615,7 +621,7 @@ async function acquireClaimHeld(
   return Object.freeze({
     ...claim,
     fingerprint: {
-      kind: "file",
+      kind: "file" as const,
       size: fingerprint.size,
       sha256: fingerprint.sha256,
     },
@@ -628,7 +634,13 @@ export async function releaseClaim(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "released" | "absent" } | ClaimConflict> {
+): Promise<ReleaseClaimOutcome> {
+  try {
+    lockPaths(request.resource);
+    parseOwner(request.observed.owner);
+  } catch {
+    throw internal();
+  }
   await ensureLockNamespace(request.resource, services);
   return withAdmission(request.observed.owner, services, () =>
     releaseClaimHeld(request, services),
@@ -641,7 +653,7 @@ async function releaseClaimHeld(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "released" | "absent" } | ClaimConflict> {
+): Promise<ReleaseClaimOutcome> {
   const current = await readClaim(request.resource, services);
   if (current === null) return { kind: "absent" };
   if (!sameClaim(current, request.observed))
@@ -680,7 +692,14 @@ export async function recoverClaim(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "recovered" | "absent" } | ClaimConflict> {
+): Promise<RecoverClaimOutcome> {
+  try {
+    lockPaths(request.resource);
+    parseOwner(request.owner);
+    if (request.observed.resource !== request.resource) throw new Error();
+  } catch {
+    throw internal();
+  }
   await ensureLockNamespace(request.resource, services);
   return withAdmission(request.owner, services, () =>
     recoverClaimHeld(request, services),
@@ -694,7 +713,7 @@ async function recoverClaimHeld(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "recovered" | "absent" } | ClaimConflict> {
+): Promise<RecoverClaimOutcome> {
   let summaries;
   try {
     summaries = await (services.inspectTransactions?.() ??

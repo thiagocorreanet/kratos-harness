@@ -55,9 +55,14 @@ import {
   recoverClaim,
   releaseClaim,
   type AcquireClaimRequest,
+  type AcquireClaimOutcome,
   type ClaimInspection,
+  type ClaimConflict,
   type LockClaimRecord,
   type LockServices,
+  type ObservedLockClaim,
+  type RecoverClaimOutcome,
+  type ReleaseClaimOutcome,
 } from "./locks.js";
 
 export {
@@ -78,9 +83,14 @@ export {
 export type { TransactionReceipt, TransactionServices, TransactionSummary };
 export type {
   AcquireClaimRequest,
+  AcquireClaimOutcome,
   ClaimInspection,
+  ClaimConflict,
   LockClaimRecord,
   LockServices,
+  ObservedLockClaim,
+  RecoverClaimOutcome,
+  ReleaseClaimOutcome,
 };
 
 /**
