@@ -1001,6 +1001,16 @@ describe("durable lock claims", () => {
     );
   });
 
+  it("fails closed for malformed admission metadata during sibling inspection", async () => {
+    const paths = lockPaths("project");
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: "{}" },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
   it.each([
     [
       "stale-record",
