@@ -75,6 +75,22 @@ describe("event sealing", () => {
     expect(event.evidenceRefs).toEqual(golden.draft.evidenceRefs);
   });
 
+  it("accepts only canonical dense reference-array keys before copying", () => {
+    const references = [".brain/features/feature-01/00-prd.md"];
+    expect(Object.getOwnPropertyNames(references)).toEqual(["0", "length"]);
+    expect(seal({ ...draft(), artifactRefs: references }).artifactRefs).toEqual(
+      references,
+    );
+
+    const nonIndex = [".brain/features/feature-01/00-prd.md"] as string[] & {
+      "01"?: string;
+    };
+    nonIndex["01"] = "private";
+    expect(integrityKind({ ...draft(), artifactRefs: nonIndex })).toBe(
+      "invalid_event",
+    );
+  });
+
   it.each([
     ["a revision gap", { ...draft(), priorRevision: 1 }, 0, null],
     [
@@ -89,6 +105,8 @@ describe("event sealing", () => {
   });
 
   it.each([
+    ["a non-object draft", null],
+    ["a null-prototype draft", Object.create(null)],
     ["extra keys", { ...draft(), rawPayload: "attacker text" }],
     [
       "accessors",
@@ -109,8 +127,17 @@ describe("event sealing", () => {
       "unsafe artifact references",
       { ...draft(), artifactRefs: ["../attacker"] },
     ],
+    [
+      "a primitive artifact reference list",
+      { ...draft(), artifactRefs: "private" },
+    ],
+    ["an object artifact reference list", { ...draft(), artifactRefs: {} }],
     ["unsafe evidence references", { ...draft(), evidenceRefs: ["/attacker"] }],
     ["wrong primitive values", { ...draft(), reasonCode: 1 }],
+    [
+      "a non-finite revision",
+      { ...draft(), priorRevision: Number.POSITIVE_INFINITY },
+    ],
     ["array holes", { ...draft(), artifactRefs: Array(1) }],
     [
       "array accessors",
@@ -128,6 +155,10 @@ describe("event sealing", () => {
         ...draft(),
         observedIdentity: { host: "codex", model: "gpt-5", extra: true },
       },
+    ],
+    [
+      "a non-string identity model",
+      { ...draft(), observedIdentity: { host: "codex", model: 1 } },
     ],
     [
       "artifact reference lists longer than 256 entries",

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { EventV1, SnapshotV1 } from "@mestre-yoda/contracts";
 import {
   EventIntegrityError,
+  isRecognizedReducerRegistryFailure,
   replayEventStream,
   sealEvent,
   snapshotEventReducerRegistry,
@@ -139,6 +140,49 @@ function invalidEvent(run: () => unknown): EventIntegrityError {
 }
 
 describe("event reducer replay boundary", () => {
+  it("identifies only reducer-registry failures created by this boundary", () => {
+    const forged = new EventIntegrityError("invalid_event");
+    expect(isRecognizedReducerRegistryFailure(forged)).toBe(false);
+
+    let recognized: unknown;
+    try {
+      snapshotEventReducerRegistry(null as never, replayServices);
+    } catch (error) {
+      recognized = error;
+    }
+    expect(isRecognizedReducerRegistryFailure(recognized)).toBe(true);
+  });
+
+  it("sanitizes a proxy-detector exception", () => {
+    invalidEvent(() =>
+      replayEventStream(stream(), registry(), {
+        ...replayServices,
+        isProxy: () => {
+          throw new Error("private proxy detector failure");
+        },
+      }),
+    );
+  });
+
+  it("sanitizes a native Promise whose rejection handler cannot attach", () => {
+    const original = Object.getOwnPropertyDescriptor(Promise.prototype, "then");
+    if (original === undefined) throw new Error("missing native Promise.then");
+    void Object.defineProperty(Promise.prototype, "then", {
+      configurable: true,
+      value: () => {
+        throw new Error("private promise handler failure");
+      },
+      writable: true,
+    });
+    try {
+      invalidEvent(() => {
+        void replay(registry(() => new Promise(() => undefined) as never));
+      });
+    } finally {
+      void Object.defineProperty(Promise.prototype, "then", original);
+    }
+  });
+
   it.each(["reducer", "materializer"] as const)(
     "rejects a rejected native Promise from a %s without an unhandled rejection",
     async (kind) => {
@@ -541,6 +585,37 @@ describe("event reducer replay boundary", () => {
 
   it.each([
     [
+      "define a property",
+      (state: object) => Object.defineProperty(state, "x", { value: 1 }),
+    ],
+    [
+      "delete a property",
+      (state: object) => Reflect.deleteProperty(state, "status"),
+    ],
+    ["prevent extensions", (state: object) => Object.preventExtensions(state)],
+    [
+      "change a prototype",
+      (state: object) => {
+        Object.setPrototypeOf(state, null);
+      },
+    ],
+  ] as const)("rejects a reducer that tries to %s", (_name, mutate) => {
+    invalidEvent(() =>
+      replay(
+        registry((state) => {
+          try {
+            mutate(state);
+          } catch {
+            void 0;
+          }
+          return state;
+        }),
+      ),
+    );
+  });
+
+  it.each([
+    [
       "state",
       (
         state: TestState,
@@ -660,10 +735,139 @@ describe("event reducer replay boundary", () => {
     );
   });
 
+  it("rejects a deterministic snapshot with incorrect final bindings", () => {
+    invalidEvent(() =>
+      replay(
+        registry(undefined, (state, cursor) => ({
+          ...snapshot(state, cursor),
+          updatedAt: "2026-08-10T00:02:00Z",
+        })),
+      ),
+    );
+  });
+
+  it("rejects a bound snapshot that fails its schema", () => {
+    invalidEvent(() =>
+      replay(
+        registry(undefined, (state, cursor) => ({
+          ...snapshot(state, cursor),
+          currentStep: 1 as unknown as string,
+        })),
+      ),
+    );
+  });
+
+  it.each([
+    [
+      "an array with a non-index key",
+      () => {
+        const values = [] as string[] & { "00"?: string };
+        values.length = 1;
+        values["00"] = "private";
+        return values;
+      },
+    ],
+    [
+      "a non-enumerable array entry",
+      () => Object.defineProperty(["private"], "0", { enumerable: false }),
+    ],
+  ] as const)("rejects a seed containing %s", (_name, values) => {
+    invalidEvent(() =>
+      replay({
+        ...registry(),
+        seed: { ...seed, values: values() } as TestState,
+      }),
+    );
+  });
+
+  it.each([
+    [
+      "a symbol state key",
+      () =>
+        Object.defineProperty({ ...seed }, Symbol("private"), {
+          enumerable: true,
+          value: 1,
+        }),
+    ],
+    [
+      "a non-enumerable state key",
+      () =>
+        Object.defineProperty({ ...seed }, "private", {
+          enumerable: false,
+          value: 1,
+        }),
+    ],
+  ] as const)("rejects a seed with %s", (_name, create) => {
+    invalidEvent(() => replay({ ...registry(), seed: create() }));
+  });
+
+  it.each([
+    ["a non-object registry", null],
+    [
+      "a non-enumerable registry field",
+      Object.defineProperty({ ...registry() }, "seed", {
+        enumerable: false,
+        value: seed,
+      }),
+    ],
+    ["a non-object reducer map", { ...registry(), reducers: null }],
+    [
+      "a symbol reducer key",
+      {
+        ...registry(),
+        reducers: Object.defineProperty({}, Symbol("private"), {
+          enumerable: true,
+          value: () => seed,
+        }),
+      },
+    ],
+  ] as const)("rejects %s before replay", (_name, value) => {
+    invalidEvent(() =>
+      replay(value as unknown as EventReducerRegistry<TestState>),
+    );
+  });
+
+  it.each([
+    [
+      "an invalid cursor",
+      (verified: ReturnType<typeof stream>) => ({ ...verified, cursor: null }),
+    ],
+    [
+      "an invalid tail event",
+      (verified: ReturnType<typeof stream>) => ({
+        ...verified,
+        events: [null],
+      }),
+    ],
+  ] as const)("rejects a stream with %s before replay", (_name, corrupt) => {
+    invalidEvent(() =>
+      replay(
+        registry(),
+        corrupt(stream()) as unknown as ReturnType<typeof stream>,
+      ),
+    );
+  });
+
   it("accepts a reducer returning its callback input without output aliasing", () => {
     const replayed = replay(registry((state) => state));
 
     expect(replayed.state).not.toBe(seed);
+    expect(replayed.state).toEqual(seed);
+  });
+
+  it("allows inert reads of absent tracked properties", () => {
+    const replayed = replay(
+      registry((state) => {
+        expect(
+          (state as unknown as Record<string, unknown>).missing,
+        ).toBeUndefined();
+        expect(
+          Object.getOwnPropertyDescriptor(state, "missing"),
+        ).toBeUndefined();
+        return state;
+      }),
+    );
+
     expect(replayed.state).toEqual(seed);
   });
 

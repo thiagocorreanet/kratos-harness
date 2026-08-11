@@ -174,23 +174,17 @@ export async function prepareEventAppend<State = JsonState>(
     ) {
       throw stateCorrupt(evidence);
     }
-    if (expectedEvents.kind !== "file" || expectedSnapshot.kind !== "file") {
-      throw stateCorrupt(evidence);
-    }
-
     const eventsText = await readExact(
       paths.events,
       expectedEvents,
       durableFileSystem,
       eventServices.digests,
-      true,
     );
     const snapshotText = await readExact(
       paths.snapshot,
       expectedSnapshot,
       durableFileSystem,
       eventServices.digests,
-      false,
     );
     const verified = eventDomain(tracker, () =>
       verifyEventStream(eventsText, eventServices),
@@ -301,7 +295,7 @@ function eventDomain<Value>(
     if (error instanceof EventIntegrityError) {
       throw new IntegrityFailure(error.reasonCode);
     }
-    throw new DependencyFailure();
+    throw error;
   }
 }
 
@@ -412,7 +406,7 @@ function canonicalEventLine(event: EventV1): string {
 function fileFingerprint(
   entry: DurableEntry,
   stream: boolean,
-): PathFingerprint {
+): Exclude<PathFingerprint, { readonly kind: "directory" }> {
   if (entry.kind === "missing") return { kind: "missing" };
   if (entry.kind !== "file") throw new IntegrityFailure();
   if (
@@ -433,14 +427,12 @@ async function readExact(
   expected: Extract<PathFingerprint, { readonly kind: "file" }>,
   durableFileSystem: DurableFileSystem,
   digests: Digests,
-  stream: boolean,
 ): Promise<string> {
   const text = await storageCall(() => durableFileSystem.readText(path));
   const size = encoder.encode(text).byteLength;
   if (size !== expected.size || digests.sha256(text) !== expected.sha256) {
     throw new RevisionConflict(eventEvidenceFor(path));
   }
-  if (stream && size > EVENT_STREAM_BYTES) throw new IntegrityFailure();
   return text;
 }
 

@@ -59,6 +59,7 @@ function replacementPlan(
 
 describe("managed transaction execution", () => {
   it.each([
+    ["invalid root mode", { rootMode: "unexpected" }],
     ["options extra", { rootMode: "existing", extra: true }],
     ["empty tuple", { rootMode: "existing", eventStorePreconditions: [] }],
     [
@@ -75,6 +76,21 @@ describe("managed transaction execution", () => {
             expected: { kind: "missing" },
           },
           { path: ".brain/outside.json", expected: { kind: "missing" } },
+        ],
+      },
+    ],
+    [
+      "missing root mode",
+      {
+        eventStorePreconditions: [
+          {
+            path: ".brain/runs/run-01/events.jsonl",
+            expected: { kind: "missing" },
+          },
+          {
+            path: ".brain/runs/run-01/state.json",
+            expected: { kind: "missing" },
+          },
         ],
       },
     ],
@@ -181,6 +197,19 @@ describe("managed transaction execution", () => {
       }),
     ],
     [
+      "non-string entry path",
+      () => ({
+        rootMode: "existing",
+        eventStorePreconditions: [
+          { path: 7, expected: { kind: "missing" } },
+          {
+            path: ".brain/runs/run-01/state.json",
+            expected: { kind: "missing" },
+          },
+        ],
+      }),
+    ],
+    [
       "expected proxy",
       () => ({
         rootMode: "existing",
@@ -206,6 +235,22 @@ describe("managed transaction execution", () => {
           ],
         };
       },
+    ],
+    [
+      "unsupported expected fingerprint",
+      () => ({
+        rootMode: "existing",
+        eventStorePreconditions: [
+          {
+            path: ".brain/runs/run-01/events.jsonl",
+            expected: { kind: "directory" },
+          },
+          {
+            path: ".brain/runs/run-01/state.json",
+            expected: { kind: "missing" },
+          },
+        ],
+      }),
     ],
     [
       "reordered pair",
@@ -342,6 +387,147 @@ describe("managed transaction execution", () => {
         { kind: "artifact", ref: snapshotPath },
       ]),
     );
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("labels a regular snapshot precondition drift as an artifact", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain", ".brain/transactions"],
+    });
+    const eventPath = ".brain/runs/run-01/events.jsonl";
+    const snapshotPath = ".brain/runs/run-01/state.json";
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path) {
+        if (path === snapshotPath) {
+          return Promise.resolve({
+            kind: "file" as const,
+            size: 5,
+            sha256: storage.digests.sha256("stale"),
+          });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        {
+          rootMode: "existing",
+          eventStorePreconditions: [
+            { path: eventPath, expected: { kind: "missing" } },
+            { path: snapshotPath, expected: { kind: "missing" } },
+          ],
+        },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.revision_conflict", [
+        { kind: "artifact", ref: snapshotPath },
+      ]),
+    );
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("accepts matching file event-store preconditions before execution", async () => {
+    const eventPath = ".brain/runs/run-01/events.jsonl";
+    const snapshotPath = ".brain/runs/run-01/state.json";
+    const storage = memoryTransactionStorage({
+      directories: [
+        ".brain",
+        ".brain/transactions",
+        ".brain/runs",
+        ".brain/runs/run-01",
+      ],
+      files: {
+        ".brain/state.json": "old",
+        [eventPath]: "event",
+        [snapshotPath]: "snapshot",
+      },
+    });
+    const options = {
+      rootMode: "existing" as const,
+      eventStorePreconditions: [
+        {
+          path: eventPath,
+          expected: {
+            kind: "file" as const,
+            size: 5,
+            sha256: storage.digests.sha256("event"),
+          },
+        },
+        {
+          path: snapshotPath,
+          expected: {
+            kind: "file" as const,
+            size: 8,
+            sha256: storage.digests.sha256("snapshot"),
+          },
+        },
+      ],
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        options,
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ phase: "committed" });
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("new");
+  });
+
+  it("initializes an empty existing root whose transaction namespace is absent", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain"],
+    });
+    const plan = replacementPlan(storage);
+    const operation = plan.operations[0];
+    if (operation?.kind !== "write_file") throw new Error("missing write plan");
+    const initializePlan: ManagedMutationPlan = {
+      operations: [{ ...operation, expected: { kind: "missing" } }],
+    };
+
+    await expect(
+      executeManagedMutation(
+        initializePlan,
+        { rootMode: "initialize" },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ phase: "committed" });
+    expect(storage.snapshot().files[".brain/state.json"]).toBe("new");
+    expect(storage.snapshot().directories).toContain(".brain/transactions");
+  });
+
+  it("sanitizes a rejected event-store precondition observation", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain", ".brain/transactions"],
+    });
+    const eventPath = ".brain/runs/run-01/events.jsonl";
+    const snapshotPath = ".brain/runs/run-01/state.json";
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path) {
+        if (path === eventPath)
+          return Promise.reject(new Error("private read"));
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      executeManagedMutation(
+        replacementPlan(storage),
+        {
+          rootMode: "existing",
+          eventStorePreconditions: [
+            { path: eventPath, expected: { kind: "missing" } },
+            { path: snapshotPath, expected: { kind: "missing" } },
+          ],
+        },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
     expect(storage.calls()).not.toContain("create_directory_exclusive");
   });
 

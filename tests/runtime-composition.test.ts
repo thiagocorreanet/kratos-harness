@@ -29,7 +29,7 @@ import type {
   DurableFileSystem,
   FileSystem,
 } from "@mestre-yoda/runtime/ports";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 function eventDraft(index: number): EventDraftV1 {
   return {
@@ -492,6 +492,84 @@ describe("effect plan application", () => {
     expect(storage.calls()).toEqual([]);
   });
 
+  it("rejects hostile effect-array shapes before any storage access", async () => {
+    const { storage, ports } = fakeRuntime();
+    const proxyEffects = new Proxy([], {});
+    const foreignPrototypeEffects: unknown[] = [];
+    Object.setPrototypeOf(foreignPrototypeEffects, null);
+    const extraKeyEffects: unknown[] = [];
+    Object.defineProperty(extraKeyEffects, "private", { value: "input" });
+    const accessorEffects: unknown[] = [];
+    Object.defineProperty(accessorEffects, "0", {
+      get() {
+        throw new Error("effect accessor must not run");
+      },
+    });
+
+    for (const effects of [
+      proxyEffects,
+      foreignPrototypeEffects,
+      extraKeyEffects,
+      accessorEffects,
+    ]) {
+      await expect(
+        applyPlan(
+          { effects } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: ".brain" },
+        ]),
+      );
+    }
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("sanitizes an unexpected native proxy-detector failure", async () => {
+    const { storage, ports } = fakeRuntime();
+    const detector = vi.spyOn(types, "isProxy").mockImplementation(() => {
+      throw new Error("private detector failure");
+    });
+    try {
+      await expect(applyPlan(planOf(), ports)).rejects.toEqual(
+        new TransactionFailure("runtime.internal_failure", []),
+      );
+    } finally {
+      detector.mockRestore();
+    }
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("rejects malformed append metadata before storage access", async () => {
+    const { storage, ports } = fakeRuntime();
+    const invalidRunId = {
+      kind: "append_event",
+      runId: "../run-01",
+      event: eventDraft(1),
+    };
+    const nonStringRunId = {
+      kind: "append_event",
+      runId: 7,
+      event: eventDraft(1),
+    };
+
+    for (const effect of [invalidRunId, nonStringRunId]) {
+      await expect(
+        applyPlan(
+          { effects: [effect] } as unknown as Parameters<typeof applyPlan>[0],
+          ports,
+          { rootMode: "existing", eventReducers },
+        ),
+      ).rejects.toEqual(
+        new TransactionFailure("runtime.state_corrupt", [
+          { kind: "artifact", ref: ".brain" },
+        ]),
+      );
+    }
+    expect(storage.calls()).toEqual([]);
+  });
+
   it("emits nothing when publication does not commit", async () => {
     const { storage, output, ports } = fakeRuntime();
     const durableFileSystem: DurableFileSystem = {
@@ -566,6 +644,55 @@ describe("effect plan application", () => {
     expect(replayed.snapshot).toEqual(state);
     expect(events).toMatch(/\n$/u);
     expect(snapshot.files[".brain/runs/run-01/state.json"]).toMatch(/\n$/u);
+  });
+
+  it("rejects a special event-store entry observed after preparation", async () => {
+    const { storage, ports } = fakeRuntime();
+    const events = ".brain/runs/run-01/events.jsonl";
+    let reads = 0;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path): Promise<DurableEntry> {
+        if (path === events && ++reads === 2) {
+          return Promise.resolve({ kind: "special" });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
+        { ...ports, durableFileSystem },
+        { rootMode: "existing", eventReducers },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.revision_conflict", [
+        { kind: "event", ref: events },
+      ]),
+    );
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("classifies an explicitly undefined reducer registry as state corruption", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
+        ports,
+        {
+          rootMode: "existing",
+          eventReducers: undefined,
+        } as unknown as Parameters<typeof applyPlan>[2],
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.state_corrupt", [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ]),
+    );
+    expect(storage.calls()).toEqual([]);
   });
 
   it.each(["special", "symlink"] as const)(

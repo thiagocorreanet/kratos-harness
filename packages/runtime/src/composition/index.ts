@@ -6,7 +6,6 @@ import type {
   EffectPlan,
 } from "../domain/effects.js";
 import {
-  EventIntegrityError,
   isRecognizedReducerRegistryFailure,
   snapshotEventDraft,
   snapshotEventReducerRegistry,
@@ -235,10 +234,11 @@ function preparedFingerprint(
   prepared: PreparedEventAppend,
   path: string,
 ): PathFingerprint {
-  const expected = prepared.expected.get(path);
-  if (expected === undefined)
-    throw new TransactionFailure("runtime.internal_failure", []);
-  return expected;
+  return [...prepared.expected].reduce<PathFingerprint>(
+    (current, [candidate, fingerprint]) =>
+      candidate === path ? fingerprint : current,
+    { kind: "missing" },
+  );
 }
 
 function snapshotApplyInput(
@@ -372,13 +372,8 @@ function snapshotAppendEffect(
   }
   try {
     return { kind, runId, event: snapshotEventDraft(event, types.isProxy) };
-  } catch (error) {
-    if (error instanceof EventIntegrityError)
-      throw new TransactionFailure(
-        "runtime.state_corrupt",
-        eventEvidence(paths),
-      );
-    throw error;
+  } catch {
+    throw new TransactionFailure("runtime.state_corrupt", eventEvidence(paths));
   }
 }
 
@@ -468,10 +463,9 @@ function snapshotAppendReducers<State>(
   append: AppendEventEffect,
   schemaRegistry: TransactionServices["schemaRegistry"],
 ): EventReducerRegistry<State> {
-  let paths: ReturnType<typeof eventStorePaths> | undefined;
+  const paths = eventStorePaths(append.runId);
   const dependencyState = { proxyDetectorFailed: false };
   try {
-    paths = eventStorePaths(append.runId);
     let registry: unknown;
     try {
       registry = ownData(options, "eventReducers");
@@ -494,10 +488,7 @@ function snapshotAppendReducers<State>(
       },
     );
   } catch (error) {
-    const evidence =
-      paths === undefined
-        ? ([{ kind: "artifact", ref: ".brain" }] as const)
-        : eventEvidence(paths);
+    const evidence = eventEvidence(paths);
     if (
       !dependencyState.proxyDetectorFailed &&
       (error instanceof MissingReducerRegistry ||

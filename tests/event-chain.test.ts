@@ -13,6 +13,7 @@ import {
   type EventDraftV1,
 } from "@mestre-yoda/runtime/domain/events";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
+import type { SchemaRegistry } from "@mestre-yoda/runtime/domain/schema";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
 import { describe, expect, it } from "vitest";
@@ -260,6 +261,44 @@ describe("event hash-chain verification", () => {
 
   it("returns an empty parsed stream only for empty text", () => {
     expect(parseEventLines("", services.schemaRegistry)).toEqual([]);
+  });
+
+  it("sanitizes an unrecognized version diagnostic for a non-record input", () => {
+    let observedVersion: unknown = "not called";
+    const registry: SchemaRegistry = {
+      validate: (request) => {
+        observedVersion = request.version;
+        return {
+          kind: "invalid",
+          diagnostics: [
+            {
+              contract: "state.event",
+              version: null,
+              pointer: "",
+              keyword: "version",
+              reasonCode: "private.version.detail",
+              recovery: "private",
+            },
+          ],
+        } as never;
+      },
+    };
+
+    const error = integrityError(() => parseEventLines("[]\n", registry));
+    expect(observedVersion).toBeUndefined();
+    expect(error).toMatchObject({ kind: "invalid_event", reasonCode: null });
+  });
+
+  it("sanitizes a canonicalizer failure after a registry claims validity", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    const registry: SchemaRegistry = {
+      validate: () => ({ kind: "valid", value: circular }) as never,
+    };
+
+    expect(integrityError(() => parseEventLines("{}\n", registry)).kind).toBe(
+      "invalid_event",
+    );
   });
 
   it("enforces exact record byte limits", () => {

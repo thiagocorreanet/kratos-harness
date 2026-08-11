@@ -141,16 +141,14 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
       throw new Error();
     const first = arrayData(tuple, 0);
     const second = arrayData(tuple, 1);
-    const preconditions = [
-      freezePrecondition(first),
-      freezePrecondition(second),
-    ];
+    const preconditions: readonly [
+      EventStorePrecondition,
+      EventStorePrecondition,
+    ] = [freezePrecondition(first), freezePrecondition(second)];
     const match =
       /^\.brain\/runs\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/(events\.jsonl|state\.json)$/u;
     const firstPrecondition = preconditions[0];
     const secondPrecondition = preconditions[1];
-    if (firstPrecondition === undefined || secondPrecondition === undefined)
-      throw new Error();
     const left = match.exec(firstPrecondition.path);
     const right = match.exec(secondPrecondition.path);
     if (
@@ -184,15 +182,14 @@ function exactData(
     (optional && (keys.length < 1 || keys.length > allowed.length))
   )
     throw new Error();
+  const stringKeys = keys.filter(
+    (key): key is string => typeof key === "string",
+  );
   const copy: Record<string, unknown> = {};
-  let index = 0;
-  while (index < keys.length) {
-    const key = keys[index];
-    if (typeof key !== "string") throw new Error();
+  for (const key of stringKeys) {
     const d = Object.getOwnPropertyDescriptor(value, key);
     if (d === undefined || !("value" in d)) throw new Error();
     copy[key] = d.value;
-    index += 1;
   }
   if (!("rootMode" in copy) && allowed.includes("rootMode")) throw new Error();
   return copy;

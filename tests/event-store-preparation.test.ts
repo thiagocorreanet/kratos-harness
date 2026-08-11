@@ -139,6 +139,13 @@ async function failureCode(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe("event-store append preparation", () => {
+  it("derives only the two canonical paths for a valid run ID", () => {
+    expect(eventStorePaths("run-01")).toEqual({
+      events: ".brain/runs/run-01/events.jsonl",
+      snapshot: ".brain/runs/run-01/state.json",
+    });
+  });
+
   it.each([
     "contract.state_version_invalid",
     "contract.state_version_unsupported",
@@ -199,6 +206,35 @@ describe("event-store append preparation", () => {
     ]);
   });
 
+  it("returns an immutable map view for prepared fingerprints", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const prepared = await prepareEventAppend(
+      { runId: "run-01", event: draft(1) },
+      services(storage),
+    );
+
+    const entries = [...prepared.expected.entries()];
+    const seen: string[] = [];
+    prepared.expected.forEach((_value, path, map) => {
+      expect(map).toBe(prepared.expected);
+      seen.push(path);
+    });
+
+    expect(prepared.expected.size).toBe(2);
+    expect(prepared.expected.has(prepared.paths.events)).toBe(true);
+    expect([...prepared.expected.keys()]).toEqual(
+      entries.map(([path]) => path),
+    );
+    expect([...prepared.expected.values()]).toEqual(
+      entries.map(([, value]) => value),
+    );
+    expect([...prepared.expected]).toEqual(entries);
+    expect(seen).toEqual(entries.map(([path]) => path));
+    expect(Object.isFrozen(prepared.expected)).toBe(true);
+  });
+
   it.each(["", "../run-01", "run/01", "run\\01", " run-01"])(
     "refuses unsafe run identifier %j before storage access",
     async (runId) => {
@@ -213,6 +249,181 @@ describe("event-store append preparation", () => {
       expect(storage.calls()).toEqual([]);
     },
   );
+
+  it("refuses a non-string run ID before storage access", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+
+    await expect(
+      prepareEventAppend(
+        { runId: 1 as never, event: draft(1) },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("uses the production proxy detector when none is supplied", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const prepared = services(storage);
+    const withoutDetector: EventAppendServices<State> = {
+      durableFileSystem: prepared.durableFileSystem,
+      digests: prepared.digests,
+      reducers: prepared.reducers,
+      schemaRegistry: prepared.schemaRegistry,
+    };
+
+    await expect(
+      prepareEventAppend({ runId: "run-01", event: draft(1) }, withoutDetector),
+    ).resolves.toMatchObject({ paths: eventStorePaths("run-01") });
+  });
+
+  it("sanitizes a detector that fails after the request precheck", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    let calls = 0;
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        {
+          ...services(storage),
+          isProxy: () => {
+            calls += 1;
+            return calls === 1 ? false : (Promise.resolve(false) as never);
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.internal_failure",
+      evidence: [],
+    });
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("sanitizes an unexpected event-domain value without exposing it", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        {
+          ...services(storage),
+          schemaRegistry: {
+            validate: () => ({ kind: "valid", value: circular }) as never,
+          } as never,
+        },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.internal_failure",
+      evidence: [],
+    });
+  });
+
+  it.each([
+    ["malformed JSON", "{", "runtime.state_corrupt"],
+    ["a scalar JSON snapshot", '"private"', "contract.state_version_invalid"],
+  ] as const)(
+    "refuses a persisted %s without writes",
+    async (_name, snapshot, reasonCode) => {
+      const files = await firstFiles();
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions", ".brain/runs/run-01"],
+        files: {
+          ".brain/runs/run-01/events.jsonl": files.events,
+          ".brain/runs/run-01/state.json": snapshot,
+        },
+      });
+
+      await expect(
+        prepareEventAppend(
+          { runId: "run-01", event: draft(2) },
+          services(storage),
+        ),
+      ).rejects.toMatchObject({ reasonCode });
+      expect(storage.calls()).toEqual([
+        "inspect",
+        "inspect",
+        "read_text",
+        "read_text",
+      ]);
+    },
+  );
+
+  it("refuses an inspected file with an invalid fingerprint shape", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect: async (path) =>
+        path.endsWith("events.jsonl")
+          ? { kind: "file", size: -1, sha256: "private" }
+          : storage.durableFileSystem.inspect(path),
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("keeps generic snapshot validation failures as state corruption", async () => {
+    const files = await firstFiles();
+    const snapshot = JSON.parse(files.snapshot) as SnapshotV1;
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+      files: {
+        ".brain/runs/run-01/events.jsonl": files.events,
+        ".brain/runs/run-01/state.json": `${canonicalizeJson({ ...snapshot, status: "private" })}\n`,
+      },
+    });
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+      evidence: [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ],
+    });
+  });
+
+  it("classifies a changed snapshot read as artifact revision evidence", async () => {
+    const files = await firstFiles();
+    const storage = persistedStorage(files);
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      readText: async (path) =>
+        path.endsWith("state.json")
+          ? `${files.snapshot}private`
+          : storage.durableFileSystem.readText(path),
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ kind: "artifact", ref: ".brain/runs/run-01/state.json" }],
+    });
+  });
 
   it.each([
     [

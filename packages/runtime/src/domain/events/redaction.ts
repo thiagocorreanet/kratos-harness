@@ -103,7 +103,6 @@ function copyReferences(
   const copied: string[] = [];
   for (let index = 0; index < length; index += 1) {
     const key = String(index);
-    if (keys[index] !== key) invalidEvent();
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (
       descriptor === undefined ||
