@@ -84,7 +84,7 @@ const observedClaim = {
 function expiredClaimStorage() {
   return lockStorage({
     files: {
-      [lockPaths("project").claimRecord]: canonicalizeJson(observedRecord),
+      [publishedScopeRecord(observedRecord)]: canonicalizeJson(observedRecord),
     },
   });
 }
@@ -172,6 +172,29 @@ function candidateAdmissionRecord(record: LockClaimRecord): string {
   return `${root}/.candidate-${String(Date.parse(record.expiresAt))}-${digest}/.claim-${digest}/claim.json`;
 }
 
+function candidateScopeRecord(record: LockClaimRecord): string {
+  const digest = sha256Digests().sha256(canonicalizeJson(record));
+  const paths = lockPaths(record.resource as LeaseResource);
+  const expiresAt = String(Date.parse(record.expiresAt));
+  return `${paths.root}/.candidate-${expiresAt}-${digest}/.claim-${expiresAt}-${digest}/claim.json`;
+}
+
+function publishedScopeRecord(record: LockClaimRecord): string {
+  const persisted: LockClaimRecord = {
+    claimId: record.claimId,
+    resource: record.resource,
+    owner: record.owner,
+    leaseId: record.leaseId,
+    fencingToken: record.fencingToken,
+    acquiredAt: record.acquiredAt,
+    expiresAt: record.expiresAt,
+  };
+  const digest = sha256Digests().sha256(canonicalizeJson(persisted));
+  const paths = lockPaths(record.resource as LeaseResource);
+  const expiresAt = String(Date.parse(record.expiresAt));
+  return `${paths.claim}/.claim-${expiresAt}-${digest}/claim.json`;
+}
+
 function parentDirectory(path: string): string {
   return path.slice(0, path.lastIndexOf("/"));
 }
@@ -199,6 +222,123 @@ function acquiredClaim(
 }
 
 describe("durable lock claims", () => {
+  it("publishes a scope claim as one closed generation instead of a reusable record", async () => {
+    const storage = lockStorage();
+
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({
+      resource: "project",
+    });
+
+    const snapshot = storage.snapshot();
+    expect(snapshot.files[lockPaths("project").claimRecord]).toBeUndefined();
+    expect(snapshot.directories).toContainEqual(
+      expect.stringMatching(
+        /^\.brain\/locks\/project\/claim\/\.claim-[0-9]{1,13}-[a-f0-9]{64}$/u,
+      ),
+    );
+  });
+
+  it.each(["project", "run:run-01"] as const)(
+    "reclaims an expired interrupted %s scope candidate before publication",
+    async (resource) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `scope-candidate-${resource}`,
+        resource,
+      };
+      const path = candidateScopeRecord(stale);
+      const storage = lockStorage({
+        files: { [path]: canonicalizeJson(stale) },
+      });
+
+      await expect(
+        acquireClaim(
+          { resource, owner: "codex:session-03", observed: null },
+          services(storage, "2026-08-11T00:01:00.000Z"),
+        ),
+      ).resolves.toMatchObject({ resource });
+      expect(storage.snapshot().files[path]).toBeUndefined();
+    },
+  );
+
+  it("resumes cleanup from a quarantined expired scope candidate", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "scope-quarantine",
+    };
+    const candidate = candidateScopeRecord(stale);
+    const quarantine = candidate.replace("/.candidate-", "/.quarantine-");
+    const storage = lockStorage({
+      files: { [quarantine]: canonicalizeJson(stale) },
+    });
+
+    await expect(
+      acquireClaim(
+        { ...projectClaim, owner: "codex:session-03" },
+        services(storage, "2026-08-11T00:01:00.000Z"),
+      ),
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().files[quarantine]).toBeUndefined();
+  });
+
+  it("does not let a delayed old scope release remove a replacement generation", async () => {
+    const storage = lockStorage();
+    const lockServices = services(storage);
+    const old = acquiredClaim(await acquireClaim(projectClaim, lockServices));
+    const oldRecord = publishedScopeRecord(old);
+    const oldGeneration = parentDirectory(oldRecord);
+    const parent = lockPaths("project").claim;
+    const replacement: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "claim-replacement",
+      owner: "codex:session-03",
+      expiresAt: "2026-08-11T00:02:00.000Z",
+    };
+    const replacementRecord = publishedScopeRecord(replacement);
+    const replacementGeneration = parentDirectory(replacementRecord);
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    let opened!: () => void;
+    const reachedDelete = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let resume!: () => void;
+    const resumeDelete = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const delayed = releaseClaim(
+      { resource: "project", observed: old },
+      withDurable(storage, {
+        removeFile: async (path) => {
+          if (path !== oldRecord) return baseRemove(path);
+          opened();
+          await resumeDelete;
+          return baseRemove(path);
+        },
+      }),
+    );
+    await reachedDelete;
+
+    await baseRemove(oldRecord);
+    await baseRemoveDirectory(oldGeneration);
+    await baseRemoveDirectory(parent);
+    await baseCreate(parent);
+    await baseCreate(replacementGeneration);
+    await baseWrite(replacementRecord, canonicalizeJson(replacement));
+    resume();
+
+    await expect(delayed).rejects.toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+    expect(storage.snapshot().files[replacementRecord]).toBe(
+      canonicalizeJson(replacement),
+    );
+  });
+
   it("creates only the closed namespace and an exclusive canonical claim", async () => {
     const storage = lockStorage();
     const claim = await acquireClaim(
@@ -217,7 +357,7 @@ describe("durable lock claims", () => {
         lockPaths("run:run-01").claim,
       ]),
     );
-    const claimText = snapshot.files[lockPaths("run:run-01").claimRecord];
+    const claimText = snapshot.files[publishedScopeRecord(claim)];
     expect(claimText).toBeTypeOf("string");
     if (typeof claimText !== "string")
       throw new Error("Claim was not persisted");
@@ -501,13 +641,13 @@ describe("durable lock claims", () => {
 
   it("does not flatten corrupt claim paths into contention", async () => {
     const storage = lockStorage({
-      directories: [lockPaths("project").claimRecord],
+      files: { [lockPaths("project").claim]: "not-a-directory" },
     });
     await expect(
       acquireClaim(projectClaim, services(storage)),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
-      evidence: [{ kind: "artifact", ref: lockPaths("project").claimRecord }],
+      evidence: [{ kind: "artifact", ref: lockPaths("project").claim }],
     });
   });
 
