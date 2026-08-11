@@ -1,4 +1,8 @@
-import { EventIntegrityError, type EventDraftV1 } from "./model.js";
+import {
+  EventIntegrityError,
+  type EventDraftV1,
+  type EventServices,
+} from "./model.js";
 
 const DRAFT_KEYS = [
   "contractVersion",
@@ -26,8 +30,12 @@ function invalidEvent(): never {
   throw new EventIntegrityError("invalid_event");
 }
 
-function requirePlainRecord(value: unknown): DataRecord {
+function requirePlainRecord(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): DataRecord {
   if (typeof value !== "object" || value === null) invalidEvent();
+  if (isProxy(value)) invalidEvent();
   if (Object.getPrototypeOf(value) !== Object.prototype) invalidEvent();
   return value as DataRecord;
 }
@@ -65,7 +73,12 @@ function requireRevision(value: DataRecord, key: string): number {
   return result;
 }
 
-function copyReferences(value: unknown): string[] {
+function copyReferences(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): string[] {
+  if (typeof value !== "object" || value === null) invalidEvent();
+  if (isProxy(value)) invalidEvent();
   if (!Array.isArray(value)) invalidEvent();
   const keys = Object.getOwnPropertyNames(value);
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
@@ -104,11 +117,14 @@ function copyReferences(value: unknown): string[] {
   return copied;
 }
 
-function copyObservedIdentity(value: unknown): {
+function copyObservedIdentity(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): {
   host: string;
   model: string | null;
 } {
-  const identity = requirePlainRecord(value);
+  const identity = requirePlainRecord(value, isProxy);
   requireExactKeys(identity, IDENTITY_KEYS);
   const host = requireString(identity, "host");
   const model = requireDataValue(identity, "model");
@@ -116,9 +132,12 @@ function copyObservedIdentity(value: unknown): {
   return { host, model };
 }
 
-export function snapshotEventDraft(value: unknown): EventDraftV1 {
+export function snapshotEventDraft(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): EventDraftV1 {
   try {
-    const draft = requirePlainRecord(value);
+    const draft = requirePlainRecord(value, isProxy);
     requireExactKeys(draft, DRAFT_KEYS);
     return {
       contractVersion: requireString(draft, "contractVersion"),
@@ -132,10 +151,17 @@ export function snapshotEventDraft(value: unknown): EventDraftV1 {
       resultingRevision: requireRevision(draft, "resultingRevision"),
       reasonCode: requireString(draft, "reasonCode"),
       effect: requireString(draft, "effect") as EventDraftV1["effect"],
-      artifactRefs: copyReferences(requireDataValue(draft, "artifactRefs")),
-      evidenceRefs: copyReferences(requireDataValue(draft, "evidenceRefs")),
+      artifactRefs: copyReferences(
+        requireDataValue(draft, "artifactRefs"),
+        isProxy,
+      ),
+      evidenceRefs: copyReferences(
+        requireDataValue(draft, "evidenceRefs"),
+        isProxy,
+      ),
       observedIdentity: copyObservedIdentity(
         requireDataValue(draft, "observedIdentity"),
+        isProxy,
       ),
     } as EventDraftV1;
   } catch {

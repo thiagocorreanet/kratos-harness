@@ -1,3 +1,5 @@
+import { types } from "node:util";
+
 import golden from "./fixtures/events/golden-event-v1.json" with { type: "json" };
 import {
   EventIntegrityError,
@@ -5,6 +7,7 @@ import {
   unsignedEvent,
   type EventDraftV1,
 } from "@mestre-yoda/runtime/domain/events";
+import type { EventV1 } from "@mestre-yoda/contracts";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
@@ -12,11 +15,16 @@ import { describe, expect, it } from "vitest";
 
 const services = {
   digests: sha256Digests(),
+  isProxy: types.isProxy,
   schemaRegistry: createSchemaRegistry(),
 };
 
 function draft(): EventDraftV1 {
   return structuredClone(golden.draft) as EventDraftV1;
+}
+
+function goldenUnsigned(): Omit<EventV1, "eventHash"> {
+  return JSON.parse(golden.unsignedCanonical) as Omit<EventV1, "eventHash">;
 }
 
 function seal(input: unknown, revision = 0, hash: string | null = null) {
@@ -146,49 +154,73 @@ describe("event sealing", () => {
   });
 
   it.each([
-    ["eventId", { eventId: "event-02" }, 0, null],
-    ["eventType", { eventType: "decision" }, 0, null],
-    ["occurredAt", { occurredAt: "2026-08-10T00:01:01Z" }, 0, null],
-    ["operation", { operation: "sdd.start" }, 0, null],
-    ["policyVersion", { policyVersion: "policy-02" }, 0, null],
+    ["the root draft", new Proxy(draft(), {})],
     [
-      "priorRevision",
-      { priorRevision: 1, resultingRevision: 2 },
-      1,
-      "a".repeat(64),
+      "artifact references",
+      { ...draft(), artifactRefs: new Proxy([...draft().artifactRefs], {}) },
     ],
     [
-      "resultingRevision",
-      { priorRevision: 1, resultingRevision: 2 },
-      1,
-      "a".repeat(64),
+      "evidence references",
+      { ...draft(), evidenceRefs: new Proxy([...draft().evidenceRefs], {}) },
     ],
-    ["reasonCode", { reasonCode: "different" }, 0, null],
-    ["effect", { effect: "artifact" }, 0, null],
+    [
+      "observed identity",
+      {
+        ...draft(),
+        observedIdentity: new Proxy({ ...draft().observedIdentity }, {}),
+      },
+    ],
+  ])("rejects transparent Proxies at %s", (_description, input) => {
+    expect(integrityKind(input)).toBe("invalid_event");
+  });
+
+  it("binds a non-null predecessor hash to a successor", () => {
+    const first = seal(draft());
+    const successor = seal(
+      {
+        ...draft(),
+        eventId: "event-02",
+        priorRevision: 1,
+        resultingRevision: 2,
+      },
+      1,
+      first.eventHash,
+    );
+
+    expect(successor.previousHash).toBe(first.eventHash);
+    expect(successor.previousHash).not.toBeNull();
+  });
+
+  it.each([
+    ["contractVersion", { contractVersion: "1.0.1" }],
+    ["stateContract", { stateContract: "1.0.1" }],
+    ["eventId", { eventId: "event-02" }],
+    ["eventType", { eventType: "decision" }],
+    ["occurredAt", { occurredAt: "2026-08-10T00:01:01Z" }],
+    ["operation", { operation: "sdd.start" }],
+    ["policyVersion", { policyVersion: "policy-02" }],
+    ["priorRevision", { priorRevision: 1 }],
+    ["resultingRevision", { resultingRevision: 2 }],
+    ["reasonCode", { reasonCode: "different" }],
+    ["effect", { effect: "artifact" }],
     [
       "artifactRefs",
       { artifactRefs: [".brain/features/feature-02/00-prd.md"] },
-      0,
-      null,
     ],
-    [
-      "evidenceRefs",
-      { evidenceRefs: [".brain/evidence/event-02.json"] },
-      0,
-      null,
-    ],
+    ["evidenceRefs", { evidenceRefs: [".brain/evidence/event-02.json"] }],
     [
       "observedIdentity",
       { observedIdentity: { host: "other", model: "gpt-5" } },
-      0,
-      null,
     ],
+    ["previousHash", { previousHash: "a".repeat(64) }],
   ])(
-    "changes the hash when protected %s changes",
-    (_field, replacement, revision, hash) => {
-      expect(
-        seal({ ...draft(), ...replacement }, revision, hash).eventHash,
-      ).not.toBe(golden.eventHash);
+    "changes the canonical unsigned digest when protected %s changes in isolation",
+    (_field, replacement) => {
+      const changed = { ...goldenUnsigned(), ...replacement };
+
+      expect(services.digests.sha256(canonicalizeJson(changed))).not.toBe(
+        golden.eventHash,
+      );
     },
   );
 

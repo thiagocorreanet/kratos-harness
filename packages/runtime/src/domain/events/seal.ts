@@ -19,7 +19,7 @@ export function sealEvent(
   cursor: EventChainCursor,
   services: EventServices,
 ): EventV1 {
-  const draft = snapshotEventDraft(input);
+  const draft = snapshotEventDraft(input, services.isProxy);
   if (
     draft.priorRevision !== cursor.revision ||
     draft.resultingRevision !== cursor.revision + 1 ||
