@@ -15,3 +15,9 @@ export {
   parseEventLines,
 } from "./parse.js";
 export { verifyEventStream, type VerifiedEventStream } from "./verify.js";
+export {
+  replayEventStream,
+  type EventReducerRegistry,
+  type JsonState,
+  type ReplayResult,
+} from "./reduce.js";
