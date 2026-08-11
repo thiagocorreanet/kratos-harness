@@ -319,6 +319,54 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("rejects a claim record bound to a different resource", async () => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").claimRecord]: canonicalizeJson({
+          ...observedClaim.observed,
+          resource: "run:run-01",
+        }),
+      },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("rejects a post-write digest mismatch and returns a safely inspected race winner", async () => {
+    const mismatch = lockStorage();
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = mismatch.durableFileSystem.inspect;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(mismatch, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path === target && entry.kind === "file" && ++inspections >= 1)
+              return { ...entry, sha256: "e".repeat(64) };
+            return entry;
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+
+    const winner = lockStorage();
+    const baseWrite = winner.durableFileSystem.writeSynced;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(winner, {
+          writeSynced: async (path, text) => {
+            await baseWrite(path, text);
+            if (path === target) throw new Error("raced");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+  });
+
   it.each([
     "not-json",
     "[]",
