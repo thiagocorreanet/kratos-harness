@@ -57,6 +57,59 @@ interface CanonicalRootIdentity {
   readonly inode: number;
 }
 
+interface RootIdentityStat {
+  readonly dev: number;
+  readonly ino: number;
+  isDirectory(): boolean;
+  isSymbolicLink(): boolean;
+}
+
+export interface CanonicalRootCaptureOperations {
+  lstat(path: string): RootIdentityStat;
+  realpath(path: string): string;
+}
+
+function sameRootIdentity(
+  left: RootIdentityStat,
+  right: RootIdentityStat,
+): boolean {
+  return (
+    left.isDirectory() &&
+    !left.isSymbolicLink() &&
+    right.isDirectory() &&
+    !right.isSymbolicLink() &&
+    left.dev === right.dev &&
+    left.ino === right.ino
+  );
+}
+
+/** Source-level seam for deterministic root-capture race tests. */
+export function captureCanonicalRoot(
+  root: string,
+  operations: CanonicalRootCaptureOperations = {
+    lstat: lstatSync,
+    realpath: realpathSync,
+  },
+): CanonicalRootIdentity | Error {
+  try {
+    const pre = operations.lstat(root);
+    if (!pre.isDirectory() || pre.isSymbolicLink()) {
+      throw new Error("Runtime project root is not a directory");
+    }
+    const path = operations.realpath(root);
+    const resolved = operations.lstat(path);
+    const post = operations.lstat(root);
+    if (!sameRootIdentity(pre, resolved) || !sameRootIdentity(pre, post)) {
+      throw new Error("Runtime project root changed");
+    }
+    return { path, device: pre.dev, inode: pre.ino };
+  } catch (error) {
+    return error instanceof Error
+      ? error
+      : new Error("Runtime project root is unusable");
+  }
+}
+
 function pathRefusal(): never {
   throw new Error("Runtime path escapes the project");
 }
@@ -171,20 +224,7 @@ export function nodeDurableFileSystem(
   root: string,
   observer?: DurableOperationObserver,
 ): DurableFileSystem {
-  const canonicalRoot: CanonicalRootIdentity | Error = (() => {
-    try {
-      const path = realpathSync.native(root);
-      const details = lstatSync(path);
-      if (details.isSymbolicLink() || !details.isDirectory()) {
-        throw new Error("Runtime project root is not a directory");
-      }
-      return { path, device: details.dev, inode: details.ino };
-    } catch (error) {
-      return error instanceof Error
-        ? error
-        : new Error("Runtime project root is unusable");
-    }
-  })();
+  const canonicalRoot = captureCanonicalRoot(root);
 
   async function validatedRoot(): Promise<string> {
     if (canonicalRoot instanceof Error) throw canonicalRoot;
