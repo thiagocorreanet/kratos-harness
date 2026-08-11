@@ -198,7 +198,10 @@ export async function applyPlan<State = JsonState>(
               },
               {
                 path: prepared.paths.snapshot,
-                expected: preparedFingerprint(prepared, prepared.paths.snapshot),
+                expected: preparedFingerprint(
+                  prepared,
+                  prepared.paths.snapshot,
+                ),
               },
             ],
           },
