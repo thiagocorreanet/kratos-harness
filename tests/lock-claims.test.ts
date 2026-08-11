@@ -807,6 +807,32 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("rejects an invalid observed lease guard before durable I/O", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        {
+          resource: "project",
+          owner: "codex:session-01",
+          observed: {
+            resource: "run:other",
+            owner: "codex:session-01",
+            leaseId: "lease-01",
+            fencingToken: 1,
+            stateRevision: 1,
+            leaseFingerprint: { kind: "missing" },
+            eventsFingerprint: { kind: "missing" },
+          },
+        },
+        withDurable(storage, {
+          inspect: async () => {
+            throw new Error("must not run");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("rejects a non-directory runs root and observes the active run holder", async () => {
     const corrupt = lockStorage({ files: { ".brain/locks/runs": "bad" } });
     await expect(

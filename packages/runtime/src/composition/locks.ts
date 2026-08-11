@@ -319,6 +319,7 @@ function exactRecord(value: unknown): LockClaimRecord | null {
       (typeof resource !== "string" || !resource.startsWith("run:"))) ||
     typeof record.owner !== "string" ||
     (record.leaseId !== null && typeof record.leaseId !== "string") ||
+    (record.leaseId === null) !== (fencingToken === null) ||
     (fencingToken !== null &&
       (!Number.isSafeInteger(fencingToken) ||
         typeof fencingToken !== "number" ||
@@ -400,6 +401,24 @@ function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
     canonicalizeJson(persistedRecord(left)) ===
     canonicalizeJson(persistedRecord(right))
   );
+}
+
+function validateObservedGuard(
+  resource: LeaseResource,
+  observed: LeaseGuard | null,
+): void {
+  if (observed === null) return;
+  if (
+    observed.resource !== resource ||
+    !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(observed.leaseId) ||
+    !Number.isSafeInteger(observed.fencingToken) ||
+    observed.fencingToken < 0 ||
+    !Number.isSafeInteger(observed.stateRevision) ||
+    observed.stateRevision < 0 ||
+    observed.leaseFingerprint.kind !== "file" ||
+    observed.eventsFingerprint.kind !== "file"
+  )
+    throw internal();
 }
 
 function conflict(record: LockClaimRecord): ClaimConflict {
@@ -499,6 +518,7 @@ export async function acquireClaim(
   try {
     lockPaths(request.resource);
     parseOwner(request.owner);
+    validateObservedGuard(request.resource, request.observed);
   } catch {
     throw internal();
   }
@@ -530,8 +550,8 @@ async function acquireClaimHeld(
     claimId: services.ids.next(),
     resource: request.resource,
     owner: request.owner,
-    leaseId: null,
-    fencingToken: null,
+    leaseId: request.observed?.leaseId ?? null,
+    fencingToken: request.observed?.fencingToken ?? null,
     acquiredAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + 30_000).toISOString(),
   });
