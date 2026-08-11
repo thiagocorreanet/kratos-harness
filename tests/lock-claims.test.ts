@@ -512,4 +512,29 @@ describe("durable lock claims", () => {
       reasonCode: "runtime.state_corrupt",
     });
   });
+
+  it.each(["prepared", "publishing"] as const)(
+    "does not recover while a %s transaction is incomplete",
+    async (phase) => {
+      const storage = expiredClaimStorage();
+      const lockServices: LockServices = {
+        ...services(storage),
+        inspectTransactions: async () => [
+          {
+            transactionId: "tx-01",
+            manifestDigest: null,
+            recoveryToken: "token",
+            phase,
+            evidenceRef: ".brain/transactions/tx-01/progress.json",
+          },
+        ],
+      };
+      await expect(
+        recoverClaim(observedClaim, lockServices),
+      ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+      expect(
+        storage.snapshot().files[lockPaths("project").claimRecord],
+      ).toBeTypeOf("string");
+    },
+  );
 });

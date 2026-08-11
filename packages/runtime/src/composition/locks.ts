@@ -26,6 +26,7 @@ import {
   inspectManagedTransactions,
   TransactionFailure,
   type TransactionServices,
+  type TransactionSummary,
 } from "./transactions.js";
 
 const locksRoot = ".brain/locks";
@@ -38,6 +39,8 @@ export interface LockServices {
   readonly digests: Digests;
   readonly durableFileSystem: DurableFileSystem;
   readonly schemaRegistry: SchemaRegistry;
+  /** Testable transaction inspection boundary; production uses the durable implementation. */
+  readonly inspectTransactions?: () => Promise<readonly TransactionSummary[]>;
 }
 
 /** A deliberately closed, transient record; it is not a state contract. */
@@ -589,7 +592,8 @@ async function recoverClaimHeld(
 ): Promise<{ readonly kind: "recovered" | "absent" }> {
   let summaries;
   try {
-    summaries = await inspectManagedTransactions(transactionServices(services));
+    summaries = await (services.inspectTransactions?.() ??
+      inspectManagedTransactions(transactionServices(services)));
   } catch (error) {
     if (error instanceof TransactionFailure) {
       throw new LockFailure(
