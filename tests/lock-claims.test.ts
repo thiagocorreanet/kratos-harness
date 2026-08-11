@@ -1762,6 +1762,37 @@ describe("durable lock claims", () => {
     );
   });
 
+  it("uses synthetic fallback conflict fields for a guard against an empty scope", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        {
+          resource: "project",
+          owner: "codex:session-01",
+          observed: {
+            resource: "project",
+            owner: "codex:session-01",
+            leaseId: "lease-01",
+            fencingToken: 1,
+            stateRevision: 1,
+            leaseFingerprint: { kind: "file", size: 1, sha256: "a".repeat(64) },
+            eventsFingerprint: {
+              kind: "file",
+              size: 1,
+              sha256: "b".repeat(64),
+            },
+          },
+        },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      owner: "codex:session-01",
+      leaseId: null,
+      fencingToken: null,
+    });
+  });
+
   it("inspects a materialized admission claim layout", async () => {
     const storage = lockStorage({
       files: {
