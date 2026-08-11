@@ -364,7 +364,7 @@ function conflict(record: LockClaimRecord): ClaimConflict {
     kind: "conflict" as const,
     conflict: Object.freeze({
       owner: record.owner,
-      resource: record.resource,
+      resource: record.resource as LeaseResource,
       expiresAt: record.expiresAt,
       retryable: true as const,
       recovery: "wait_or_takeover" as const,

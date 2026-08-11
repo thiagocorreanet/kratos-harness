@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/require-await, @typescript-eslint/non-nullable-type-assertion-style, @typescript-eslint/no-unnecessary-type-assertion */
+
 import {
   acquireClaim,
   inspectLease,
@@ -747,6 +749,15 @@ describe("durable lock claims", () => {
 
   it("allows project admission when the canonical runs directory is empty", async () => {
     const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it("allows project admission past an empty canonical run scope", async () => {
+    const storage = lockStorage({
+      directories: [lockPaths("run:run-01").root],
+    });
     await expect(
       acquireClaim(projectClaim, services(storage)),
     ).resolves.toMatchObject({ resource: "project" });
