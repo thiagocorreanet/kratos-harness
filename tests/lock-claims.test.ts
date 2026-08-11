@@ -1028,6 +1028,91 @@ describe("durable lock claims", () => {
     },
   );
 
+  it.each([
+    [
+      "leading-zero marker epoch",
+      {
+        directories: [
+          ".brain/locks/.admission/.recovery-01786406430000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ],
+      },
+    ],
+    [
+      "multiple tombstones",
+      {
+        files: {
+          [".brain/locks/.admission/claim/.retired-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json"]:
+            canonicalizeJson({
+              claimId: "admission-stale",
+              resource: "admission",
+              owner: "codex:session-02",
+              leaseId: null,
+              fencingToken: null,
+              acquiredAt: "2026-08-11T00:00:00.000Z",
+              expiresAt: "2026-08-11T00:00:30.000Z",
+            }),
+          [".brain/locks/.admission/claim/.retired-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.json"]:
+            canonicalizeJson({
+              claimId: "admission-stale",
+              resource: "admission",
+              owner: "codex:session-02",
+              leaseId: null,
+              fencingToken: null,
+              acquiredAt: "2026-08-11T00:00:00.000Z",
+              expiresAt: "2026-08-11T00:00:30.000Z",
+            }),
+        },
+      },
+    ],
+  ] as const)("rejects malformed retire state: %s", async (_name, seed) => {
+    await expect(
+      acquireClaim(projectClaim, services(lockStorage(seed))),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each(["list", "inspect", "read"] as const)(
+    "normalizes raw tombstone %s failures",
+    async (fault) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const marker = admissionRecoveryMarker(stale);
+      const tombstone = admissionTombstone(stale);
+      const storage = lockStorage({
+        files: { [tombstone]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseList = storage.durableFileSystem.list;
+      const baseInspect = storage.durableFileSystem.inspect;
+      const baseRead = storage.durableFileSystem.readText;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            list: async (path) =>
+              fault === "list" && path === lockPaths("project").admissionClaim
+                ? Promise.reject(new Error("fault"))
+                : baseList(path),
+            inspect: async (path) =>
+              fault === "inspect" && path === tombstone
+                ? Promise.reject(new Error("fault"))
+                : baseInspect(path),
+            readText: async (path) =>
+              fault === "read" && path === tombstone
+                ? Promise.reject(new Error("fault"))
+                : baseRead(path),
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    },
+  );
+
   it("rejects a claim record bound to a different resource", async () => {
     const storage = lockStorage({
       files: {
