@@ -970,6 +970,37 @@ describe("durable lock claims", () => {
     );
   });
 
+  it("fails recoverably when the elected recovery marker cannot be removed", async () => {
+    const paths = lockPaths("project");
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) =>
+            path === `${paths.admissionClaim}/.recovery`
+              ? Promise.reject(new Error("marker cleanup"))
+              : baseRemove(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    expect(storage.snapshot().directories).toContain(
+      `${paths.admissionClaim}/.recovery`,
+    );
+  });
+
   it.each(["removeFile", "syncDirectory"] as const)(
     "returns typed recovery-required when admission cleanup %s fails",
     async (failure) => {
