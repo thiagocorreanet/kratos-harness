@@ -7,6 +7,7 @@ import {
   parseOwner,
   verifyLeaseBinding,
   type LeaseObservation,
+  type LeaseGuard,
   type LeaseResource,
 } from "../domain/locks/index.js";
 import {
@@ -61,7 +62,8 @@ export interface ObservedLockClaim extends LockClaimRecord {
 export interface AcquireClaimRequest {
   readonly resource: LeaseResource;
   readonly owner: string;
-  readonly observed: LockClaimRecord | null;
+  /** The verified lease epoch observed before attempting administration. */
+  readonly observed: LeaseGuard | null;
 }
 
 export interface ClaimInspection extends LeaseObservation {
