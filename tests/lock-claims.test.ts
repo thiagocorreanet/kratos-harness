@@ -81,7 +81,7 @@ function expiredClaimStorage() {
   });
 }
 
-function boundLeaseFiles() {
+function boundLeaseFiles(expiresAt = "2026-08-11T00:02:00.000Z") {
   const paths = lockPaths("project");
   const prepared = prepareLeaseTransition(
     {
@@ -94,7 +94,7 @@ function boundLeaseFiles() {
         owner: "codex:session-01",
         leaseId: "lease-01",
         acquiredAt: "2026-08-11T00:00:00.000Z",
-        expiresAt: "2026-08-11T00:02:00.000Z",
+        expiresAt,
         fencingToken: 1,
         stateRevision: 1,
       },
@@ -616,6 +616,15 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("classifies a valid expired lease as takeover eligible", async () => {
+    const storage = lockStorage({
+      files: boundLeaseFiles("2026-08-11T00:00:30.000Z"),
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({ kind: "takeover_eligible" });
+  });
+
   it("inspects a fully materialized run namespace and normalizes its listing failure", async () => {
     const storage = lockStorage();
     await acquireClaim(
@@ -741,6 +750,53 @@ describe("durable lock claims", () => {
     await expect(
       acquireClaim(projectClaim, services(storage)),
     ).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it("rejects a non-directory runs root and observes the active run holder", async () => {
+    const corrupt = lockStorage({ files: { ".brain/locks/runs": "bad" } });
+    await expect(
+      acquireClaim(projectClaim, services(corrupt)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    const storage = lockStorage();
+    await acquireClaim(
+      { resource: "run:run-01", owner: "codex:session-01", observed: null },
+      services(storage),
+    );
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      conflict: { resource: "run:run-01" },
+    });
+  });
+
+  it("rejects a non-file claim immediately before release and non-file events after a lease", async () => {
+    const storage = lockStorage();
+    const claimed = await acquireClaim(projectClaim, services(storage));
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let count = 0;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: claimed },
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path === target && ++count >= 2)
+              return { kind: "directory" as const };
+            return entry;
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    const paths = lockPaths("project");
+    const leaseOnly = lockStorage({
+      files: { [paths.lease]: "{}" },
+      directories: [paths.events],
+    });
+    await expect(
+      inspectLease("project", services(leaseOnly)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
   it("normalizes lease binding read failures", async () => {

@@ -389,7 +389,7 @@ async function activeRunClaim(
     }
     if (paths.root !== `${root}/${name}`) throw corrupt(`${root}/${name}`);
     const record = await readClaim(`run:${decoded}`, services);
-    if (record !== null) return record;
+    if (record) return record;
   }
   return null;
 }
