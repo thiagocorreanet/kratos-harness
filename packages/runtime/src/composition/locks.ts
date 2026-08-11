@@ -227,7 +227,11 @@ async function inspectLockNamespace(
       case "missing":
         break;
       case "directory":
-        await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+        await assertOnlyChildren(
+          admissionClaim,
+          [".recovery", "claim.json"],
+          services,
+        );
         break;
       case "file":
         throw corrupt(admissionClaim);
@@ -307,7 +311,11 @@ export async function ensureLockNamespace(
   await createDirectoryIfMissing(admissionRoot, services);
   await assertOnlyChildren(admissionRoot, ["claim"], services);
   await createDirectoryIfMissing(admissionClaim, services);
-  await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+  await assertOnlyChildren(
+    admissionClaim,
+    [".recovery", "claim.json"],
+    services,
+  );
 
   const paths = lockPaths(resource);
   if (resource.startsWith("run:")) {

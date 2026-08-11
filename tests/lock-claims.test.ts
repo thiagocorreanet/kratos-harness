@@ -884,6 +884,32 @@ describe("durable lock claims", () => {
     ).resolves.toMatchObject({ resource: "project" });
   });
 
+  it("returns verified contention when another contender owns admission recovery", async () => {
+    const admissionRecord = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const paths = lockPaths("project");
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(admissionRecord) },
+      directories: [`${paths.admissionClaim}/.recovery`],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:00:35.000Z")),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      owner: "codex:session-02",
+    });
+    expect(storage.snapshot().files[paths.admissionRecord]).toBe(
+      canonicalizeJson(admissionRecord),
+    );
+  });
+
   it.each(["removeFile", "syncDirectory"] as const)(
     "returns typed recovery-required when admission cleanup %s fails",
     async (failure) => {
