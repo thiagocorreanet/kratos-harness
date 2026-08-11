@@ -194,7 +194,11 @@ async function inspectLockNamespace(
     const entry = await services.durableFileSystem.inspect(path).catch(() => {
       throw internal();
     });
-    if (entry.kind === "missing") return;
+    if (entry.kind === "missing") {
+      if (resource.startsWith("run:") && path === paths.root)
+        await assertCanonicalRunChildren(services);
+      return;
+    }
     if (entry.kind !== "directory") throw corrupt(path);
   }
   if (resource.startsWith("run:")) await assertCanonicalRunChildren(services);

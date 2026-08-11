@@ -292,6 +292,34 @@ describe("durable lock claims", () => {
   });
 
   it.each([
+    ["invalid Base64URL run name", ".brain/locks/runs/!!"],
+    ["noncanonical Base64URL run name", ".brain/locks/runs/YQ=="],
+  ])("rejects %s", async (_name, directory) => {
+    const storage = lockStorage({ directories: [directory] });
+    await expect(
+      inspectLease("run:run-01", services(storage)),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it.each([
+    { claimId: "?" },
+    { resource: "admission" },
+    { owner: "invalid" },
+    { leaseId: 1 },
+    { fencingToken: 1.5 },
+  ])("rejects malformed claim field variants", async (change) => {
+    const value = { ...observedClaim.observed, ...change };
+    const storage = lockStorage({
+      files: { [lockPaths("project").claimRecord]: canonicalizeJson(value) },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each([
     "not-json",
     "[]",
     '{"claimId":"bad"}',
