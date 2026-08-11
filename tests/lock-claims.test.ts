@@ -497,6 +497,57 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("normalizes lease binding read failures", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    const baseRead = storage.durableFileSystem.readText;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          readText: async (path) =>
+            path === lockPaths("project").events
+              ? Promise.reject(new Error("event read"))
+              : baseRead(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("rejects invalid caller scope before claim creation", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        {
+          resource: "run:../bad" as never,
+          owner: "codex:session-01",
+          observed: null,
+        },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    expect(storage.snapshot()).toEqual({ files: {}, directories: [] });
+  });
+
+  it("treats a post-write non-file claim observation as corruption", async () => {
+    const storage = lockStorage();
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let seen = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path === target && ++seen >= 1)
+              return { kind: "directory" as const };
+            return entry;
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
   it("refuses recovery when transaction inspection finds an invalid marker", async () => {
     const storage = lockStorage({
       files: {
