@@ -642,6 +642,8 @@ async function withAdmission<T>(
             await ensureLockNamespace("project", services);
             return await withAdmission(owner, services, operation);
           }
+          await services.durableFileSystem.removeEmptyDirectory(marker);
+          if (current !== null) return conflict(current) as T;
         } catch {
           if (elected) throw internal();
           const current = await readAdmissionClaim(services).catch(() => null);
