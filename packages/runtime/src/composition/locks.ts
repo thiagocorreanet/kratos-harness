@@ -230,7 +230,7 @@ export async function ensureLockNamespace(
   await createDirectoryIfMissing(admissionRoot, services);
   await assertOnlyChildren(admissionRoot, ["claim"], services);
   await createDirectoryIfMissing(admissionClaim, services);
-  await assertOnlyChildren(admissionClaim, [], services);
+  await assertOnlyChildren(admissionClaim, ["claim.json"], services);
 
   const paths = lockPaths(resource);
   if (resource.startsWith("run:")) {
@@ -271,7 +271,8 @@ function exactRecord(value: unknown): LockClaimRecord | null {
   if (
     typeof record.claimId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(record.claimId) ||
-    (resource !== "project" &&
+    (resource !== "admission" &&
+      resource !== "project" &&
       (typeof resource !== "string" || !resource.startsWith("run:"))) ||
     typeof record.owner !== "string" ||
     (record.leaseId !== null && typeof record.leaseId !== "string") ||
@@ -284,7 +285,7 @@ function exactRecord(value: unknown): LockClaimRecord | null {
   )
     return null;
   try {
-    lockPaths(resource);
+    if (resource !== "admission") lockPaths(resource);
     parseOwner(record.owner);
   } catch {
     return null;
@@ -417,10 +418,18 @@ async function withAdmission<T>(
     );
     await services.durableFileSystem.syncDirectory(paths.admissionClaim);
   } catch {
-    // A competing exclusive record is contention, never proof of corruption.
-    throw new LockFailure("runtime.recovery_required", [
-      { kind: "artifact", ref: paths.admissionRecord },
-    ]);
+    const entry = await services.durableFileSystem
+      .inspect(paths.admissionRecord)
+      .catch(() => null);
+    if (entry?.kind === "file") {
+      const holder = exactRecord(
+        JSON.parse(
+          await services.durableFileSystem.readText(paths.admissionRecord),
+        ),
+      );
+      if (holder?.resource === "admission") return conflict(holder) as T;
+    }
+    throw internal();
   }
   try {
     return await operation();
@@ -444,6 +453,12 @@ export async function acquireClaim(
   request: AcquireClaimRequest,
   services: LockServices,
 ): Promise<LockClaimRecord> {
+  try {
+    lockPaths(request.resource);
+    parseOwner(request.owner);
+  } catch {
+    throw internal();
+  }
   await ensureLockNamespace(request.resource, services);
   return withAdmission(request.owner, services, () =>
     acquireClaimHeld(request, services),

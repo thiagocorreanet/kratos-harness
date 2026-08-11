@@ -431,7 +431,7 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
   it.each([
@@ -446,9 +446,16 @@ describe("durable lock claims", () => {
   ] as const)("contains a first %s durable failure", async (operation) => {
     const storage = lockStorage();
     storage.fail({ operation, timing: "before", occurrence: 1 });
-    await expect(
-      acquireClaim(projectClaim, services(storage)),
-    ).rejects.toBeInstanceOf(Error);
+    const result = acquireClaim(projectClaim, services(storage));
+    if (operation === "sync_file" || operation === "close_file") {
+      await expect(result).resolves.toMatchObject({
+        kind: "conflict",
+        resource: "admission",
+      });
+      expect(
+        storage.snapshot().files[lockPaths("project").admissionRecord],
+      ).toBeTypeOf("string");
+    } else await expect(result).rejects.toBeInstanceOf(Error);
   });
 
   it("contains admission cleanup inspection and read failures", async () => {
@@ -761,6 +768,42 @@ describe("durable lock claims", () => {
     await expect(
       acquireClaim(projectClaim, services(storage)),
     ).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it("returns typed admission contention for a valid existing admission holder", async () => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson({
+          claimId: "admission",
+          resource: "admission",
+          owner: "codex:session-02",
+          leaseId: null,
+          fencingToken: null,
+          acquiredAt: "2026-08-11T00:00:00.000Z",
+          expiresAt: "2026-08-11T00:01:30.000Z",
+        }),
+      },
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      conflict: { owner: "codex:session-02" },
+    });
+  });
+
+  it("rejects invalid acquire input before durable inspection", async () => {
+    const storage = lockStorage();
+    await expect(
+      acquireClaim(
+        { resource: "project", owner: "invalid", observed: null },
+        withDurable(storage, {
+          inspect: async () => {
+            throw new Error("must not run");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
   it("rejects a non-directory runs root and observes the active run holder", async () => {
