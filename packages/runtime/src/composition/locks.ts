@@ -529,8 +529,15 @@ async function withAdmission<T>(
         .readText(paths.admissionRecord)
         .catch(() => "");
       if (text === canonicalizeJson(admission)) {
-        await services.durableFileSystem.removeFile(paths.admissionRecord);
-        await services.durableFileSystem.syncDirectory(paths.admissionClaim);
+        try {
+          await services.durableFileSystem.removeFile(paths.admissionRecord);
+          await services.durableFileSystem.syncDirectory(paths.admissionClaim);
+        } catch {
+          // A stale admission record is recoverable; do not expose port text.
+          throw new LockFailure("runtime.recovery_required", [
+            { kind: "artifact", ref: paths.admissionRecord },
+          ]);
+        }
       }
     }
   }
