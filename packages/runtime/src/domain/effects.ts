@@ -1,3 +1,5 @@
+import type { EventDraftV1 } from "./events/index.js";
+
 /**
  * An ordered, previewable description of what an operation intends to do.
  *
@@ -5,6 +7,12 @@
  * dry run the same decision with the plan rendered instead of applied, rather
  * than a parallel code path that can drift from the real one.
  */
+export interface AppendEventEffect {
+  readonly kind: "append_event";
+  readonly runId: string;
+  readonly event: EventDraftV1;
+}
+
 export type Effect =
   | {
       readonly kind: "write_file";
@@ -13,7 +21,7 @@ export type Effect =
     }
   | { readonly kind: "delete_file"; readonly path: string }
   | { readonly kind: "create_directory"; readonly path: string }
-  | { readonly kind: "append_event"; readonly event: string }
+  | AppendEventEffect
   | {
       readonly kind: "emit";
       readonly channel: "structured" | "human";

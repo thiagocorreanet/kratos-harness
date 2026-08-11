@@ -1,0 +1,295 @@
+import type { SnapshotV1 } from "@mestre-yoda/contracts";
+import {
+  applyPlan,
+  createRuntime,
+  TransactionFailure,
+} from "@mestre-yoda/runtime/composition";
+import { planOf } from "@mestre-yoda/runtime/domain/effects";
+import type {
+  EventDraftV1,
+  EventReducerRegistry,
+} from "@mestre-yoda/runtime/domain/events";
+import {
+  fixedClock,
+  memoryTransactionStorage,
+  recordingOutput,
+  sequentialIds,
+} from "@mestre-yoda/runtime/infra/fake";
+import type {
+  DurableEntry,
+  DurableFileSystem,
+} from "@mestre-yoda/runtime/ports";
+import { describe, expect, it } from "vitest";
+
+function draft(index: number): EventDraftV1 {
+  return {
+    contractVersion: "1.0.0",
+    stateContract: "1.0.0",
+    eventId: `event-${String(index)}`,
+    eventType: "transition",
+    occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
+    operation: `sdd.step-${String(index)}`,
+    policyVersion: "policy-01",
+    priorRevision: index - 1,
+    resultingRevision: index,
+    reasonCode: "ok",
+    effect: "state",
+    artifactRefs: [`.brain/features/feature-${String(index)}.md`],
+    evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    observedIdentity: { host: "codex", model: "gpt-5" },
+  };
+}
+
+const reducers: EventReducerRegistry<{ readonly step: string | null }> = {
+  seed: { step: null },
+  reducers: {
+    "policy-01": (state, event) => ({ ...state, step: event.operation }),
+  },
+  materialize: (state, cursor): SnapshotV1 => {
+    if (cursor.hash === null) throw new Error("missing hash");
+    return {
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      projectId: "project-01",
+      runId: "run-01",
+      status: "active",
+      currentStep: state.step,
+      eventCursor: cursor.revision,
+      eventHash: cursor.hash,
+      policyVersion: "policy-01",
+      lineage: { prdDigest: "a".repeat(64), specDigest: "b".repeat(64) },
+      createdAt: "2026-08-10T00:00:00Z",
+      updatedAt: `2026-08-10T00:0${String(cursor.revision)}:00Z`,
+    };
+  },
+};
+
+function fakeRuntime(
+  seed: Parameters<typeof memoryTransactionStorage>[0] = {
+    directories: [".brain", ".brain/transactions"],
+  },
+) {
+  const storage = memoryTransactionStorage(seed);
+  const output = recordingOutput();
+  return {
+    storage,
+    output,
+    ports: createRuntime({
+      clock: fixedClock("2026-08-10T00:00:00.000Z"),
+      ids: sequentialIds("transaction"),
+      fileSystem: storage.fileSystem,
+      durableFileSystem: storage.durableFileSystem,
+      digests: storage.digests,
+      output,
+    }),
+  };
+}
+
+function eventPlan(index: number) {
+  return planOf({ kind: "append_event", runId: "run-01", event: draft(index) });
+}
+
+function manifestPaths(storage: ReturnType<typeof memoryTransactionStorage>) {
+  const manifest = JSON.parse(
+    storage.snapshot().files[
+      ".brain/transactions/transaction-1/manifest.json"
+    ] ?? "",
+  ) as { readonly operations: readonly { readonly path: string }[] };
+  return manifest.operations.map(({ path }) => path);
+}
+
+describe("event-store transaction integration", () => {
+  it("creates parent directories explicitly and commits the prepared pair in order", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await applyPlan(eventPlan(1), ports, {
+      rootMode: "existing",
+      eventReducers: reducers,
+    });
+
+    expect(manifestPaths(storage)).toEqual([
+      ".brain/runs",
+      ".brain/runs/run-01",
+      ".brain/runs/run-01/events.jsonl",
+      ".brain/runs/run-01/state.json",
+    ]);
+    expect(storage.snapshot().directories).toEqual(
+      expect.arrayContaining([".brain/runs", ".brain/runs/run-01"]),
+    );
+  });
+
+  it("extends the exact stream prefix and snapshot on a successor append", async () => {
+    const { storage, ports } = fakeRuntime();
+    await applyPlan(eventPlan(1), ports, {
+      rootMode: "existing",
+      eventReducers: reducers,
+    });
+    const first = storage.snapshot();
+
+    await applyPlan(eventPlan(2), ports, {
+      rootMode: "existing",
+      eventReducers: reducers,
+    });
+
+    const second = storage.snapshot();
+    expect(
+      second.files[".brain/runs/run-01/events.jsonl"]?.startsWith(
+        first.files[".brain/runs/run-01/events.jsonl"] ?? "",
+      ),
+    ).toBe(true);
+    const state = JSON.parse(
+      second.files[".brain/runs/run-01/state.json"] ?? "",
+    ) as SnapshotV1;
+    expect(state.eventCursor).toBe(2);
+  });
+
+  it("rejects duplicate appends before preflight I/O", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf(
+          { kind: "append_event", runId: "run-01", event: draft(1) },
+          { kind: "append_event", runId: "run-01", event: draft(2) },
+        ),
+        ports,
+        { rootMode: "existing", eventReducers: reducers },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("rejects an append without reducers before preflight I/O", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(eventPlan(1), ports, { rootMode: "existing" }),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it.each([
+    {
+      kind: "write_file" as const,
+      path: ".brain/runs/run-01/events.jsonl",
+      content: "forged",
+    },
+    { kind: "delete_file" as const, path: ".brain/runs/run-01/state.json" },
+  ])(
+    "rejects direct $kind targeting the selected event-store paths before I/O",
+    async (effect) => {
+      const { storage, ports } = fakeRuntime();
+
+      await expect(
+        applyPlan(
+          planOf(
+            { kind: "append_event", runId: "run-01", event: draft(1) },
+            effect,
+          ),
+          ports,
+          { rootMode: "existing", eventReducers: reducers },
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      expect(storage.calls()).toEqual([]);
+    },
+  );
+
+  it("keeps an ordinary write and append in one manifest in plan order", async () => {
+    const { storage, ports } = fakeRuntime();
+    await applyPlan(
+      planOf(
+        {
+          kind: "write_file",
+          path: ".brain/ordinary.json",
+          content: "ordinary",
+        },
+        { kind: "append_event", runId: "run-01", event: draft(1) },
+      ),
+      ports,
+      { rootMode: "existing", eventReducers: reducers },
+    );
+
+    expect(manifestPaths(storage)).toEqual([
+      ".brain/ordinary.json",
+      ".brain/runs",
+      ".brain/runs/run-01",
+      ".brain/runs/run-01/events.jsonl",
+      ".brain/runs/run-01/state.json",
+    ]);
+  });
+
+  it.each([".brain/runs/run-01/events.jsonl", ".brain/runs/run-01/state.json"])(
+    "fails a stale %s observation before transaction creation",
+    async (changedPath) => {
+      const { storage, ports } = fakeRuntime();
+      let preparationReads = 0;
+      const durableFileSystem: DurableFileSystem = {
+        ...storage.durableFileSystem,
+        async inspect(path): Promise<DurableEntry> {
+          const entry = await storage.durableFileSystem.inspect(path);
+          if (path === changedPath && ++preparationReads === 2) {
+            return {
+              kind: "file",
+              size: 6,
+              sha256: storage.digests.sha256("stale!"),
+            };
+          }
+          return entry;
+        },
+      };
+
+      await expect(
+        applyPlan(
+          eventPlan(1),
+          { ...ports, durableFileSystem },
+          { rootMode: "existing", eventReducers: reducers },
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.revision_conflict" });
+      expect(storage.calls()).not.toContain("create_directory_exclusive");
+    },
+  );
+
+  it("emits only after the event transaction commits", async () => {
+    const { storage, ports } = fakeRuntime();
+    const phases: string[] = [];
+    const output = {
+      structured(text: string) {
+        const progress = JSON.parse(
+          storage.snapshot().files[
+            ".brain/transactions/transaction-1/progress.json"
+          ] ?? "",
+        ) as { readonly phase: string };
+        phases.push(progress.phase);
+        ports.output.structured(text);
+      },
+      human(text: string) {
+        ports.output.human(text);
+      },
+    };
+
+    await applyPlan(
+      planOf(
+        { kind: "append_event", runId: "run-01", event: draft(1) },
+        { kind: "emit", channel: "structured", text: "committed\n" },
+      ),
+      { ...ports, output },
+      { rootMode: "existing", eventReducers: reducers },
+    );
+
+    expect(phases).toEqual(["committed"]);
+  });
+
+  it("rejects an unsupported reducer without writing", async () => {
+    const { storage, ports } = fakeRuntime();
+    const unsupported = { ...reducers, reducers: {} };
+
+    await expect(
+      applyPlan(eventPlan(1), ports, {
+        rootMode: "existing",
+        eventReducers: unsupported,
+      }),
+    ).rejects.toEqual(expect.any(TransactionFailure));
+    expect(storage.snapshot().files).toEqual({});
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+});

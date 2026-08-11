@@ -325,7 +325,7 @@ describe("composed command line", () => {
     });
   });
 
-  it("renders the append_event refusal without exposing its payload", async () => {
+  it("renders a missing append reducer without exposing its event", async () => {
     const output = recordingOutput();
     const append = [
       {
@@ -340,7 +340,23 @@ describe("composed command line", () => {
           }),
           plan: planOf({
             kind: "append_event" as const,
-            event: "private-event-payload",
+            runId: "run-01",
+            event: {
+              contractVersion: "1.0.0",
+              stateContract: "1.0.0",
+              eventId: "private-event-id",
+              eventType: "transition",
+              occurredAt: "2026-08-10T00:01:00Z",
+              operation: "sdd.step-1",
+              policyVersion: "policy-01",
+              priorRevision: 0,
+              resultingRevision: 1,
+              reasonCode: "ok",
+              effect: "state",
+              artifactRefs: [".brain/features/feature-1.md"],
+              evidenceRefs: [".brain/evidence/private-event.json"],
+              observedIdentity: { host: "codex", model: "gpt-5" },
+            },
           }),
           humanStdout: null,
           payload: null,
@@ -360,11 +376,11 @@ describe("composed command line", () => {
       status: "blocked",
       exitCode: 4,
       reasonCode: "runtime.state_corrupt",
-      evidence: [{ kind: "artifact", ref: ".brain/events.jsonl" }],
+      evidence: [{ kind: "artifact", ref: ".brain" }],
       stateChanged: false,
       retryable: true,
     });
-    expect(rendered).not.toContain("private-event-payload");
+    expect(rendered).not.toContain("private-event-id");
   });
 
   it("validates a decision before applying its effect plan", async () => {

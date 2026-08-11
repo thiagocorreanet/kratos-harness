@@ -330,10 +330,14 @@ describe("managed mutation plan normalization", () => {
     ).toThrow(expect.objectContaining({ reasonCode: "guard.outside_allow" }));
   });
 
-  it("rejects append effects until canonical event append exists", () => {
+  it("rejects an unexpanded append effect", () => {
     expect(() =>
       normalizeManagedMutationPlan(
-        planOf({ kind: "append_event", event: "event" }),
+        planOf({
+          kind: "append_event",
+          runId: "run-01",
+          event: {} as never,
+        }),
         new Map(),
         sha256,
       ),

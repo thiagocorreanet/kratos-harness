@@ -1,4 +1,6 @@
 import { planOf } from "@mestre-yoda/runtime/domain/effects";
+import type { SnapshotV1 } from "@mestre-yoda/contracts";
+import { types } from "node:util";
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import {
   applyPlan,
@@ -15,11 +17,62 @@ import {
   sequentialIds,
 } from "@mestre-yoda/runtime/infra/fake";
 import type {
+  EventDraftV1,
+  EventReducerRegistry,
+} from "@mestre-yoda/runtime/domain/events";
+import {
+  replayEventStream,
+  verifyEventStream,
+} from "@mestre-yoda/runtime/domain/events";
+import type {
   DurableEntry,
   DurableFileSystem,
   FileSystem,
 } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
+
+function eventDraft(index: number): EventDraftV1 {
+  return {
+    contractVersion: "1.0.0",
+    stateContract: "1.0.0",
+    eventId: `event-${String(index)}`,
+    eventType: "transition",
+    occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
+    operation: `sdd.step-${String(index)}`,
+    policyVersion: "policy-01",
+    priorRevision: index - 1,
+    resultingRevision: index,
+    reasonCode: "ok",
+    effect: "state",
+    artifactRefs: [`.brain/features/feature-${String(index)}.md`],
+    evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    observedIdentity: { host: "codex", model: "gpt-5" },
+  };
+}
+
+const eventReducers: EventReducerRegistry<{ readonly step: string | null }> = {
+  seed: { step: null },
+  reducers: {
+    "policy-01": (state, event) => ({ ...state, step: event.operation }),
+  },
+  materialize: (state, cursor): SnapshotV1 => {
+    if (cursor.hash === null) throw new Error("missing event hash");
+    return {
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      projectId: "project-01",
+      runId: "run-01",
+      status: "active",
+      currentStep: state.step,
+      eventCursor: cursor.revision,
+      eventHash: cursor.hash,
+      policyVersion: "policy-01",
+      lineage: { prdDigest: "a".repeat(64), specDigest: "b".repeat(64) },
+      createdAt: "2026-08-10T00:00:00Z",
+      updatedAt: `2026-08-10T00:0${String(cursor.revision)}:00Z`,
+    };
+  },
+};
 
 describe("composition root", () => {
   it("exposes production schema composition", () => {
@@ -439,28 +492,51 @@ describe("effect plan application", () => {
     expect(output.structured_).toEqual([]);
   });
 
-  it("refuses append_event until the canonical append operation exists", async () => {
-    const { storage, ports } = fakeRuntime();
+  it("commits an event stream and snapshot through one managed transaction", async () => {
+    const { storage, ports } = fakeRuntime({
+      directories: [
+        ".brain",
+        ".brain/transactions",
+        ".brain/runs",
+        ".brain/runs/run-01",
+      ],
+    });
 
     await expect(
       applyPlan(
-        planOf(
-          {
-            kind: "write_file",
-            path: ".brain/state.json",
-            content: "state",
-          },
-          { kind: "append_event", event: "payload-must-not-appear" },
-        ),
+        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
         ports,
+        { rootMode: "existing", eventReducers },
       ),
-    ).rejects.toEqual(
-      new TransactionFailure("runtime.state_corrupt", [
-        { kind: "artifact", ref: ".brain/events.jsonl" },
-      ]),
-    );
-    expect(storage.snapshot().files).not.toHaveProperty(".brain/state.json");
-    expect(storage.snapshot().files).not.toHaveProperty(".brain/events.jsonl");
+    ).resolves.toEqual({ kind: "committed" });
+    const snapshot = storage.snapshot();
+    const manifest = JSON.parse(
+      snapshot.files[".brain/transactions/transaction-1/manifest.json"] ?? "",
+    ) as { readonly operations: readonly { readonly path: string }[] };
+    expect(manifest.operations.map(({ path }) => path)).toEqual([
+      ".brain/runs/run-01/events.jsonl",
+      ".brain/runs/run-01/state.json",
+    ]);
+    const events = snapshot.files[".brain/runs/run-01/events.jsonl"] ?? "";
+    const state = JSON.parse(
+      snapshot.files[".brain/runs/run-01/state.json"] ?? "",
+    ) as SnapshotV1;
+    const sealed = JSON.parse(events) as { readonly eventHash: string };
+    const schemaRegistry = createSchemaRegistry();
+    const verified = verifyEventStream(events, {
+      digests: ports.digests,
+      isProxy: types.isProxy,
+      schemaRegistry,
+    });
+    const replayed = replayEventStream(verified, eventReducers, {
+      isProxy: types.isProxy,
+      schemaRegistry,
+    });
+    expect(state.eventCursor).toBe(1);
+    expect(state.eventHash).toBe(sealed.eventHash);
+    expect(replayed.snapshot).toEqual(state);
+    expect(events).toMatch(/\n$/u);
+    expect(snapshot.files[".brain/runs/run-01/state.json"]).toMatch(/\n$/u);
   });
 
   it.each(["special", "symlink"] as const)(

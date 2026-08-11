@@ -103,11 +103,14 @@ describe("import extraction", () => {
         join(repositoryRoot, "packages/runtime/src/composition/index.ts"),
       ),
     ).toEqual([
+      "node:util",
       "../domain/effects.js",
+      "../domain/events/index.js",
       "../domain/transactions/index.js",
       "../infra/node/index.js",
       "../ports/index.js",
       "./schema.js",
+      "./events.js",
       "./transactions.js",
     ]);
   });
