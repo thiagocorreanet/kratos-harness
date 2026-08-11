@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import { readFileSync } from "node:fs";
 
 import type { EventV1, SnapshotV1 } from "@mestre-yoda/contracts";
 import {
@@ -98,7 +99,10 @@ function registry(
   return { seed, reducers: { "policy-01": reducer }, materialize };
 }
 
-function replay(value: EventReducerRegistry<TestState>, verified = stream()) {
+function replay<State>(
+  value: EventReducerRegistry<State>,
+  verified = stream(),
+) {
   return replayEventStream(verified, value, replayServices);
 }
 
@@ -116,6 +120,137 @@ function invalidEvent(run: () => unknown): EventIntegrityError {
 }
 
 describe("event reducer replay boundary", () => {
+  it("normalizes seed, callback inputs, outputs, and materializer inputs", () => {
+    interface OrderedState extends TestState {
+      readonly values: { readonly alpha: number; readonly zero: number };
+    }
+    const left: OrderedState = {
+      ...seed,
+      values: { zero: -0, alpha: 1 },
+    };
+    const right: OrderedState = {
+      ...seed,
+      values: { alpha: 1, zero: 0 },
+    };
+    const seenNegativeZero: boolean[] = [];
+    const orderedRegistry = (
+      value: OrderedState,
+    ): EventReducerRegistry<OrderedState> => ({
+      seed: value,
+      reducers: {
+        "policy-01": (state) => {
+          seenNegativeZero.push(Object.is(state.values.zero, -0));
+          return { ...state, values: { zero: -0, alpha: state.values.alpha } };
+        },
+      },
+      materialize: (state, cursor) => {
+        seenNegativeZero.push(Object.is(state.values.zero, -0));
+        return snapshot(state, cursor);
+      },
+    });
+
+    const first = replay(orderedRegistry(left));
+    const second = replay(orderedRegistry(right));
+
+    expect(first.canonical).toBe(second.canonical);
+    expect(Object.is(first.state.values.zero, -0)).toBe(false);
+    expect(seenNegativeZero).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it("rejects a custom array prototype before inspecting its properties", () => {
+    const values = ["value"];
+    Object.setPrototypeOf(values, {});
+
+    invalidEvent(() =>
+      replay({ ...registry(), seed: { ...seed, values } as TestState }),
+    );
+  });
+
+  it("rejects hostile arrays without executing an accessor", () => {
+    let reads = 0;
+    const accessor = Object.defineProperty(["value"], "0", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        throw new Error("private array getter");
+      },
+    });
+    const hole = Array(1);
+    const extra = ["value"] as string[] & { extra?: string };
+    extra.extra = "private";
+    const symbol = ["value"];
+    Object.defineProperty(symbol, Symbol("private"), {
+      configurable: true,
+      enumerable: true,
+      value: "private",
+      writable: true,
+    });
+
+    for (const values of [accessor, hole, extra, symbol]) {
+      invalidEvent(() =>
+        replay({ ...registry(), seed: { ...seed, values } as TestState }),
+      );
+    }
+    expect(reads).toBe(0);
+  });
+
+  it("rejects cyclic, executable, and non-finite JSON seed values", () => {
+    const cyclic: { self?: unknown } = {};
+    cyclic.self = cyclic;
+    for (const hostile of [cyclic, () => "private", Infinity, Number.NaN]) {
+      invalidEvent(() =>
+        replay({ ...registry(), seed: { ...seed, hostile } as TestState }),
+      );
+    }
+  });
+
+  it("preserves a prototype-pollution key as inert JSON data", () => {
+    const polluted = Object.defineProperty({ ...seed }, "__proto__", {
+      configurable: true,
+      enumerable: true,
+      value: { polluted: true },
+      writable: true,
+    });
+
+    const replayed = replay({ ...registry(), seed: polluted });
+
+    expect(Object.prototype).not.toHaveProperty("polluted");
+    expect(replayed.state).toHaveProperty("__proto__", { polluted: true });
+  });
+
+  it("copies a 100,000-entry array with linear replay work", () => {
+    const values = Array.from({ length: 100_000 }, (_, index) => index);
+    const replayed = replay({
+      ...registry(),
+      seed: { ...seed, values } as TestState,
+    });
+
+    expect(
+      (replayed.state as TestState & { values: readonly number[] }).values,
+    ).toHaveLength(100_000);
+  });
+
+  it("uses a linear membership check while snapshotting arrays", () => {
+    const source = readFileSync(
+      new URL(
+        "../packages/runtime/src/domain/events/reduce.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(source).not.toContain("entries.includes");
+  });
+
   it("accepts replay services instead of a bare schema registry", () => {
     expect(replay(registry()).snapshot.eventCursor).toBe(1);
   });

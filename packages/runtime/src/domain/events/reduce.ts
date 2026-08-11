@@ -78,6 +78,16 @@ function snapshotJson(
   return snapshotValue(value, services, tracked, new WeakSet<object>());
 }
 
+function normalizeJson(
+  value: unknown,
+  services: ReplayServices,
+  tracked?: TrackedViews,
+): JsonState {
+  return JSON.parse(
+    canonicalizeJson(snapshotJson(value, services, tracked)),
+  ) as JsonState;
+}
+
 function snapshotValue(
   value: unknown,
   services: ReplayServices,
@@ -122,16 +132,29 @@ function snapshotArray(
   tracked: TrackedViews | undefined,
   active: WeakSet<object>,
 ): JsonState {
-  const keys = Reflect.ownKeys(value);
-  if (keys.some((key) => typeof key === "symbol")) invalidEvent();
-  const entries = keys.filter((key) => key !== "length");
-  if (entries.length !== value.length || !keys.includes("length"))
+  if (
+    isProxy(value, services) ||
+    Object.getPrototypeOf(value) !== Array.prototype
+  ) {
     invalidEvent();
+  }
+  const keys = Reflect.ownKeys(value);
+  const entries = new Set<string>();
+  let hasLength = false;
+  for (const key of keys) {
+    if (typeof key === "symbol") invalidEvent();
+    if (key === "length") {
+      hasLength = true;
+    } else {
+      entries.add(key);
+    }
+  }
+  if (entries.size !== value.length || !hasLength) invalidEvent();
 
   const copy: JsonState[] = [];
   for (let index = 0; index < value.length; index += 1) {
     const key = String(index);
-    if (!entries.includes(key)) invalidEvent();
+    if (!entries.has(key)) invalidEvent();
     const descriptor = ownData(value, key);
     if (!descriptor.enumerable) invalidEvent();
     copy.push(snapshotValue(descriptor.value, services, tracked, active));
@@ -217,7 +240,7 @@ function snapshotRegistry<State>(
   return {
     materialize: root.materialize as EventReducerRegistry<State>["materialize"],
     reducers,
-    seed: snapshotJson(root.seed, services) as State,
+    seed: normalizeJson(root.seed, services) as State,
   };
 }
 
@@ -225,7 +248,7 @@ function snapshotStream(
   stream: VerifiedEventStream,
   services: ReplayServices,
 ): { readonly cursor: EventChainCursor; readonly events: readonly EventV1[] } {
-  const value = snapshotJson(stream, services) as Readonly<
+  const value = normalizeJson(stream, services) as Readonly<
     Record<string, unknown>
   >;
   const sourceEvents = value.events;
@@ -316,16 +339,16 @@ function reduceOnce<State>(
 ): State {
   const tracked = trackedViews();
   const stateInput = trackedView(
-    snapshotJson(state, services) as State,
+    normalizeJson(state, services) as State,
     tracked,
   );
   const eventInput = trackedView(
-    snapshotJson(event, services) as EventV1,
+    normalizeJson(event, services) as EventV1,
     tracked,
   );
   const result = reducer(stateInput, eventInput);
   if (tracked.attempted) invalidEvent();
-  return snapshotJson(result, services, tracked) as State;
+  return normalizeJson(result, services, tracked) as State;
 }
 
 function materializeOnce<State>(
@@ -336,16 +359,16 @@ function materializeOnce<State>(
 ): SnapshotV1 {
   const tracked = trackedViews();
   const stateInput = trackedView(
-    snapshotJson(state, services) as State,
+    normalizeJson(state, services) as State,
     tracked,
   );
   const cursorInput = trackedView(
-    snapshotJson(cursor, services) as EventChainCursor,
+    normalizeJson(cursor, services) as EventChainCursor,
     tracked,
   );
   const result = materialize(stateInput, cursorInput);
   if (tracked.attempted) invalidEvent();
-  return snapshotJson(result, services, tracked) as SnapshotV1;
+  return normalizeJson(result, services, tracked) as SnapshotV1;
 }
 
 function hasFinalBindings(
@@ -379,7 +402,7 @@ function replay<State>(
     const first = reduceOnce(reducer, state, event, services);
     const second = reduceOnce(reducer, state, event, services);
     if (canonicalizeJson(first) !== canonicalizeJson(second)) invalidEvent();
-    state = snapshotJson(first, services) as State;
+    state = normalizeJson(first, services) as State;
   }
 
   const firstSnapshot = materializeOnce(
@@ -407,8 +430,8 @@ function replay<State>(
   if (prepared.kind === "invalid") invalidEvent();
   return {
     canonical: prepared.canonical,
-    snapshot: snapshotJson(prepared.value, services) as SnapshotV1,
-    state: snapshotJson(state, services) as State,
+    snapshot: normalizeJson(prepared.value, services) as SnapshotV1,
+    state: normalizeJson(state, services) as State,
   };
 }
 

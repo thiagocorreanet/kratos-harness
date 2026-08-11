@@ -129,47 +129,65 @@ function invalidEvent(run: () => unknown): EventIntegrityError {
 
 const replayCases = (() => {
   const random = generator(0x21_08_2026);
-  const verifiedByLength = new Map<number, ReturnType<typeof stream>>();
   return Array.from({ length: 200 }, (_, index) => {
     const caseSeed = random();
     const count = (index % 32) + 1;
-    let verified = verifiedByLength.get(count);
-    if (verified === undefined) {
-      verified = stream(count, generator(caseSeed));
-      verifiedByLength.set(count, verified);
-    }
+    const first = generator(caseSeed)();
     return {
       caseSeed,
+      count,
+      first,
       index,
-      verified: structuredClone(verified),
+      verified: stream(count, generator(caseSeed)),
     };
   });
 })();
 
-describe("event reducer replay properties", () => {
-  it("replays 200 bounded streams three times with byte-identical snapshots", () => {
-    const stableRegistry = registry((state, event) => ({
-      ...state,
-      status: "active",
-      currentStep: event.operation,
-    }));
+const replayGroups = Array.from({ length: 8 }, (_, index) =>
+  replayCases.slice(index * 25, (index + 1) * 25),
+);
 
-    for (const { caseSeed, index, verified } of replayCases) {
-      const canonical = Array.from(
-        { length: 3 },
-        () =>
-          replayEventStream(
-            verified,
-            { ...stableRegistry, seed: structuredClone(seed) },
-            services,
-          ).canonical,
+describe("event reducer replay properties", () => {
+  it("generates 200 distinct streams with seed-attributed coverage from one through 32", () => {
+    expect(new Set(replayCases.map(({ count }) => count))).toEqual(
+      new Set(Array.from({ length: 32 }, (_, index) => index + 1)),
+    );
+    expect(
+      new Set(replayCases.map(({ verified }) => verified.canonical)).size,
+    ).toBe(200);
+    for (const { caseSeed, first, verified } of replayCases) {
+      expect(verified.events.at(0)?.eventId, `seed=${String(caseSeed)}`).toBe(
+        `event-1-${String(first)}`,
       );
-      expect(
-        canonical,
-        `seed=${String(caseSeed)} case=${String(index)}`,
-      ).toEqual([canonical[0], canonical[0], canonical[0]]);
     }
   });
+
+  it.each(replayGroups.map((group) => [group]))(
+    "replays a deterministic group of 25 streams three times",
+    (group) => {
+      const stableRegistry = registry((state, event) => ({
+        ...state,
+        status: "active",
+        currentStep: event.operation,
+      }));
+
+      for (const { caseSeed, index, verified } of group) {
+        const canonical = Array.from(
+          { length: 3 },
+          () =>
+            replayEventStream(
+              verified,
+              { ...stableRegistry, seed: structuredClone(seed) },
+              services,
+            ).canonical,
+        );
+        expect(
+          canonical,
+          `seed=${String(caseSeed)} case=${String(index)}`,
+        ).toEqual([canonical[0], canonical[0], canonical[0]]);
+      }
+    },
+  );
 
   it.each([
     [
