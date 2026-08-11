@@ -18,6 +18,10 @@ export interface DurableFileSystem {
   writeSynced(path: string, content: string): Promise<void>;
   replaceFile(stagedPath: string, targetPath: string): Promise<void>;
   linkFileExclusive(sourcePath: string, targetPath: string): Promise<void>;
+  renameDirectoryExclusive(
+    sourcePath: string,
+    targetPath: string,
+  ): Promise<void>;
   removeFile(path: string): Promise<void>;
   removeEmptyDirectory(path: string): Promise<void>;
   /** This method alone accepts the exact `.` project-root sentinel. */

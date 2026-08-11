@@ -156,6 +156,26 @@ const cases: readonly OperationCase[] = [
     },
   },
   {
+    operation: "rename_directory_exclusive",
+    seed: {
+      directories: [".brain", ".brain/candidate", ".brain/candidate/run"],
+      files: { ".brain/candidate/run/claim.json": "new" },
+    },
+    run: (storage) =>
+      storage.durableFileSystem.renameDirectoryExclusive(
+        ".brain/candidate",
+        ".brain/published",
+      ),
+    before: {
+      files: { ".brain/candidate/run/claim.json": "new" },
+      directories: [".brain", ".brain/candidate", ".brain/candidate/run"],
+    },
+    after: {
+      files: { ".brain/published/run/claim.json": "new" },
+      directories: [".brain", ".brain/published", ".brain/published/run"],
+    },
+  },
+  {
     operation: "remove_file",
     seed: { files: { ".brain/state.json": "old" } },
     run: (storage) => storage.durableFileSystem.removeFile(".brain/state.json"),

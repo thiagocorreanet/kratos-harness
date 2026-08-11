@@ -28,6 +28,7 @@ export type DurableOperation =
   | "close_file"
   | "replace_file"
   | "link_file_exclusive"
+  | "rename_directory_exclusive"
   | "remove_file"
   | "remove_empty_directory"
   | "sync_directory";
@@ -432,6 +433,18 @@ export function nodeDurableFileSystem(
         await requireDirectory(parentPath(source.normalized));
         await requireDirectory(parentPath(target.normalized));
         await link(source.absolute, target.absolute);
+      }),
+    renameDirectoryExclusive: (sourcePath, targetPath) =>
+      boundary("rename_directory_exclusive", async () => {
+        const source = await scan(sourcePath);
+        const target = await scan(targetPath);
+        assertDirectory(source.details);
+        requireDeclaredParent(target);
+        if (target.details !== null)
+          throw new Error("Runtime durable path already has an entry");
+        await requireDirectory(parentPath(source.normalized));
+        await requireDirectory(parentPath(target.normalized));
+        await rename(source.absolute, target.absolute);
       }),
     removeFile: (path) =>
       boundary("remove_file", async () => {

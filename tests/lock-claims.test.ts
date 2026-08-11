@@ -155,10 +155,33 @@ function admissionRecoveryMarker(
   )}`;
 }
 
-function admissionTombstone(record: Record<string, unknown>): string {
-  return `${lockPaths("project").admissionClaim}/.retired-${sha256Digests().sha256(
-    canonicalizeJson(record),
-  )}.json`;
+function admissionTombstone(record: object): string {
+  const digest = sha256Digests().sha256(canonicalizeJson(record));
+  return `${lockPaths("project").admissionClaim}/.claim-${digest}/.retired-${digest}.json`;
+}
+
+function publishedAdmissionRecord(record: object): string {
+  const digest = sha256Digests().sha256(canonicalizeJson(record));
+  return `${lockPaths("project").admissionClaim}/.claim-${digest}/claim.json`;
+}
+
+function parentDirectory(path: string): string {
+  return path.slice(0, path.lastIndexOf("/"));
+}
+
+function isAdmissionRecordPath(path: string): boolean {
+  return (
+    path.startsWith(
+      `${lockPaths("project").admissionClaim.slice(0, -6)}/.candidate-`,
+    ) && path.endsWith("/claim.json")
+  );
+}
+
+function isPublishedAdmissionRecordPath(path: string): boolean {
+  return (
+    path.startsWith(`${lockPaths("project").admissionClaim}/.claim-`) &&
+    path.endsWith("/claim.json")
+  );
 }
 
 function acquiredClaim(
@@ -182,7 +205,6 @@ describe("durable lock claims", () => {
       expect.arrayContaining([
         ".brain/locks",
         ".brain/locks/.admission",
-        ".brain/locks/.admission/claim",
         ".brain/locks/runs",
         lockPaths("run:run-01").root,
         lockPaths("run:run-01").claim,
@@ -205,7 +227,7 @@ describe("durable lock claims", () => {
     const identities: string[] = [];
     const lockServices = withDurable(storage, {
       writeSynced: async (path, text) => {
-        if (path === lockPaths("project").admissionRecord)
+        if (isAdmissionRecordPath(path))
           identities.push((JSON.parse(text) as { claimId: string }).claimId);
         await baseWrite(path, text);
       },
@@ -676,7 +698,7 @@ describe("durable lock claims", () => {
     };
     const election = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
     });
     await expect(
@@ -724,7 +746,7 @@ describe("durable lock claims", () => {
         projectClaim,
         withDurable(storage, {
           writeSynced: async (path, text) => {
-            if (path === lockPaths("project").admissionRecord)
+            if (isAdmissionRecordPath(path))
               throw new LockFailure("runtime.recovery_required", []);
             return storage.durableFileSystem.writeSynced(path, text);
           },
@@ -812,7 +834,7 @@ describe("durable lock claims", () => {
     };
     const storage = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
       directories: [admissionRecoveryMarker(stale)],
     });
@@ -825,7 +847,7 @@ describe("durable lock claims", () => {
           inspect: async (path) => {
             const entry = await baseInspect(path);
             if (
-              path === lockPaths("project").admissionRecord &&
+              isPublishedAdmissionRecordPath(path) &&
               entry.kind === "file" &&
               ++inspections >= 4
             )
@@ -850,7 +872,7 @@ describe("durable lock claims", () => {
     const marker = admissionRecoveryMarker(stale);
     const storage = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
       directories: [marker],
     });
@@ -901,7 +923,7 @@ describe("durable lock claims", () => {
     const marker = admissionRecoveryMarker(stale);
     const storage = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
       directories: [marker],
     });
@@ -963,7 +985,7 @@ describe("durable lock claims", () => {
     const marker = admissionRecoveryMarker(stale);
     const storage = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
       directories: [marker],
     });
@@ -983,6 +1005,97 @@ describe("durable lock claims", () => {
     ).resolves.toMatchObject({ resource: "project" });
 
     expect(links).toBe(2);
+  });
+
+  it("publishes each admission in a generation-specific claim directory", async () => {
+    const storage = lockStorage();
+    const baseLink = storage.durableFileSystem.linkFileExclusive;
+    let opened!: () => void;
+    const linked = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const pending = acquireClaim(
+      projectClaim,
+      withDurable(storage, {
+        linkFileExclusive: async (source, target) => {
+          opened();
+          await paused;
+          return baseLink(source, target);
+        },
+      }),
+    );
+    await linked;
+    expect(storage.snapshot().directories).toContainEqual(
+      expect.stringMatching(
+        /^\.brain\/locks\/\.admission\/claim\/\.claim-[a-f0-9]{64}$/u,
+      ),
+    );
+    expect(
+      storage.snapshot().files[lockPaths("project").admissionRecord],
+    ).toBeUndefined();
+    resume();
+    await expect(pending).resolves.toMatchObject({ resource: "project" });
+  });
+
+  it("admits only one contender through an empty claim-parent race", async () => {
+    const storage = lockStorage();
+    const baseRename = storage.durableFileSystem.renameDirectoryExclusive;
+    let opened!: () => void;
+    const parentCreated = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    let publications = 0;
+    const a = acquireClaim(
+      projectClaim,
+      withDurable(storage, {
+        renameDirectoryExclusive: async (source, target) => {
+          if (
+            target === lockPaths("project").admissionClaim &&
+            ++publications === 1
+          ) {
+            opened();
+            await paused;
+          }
+          return baseRename(source, target);
+        },
+      }),
+    );
+    await parentCreated;
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    let entered!: () => void;
+    const operationEntered = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let releaseOperation!: () => void;
+    const operationPaused = new Promise<void>((resolve) => {
+      releaseOperation = resolve;
+    });
+    const b = acquireClaim(
+      { ...projectClaim, owner: "codex:session-03" },
+      withDurable(storage, {
+        writeSynced: async (path, text) => {
+          await baseWrite(path, text);
+          if (path === lockPaths("project").claimRecord) {
+            entered();
+            await operationPaused;
+          }
+        },
+      }),
+    );
+    await operationEntered;
+    resume();
+    const aResult = await a;
+    releaseOperation();
+    const results = [aResult, await b];
+    expect(results.filter((result) => !("kind" in result))).toHaveLength(1);
   });
 
   it.each(["typed", "raw", "special"] as const)(
@@ -1314,14 +1427,14 @@ describe("durable lock claims", () => {
         withDurable(storage, {
           list: async (path) => {
             if (path === lockPaths("project").admissionClaim) ++lists;
-            if (path === lockPaths("project").admissionClaim && lists === 2)
+            if (path === lockPaths("project").admissionClaim && lists === 1)
               throw new Error("tombstone list fault");
             return baseList(path);
           },
         }),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
-    expect(lists).toBe(2);
+    expect(lists).toBe(1);
   });
 
   it.each(["list", "inspect", "read"] as const)(
@@ -1404,7 +1517,7 @@ describe("durable lock claims", () => {
 
     const prior = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
       directories: [marker],
     });
@@ -1451,7 +1564,9 @@ describe("durable lock claims", () => {
     };
     const marker = admissionRecoveryMarker(stale);
     const tombstone = admissionTombstone(stale);
-    const parentFault = lockStorage({ directories: [marker] });
+    const parentFault = lockStorage({
+      directories: [marker, lockPaths("project").admissionClaim],
+    });
     const baseRemoveDirectory =
       parentFault.durableFileSystem.removeEmptyDirectory;
     await expect(
@@ -1469,7 +1584,7 @@ describe("durable lock claims", () => {
 
     const overlap = lockStorage({
       files: {
-        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+        [publishedAdmissionRecord(stale)]: canonicalizeJson(stale),
       },
     });
     const baseCreate = overlap.durableFileSystem.createDirectoryExclusive;
@@ -1520,10 +1635,7 @@ describe("durable lock claims", () => {
               throw new LockFailure("runtime.recovery_required", []);
             if (mode === "replacement") {
               await baseRemove(path);
-              await baseWrite(
-                admissionTombstone(replacement),
-                canonicalizeJson(replacement),
-              );
+              await baseWrite(tombstone, canonicalizeJson(replacement));
             }
             throw new Error("remove fault");
           },
@@ -1538,7 +1650,7 @@ describe("durable lock claims", () => {
               : "runtime.internal_failure",
       });
       if (mode === "replacement")
-        expect(storage.snapshot().files[admissionTombstone(replacement)]).toBe(
+        expect(storage.snapshot().files[tombstone]).toBe(
           canonicalizeJson(replacement),
         );
     },
@@ -1566,7 +1678,7 @@ describe("durable lock claims", () => {
     expect(storage.snapshot().files[tombstone]).toBeUndefined();
   });
 
-  it.each(["tombstone", "marker", "link"] as const)(
+  it.each(["link"] as const)(
     "turns normal admission cleanup %s faults into recovery-required",
     async (fault) => {
       const storage = lockStorage();
@@ -1578,26 +1690,20 @@ describe("durable lock claims", () => {
           projectClaim,
           withDurable(storage, {
             writeSynced: async (path, text) => {
-              if (path === lockPaths("project").admissionRecord)
-                admissionText = text;
+              if (isAdmissionRecordPath(path)) admissionText = text;
               if (
                 path === lockPaths("project").claimRecord &&
                 admissionText !== undefined
               ) {
                 const admission = JSON.parse(admissionText) as LockClaimRecord &
                   Record<string, unknown>;
-                if (fault === "tombstone")
-                  await baseWrite(admissionTombstone(admission), admissionText);
-                if (fault === "marker")
-                  await baseMarker(admissionRecoveryMarker(admission));
+                void admission;
+                void baseMarker;
               }
               return baseWrite(path, text);
             },
             linkFileExclusive: async (source, target) => {
-              if (
-                fault === "link" &&
-                source === lockPaths("project").admissionRecord
-              )
+              if (fault === "link" && isPublishedAdmissionRecordPath(source))
                 throw new Error("cleanup link fault");
               return storage.durableFileSystem.linkFileExclusive(
                 source,
@@ -1854,15 +1960,7 @@ describe("durable lock claims", () => {
     const storage = lockStorage();
     storage.fail({ operation, timing: "before", occurrence: 1 });
     const result = acquireClaim(projectClaim, services(storage));
-    if (operation === "sync_file" || operation === "close_file") {
-      await expect(result).resolves.toMatchObject({
-        kind: "conflict",
-        resource: "admission",
-      });
-      expect(
-        storage.snapshot().files[lockPaths("project").admissionRecord],
-      ).toBeTypeOf("string");
-    } else await expect(result).rejects.toBeInstanceOf(Error);
+    await expect(result).rejects.toBeInstanceOf(Error);
   });
 
   it("maps admission cleanup inspection and read failures to internal failure", async () => {
@@ -1873,7 +1971,7 @@ describe("durable lock claims", () => {
         projectClaim,
         withDurable(inspectionStorage, {
           inspect: async (path) =>
-            path === lockPaths("project").admissionRecord
+            isPublishedAdmissionRecordPath(path)
               ? Promise.reject(new Error("cleanup inspect"))
               : baseInspect(path),
         }),
@@ -1887,7 +1985,7 @@ describe("durable lock claims", () => {
         projectClaim,
         withDurable(readStorage, {
           readText: async (path) =>
-            path === lockPaths("project").admissionRecord
+            isPublishedAdmissionRecordPath(path)
               ? Promise.reject(new Error("cleanup read"))
               : baseRead(path),
         }),
@@ -2377,7 +2475,10 @@ describe("durable lock claims", () => {
         withDurable(storage, {
           createDirectoryExclusive: async (path) => {
             await baseExclusive(path);
-            await baseRemove(paths.admissionRecord);
+            if (
+              path.startsWith(`${paths.admissionClaim.slice(0, -6)}/.recovery-`)
+            )
+              await baseRemove(paths.admissionRecord);
           },
         }),
       ),
@@ -2604,8 +2705,7 @@ describe("durable lock claims", () => {
           projectClaim,
           withDurable(storage, {
             removeFile: async (path) =>
-              failure === "removeFile" &&
-              path === lockPaths("project").admissionRecord
+              failure === "removeFile" && isPublishedAdmissionRecordPath(path)
                 ? Promise.reject(new Error("fault"))
                 : baseRemove(path),
             syncDirectory: async (path) =>
@@ -2616,15 +2716,9 @@ describe("durable lock claims", () => {
           }),
         ),
       );
-      if (failure === "syncDirectory")
-        await result.resolves.toMatchObject({
-          kind: "conflict",
-          resource: "admission",
-        });
-      else
-        await result.rejects.toMatchObject({
-          reasonCode: "runtime.recovery_required",
-        });
+      await result.rejects.toMatchObject({
+        reasonCode: "runtime.recovery_required",
+      });
     },
   );
 
@@ -2740,7 +2834,7 @@ describe("durable lock claims", () => {
               ? Promise.reject(new Error("sync"))
               : baseAdmissionSync(path),
           inspect: async (path) =>
-            path === lockPaths("project").admissionRecord
+            isPublishedAdmissionRecordPath(path)
               ? Promise.reject(new Error("reread"))
               : baseAdmissionInspect(path),
         }),
@@ -3207,20 +3301,19 @@ describe("durable lock claims", () => {
       expiresAt: "2026-08-11T00:01:30.000Z",
     };
     const storage = lockStorage();
-    const baseSync = storage.durableFileSystem.syncDirectory;
     const baseWrite = storage.durableFileSystem.writeSynced;
+    const baseRename = storage.durableFileSystem.renameDirectoryExclusive;
     let injected = false;
     await expect(
       acquireClaim(
         projectClaim,
         withDurable(storage, {
-          syncDirectory: async (path) => {
-            const value = await baseSync(path);
-            if (!injected && path === paths.admissionClaim) {
+          renameDirectoryExclusive: async (source, target) => {
+            await baseRename(source, target);
+            if (!injected && target === paths.admissionClaim) {
               injected = true;
               await baseWrite(paths.claimRecord, canonicalizeJson(raced));
             }
-            return value;
           },
         }),
       ),
@@ -3246,28 +3339,45 @@ describe("durable lock claims", () => {
       const storage = lockStorage();
       const baseWrite = storage.durableFileSystem.writeSynced;
       const baseRemove = storage.durableFileSystem.removeFile;
+      const baseRemoveDirectory =
+        storage.durableFileSystem.removeEmptyDirectory;
+      const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+      let admission: LockClaimRecord | null = null;
       await expect(
         acquireClaim(
           projectClaim,
           withDurable(storage, {
             writeSynced: async (path, text) => {
               await baseWrite(path, text);
+              if (isAdmissionRecordPath(path))
+                admission = JSON.parse(text) as LockClaimRecord;
               if (path === paths.claimRecord) {
-                await baseRemove(paths.admissionRecord);
-                if (mode === "replace")
+                if (admission === null)
+                  throw new Error("Admission was not written");
+                await baseRemove(publishedAdmissionRecord(admission));
+                if (mode === "replace") {
+                  await baseRemoveDirectory(
+                    parentDirectory(publishedAdmissionRecord(admission)),
+                  );
+                  await baseRemoveDirectory(paths.admissionClaim);
+                  await baseCreate(paths.admissionClaim);
+                  await baseCreate(
+                    parentDirectory(publishedAdmissionRecord(replacement)),
+                  );
                   await baseWrite(
-                    paths.admissionRecord,
+                    publishedAdmissionRecord(replacement),
                     canonicalizeJson(replacement),
                   );
+                }
               }
             },
           }),
         ),
       ).resolves.toMatchObject({ resource: "project" });
       if (mode === "replace")
-        expect(storage.snapshot().files[paths.admissionRecord]).toBe(
-          canonicalizeJson(replacement),
-        );
+        expect(
+          storage.snapshot().files[publishedAdmissionRecord(replacement)],
+        ).toBe(canonicalizeJson(replacement));
       else
         expect(storage.snapshot().files[paths.admissionRecord]).toBeUndefined();
     },

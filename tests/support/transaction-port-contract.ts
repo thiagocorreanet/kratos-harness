@@ -141,14 +141,7 @@ export function describeDurableFileSystemContract(
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);
         await fileSystem.writeSynced(".brain/source", "retired claim");
-        const hardLink = fileSystem as DurableFileSystem & {
-          linkFileExclusive(
-            sourcePath: string,
-            targetPath: string,
-          ): Promise<void>;
-        };
-
-        await hardLink.linkFileExclusive(".brain/source", ".brain/tombstone");
+        await fileSystem.linkFileExclusive(".brain/source", ".brain/tombstone");
 
         expect(await fileSystem.readText(".brain/source")).toBe(
           "retired claim",
@@ -157,7 +150,25 @@ export function describeDurableFileSystemContract(
           "retired claim",
         );
         await expect(
-          hardLink.linkFileExclusive(".brain/source", ".brain/tombstone"),
+          fileSystem.linkFileExclusive(".brain/source", ".brain/tombstone"),
+        ).rejects.toThrow();
+      });
+    });
+
+    it("publishes a prepopulated directory only to a missing target", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+        await fileSystem.createDirectory(".brain/candidate");
+        await fileSystem.writeSynced(".brain/candidate/claim.json", "claim");
+        await fileSystem.renameDirectoryExclusive(
+          ".brain/candidate",
+          ".brain/claim",
+        );
+        expect(await fileSystem.readText(".brain/claim/claim.json")).toBe(
+          "claim",
+        );
+        await expect(
+          fileSystem.renameDirectoryExclusive(".brain/claim", ".brain/claim"),
         ).rejects.toThrow();
       });
     });
