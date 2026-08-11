@@ -73,7 +73,7 @@ export interface AcquireClaimRequest {
 }
 
 export interface ClaimInspection extends LeaseObservation {
-  readonly claim: LockClaimRecord | null;
+  readonly claim: ObservedLockClaim | null;
 }
 
 /** The claim record itself is the safe observation carried by contention. */
@@ -391,7 +391,7 @@ function strictTimestamp(value: unknown): value is string {
 async function readClaim(
   resource: LeaseResource,
   services: LockServices,
-): Promise<LockClaimRecord | null> {
+): Promise<ObservedLockClaim | null> {
   const path = claimRecordPath(resource);
   let entry: DurableEntry;
   try {
@@ -495,6 +495,58 @@ function validateObservedGuard(
     observed.stateRevision < 0 ||
     observed.leaseFingerprint.kind !== "file" ||
     observed.eventsFingerprint.kind !== "file"
+  )
+    throw internal();
+}
+
+function sameGuard(left: LeaseGuard, right: LeaseGuard): boolean {
+  return (
+    left.resource === right.resource &&
+    left.owner === right.owner &&
+    left.leaseId === right.leaseId &&
+    left.fencingToken === right.fencingToken &&
+    left.stateRevision === right.stateRevision &&
+    left.leaseFingerprint.kind === "file" &&
+    right.leaseFingerprint.kind === "file" &&
+    left.leaseFingerprint.size === right.leaseFingerprint.size &&
+    left.leaseFingerprint.sha256 === right.leaseFingerprint.sha256 &&
+    left.eventsFingerprint.kind === "file" &&
+    right.eventsFingerprint.kind === "file" &&
+    left.eventsFingerprint.size === right.eventsFingerprint.size &&
+    left.eventsFingerprint.sha256 === right.eventsFingerprint.sha256
+  );
+}
+
+function leaseConflict(
+  inspection: ClaimInspection,
+  resource: LeaseResource,
+  owner: string,
+  now: string,
+): ClaimConflict {
+  if (inspection.claim) return conflict(inspection.claim);
+  const lease = inspection.lease;
+  return conflict({
+    claimId: "lease-observed",
+    resource,
+    owner: lease?.owner ?? owner,
+    leaseId: lease?.leaseId ?? null,
+    fencingToken: lease?.fencingToken ?? null,
+    acquiredAt: lease?.acquiredAt ?? now,
+    expiresAt: lease?.expiresAt ?? now,
+  });
+}
+
+function validateObservedClaim(
+  resource: LeaseResource,
+  observed: ObservedLockClaim,
+): void {
+  const record = exactRecord(persistedRecord(observed));
+  if (
+    record?.resource !== resource ||
+    observed.fingerprint.kind !== "file" ||
+    !Number.isSafeInteger(observed.fingerprint.size) ||
+    observed.fingerprint.size < 0 ||
+    !/^[a-f0-9]{64}$/u.test(observed.fingerprint.sha256)
   )
     throw internal();
 }
@@ -632,6 +684,31 @@ export async function acquireClaim(
     throw internal();
   }
   await ensureLockNamespace(request.resource, services);
+  const inspection = await inspectLeaseHeld(request.resource, services);
+  if (request.observed === null) {
+    if (
+      inspection.kind !== "empty" ||
+      inspection.lease !== null ||
+      inspection.guard !== null ||
+      inspection.claim !== null
+    )
+      return leaseConflict(
+        inspection,
+        request.resource,
+        request.owner,
+        services.clock.now().toISOString(),
+      );
+  } else if (
+    inspection.guard === null ||
+    !sameGuard(inspection.guard, request.observed)
+  ) {
+    return leaseConflict(
+      inspection,
+      request.resource,
+      request.owner,
+      services.clock.now().toISOString(),
+    );
+  }
   return withAdmission(request.owner, services, () =>
     acquireClaimHeld(request, services),
   );
@@ -696,13 +773,14 @@ async function acquireClaimHeld(
 export async function releaseClaim(
   request: {
     readonly resource: LeaseResource;
-    readonly observed: LockClaimRecord;
+    readonly observed: ObservedLockClaim;
   },
   services: LockServices,
 ): Promise<ReleaseClaimOutcome> {
   try {
     lockPaths(request.resource);
     parseOwner(request.observed.owner);
+    validateObservedClaim(request.resource, request.observed);
   } catch {
     throw internal();
   }
@@ -715,7 +793,7 @@ export async function releaseClaim(
 async function releaseClaimHeld(
   request: {
     readonly resource: LeaseResource;
-    readonly observed: LockClaimRecord;
+    readonly observed: ObservedLockClaim;
   },
   services: LockServices,
 ): Promise<ReleaseClaimOutcome> {
@@ -727,12 +805,10 @@ async function releaseClaimHeld(
   try {
     const entry = await services.durableFileSystem.inspect(paths.claimRecord);
     if (entry.kind !== "file") throw corrupt(paths.claimRecord);
-    const observed = request.observed as Partial<ObservedLockClaim>;
     if (
-      observed.fingerprint !== undefined &&
-      (observed.fingerprint.kind !== "file" ||
-        entry.size !== observed.fingerprint.size ||
-        entry.sha256 !== observed.fingerprint.sha256)
+      request.observed.fingerprint.kind !== "file" ||
+      entry.size !== request.observed.fingerprint.size ||
+      entry.sha256 !== request.observed.fingerprint.sha256
     )
       return conflict(current);
     if (
@@ -754,14 +830,14 @@ export async function recoverClaim(
   request: {
     readonly resource: LeaseResource;
     readonly owner: string;
-    readonly observed: LockClaimRecord;
+    readonly observed: ObservedLockClaim;
   },
   services: LockServices,
 ): Promise<RecoverClaimOutcome> {
   try {
     lockPaths(request.resource);
     parseOwner(request.owner);
-    if (request.observed.resource !== request.resource) throw new Error();
+    validateObservedClaim(request.resource, request.observed);
   } catch {
     throw internal();
   }
@@ -775,7 +851,7 @@ async function recoverClaimHeld(
   request: {
     readonly resource: LeaseResource;
     readonly owner: string;
-    readonly observed: LockClaimRecord;
+    readonly observed: ObservedLockClaim;
   },
   services: LockServices,
 ): Promise<RecoverClaimOutcome> {

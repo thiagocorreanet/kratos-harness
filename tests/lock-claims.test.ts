@@ -6,7 +6,9 @@ import {
   inspectLease,
   recoverClaim,
   releaseClaim,
+  type LockClaimRecord,
   type LockServices,
+  type ObservedLockClaim,
 } from "@mestre-yoda/runtime/composition";
 import {
   lockPaths,
@@ -60,26 +62,25 @@ const projectClaim = {
   owner: "codex:session-01",
   observed: null,
 };
+const observedRecord: LockClaimRecord = {
+  claimId: "claim-1",
+  resource: "project" as LeaseResource,
+  owner: "codex:session-01",
+  leaseId: null,
+  fencingToken: null,
+  acquiredAt: "2026-08-11T00:00:00.000Z",
+  expiresAt: "2026-08-11T00:00:30.000Z",
+};
 const observedClaim = {
   resource: "project" as const,
   owner: "codex:session-02",
-  observed: {
-    claimId: "claim-1",
-    resource: "project" as LeaseResource,
-    owner: "codex:session-01",
-    leaseId: null,
-    fencingToken: null,
-    acquiredAt: "2026-08-11T00:00:00.000Z",
-    expiresAt: "2026-08-11T00:00:30.000Z",
-  },
+  observed: observeClaim(observedRecord),
 };
 
 function expiredClaimStorage() {
   return lockStorage({
     files: {
-      [lockPaths("project").claimRecord]: canonicalizeJson(
-        observedClaim.observed,
-      ),
+      [lockPaths("project").claimRecord]: canonicalizeJson(observedRecord),
     },
   });
 }
@@ -117,6 +118,31 @@ function boundLeaseFiles(expiresAt = "2026-08-11T00:02:00.000Z") {
     [paths.lease]: prepared.leaseText,
     [paths.events]: prepared.eventsText,
   };
+}
+
+function observeClaim(
+  record: LockClaimRecord,
+  fingerprint: Partial<
+    Extract<ObservedLockClaim["fingerprint"], { kind: "file" }>
+  > = {},
+): ObservedLockClaim {
+  const text = canonicalizeJson(record);
+  return {
+    ...record,
+    fingerprint: {
+      kind: "file",
+      size: Buffer.byteLength(text),
+      sha256: sha256Digests().sha256(text),
+      ...fingerprint,
+    },
+  };
+}
+
+function acquiredClaim(
+  result: Awaited<ReturnType<typeof acquireClaim>>,
+): ObservedLockClaim {
+  if ("kind" in result) throw new Error("Expected an acquired claim");
+  return result;
 }
 
 describe("durable lock claims", () => {
@@ -162,7 +188,10 @@ describe("durable lock claims", () => {
       },
     });
     const first = await acquireClaim(projectClaim, lockServices);
-    await releaseClaim({ resource: "project", observed: first }, lockServices);
+    await releaseClaim(
+      { resource: "project", observed: acquiredClaim(first) },
+      lockServices,
+    );
     await acquireClaim(projectClaim, lockServices);
     expect(identities).toHaveLength(3);
     expect(new Set(identities).size).toBe(3);
@@ -188,7 +217,7 @@ describe("durable lock claims", () => {
     expect(observed).toMatchObject({ kind: "empty", claim: claimed });
     await expect(
       releaseClaim(
-        { resource: "project", observed: claimed },
+        { resource: "project", observed: acquiredClaim(claimed) },
         services(storage),
       ),
     ).resolves.toEqual({ kind: "released" });
@@ -374,7 +403,7 @@ describe("durable lock claims", () => {
     { leaseId: 1 },
     { fencingToken: 1.5 },
   ])("rejects malformed claim field variants", async (change) => {
-    const value = { ...observedClaim.observed, ...change };
+    const value = { ...observedRecord, ...change };
     const storage = lockStorage({
       files: { [lockPaths("project").claimRecord]: canonicalizeJson(value) },
     });
@@ -387,7 +416,7 @@ describe("durable lock claims", () => {
     const storage = lockStorage({
       files: {
         [lockPaths("project").claimRecord]: canonicalizeJson({
-          ...observedClaim.observed,
+          ...observedRecord,
           resource: "run:run-01",
         }),
       },
@@ -556,7 +585,7 @@ describe("durable lock claims", () => {
     const baseRemove = storage.durableFileSystem.removeFile;
     await expect(
       releaseClaim(
-        { resource: "project", observed: claimed },
+        { resource: "project", observed: acquiredClaim(claimed) },
         withDurable(storage, {
           removeFile: async (path) => {
             if (path === lockPaths("project").claimRecord)
@@ -580,7 +609,10 @@ describe("durable lock claims", () => {
     const current = await acquireClaim(projectClaim, services(storage));
     await expect(
       releaseClaim(
-        { resource: "project", observed: { ...current, claimId: "claim-old" } },
+        {
+          resource: "project",
+          observed: { ...acquiredClaim(current), claimId: "claim-old" },
+        },
         services(storage),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -597,7 +629,7 @@ describe("durable lock claims", () => {
     let targetInspections = 0;
     await expect(
       releaseClaim(
-        { resource: "project", observed: claimed },
+        { resource: "project", observed: acquiredClaim(claimed) },
         withDurable(storage, {
           inspect: async (path) => {
             const entry = await baseInspect(path);
@@ -621,7 +653,7 @@ describe("durable lock claims", () => {
     let reads = 0;
     await expect(
       releaseClaim(
-        { resource: "project", observed: claimed },
+        { resource: "project", observed: acquiredClaim(claimed) },
         withDurable(storage, {
           readText: async (path) => {
             if (path !== target) return baseRead(path);
@@ -934,7 +966,7 @@ describe("durable lock claims", () => {
     const storage = lockStorage({
       files: {
         [lockPaths("project").claimRecord]: canonicalizeJson({
-          ...observedClaim.observed,
+          ...observedRecord,
           ...change,
         }),
       },
@@ -955,7 +987,7 @@ describe("durable lock claims", () => {
       releaseClaim(
         {
           resource: "project",
-          observed: { ...observedClaim.observed, owner: "invalid" },
+          observed: observeClaim({ ...observedRecord, owner: "invalid" }),
         },
         fail,
       ),
@@ -964,7 +996,7 @@ describe("durable lock claims", () => {
       recoverClaim(
         {
           ...observedClaim,
-          observed: { ...observedClaim.observed, resource: "run:other" },
+          observed: observeClaim({ ...observedRecord, resource: "run:other" }),
         },
         fail,
       ),
@@ -1032,7 +1064,7 @@ describe("durable lock claims", () => {
     let count = 0;
     await expect(
       releaseClaim(
-        { resource: "project", observed: claimed },
+        { resource: "project", observed: acquiredClaim(claimed) },
         withDurable(storage, {
           inspect: async (path) => {
             const entry = await baseInspect(path);
@@ -1117,9 +1149,7 @@ describe("durable lock claims", () => {
   it("refuses recovery when transaction inspection finds an invalid marker", async () => {
     const storage = lockStorage({
       files: {
-        [lockPaths("project").claimRecord]: canonicalizeJson(
-          observedClaim.observed,
-        ),
+        [lockPaths("project").claimRecord]: canonicalizeJson(observedRecord),
       },
       directories: [".brain/transactions/transaction-01"],
     });
@@ -1177,17 +1207,14 @@ describe("durable lock claims", () => {
       const root = ".brain/transactions/tx-terminal";
       const storage = lockStorage({
         files: {
-          [lockPaths("project").claimRecord]: canonicalizeJson(
-            observedClaim.observed,
-          ),
+          [lockPaths("project").claimRecord]: canonicalizeJson(observedRecord),
         },
         directories: residue === "staging" ? [`${root}/staging`] : [root],
         ...(residue === "progress.next"
           ? {
               files: {
-                [lockPaths("project").claimRecord]: canonicalizeJson(
-                  observedClaim.observed,
-                ),
+                [lockPaths("project").claimRecord]:
+                  canonicalizeJson(observedRecord),
                 [`${root}/progress.next`]: "residue",
               },
             }
@@ -1368,22 +1395,16 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
-  it("accepts a structurally complete observed guard", async () => {
-    const storage = lockStorage();
+  it("accepts the exact guard observed from durable lease bytes", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    const inspection = await inspectLease("project", services(storage));
+    if (inspection.guard === null) throw new Error("Lease guard was absent");
     await expect(
       acquireClaim(
         {
           resource: "project",
           owner: "codex:session-01",
-          observed: {
-            resource: "project",
-            owner: "codex:session-01",
-            leaseId: "lease-01",
-            fencingToken: 1,
-            stateRevision: 1,
-            leaseFingerprint: { kind: "file", size: 1, sha256: "digest" },
-            eventsFingerprint: { kind: "file", size: 1, sha256: "digest" },
-          },
+          observed: inspection.guard,
         },
         services(storage),
       ),
@@ -1434,7 +1455,7 @@ describe("durable lock claims", () => {
     const storage = lockStorage({
       files: {
         [lockPaths("project").claimRecord]: canonicalizeJson({
-          ...observedClaim.observed,
+          ...observedRecord,
           ...change,
         }),
       },
