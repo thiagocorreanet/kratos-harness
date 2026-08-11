@@ -1993,6 +1993,17 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("accepts an empty canonical sibling admission recovery marker", async () => {
+    const storage = lockStorage({
+      directories: [
+        ".brain/locks/.admission/.recovery-1786406435000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      ],
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+  });
+
   it("accepts an admission namespace whose claim child is absent", async () => {
     const storage = lockStorage({ directories: [".brain/locks/.admission"] });
     await expect(

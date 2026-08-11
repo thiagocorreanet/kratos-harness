@@ -33,6 +33,11 @@ import {
 const locksRoot = ".brain/locks";
 const admissionRoot = ".brain/locks/.admission";
 const admissionClaim = `${admissionRoot}/claim`;
+const admissionMarker = /^\.recovery-([0-9]{1,13})-([a-f0-9]{64})$/u;
+
+function isAdmissionMarker(name: string): boolean {
+  return admissionMarker.test(name);
+}
 
 export interface LockServices {
   readonly clock: Clock;
@@ -165,6 +170,23 @@ async function assertOnlyChildren(
   }
 }
 
+async function assertAdmissionChildren(services: LockServices): Promise<void> {
+  try {
+    for (const name of await services.durableFileSystem.list(admissionRoot)) {
+      if (name === "claim") continue;
+      if (!isAdmissionMarker(name)) throw corrupt(admissionRoot);
+      const path = `${admissionRoot}/${name}`;
+      const entry = await services.durableFileSystem.inspect(path);
+      if (entry.kind !== "directory") throw corrupt(path);
+      if ((await services.durableFileSystem.list(path)).length !== 0)
+        throw corrupt(path);
+    }
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+}
+
 async function assertCanonicalRunChildren(
   services: LockServices,
 ): Promise<void> {
@@ -221,7 +243,7 @@ async function inspectLockNamespace(
   const admission = await inspect(admissionRoot);
   if (admission.kind !== "missing") {
     if (admission.kind !== "directory") throw corrupt(admissionRoot);
-    await assertOnlyChildren(admissionRoot, ["claim"], services);
+    await assertAdmissionChildren(services);
     const claim = await inspect(admissionClaim);
     switch (claim.kind) {
       case "missing":
@@ -309,7 +331,7 @@ export async function ensureLockNamespace(
     services,
   );
   await createDirectoryIfMissing(admissionRoot, services);
-  await assertOnlyChildren(admissionRoot, ["claim"], services);
+  await assertAdmissionChildren(services);
   await createDirectoryIfMissing(admissionClaim, services);
   await assertOnlyChildren(
     admissionClaim,
