@@ -481,13 +481,9 @@ function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
   );
 }
 
-function validateObservedGuard(
-  resource: LeaseResource,
-  observed: LeaseGuard | null,
-): void {
+function validateObservedGuard(observed: LeaseGuard | null): void {
   if (observed === null) return;
   if (
-    observed.resource !== resource ||
     !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(observed.leaseId) ||
     !Number.isSafeInteger(observed.fencingToken) ||
     observed.fencingToken < 0 ||
@@ -679,7 +675,7 @@ export async function acquireClaim(
   try {
     lockPaths(request.resource);
     parseOwner(request.owner);
-    validateObservedGuard(request.resource, request.observed);
+    validateObservedGuard(request.observed);
   } catch {
     throw internal();
   }

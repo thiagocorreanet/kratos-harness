@@ -6,6 +6,7 @@ import {
   inspectLease,
   recoverClaim,
   releaseClaim,
+  type ClaimInspection,
   type LockClaimRecord,
   type LockServices,
   type ObservedLockClaim,
@@ -1409,6 +1410,58 @@ describe("durable lock claims", () => {
         services(storage),
       ),
     ).resolves.toMatchObject({ leaseId: "lease-01", fencingToken: 1 });
+  });
+
+  it.each([
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      resource: "run:other" as LeaseResource,
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      owner: "codex:other",
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      leaseId: "lease-other",
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      fencingToken: guard.fencingToken + 1,
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      stateRevision: guard.stateRevision + 1,
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      leaseFingerprint: { ...guard.leaseFingerprint, sha256: "f".repeat(64) },
+    }),
+    (guard: NonNullable<ClaimInspection["guard"]>) => ({
+      ...guard,
+      eventsFingerprint: { ...guard.eventsFingerprint, size: 0 },
+    }),
+  ])("rejects a forged durable lease guard", async (mutate) => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    const inspection = await inspectLease("project", services(storage));
+    if (inspection.guard === null) throw new Error("Lease guard was absent");
+    await expect(
+      acquireClaim(
+        {
+          resource: "project",
+          owner: "codex:session-01",
+          observed: mutate(inspection.guard),
+        },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+  });
+
+  it("rejects null observation when durable lease bytes exist", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({ kind: "conflict" });
   });
 
   it("inspects a materialized admission claim layout", async () => {
