@@ -235,9 +235,6 @@ export async function ensureLockNamespace(
   const paths = lockPaths(resource);
   if (resource.startsWith("run:")) {
     await createDirectoryIfMissing(`${locksRoot}/runs`, services);
-    const runDirectory = paths.root.split("/").at(-1);
-    if (runDirectory === undefined) throw internal();
-    void runDirectory;
     await assertCanonicalRunChildren(services);
   }
   await createDirectoryIfMissing(paths.root, services);
@@ -362,7 +359,6 @@ function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
 }
 
 function conflict(record: LockClaimRecord): ClaimConflict {
-  if (record.resource === "admission") throw internal();
   return Object.freeze({
     ...record,
     kind: "conflict" as const,

@@ -449,6 +449,27 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("reports absent and stale release observations without deleting a newer claim", async () => {
+    const empty = lockStorage();
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: observedClaim.observed },
+        services(empty),
+      ),
+    ).resolves.toEqual({ kind: "absent" });
+    const storage = lockStorage();
+    const current = await acquireClaim(projectClaim, services(storage));
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: { ...current, claimId: "claim-old" } },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(
+      storage.snapshot().files[lockPaths("project").claimRecord],
+    ).toBeTypeOf("string");
+  });
+
   it("returns conflict and preserves the claim if its fingerprint changes before delete", async () => {
     const storage = lockStorage();
     const claimed = await acquireClaim(projectClaim, services(storage));
