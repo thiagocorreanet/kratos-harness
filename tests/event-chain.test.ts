@@ -2,6 +2,9 @@ import { types } from "node:util";
 
 import type { EventV1 } from "@mestre-yoda/contracts";
 import {
+  EVENT_RECORD_BYTES,
+  EVENT_STREAM_BYTES,
+  EVENT_STREAM_COUNT,
   EventIntegrityError,
   parseEventLines,
   sealEvent,
@@ -70,11 +73,17 @@ function integrityError(run: () => unknown): EventIntegrityError {
   throw new Error("expected event stream verification to fail");
 }
 
-type RejectionCase = readonly [
-  description: string,
-  makeText: () => string,
-  expectedKind: EventIntegrityError["kind"],
-];
+interface RejectionCase {
+  readonly description: string;
+  readonly makeText: () => string;
+  readonly expectedKind: EventIntegrityError["kind"];
+}
+
+interface VersionCase {
+  readonly description: string;
+  readonly value: unknown;
+  readonly reasonCode: EventIntegrityError["reasonCode"];
+}
 
 describe("event hash-chain verification", () => {
   it("returns canonical events and the final cursor", () => {
@@ -89,25 +98,29 @@ describe("event hash-chain verification", () => {
   });
 
   const rejectionCases: readonly RejectionCase[] = [
-    ["CRLF", () => textOf(stream()).replaceAll("\n", "\r\n"), "non_canonical"],
-    [
-      "a missing final LF",
-      () => textOf(stream()).slice(0, -1),
-      "non_canonical",
-    ],
-    [
-      "a blank record",
-      () => textOf(stream()).replace("\n", "\n\n"),
-      "non_canonical",
-    ],
-    [
-      "pretty JSON",
-      () => `${JSON.stringify(stream()[0]).replace("{", "{ ")}\n`,
-      "non_canonical",
-    ],
-    [
-      "a bad hash",
-      () => {
+    {
+      description: "CRLF",
+      makeText: () => textOf(stream()).replaceAll("\n", "\r\n"),
+      expectedKind: "non_canonical",
+    },
+    {
+      description: "a missing final LF",
+      makeText: () => textOf(stream()).slice(0, -1),
+      expectedKind: "non_canonical",
+    },
+    {
+      description: "a blank record",
+      makeText: () => textOf(stream()).replace("\n", "\n\n"),
+      expectedKind: "non_canonical",
+    },
+    {
+      description: "pretty JSON",
+      makeText: () => `${JSON.stringify(stream()[0]).replace("{", "{ ")}\n`,
+      expectedKind: "non_canonical",
+    },
+    {
+      description: "a bad hash",
+      makeText: () => {
         const [first, second] = stream();
         return textOf([
           first,
@@ -117,22 +130,22 @@ describe("event hash-chain verification", () => {
           },
         ]);
       },
-      "invalid_event",
-    ],
-    [
-      "a bad predecessor",
-      () => {
+      expectedKind: "invalid_event",
+    },
+    {
+      description: "a bad predecessor",
+      makeText: () => {
         const [first, second] = stream();
         return textOf([
           first,
           withHash({ ...unsignedEvent(second), previousHash: "a".repeat(64) }),
         ]);
       },
-      "invalid_sequence",
-    ],
-    [
-      "a duplicate revision",
-      () => {
+      expectedKind: "invalid_sequence",
+    },
+    {
+      description: "a duplicate revision",
+      makeText: () => {
         const [first, second] = stream();
         return textOf([
           first,
@@ -143,11 +156,11 @@ describe("event hash-chain verification", () => {
           }),
         ]);
       },
-      "invalid_sequence",
-    ],
-    [
-      "a revision gap",
-      () => {
+      expectedKind: "invalid_sequence",
+    },
+    {
+      description: "a revision gap",
+      makeText: () => {
         const [first, second] = stream();
         return textOf([
           first,
@@ -158,40 +171,133 @@ describe("event hash-chain verification", () => {
           }),
         ]);
       },
-      "invalid_sequence",
-    ],
-    [
-      "swapped records",
-      () => textOf([...stream()].reverse()),
-      "invalid_sequence",
-    ],
-    ["malformed JSON", () => '{"eventId":\n', "invalid_event"],
+      expectedKind: "invalid_sequence",
+    },
+    {
+      description: "swapped records",
+      makeText: () => textOf([...stream()].reverse()),
+      expectedKind: "invalid_sequence",
+    },
+    {
+      description: "malformed JSON",
+      makeText: () => '{"eventId":\n',
+      expectedKind: "invalid_event",
+    },
   ];
 
   it.each(rejectionCases)(
-    "rejects %s as %s",
-    (
-      _description: string,
-      makeText: () => string,
-      expectedKind: EventIntegrityError["kind"],
-    ) => {
+    "rejects $description as $expectedKind",
+    ({ makeText, expectedKind }) => {
       expect(
         integrityError(() => verifyEventStream(makeText(), services)).kind,
       ).toBe(expectedKind);
     },
   );
 
-  it("preserves an unsupported contract diagnostic without rejected content", () => {
-    const [first] = stream();
-    const text = `${canonicalizeJson({ ...first, stateContract: "2.0.0" })}\n`;
+  it.each<VersionCase>([
+    {
+      description: "a missing version",
+      value: (() => {
+        const [first] = stream();
+        return Object.fromEntries(
+          Object.entries(first).filter(([key]) => key !== "stateContract"),
+        );
+      })(),
+      reasonCode: "contract.state_version_invalid",
+    },
+    {
+      description: "a malformed version",
+      value: { ...stream()[0], stateContract: 1 },
+      reasonCode: "contract.state_version_invalid",
+    },
+    {
+      description: "an unsupported version",
+      value: { ...stream()[0], stateContract: "2.0.0" },
+      reasonCode: "contract.state_version_unsupported",
+    },
+  ])(
+    "preserves the allowlisted reason code for $description",
+    ({ value, reasonCode }) => {
+      const error = integrityError(() =>
+        verifyEventStream(`${canonicalizeJson(value)}\n`, services),
+      );
 
-    const error = integrityError(() => verifyEventStream(text, services));
+      expect(error.kind).toBe("invalid_event");
+      expect(error.reasonCode).toBe(reasonCode);
+    },
+  );
+
+  it("does not copy rejected content or structural diagnostic wording", () => {
+    const [first] = stream();
+    const rejected = "attacker-version-text";
+    const error = integrityError(() =>
+      verifyEventStream(
+        `${canonicalizeJson({ ...first, eventId: rejected })}\n`,
+        services,
+      ),
+    );
 
     expect(error.kind).toBe("invalid_event");
-    expect(error.reasonCode).toBe("contract.state_version_unsupported");
+    expect(error.reasonCode).toBeNull();
+    expect(error.message).not.toContain(rejected);
   });
 
   it("returns an empty parsed stream only for empty text", () => {
     expect(parseEventLines("", services.schemaRegistry)).toEqual([]);
+  });
+
+  it("enforces record byte limits using UTF-8 byte length", () => {
+    const exact = `${"€".repeat(Math.floor((EVENT_RECORD_BYTES - 1) / 3))}a\n`;
+    const overflow = `${exact.slice(0, -1)}é\n`;
+
+    expect(new TextEncoder().encode(exact.slice(0, -1)).byteLength).toBe(
+      EVENT_RECORD_BYTES,
+    );
+    expect(
+      integrityError(() => parseEventLines(exact, services.schemaRegistry))
+        .kind,
+    ).toBe("invalid_event");
+    expect(
+      integrityError(() => parseEventLines(overflow, services.schemaRegistry))
+        .kind,
+    ).toBe("resource_limit");
+  });
+
+  it("enforces stream byte limits before JSON Lines spelling validation", () => {
+    expect(
+      integrityError(() =>
+        parseEventLines(
+          "a".repeat(EVENT_STREAM_BYTES),
+          services.schemaRegistry,
+        ),
+      ).kind,
+    ).toBe("non_canonical");
+    expect(
+      integrityError(() =>
+        parseEventLines(
+          "a".repeat(EVENT_STREAM_BYTES + 1),
+          services.schemaRegistry,
+        ),
+      ).kind,
+    ).toBe("resource_limit");
+  });
+
+  it("enforces event counts before parsing records", () => {
+    expect(
+      integrityError(() =>
+        parseEventLines(
+          "x\n".repeat(EVENT_STREAM_COUNT),
+          services.schemaRegistry,
+        ),
+      ).kind,
+    ).toBe("invalid_event");
+    expect(
+      integrityError(() =>
+        parseEventLines(
+          "x\n".repeat(EVENT_STREAM_COUNT + 1),
+          services.schemaRegistry,
+        ),
+      ).kind,
+    ).toBe("resource_limit");
   });
 });

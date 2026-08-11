@@ -2,6 +2,7 @@ import { types } from "node:util";
 
 import type { EventV1 } from "@mestre-yoda/contracts";
 import {
+  EventIntegrityError,
   verifyEventStream,
   sealEvent,
   type EventDraftV1,
@@ -60,10 +61,27 @@ function textOf(events: readonly EventV1[]): string {
   return `${events.map(canonicalizeJson).join("\n")}\n`;
 }
 
-function replaceByte(text: string, position: number): string {
-  const character = text[position];
-  if (character === undefined) throw new Error("missing protected byte");
-  return `${text.slice(0, position)}${character === "x" ? "y" : "x"}${text.slice(position + 1)}`;
+interface ProtectedScalar {
+  readonly field: string;
+  readonly token: string;
+  readonly start: number;
+}
+
+interface Scenario {
+  readonly streamIndex: number;
+  readonly count: number;
+  readonly events: readonly EventV1[];
+  readonly lines: readonly string[];
+  readonly text: string;
+}
+
+interface RecordScenario {
+  readonly scenario: Scenario;
+  readonly recordIndex: number;
+  readonly line: string;
+  readonly before: string;
+  readonly after: string;
+  readonly scalars: readonly ProtectedScalar[];
 }
 
 function required<T>(value: T | undefined): T {
@@ -71,38 +89,58 @@ function required<T>(value: T | undefined): T {
   return value;
 }
 
-function protectedScalarPositions(
+function requiredEventIntegrityError(run: () => unknown): EventIntegrityError {
+  try {
+    run();
+  } catch (error: unknown) {
+    if (error instanceof EventIntegrityError) return error;
+    throw error;
+  }
+  throw new Error("expected event stream verification to fail");
+}
+
+function protectedScalars(
   event: EventV1,
   line: string,
-): readonly number[] {
-  const values: readonly (string | number | null)[] = [
-    required(event.artifactRefs[0]),
-    event.contractVersion,
-    event.effect,
-    event.eventHash,
-    event.eventId,
-    event.eventType,
-    required(event.evidenceRefs[0]),
-    event.observedIdentity.host,
-    event.observedIdentity.model,
-    event.occurredAt,
-    event.operation,
-    event.policyVersion,
-    event.previousHash,
-    event.priorRevision,
-    event.reasonCode,
-    event.resultingRevision,
-    event.stateContract,
+): readonly ProtectedScalar[] {
+  const values: readonly [string, string | number | null, string][] = [
+    ["artifactRefs[0]", required(event.artifactRefs[0]), "artifactRefs"],
+    ["contractVersion", event.contractVersion, "contractVersion"],
+    ["effect", event.effect, "effect"],
+    ["eventHash", event.eventHash, "eventHash"],
+    ["eventId", event.eventId, "eventId"],
+    ["eventType", event.eventType, "eventType"],
+    ["evidenceRefs[0]", required(event.evidenceRefs[0]), "evidenceRefs"],
+    ["observedIdentity.host", event.observedIdentity.host, "host"],
+    ["observedIdentity.model", event.observedIdentity.model, "model"],
+    ["occurredAt", event.occurredAt, "occurredAt"],
+    ["operation", event.operation, "operation"],
+    ["policyVersion", event.policyVersion, "policyVersion"],
+    ["previousHash", event.previousHash, "previousHash"],
+    ["priorRevision", event.priorRevision, "priorRevision"],
+    ["reasonCode", event.reasonCode, "reasonCode"],
+    ["resultingRevision", event.resultingRevision, "resultingRevision"],
+    ["stateContract", event.stateContract, "stateContract"],
   ];
 
-  let searchStart = 0;
-  return values.map((value) => {
-    const spelling = JSON.stringify(value);
-    const position = line.indexOf(spelling, searchStart);
-    if (position === -1) throw new Error("missing protected scalar");
-    searchStart = position + spelling.length;
-    return position + (value === null ? 1 : 1);
+  return values.map(([field, value, container]) => {
+    const containerStart = line.indexOf(`"${container}":`);
+    if (containerStart === -1) throw new Error("missing protected container");
+    const token = JSON.stringify(value);
+    const start = line.indexOf(token, containerStart);
+    if (start === -1) throw new Error("missing protected scalar");
+    return { field, token, start };
   });
+}
+
+function corruptScalar(line: string, scalar: ProtectedScalar): string {
+  const tokenOffset = scalar.token.startsWith('"') ? 1 : 0;
+  const position = scalar.start + tokenOffset;
+  if (position >= scalar.start + scalar.token.length) {
+    throw new Error("missing protected token byte");
+  }
+  const replacement = scalar.token.startsWith('"') ? "\u0000" : "x";
+  return `${line.slice(0, position)}${replacement}${line.slice(position + 1)}`;
 }
 
 const seed = 0x21_08_2026;
@@ -111,16 +149,49 @@ const cases = (() => {
   return Array.from({ length: 200 }, (_, streamIndex) => ({
     streamIndex,
     streamSeed: random(),
-    count: (random() % 32) + 1,
+    count: (streamIndex % 32) + 1,
   }));
 })();
 
+const scenarios: readonly Scenario[] = cases.map(
+  ({ streamIndex, streamSeed, count }) => {
+    const events = makeStream(count, generator(streamSeed));
+    const lines = events.map(canonicalizeJson);
+    return { streamIndex, count, events, lines, text: `${lines.join("\n")}\n` };
+  },
+);
+
+const recordScenarios: readonly RecordScenario[] = scenarios.flatMap(
+  (scenario) =>
+    scenario.events.map((event, recordIndex) => {
+      const line = required(scenario.lines[recordIndex]);
+      return {
+        scenario,
+        recordIndex,
+        line,
+        before:
+          recordIndex === 0
+            ? ""
+            : `${scenario.lines.slice(0, recordIndex).join("\n")}\n`,
+        after:
+          recordIndex === scenario.lines.length - 1
+            ? "\n"
+            : `\n${scenario.lines.slice(recordIndex + 1).join("\n")}\n`,
+        scalars: protectedScalars(event, line),
+      };
+    }),
+);
+
 describe("event hash-chain generated corruption cases", () => {
-  it.each(cases)(
+  it("covers every generated length from one through 32", () => {
+    expect(new Set(scenarios.map(({ count }) => count))).toEqual(
+      new Set(Array.from({ length: 32 }, (_, index) => index + 1)),
+    );
+  });
+
+  it.each(scenarios)(
     "rejects deterministic corruption for stream $streamIndex",
-    ({ streamIndex, streamSeed, count }) => {
-      const events = makeStream(count, generator(streamSeed));
-      const text = textOf(events);
+    ({ streamIndex, events, text }) => {
       const first = verifyEventStream(text, services);
       const second = verifyEventStream(text, services);
       expect(
@@ -132,20 +203,30 @@ describe("event hash-chain generated corruption cases", () => {
         revision: events.length,
         hash: events.at(-1)?.eventHash ?? null,
       });
+    },
+  );
 
-      const firstEvent = required(events[0]);
-      const firstLine = canonicalizeJson(firstEvent);
-      for (const [scalarIndex, position] of protectedScalarPositions(
-        firstEvent,
-        firstLine,
-      ).entries()) {
-        const corrupted = `${replaceByte(firstLine, position)}\n${text.slice(firstLine.length + 1)}`;
+  it.each(recordScenarios)(
+    "rejects protected scalar corruption for stream $scenario.streamIndex record $recordIndex",
+    ({ scenario, recordIndex, line, before, after, scalars }) => {
+      for (const scalar of scalars) {
+        const error = requiredEventIntegrityError(() =>
+          verifyEventStream(
+            `${before}${corruptScalar(line, scalar)}${after}`,
+            services,
+          ),
+        );
         expect(
-          () => verifyEventStream(corrupted, services),
-          `seed=${String(seed)} case=protected-scalar scalar=${String(scalarIndex)} record=0 stream=${String(streamIndex)}`,
-        ).toThrow();
+          error.kind,
+          `seed=${String(seed)} case=protected-scalar record=${String(recordIndex)} field=${scalar.field} stream=${String(scenario.streamIndex)}`,
+        ).toBe("invalid_event");
       }
+    },
+  );
 
+  it.each(scenarios)(
+    "rejects sequence corruption for stream $streamIndex",
+    ({ streamIndex, events }) => {
       for (let recordIndex = 0; recordIndex < events.length; recordIndex += 1) {
         const remaining = events.filter((_, index) => index !== recordIndex);
         const shortened = remaining.length === 0 ? "" : textOf(remaining);
@@ -164,12 +245,14 @@ describe("event hash-chain generated corruption cases", () => {
           });
         } else {
           expect(
-            () => verifyEventStream(shortened, services),
+            requiredEventIntegrityError(() =>
+              verifyEventStream(shortened, services),
+            ).kind,
             `seed=${String(seed)} case=delete record=${String(recordIndex)} stream=${String(streamIndex)}`,
-          ).toThrow();
+          ).toBe("invalid_sequence");
         }
         expect(
-          () =>
+          requiredEventIntegrityError(() =>
             verifyEventStream(
               textOf([
                 ...events.slice(0, recordIndex),
@@ -178,8 +261,9 @@ describe("event hash-chain generated corruption cases", () => {
               ]),
               services,
             ),
+          ).kind,
           `seed=${String(seed)} case=duplicate record=${String(recordIndex)} stream=${String(streamIndex)}`,
-        ).toThrow();
+        ).toBe("invalid_sequence");
       }
 
       for (
@@ -192,9 +276,11 @@ describe("event hash-chain generated corruption cases", () => {
         swapped[recordIndex + 1] = required(swapped[recordIndex]);
         swapped[recordIndex] = next;
         expect(
-          () => verifyEventStream(textOf(swapped), services),
+          requiredEventIntegrityError(() =>
+            verifyEventStream(textOf(swapped), services),
+          ).kind,
           `seed=${String(seed)} case=swap record=${String(recordIndex)} stream=${String(streamIndex)}`,
-        ).toThrow();
+        ).toBe("invalid_sequence");
       }
     },
   );
