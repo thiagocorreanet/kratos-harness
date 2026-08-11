@@ -170,4 +170,42 @@ describe("durable lock claims", () => {
       ),
     ).resolves.toMatchObject({ resource: "run:run-02" });
   });
+
+  it("returns a typed conflict for an existing claim in the same scope", async () => {
+    const storage = lockStorage();
+    await acquireClaim(projectClaim, services(storage));
+    await expect(
+      acquireClaim(
+        { resource: "project", owner: "codex:session-02", observed: null },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      conflict: {
+        resource: "project",
+        owner: "codex:session-01",
+        retryable: true,
+      },
+    });
+  });
+
+  it("enforces project/run admission while leaving independent runs available", async () => {
+    const storage = lockStorage();
+    await acquireClaim(
+      { resource: "run:run-a", owner: "codex:session-01", observed: null },
+      services(storage),
+    );
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      conflict: { resource: "run:run-a" },
+    });
+    await expect(
+      acquireClaim(
+        { resource: "run:run-b", owner: "codex:session-02", observed: null },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ resource: "run:run-b" });
+  });
 });

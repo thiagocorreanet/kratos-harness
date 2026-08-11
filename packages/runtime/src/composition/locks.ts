@@ -21,6 +21,7 @@ import type {
   DurableFileSystem,
   Ids,
 } from "../ports/index.js";
+import type { PathFingerprint } from "../domain/transactions/index.js";
 import {
   inspectManagedTransactions,
   TransactionFailure,
@@ -50,6 +51,10 @@ export interface LockClaimRecord {
   readonly expiresAt: string;
 }
 
+export interface ObservedLockClaim extends LockClaimRecord {
+  readonly fingerprint: PathFingerprint;
+}
+
 export interface AcquireClaimRequest {
   readonly resource: LeaseResource;
   readonly owner: string;
@@ -59,6 +64,18 @@ export interface AcquireClaimRequest {
 export interface ClaimInspection extends LeaseObservation {
   readonly claim: LockClaimRecord | null;
 }
+
+/** The claim record itself is the safe observation carried by contention. */
+export type ClaimConflict = LockClaimRecord & {
+  readonly kind: "conflict";
+  readonly conflict: {
+    readonly owner: string;
+    readonly resource: LeaseResource;
+    readonly expiresAt: string;
+    readonly retryable: true;
+    readonly recovery: "wait_or_takeover";
+  };
+};
 
 export class LockFailure extends Error {
   public constructor(
@@ -308,15 +325,75 @@ async function readClaim(
     if (record === null || canonicalizeJson(record) !== text)
       throw corrupt(path);
     if (record.resource !== resource) throw corrupt(path);
-    return record;
+    return Object.freeze({
+      ...record,
+      fingerprint: { kind: "file", size: entry.size, sha256: entry.sha256 },
+    });
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     throw corrupt(path);
   }
 }
 
+function persistedRecord(record: LockClaimRecord): LockClaimRecord {
+  return {
+    claimId: record.claimId,
+    resource: record.resource,
+    owner: record.owner,
+    leaseId: record.leaseId,
+    fencingToken: record.fencingToken,
+    acquiredAt: record.acquiredAt,
+    expiresAt: record.expiresAt,
+  };
+}
+
 function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
-  return canonicalizeJson(left) === canonicalizeJson(right);
+  return (
+    canonicalizeJson(persistedRecord(left)) ===
+    canonicalizeJson(persistedRecord(right))
+  );
+}
+
+function conflict(record: LockClaimRecord): ClaimConflict {
+  if (record.resource === "admission") throw internal();
+  return Object.freeze({
+    ...record,
+    kind: "conflict" as const,
+    conflict: Object.freeze({
+      owner: record.owner,
+      resource: record.resource,
+      expiresAt: record.expiresAt,
+      retryable: true as const,
+      recovery: "wait_or_takeover" as const,
+    }),
+  });
+}
+
+async function activeRunClaim(
+  services: LockServices,
+): Promise<LockClaimRecord | null> {
+  const root = `${locksRoot}/runs`;
+  const runs = await services.durableFileSystem.inspect(root);
+  if (runs.kind === "missing") return null;
+  if (runs.kind !== "directory") throw corrupt(root);
+  for (const name of await services.durableFileSystem.list(root)) {
+    let decoded: string;
+    try {
+      decoded = Buffer.from(name, "base64url").toString("utf8");
+    } catch {
+      throw corrupt(`${root}/${name}`);
+    }
+    let paths;
+    try {
+      paths = lockPaths(`run:${decoded}`);
+    } catch {
+      throw corrupt(`${root}/${name}`);
+    }
+    if (paths.root !== `${root}/${name}`) throw corrupt(`${root}/${name}`);
+    const record = await readClaim(`run:${decoded}`, services);
+    if (record !== null) return record;
+  }
+  return null;
 }
 
 async function withAdmission<T>(
@@ -386,7 +463,12 @@ async function acquireClaimHeld(
     throw internal();
   }
   const existing = await readClaim(request.resource, services);
-  if (existing !== null) throw corrupt(claimRecordPath(request.resource));
+  if (existing !== null) return conflict(existing);
+  const family =
+    request.resource === "project"
+      ? await activeRunClaim(services)
+      : await readClaim("project", services);
+  if (family !== null) return conflict(family);
   const now = services.clock.now();
   const claim: LockClaimRecord = Object.freeze({
     claimId: services.ids.next(),
@@ -398,17 +480,20 @@ async function acquireClaimHeld(
     expiresAt: new Date(now.getTime() + 30_000).toISOString(),
   });
   const path = claimRecordPath(request.resource);
+  let fingerprint: Extract<DurableEntry, { readonly kind: "file" }>;
   try {
     await services.durableFileSystem.writeSynced(path, canonicalizeJson(claim));
     await services.durableFileSystem.syncDirectory(
       lockPaths(request.resource).claim,
     );
-    const fingerprint = await services.durableFileSystem.inspect(path);
+    const observedFingerprint = await services.durableFileSystem.inspect(path);
     if (
-      fingerprint.kind !== "file" ||
-      fingerprint.sha256 !== services.digests.sha256(canonicalizeJson(claim))
+      observedFingerprint.kind !== "file" ||
+      observedFingerprint.sha256 !==
+        services.digests.sha256(canonicalizeJson(claim))
     )
       throw corrupt(path);
+    fingerprint = observedFingerprint;
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     // An exclusive durable create that lost a race is verified rather than
@@ -416,10 +501,17 @@ async function acquireClaimHeld(
     const winner = await readClaim(request.resource, services).catch(
       () => null,
     );
-    if (winner !== null) throw corrupt(path);
+    if (winner !== null) return conflict(winner);
     throw internal();
   }
-  return claim;
+  return Object.freeze({
+    ...claim,
+    fingerprint: {
+      kind: "file",
+      size: fingerprint.size,
+      sha256: fingerprint.sha256,
+    },
+  });
 }
 
 export async function releaseClaim(
@@ -428,7 +520,7 @@ export async function releaseClaim(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "released" | "absent" }> {
+): Promise<{ readonly kind: "released" | "absent" } | ClaimConflict> {
   await ensureLockNamespace(request.resource, services);
   return withAdmission(request.observed.owner, services, () =>
     releaseClaimHeld(request, services),
@@ -441,13 +533,28 @@ async function releaseClaimHeld(
     readonly observed: LockClaimRecord;
   },
   services: LockServices,
-): Promise<{ readonly kind: "released" | "absent" }> {
+): Promise<{ readonly kind: "released" | "absent" } | ClaimConflict> {
   const current = await readClaim(request.resource, services);
   if (current === null) return { kind: "absent" };
   if (!sameClaim(current, request.observed))
     throw corrupt(claimRecordPath(request.resource));
   const paths = lockPaths(request.resource);
   try {
+    const entry = await services.durableFileSystem.inspect(paths.claimRecord);
+    if (entry.kind !== "file") throw corrupt(paths.claimRecord);
+    const observed = request.observed as Partial<ObservedLockClaim>;
+    if (
+      observed.fingerprint !== undefined &&
+      (observed.fingerprint.kind !== "file" ||
+        entry.size !== observed.fingerprint.size ||
+        entry.sha256 !== observed.fingerprint.sha256)
+    )
+      return conflict(current);
+    if (
+      canonicalizeJson(persistedRecord(current)) !==
+      (await services.durableFileSystem.readText(paths.claimRecord))
+    )
+      throw corrupt(paths.claimRecord);
     await services.durableFileSystem.removeFile(paths.claimRecord);
     await services.durableFileSystem.syncDirectory(paths.claim);
     await services.durableFileSystem.removeEmptyDirectory(paths.claim);
