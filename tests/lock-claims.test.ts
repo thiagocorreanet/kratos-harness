@@ -1001,6 +1001,57 @@ describe("durable lock claims", () => {
     );
   });
 
+  it.each([
+    [
+      "stale-record",
+      (paths: { readonly admissionRecord: string }) => paths.admissionRecord,
+    ],
+    [
+      "claim-directory",
+      (paths: { readonly admissionClaim: string }) => paths.admissionClaim,
+    ],
+    ["admission-parent", () => ".brain/locks/.admission"],
+  ] as const)(
+    "fails safely when recovery cleanup faults at %s",
+    async (_name, target) => {
+      const paths = lockPaths("project");
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission",
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const storage = lockStorage({
+        files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+      });
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseRemoveDir = storage.durableFileSystem.removeEmptyDirectory;
+      const baseSync = storage.durableFileSystem.syncDirectory;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            removeFile: async (path) =>
+              path === target(paths)
+                ? Promise.reject(new Error("fault"))
+                : baseRemove(path),
+            removeEmptyDirectory: async (path) =>
+              path === target(paths)
+                ? Promise.reject(new Error("fault"))
+                : baseRemoveDir(path),
+            syncDirectory: async (path) =>
+              path === target(paths)
+                ? Promise.reject(new Error("fault"))
+                : baseSync(path),
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    },
+  );
+
   it.each(["removeFile", "syncDirectory"] as const)(
     "returns typed recovery-required when admission cleanup %s fails",
     async (failure) => {
