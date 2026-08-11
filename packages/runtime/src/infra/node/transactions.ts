@@ -1,6 +1,7 @@
 import { constants, lstatSync, realpathSync, type Stats } from "node:fs";
 import {
   lstat,
+  link,
   mkdir,
   open,
   readdir,
@@ -26,6 +27,7 @@ export type DurableOperation =
   | "sync_file"
   | "close_file"
   | "replace_file"
+  | "link_file_exclusive"
   | "remove_file"
   | "remove_empty_directory"
   | "sync_directory";
@@ -418,6 +420,18 @@ export function nodeDurableFileSystem(
         await requireDirectory(parentPath(staged.normalized));
         await requireDirectory(parentPath(target.normalized));
         await rename(staged.absolute, target.absolute);
+      }),
+    linkFileExclusive: (sourcePath, targetPath) =>
+      boundary("link_file_exclusive", async () => {
+        const source = await scan(sourcePath);
+        const target = await scan(targetPath);
+        assertRegularFile(source.details);
+        requireDeclaredParent(target);
+        if (target.details !== null)
+          throw new Error("Runtime durable path already has an entry");
+        await requireDirectory(parentPath(source.normalized));
+        await requireDirectory(parentPath(target.normalized));
+        await link(source.absolute, target.absolute);
       }),
     removeFile: (path) =>
       boundary("remove_file", async () => {

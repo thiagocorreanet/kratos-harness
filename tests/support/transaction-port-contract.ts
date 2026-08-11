@@ -137,6 +137,31 @@ export function describeDurableFileSystemContract(
       });
     });
 
+    it("exclusively hard-links a regular source without consuming it", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+        await fileSystem.writeSynced(".brain/source", "retired claim");
+        const hardLink = fileSystem as DurableFileSystem & {
+          linkFileExclusive(
+            sourcePath: string,
+            targetPath: string,
+          ): Promise<void>;
+        };
+
+        await hardLink.linkFileExclusive(".brain/source", ".brain/tombstone");
+
+        expect(await fileSystem.readText(".brain/source")).toBe(
+          "retired claim",
+        );
+        expect(await fileSystem.readText(".brain/tombstone")).toBe(
+          "retired claim",
+        );
+        await expect(
+          hardLink.linkFileExclusive(".brain/source", ".brain/tombstone"),
+        ).rejects.toThrow();
+      });
+    });
+
     it("removes only regular files", async () => {
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);

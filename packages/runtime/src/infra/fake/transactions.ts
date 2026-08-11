@@ -18,6 +18,7 @@ export type DurableOperation =
   | "sync_file"
   | "close_file"
   | "replace_file"
+  | "link_file_exclusive"
   | "remove_file"
   | "remove_empty_directory"
   | "sync_directory";
@@ -396,6 +397,25 @@ export function memoryTransactionStorage(
             );
           }
           files.delete(normalizedStaged);
+          files.set(normalizedTarget, content);
+        });
+      }),
+    linkFileExclusive: (sourcePath, targetPath) =>
+      deferred(() => {
+        const normalizedSource = normalizeDurablePath(sourcePath);
+        const normalizedTarget = normalizeDurablePath(targetPath);
+        boundary("link_file_exclusive", () => {
+          requireParentDirectory(normalizedSource);
+          requireParentDirectory(normalizedTarget);
+          const content = requireFile(normalizedSource);
+          if (
+            files.has(normalizedTarget) ||
+            directories.has(normalizedTarget)
+          ) {
+            throw new Error(
+              `Memory transaction storage already has an entry at ${normalizedTarget}`,
+            );
+          }
           files.set(normalizedTarget, content);
         });
       }),
