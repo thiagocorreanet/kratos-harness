@@ -171,6 +171,13 @@ symlinks. Existing write and delete destinations must be regular files. FIFOs,
 devices, sockets, symlinks, and other special entries are observed but never
 read, replaced, or removed.
 
+The Node adapter anchors and revalidates observed path identities and refuses
+observed symlinks and special entries. Concurrent pathname replacement by a
+non-cooperating local process during a filesystem syscall is outside this
+portable threat model; a stronger guarantee requires platform-native
+directory-handle-relative I/O. This limit does not relax the ordinary observed
+path checks above.
+
 Cleanup enumerates only the validated transaction layout. It removes known
 payloads, `progress.next`, an unbound regular manifest, and the empty staging
 directory. It never performs an unconstrained recursive deletion.

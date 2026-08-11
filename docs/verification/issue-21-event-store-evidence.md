@@ -137,3 +137,16 @@ Result: exit 0. Formatting, spelling, lint, typecheck, full tests, coverage,
 oracle verification, parity inventory, result-contract checks, contract drift,
 differential checks, build, and package verification all completed
 successfully. The command did not grant new parity credit.
+
+## Final remediation note
+
+Later review remediation makes verified streams opaque, deeply frozen values
+with private in-module provenance; replay rejects structural copies and forged
+streams. Append preparation snapshots the reducer registry before its first
+durable await, binds both persisted and next replay snapshots to the requested
+run ID, and treats cross-realm synchronous capability Promises as sanitized
+failures after attaching a rejection handler. These protections do not turn
+callback double-runs into a proof of determinism: the guarantee remains
+conditional on caller-supplied reducers and materializers being pure and free
+of ambient mutable state. This note supplements rather than rewrites the
+historical task and gate records above.

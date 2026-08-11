@@ -245,6 +245,9 @@ policy-version reducer registry, and verified event bytes must produce
 identical canonical snapshot bytes. Workflow reducers must encode every
 state-changing input in the event's existing normalized metadata or immutable
 referenced artifacts; they may not consult ambient input during replay.
+This is conditional on caller-supplied reducers and materializer being pure and
+free of ambient mutable state. The double-run comparison is diagnostic only;
+it is not proof against adversarial paired outputs that agree for two calls.
 
 ## Transaction and recovery semantics
 

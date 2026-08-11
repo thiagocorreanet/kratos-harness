@@ -72,6 +72,14 @@ must produce the same canonical snapshot bytes. A missing reducer is unsupported
 state, not permission to select a nearby policy. A persisted snapshot that
 does not equal replay is corruption and is never overwritten.
 
+That determinism guarantee is conditional: caller-supplied reducers and
+materializer are pure and free of ambient mutable state. Replay invokes each
+callback twice and compares canonical outputs, but the double-run comparison is
+diagnostic, not proof against adversarial paired outputs that deliberately agree
+for those two invocations. Reducer and materializer authors remain responsible
+for encoding all state-changing inputs in the verified event or immutable
+referenced artifacts.
+
 ## Transaction and recovery relationship
 
 One prepared append produces two managed writes: the exact-prefix stream and
