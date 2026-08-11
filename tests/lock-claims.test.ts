@@ -1737,7 +1737,29 @@ describe("durable lock claims", () => {
     const storage = lockStorage({ files: boundLeaseFiles() });
     await expect(
       acquireClaim(projectClaim, services(storage)),
-    ).resolves.toMatchObject({ kind: "conflict" });
+    ).resolves.toMatchObject({
+      kind: "conflict",
+      resource: "project",
+      owner: "codex:session-01",
+      expiresAt: "2026-08-11T00:02:00.000Z",
+    });
+  });
+
+  it("returns typed contention without changing an existing scope claim", async () => {
+    const storage = lockStorage();
+    const first = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    const before = storage.snapshot().files[lockPaths("project").claimRecord];
+    await expect(
+      acquireClaim(
+        { ...projectClaim, owner: "codex:session-03" },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict", claimId: first.claimId });
+    expect(storage.snapshot().files[lockPaths("project").claimRecord]).toBe(
+      before,
+    );
   });
 
   it("inspects a materialized admission claim layout", async () => {
