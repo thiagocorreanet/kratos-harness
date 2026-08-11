@@ -287,6 +287,29 @@ describe("event-store transaction integration", () => {
     },
   );
 
+  it("sanitizes a rejected fresh event-store inspection before a marker exists", async () => {
+    const { storage, ports } = fakeRuntime();
+    let reads = 0;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path): Promise<DurableEntry> {
+        if (path === ".brain/runs/run-01/events.jsonl" && ++reads === 2) {
+          return Promise.reject(new Error("/private/fresh-inspection"));
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    await expect(
+      applyPlan(
+        eventPlan(1),
+        { ...ports, durableFileSystem },
+        { rootMode: "existing", eventReducers: reducers },
+      ),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
   it("emits only after the event transaction commits", async () => {
     const { storage, ports } = fakeRuntime();
     const phases: string[] = [];

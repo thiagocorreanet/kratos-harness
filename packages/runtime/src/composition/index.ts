@@ -189,7 +189,12 @@ export async function applyPlan<State = JsonState>(
       normalized.plan,
       frozenOptions,
       services,
-      prepared !== undefined,
+      prepared === undefined
+        ? {}
+        : {
+            beforeCreateTransaction: () =>
+              assertPreparedAppendIsFresh(prepared, ports),
+          },
     );
     /* v8 ignore start -- normal execution returns committed or throws; aborted
      * is returned only by the separate explicit-recovery operation. */
@@ -230,7 +235,7 @@ function snapshotApplyInput(
       throw invalidApplyInput();
     }
     return {
-      plan: { effects: effects.map(snapshotEffect) },
+      plan: { effects: snapshotEffectArray(effects) },
       rootMode,
       options,
     };
@@ -291,6 +296,31 @@ function ownData(value: object, key: string): unknown {
   if (descriptor === undefined || !("value" in descriptor))
     throw invalidApplyInput();
   return descriptor.value;
+}
+
+function snapshotEffectArray(value: unknown[]): readonly Effect[] {
+  if (types.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype)
+    throw invalidApplyInput();
+  const keys = Reflect.ownKeys(value);
+  if (
+    keys.length !== value.length + 1 ||
+    !keys.includes("length") ||
+    keys.some(
+      (key) =>
+        key !== "length" &&
+        (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/u.test(key)),
+    )
+  ) {
+    throw invalidApplyInput();
+  }
+  const effects: Effect[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor === undefined || !("value" in descriptor))
+      throw invalidApplyInput();
+    effects.push(snapshotEffect(descriptor.value));
+  }
+  return effects;
 }
 
 function snapshotAppendEffect(
@@ -392,20 +422,20 @@ function assertAppendDestinationsExclusive(
   let paths: ReturnType<typeof eventStorePaths> | undefined;
   try {
     paths = eventStorePaths(append.runId);
+    const owned = [
+      managedPathCollisionKey(paths.events),
+      managedPathCollisionKey(paths.snapshot),
+    ];
+    for (const effect of plan.effects) {
+      if (
+        (effect.kind === "write_file" || effect.kind === "delete_file") &&
+        owned.includes(managedPathCollisionKey(effect.path))
+      ) {
+        throw invalidApplyInput();
+      }
+    }
   } catch {
     throw invalidApplyInput();
-  }
-  const owned = [
-    managedPathCollisionKey(paths.events),
-    managedPathCollisionKey(paths.snapshot),
-  ];
-  for (const effect of plan.effects) {
-    if (
-      (effect.kind === "write_file" || effect.kind === "delete_file") &&
-      owned.includes(managedPathCollisionKey(effect.path))
-    ) {
-      throw invalidApplyInput();
-    }
   }
 }
 
@@ -467,8 +497,9 @@ async function assertPreparedAppendIsFresh(
     try {
       const entry = await ports.durableFileSystem.inspect(path);
       observed = freshFingerprint(entry);
-    } catch {
-      observed = undefined;
+    } catch (error) {
+      if (error instanceof TransactionFailure) throw error;
+      throw new TransactionFailure("runtime.internal_failure", []);
     }
     if (observed === undefined || !sameFingerprint(expected, observed)) {
       changed.push(path);

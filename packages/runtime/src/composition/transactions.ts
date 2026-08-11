@@ -81,7 +81,9 @@ export async function executeManagedMutation(
   plan: ManagedMutationPlan,
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
-  assertBeforeTransaction = false,
+  execution: {
+    readonly beforeCreateTransaction?: () => Promise<void>;
+  } = {},
 ): Promise<TransactionReceipt> {
   let frozenPlan: ManagedMutationPlan;
   try {
@@ -98,8 +100,10 @@ export async function executeManagedMutation(
     // applyPlan performs this preflight before observing caller destinations;
     // repeat it here after normalization to close that asynchronous race.
     await preflightManagedTransactions(options, services);
-    if (assertBeforeTransaction)
+    if (execution.beforeCreateTransaction !== undefined) {
+      await execution.beforeCreateTransaction();
       await assertPreconditions(frozenPlan, services);
+    }
     return await driveExecution(frozenPlan, options, services, attempt);
   } catch (error) {
     return classifyDriverFailure(error, services, attempt);
