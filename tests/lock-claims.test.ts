@@ -1827,6 +1827,49 @@ describe("durable lock claims", () => {
     );
   });
 
+  it.each(["remove", "replace"] as const)(
+    "preserves admission cleanup outcome when current admission is %s",
+    async (mode) => {
+      const paths = lockPaths("project");
+      const replacement = {
+        claimId: "admission-replacement",
+        resource: "admission",
+        owner: "codex:session-03",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:02:00.000Z",
+      };
+      const storage = lockStorage();
+      const baseWrite = storage.durableFileSystem.writeSynced;
+      const baseRemove = storage.durableFileSystem.removeFile;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            writeSynced: async (path, text) => {
+              await baseWrite(path, text);
+              if (path === paths.claimRecord) {
+                await baseRemove(paths.admissionRecord);
+                if (mode === "replace")
+                  await baseWrite(
+                    paths.admissionRecord,
+                    canonicalizeJson(replacement),
+                  );
+              }
+            },
+          }),
+        ),
+      ).resolves.toMatchObject({ resource: "project" });
+      if (mode === "replace")
+        expect(storage.snapshot().files[paths.admissionRecord]).toBe(
+          canonicalizeJson(replacement),
+        );
+      else
+        expect(storage.snapshot().files[paths.admissionRecord]).toBeUndefined();
+    },
+  );
+
   it("uses synthetic fallback conflict fields for a guard against an empty scope", async () => {
     const storage = lockStorage();
     await expect(
