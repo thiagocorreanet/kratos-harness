@@ -912,14 +912,6 @@ async function helpAdmissionRecovery(
   if (recoveryMarkerFor(expected, services).path !== marker.path)
     throw corrupt(marker.path);
   const tombstone = tombstoneFor(expected, services);
-  if (retired !== null) {
-    const fingerprint = retired.fingerprint as Extract<
-      PathFingerprint,
-      { readonly kind: "file" }
-    >;
-    if (fingerprint.sha256 !== tombstone.claimSha256)
-      throw corrupt(tombstone.path);
-  }
   if (holder !== null) {
     try {
       const prior = await services.durableFileSystem.inspect(tombstone.path);

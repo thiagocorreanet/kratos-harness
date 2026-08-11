@@ -1033,7 +1033,7 @@ describe("durable lock claims", () => {
       "leading-zero marker epoch",
       {
         directories: [
-          ".brain/locks/.admission/.recovery-01786406430000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          ".brain/locks/.admission/.recovery-0178640643000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         ],
       },
     ],
@@ -1068,6 +1068,52 @@ describe("durable lock claims", () => {
     await expect(
       acquireClaim(projectClaim, services(lockStorage(seed))),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("contains malformed admission children and a second tombstone listing fault", async () => {
+    const malformed = lockStorage({
+      files: { ".brain/locks/.admission/claim/unexpected": "bad" },
+    });
+    await expect(
+      acquireClaim(projectClaim, services(malformed)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+
+    const typed = lockStorage();
+    const typedList = typed.durableFileSystem.list;
+    let typedLists = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(typed, {
+          list: async (path) => {
+            if (
+              path === lockPaths("project").admissionClaim &&
+              ++typedLists === 2
+            )
+              throw new LockFailure("runtime.recovery_required", []);
+            return typedList(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+
+    const storage = lockStorage();
+    const baseList = storage.durableFileSystem.list;
+    let lists = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path === lockPaths("project").admissionClaim) ++lists;
+            if (path === lockPaths("project").admissionClaim && lists === 2)
+              throw new Error("tombstone list fault");
+            return baseList(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    expect(lists).toBe(2);
   });
 
   it.each(["list", "inspect", "read"] as const)(
@@ -1110,6 +1156,243 @@ describe("durable lock claims", () => {
           }),
         ),
       ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    },
+  );
+
+  it("rejects non-file and non-canonical tombstones before recovery", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const tombstone = admissionTombstone(stale);
+    for (const seed of [
+      { directories: [tombstone] },
+      { files: { [tombstone]: "{}" } },
+      { files: { [tombstone]: "not json" } },
+    ]) {
+      await expect(
+        acquireClaim(projectClaim, services(lockStorage(seed))),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    }
+  });
+
+  it("contains recovery retirement races without deleting another record", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const tombstone = admissionTombstone(stale);
+
+    const prior = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    const baseInspect = prior.durableFileSystem.inspect;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(prior, {
+          inspect: async (path) =>
+            path === tombstone
+              ? { kind: "file", size: 1, sha256: "a".repeat(64) }
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+
+    const typed = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+      directories: [marker],
+    });
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(typed, {
+          replaceFile: async () => {
+            throw new LockFailure("runtime.recovery_required", []);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+  });
+
+  it("contains a recovery parent-delete fault and source/tombstone overlap race", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const tombstone = admissionTombstone(stale);
+    const parentFault = lockStorage({ directories: [marker] });
+    const baseRemoveDirectory =
+      parentFault.durableFileSystem.removeEmptyDirectory;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(parentFault, {
+          removeEmptyDirectory: async (path) => {
+            if (path === lockPaths("project").admissionClaim)
+              throw new Error("parent delete fault");
+            return baseRemoveDirectory(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+
+    const overlap = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
+      },
+    });
+    const baseCreate = overlap.durableFileSystem.createDirectoryExclusive;
+    const baseWrite = overlap.durableFileSystem.writeSynced;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(overlap, {
+          createDirectoryExclusive: async (path) => {
+            await baseCreate(path);
+            await baseWrite(tombstone, canonicalizeJson(stale));
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each(["typed", "same", "replacement"] as const)(
+    "contains tombstone removal %s outcomes during recovery",
+    async (mode) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const marker = admissionRecoveryMarker(stale);
+      const tombstone = admissionTombstone(stale);
+      const replacement = { ...stale, claimId: "admission-replacement" };
+      const storage = lockStorage({
+        files: { [tombstone]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseWrite = storage.durableFileSystem.writeSynced;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeFile: async (path) => {
+            if (path !== tombstone) return baseRemove(path);
+            if (mode === "typed")
+              throw new LockFailure("runtime.recovery_required", []);
+            if (mode === "replacement") {
+              await baseRemove(path);
+              await baseWrite(
+                admissionTombstone(replacement),
+                canonicalizeJson(replacement),
+              );
+            }
+            throw new Error("remove fault");
+          },
+        }),
+      );
+      await expect(result).rejects.toMatchObject({
+        reasonCode:
+          mode === "typed"
+            ? "runtime.recovery_required"
+            : mode === "replacement"
+              ? "runtime.state_corrupt"
+              : "runtime.internal_failure",
+      });
+      if (mode === "replacement")
+        expect(storage.snapshot().files[admissionTombstone(replacement)]).toBe(
+          canonicalizeJson(replacement),
+        );
+    },
+  );
+
+  it("clears an orphan tombstone before admitting the next contender", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const tombstone = admissionTombstone(stale);
+    const storage = lockStorage({
+      files: { [tombstone]: canonicalizeJson(stale) },
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({
+      resource: "project",
+    });
+    expect(storage.snapshot().files[tombstone]).toBeUndefined();
+  });
+
+  it.each(["tombstone", "marker", "replace"] as const)(
+    "turns normal admission cleanup %s faults into recovery-required",
+    async (fault) => {
+      const storage = lockStorage();
+      const baseWrite = storage.durableFileSystem.writeSynced;
+      const baseMarker = storage.durableFileSystem.createDirectoryExclusive;
+      let admissionText: string | undefined;
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            writeSynced: async (path, text) => {
+              if (path === lockPaths("project").admissionRecord)
+                admissionText = text;
+              if (
+                path === lockPaths("project").claimRecord &&
+                admissionText !== undefined
+              ) {
+                const admission = JSON.parse(admissionText) as LockClaimRecord &
+                  Record<string, unknown>;
+                if (fault === "tombstone")
+                  await baseWrite(admissionTombstone(admission), admissionText);
+                if (fault === "marker")
+                  await baseMarker(admissionRecoveryMarker(admission));
+              }
+              return baseWrite(path, text);
+            },
+            replaceFile: async (source, target) => {
+              if (
+                fault === "replace" &&
+                source === lockPaths("project").admissionRecord
+              )
+                throw new Error("cleanup replace fault");
+              return storage.durableFileSystem.replaceFile(source, target);
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
     },
   );
 
