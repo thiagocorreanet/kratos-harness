@@ -191,6 +191,39 @@ async function inspectLockNamespace(
   services: LockServices,
 ): Promise<void> {
   const paths = lockPaths(resource);
+  const inspect = async (path: string): Promise<DurableEntry> => {
+    try {
+      return await services.durableFileSystem.inspect(path);
+    } catch {
+      throw internal();
+    }
+  };
+  const brain = await inspect(".brain");
+  if (brain.kind === "missing") return;
+  if (brain.kind !== "directory") throw corrupt(".brain");
+  const locks = await inspect(locksRoot);
+  if (locks.kind === "missing") return;
+  if (locks.kind !== "directory") throw corrupt(locksRoot);
+  await assertOnlyChildren(
+    locksRoot,
+    [".admission", "project", "runs"],
+    services,
+  );
+  const admission = await inspect(admissionRoot);
+  if (admission.kind !== "missing") {
+    if (admission.kind !== "directory") throw corrupt(admissionRoot);
+    await assertOnlyChildren(admissionRoot, ["claim"], services);
+    const claim = await inspect(admissionClaim);
+    if (claim.kind !== "missing") {
+      if (claim.kind !== "directory") throw corrupt(admissionClaim);
+      await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+    }
+  }
+  const runs = await inspect(`${locksRoot}/runs`);
+  if (runs.kind !== "missing") {
+    if (runs.kind !== "directory") throw corrupt(`${locksRoot}/runs`);
+    await assertCanonicalRunChildren(services);
+  }
   const chain = [
     ".brain",
     locksRoot,
