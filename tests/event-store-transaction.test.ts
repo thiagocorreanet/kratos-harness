@@ -310,6 +310,38 @@ describe("event-store transaction integration", () => {
     expect(storage.calls()).not.toContain("create_directory_exclusive");
   });
 
+  it("blocks a stream mutation at the declarative pre-marker gate", async () => {
+    const { storage, ports } = fakeRuntime();
+    const events = ".brain/runs/run-01/events.jsonl";
+    const snapshot = ".brain/runs/run-01/state.json";
+    let reads = 0;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect(path) {
+        if (path === events && ++reads === 3) {
+          return Promise.resolve({
+            kind: "special" as const,
+          });
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+    await expect(
+      applyPlan(
+        eventPlan(1),
+        { ...ports, durableFileSystem },
+        { rootMode: "existing", eventReducers: reducers },
+      ),
+    ).rejects.toEqual(
+      new TransactionFailure("runtime.revision_conflict", [
+        { kind: "event", ref: events },
+      ]),
+    );
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+    expect(storage.snapshot().files).not.toHaveProperty(events);
+    expect(storage.snapshot().files).not.toHaveProperty(snapshot);
+  });
+
   it("emits only after the event transaction commits", async () => {
     const { storage, ports } = fakeRuntime();
     const phases: string[] = [];
