@@ -589,6 +589,70 @@ describe("event-store append preparation", () => {
     expect(storage.calls()).toEqual([]);
   });
 
+  it("passes the original registry to the inert replay boundary", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    let traps = 0;
+    const registryProxy = new Proxy(reducers, {
+      get: () => {
+        traps += 1;
+        throw new Error("private registry trap");
+      },
+    });
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        { ...services(storage), reducers: registryProxy },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+      evidence: [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ],
+    });
+    expect(traps).toBe(0);
+    expect(storage.calls()).toEqual(["inspect", "inspect"]);
+  });
+
+  it.each(["reducer", "materializer"] as const)(
+    "sanitizes a rejected native Promise from a %s as state corruption",
+    async (kind) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions", ".brain/runs/run-01"],
+      });
+      const asyncRegistry =
+        kind === "reducer"
+          ? {
+              ...reducers,
+              reducers: { "policy-01": () => Promise.resolve(seed) },
+            }
+          : {
+              ...reducers,
+              materialize: () => Promise.reject(new Error("private rejection")),
+            };
+
+      await expect(
+        prepareEventAppend(
+          { runId: "run-01", event: draft(1) },
+          {
+            ...services(storage),
+            reducers: asyncRegistry as unknown as EventReducerRegistry<State>,
+          },
+        ),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.state_corrupt",
+        evidence: [
+          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        ],
+      });
+      await Promise.resolve();
+    },
+  );
+
   it("does not permit runtime mutation of prepared effects or fingerprints", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions", ".brain/runs/run-01"],

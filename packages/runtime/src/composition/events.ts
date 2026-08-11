@@ -151,7 +151,7 @@ export async function prepareEventAppend<State = JsonState>(
         paths,
         expected,
         draft,
-        trustedAppendServices(services, eventServices, tracker),
+        services.reducers,
         eventServices,
         tracker,
       );
@@ -183,13 +183,8 @@ export async function prepareEventAppend<State = JsonState>(
     const verified = eventDomain(tracker, () =>
       verifyEventStream(eventsText, eventServices),
     );
-    const appendServices = trustedAppendServices(
-      services,
-      eventServices,
-      tracker,
-    );
     const replay = eventDomain(tracker, () =>
-      replayEventStream(verified, appendServices.reducers, {
+      replayEventStream(verified, services.reducers, {
         isProxy: eventServices.isProxy,
         schemaRegistry: eventServices.schemaRegistry,
       }),
@@ -197,7 +192,7 @@ export async function prepareEventAppend<State = JsonState>(
     assertPersistedSnapshot(
       snapshotText,
       replay.canonical,
-      appendServices,
+      eventServices.schemaRegistry,
       tracker,
     );
 
@@ -211,7 +206,7 @@ export async function prepareEventAppend<State = JsonState>(
       ),
     );
     const nextReplay = eventDomain(tracker, () =>
-      replayEventStream(extended, appendServices.reducers, {
+      replayEventStream(extended, services.reducers, {
         isProxy: eventServices.isProxy,
         schemaRegistry: eventServices.schemaRegistry,
       }),
@@ -251,7 +246,7 @@ function prepareFirstAppend<State>(
   paths: EventStorePaths,
   expected: ReadonlyMap<string, PathFingerprint>,
   draft: EventDraftV1,
-  services: EventAppendServices<State>,
+  reducers: EventReducerRegistry<State>,
   eventServices: EventServices,
   tracker: DependencyTracker,
 ): PreparedEventAppend {
@@ -262,9 +257,9 @@ function prepareFirstAppend<State>(
     verifyEventStream(canonicalEventLine(event), eventServices),
   );
   const replay = eventDomain(tracker, () =>
-    replayEventStream(extended, services.reducers, {
+    replayEventStream(extended, reducers, {
       isProxy: eventServices.isProxy,
-      schemaRegistry: services.schemaRegistry,
+      schemaRegistry: eventServices.schemaRegistry,
     }),
   );
   return prepared(paths, event, expected, "", replay.canonical);
@@ -331,65 +326,6 @@ function trustedServices<State>(
       },
     },
   };
-}
-
-function trustedAppendServices<State>(
-  services: EventAppendServices<State>,
-  events: EventServices,
-  tracker: DependencyTracker,
-): EventAppendServices<State> {
-  const raw = tracker.call(() => services.reducers);
-  const root: {
-    readonly seed: unknown;
-    readonly reducers: unknown;
-    readonly materialize: unknown;
-  } = tracker.call(() => ({
-    seed: descriptorValue(raw, "seed"),
-    reducers: descriptorValue(raw, "reducers"),
-    materialize: descriptorValue(raw, "materialize"),
-  }));
-  const wrappedReducers: Record<
-    string,
-    (state: State, event: EventV1) => State
-  > = {};
-  if (typeof root.reducers === "object" && root.reducers !== null) {
-    for (const key of tracker.call(() =>
-      Object.keys(root.reducers as object),
-    )) {
-      const reducer = tracker.call(() =>
-        descriptorValue(root.reducers as object, key),
-      );
-      if (typeof reducer === "function") {
-        const callback = reducer as (state: State, event: EventV1) => State;
-        wrappedReducers[key] = (state, event) =>
-          tracker.call(() => callback(state, event));
-      }
-    }
-  }
-  return {
-    durableFileSystem: tracker.call(() => services.durableFileSystem),
-    digests: events.digests,
-    isProxy: events.isProxy,
-    schemaRegistry: events.schemaRegistry,
-    reducers: {
-      seed: root.seed as State,
-      reducers: wrappedReducers,
-      materialize: (state, cursor) => {
-        const materialize = root.materialize;
-        return tracker.call(() => {
-          if (typeof materialize !== "function") throw new Error();
-          return (materialize as EventReducerRegistry<State>["materialize"])(
-            state,
-            cursor,
-          );
-        });
-      },
-    },
-  };
-}
-
-function descriptorValue(value: object, key: string): unknown {
-  return Object.getOwnPropertyDescriptor(value, key)?.value as unknown;
 }
 
 function prepared(
@@ -496,10 +432,10 @@ async function readExact(
   return text;
 }
 
-function assertPersistedSnapshot<State>(
+function assertPersistedSnapshot(
   text: string,
   replayCanonical: string,
-  services: EventAppendServices<State>,
+  schemaRegistry: SchemaRegistry,
   tracker: DependencyTracker,
 ): void {
   let value: unknown;
@@ -509,7 +445,7 @@ function assertPersistedSnapshot<State>(
     throw new IntegrityFailure();
   }
   const contract = eventDomain(tracker, () =>
-    prepareContract(services.schemaRegistry, {
+    prepareContract(schemaRegistry, {
       id: "state.snapshot",
       version: stateContractVersion(value),
       value,

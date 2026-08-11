@@ -348,6 +348,7 @@ function reduceOnce<State>(
   );
   const result = reducer(stateInput, eventInput);
   if (tracked.attempted) invalidEvent();
+  rejectNativePromise(result, services, tracked);
   return normalizeJson(result, services, tracked) as State;
 }
 
@@ -368,7 +369,25 @@ function materializeOnce<State>(
   );
   const result = materialize(stateInput, cursorInput);
   if (tracked.attempted) invalidEvent();
+  rejectNativePromise(result, services, tracked);
   return normalizeJson(result, services, tracked) as SnapshotV1;
+}
+
+function rejectNativePromise(
+  value: unknown,
+  services: ReplayServices,
+  tracked: TrackedViews,
+): void {
+  if (typeof value !== "object" || value === null) return;
+  if (tracked.rawByView.has(value)) return;
+  if (isProxy(value, services)) invalidEvent();
+  if (!(value instanceof Promise)) return;
+  try {
+    void Promise.prototype.then.call(value, undefined, () => undefined);
+  } catch {
+    invalidEvent();
+  }
+  invalidEvent();
 }
 
 function hasFinalBindings(

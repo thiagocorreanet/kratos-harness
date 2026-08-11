@@ -120,6 +120,20 @@ function invalidEvent(run: () => unknown): EventIntegrityError {
 }
 
 describe("event reducer replay boundary", () => {
+  it.each(["reducer", "materializer"] as const)(
+    "rejects a rejected native Promise from a %s without an unhandled rejection",
+    async (kind) => {
+      const rejected = Promise.reject(new Error("private rejection"));
+      const value =
+        kind === "reducer"
+          ? registry(() => rejected as unknown as TestState)
+          : registry(undefined, () => rejected as unknown as SnapshotV1);
+
+      invalidEvent(() => replay(value));
+      await Promise.resolve();
+    },
+  );
+
   it("normalizes seed, callback inputs, outputs, and materializer inputs", () => {
     interface OrderedState extends TestState {
       readonly values: { readonly alpha: number; readonly zero: number };
