@@ -1113,6 +1113,83 @@ describe("durable lock claims", () => {
     },
   );
 
+  it("rejects source/tombstone overlap and a tombstone with a different recovery marker", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const paths = lockPaths("project");
+    const overlap = lockStorage({
+      files: {
+        [paths.admissionRecord]: canonicalizeJson(stale),
+        [admissionTombstone(stale)]: canonicalizeJson(stale),
+      },
+      directories: [admissionRecoveryMarker(stale)],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(overlap)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    const wrong = lockStorage({
+      files: { [admissionTombstone(stale)]: canonicalizeJson(stale) },
+      directories: [admissionRecoveryMarker({ ...stale, claimId: "other" })],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(wrong)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each(["raw", "typed", "lost"] as const)(
+    "contains orphan tombstone cleanup %s outcomes",
+    async (mode) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const tombstone = admissionTombstone(stale);
+      const storage = lockStorage({
+        files: { [tombstone]: canonicalizeJson(stale) },
+      });
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeFile: async (path) => {
+            if (path !== tombstone) return baseRemove(path);
+            if (mode === "typed")
+              throw new LockFailure("runtime.recovery_required", []);
+            if (mode === "lost") {
+              await baseRemove(path);
+              throw new Error("lost");
+            }
+            throw new Error("raw");
+          },
+        }),
+      );
+      if (mode === "typed")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.recovery_required",
+        });
+      else if (mode === "lost")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.recovery_required",
+        });
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.internal_failure",
+        });
+    },
+  );
+
   it("rejects a claim record bound to a different resource", async () => {
     const storage = lockStorage({
       files: {
