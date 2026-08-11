@@ -693,6 +693,56 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("rejects foreign run entries while creating a different run namespace", async () => {
+    const storage = lockStorage();
+    const baseList = storage.durableFileSystem.list;
+    const baseInspect = storage.durableFileSystem.inspect;
+    const foreign = lockPaths("run:run-a").root.split("/").at(-1) as string;
+    await expect(
+      acquireClaim(
+        { resource: "run:run-b", owner: "codex:session-01", observed: null },
+        withDurable(storage, {
+          list: async (path) =>
+            path === ".brain/locks/runs" ? [foreign] : baseList(path),
+          inspect: async (path) =>
+            path === `.brain/locks/runs/${foreign}`
+              ? { kind: "special" as const }
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("normalizes invalid active-run names and unknown transaction inspector failures", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    const baseList = storage.durableFileSystem.list;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) =>
+            path === ".brain/locks/runs" ? ["!!"] : baseList(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    const recovery = expiredClaimStorage();
+    await expect(
+      recoverClaim(observedClaim, {
+        ...services(recovery),
+        inspectTransactions: async () => {
+          throw new Error("unknown");
+        },
+      }),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("allows project admission when the canonical runs directory is empty", async () => {
+    const storage = lockStorage({ directories: [".brain/locks/runs"] });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toMatchObject({ resource: "project" });
+  });
+
   it("normalizes lease binding read failures", async () => {
     const storage = lockStorage({ files: boundLeaseFiles() });
     const baseRead = storage.durableFileSystem.readText;
