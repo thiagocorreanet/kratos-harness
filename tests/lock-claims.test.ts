@@ -16,6 +16,7 @@ import {
 } from "../packages/runtime/src/infra/fake/index.js";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
+import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
 
 function lockStorage(
@@ -34,6 +35,16 @@ function services(
     digests: storage.digests,
     durableFileSystem: storage.durableFileSystem,
     schemaRegistry: createSchemaRegistry(),
+  };
+}
+
+function withDurable(
+  storage: ReturnType<typeof lockStorage>,
+  change: Partial<DurableFileSystem>,
+): LockServices {
+  return {
+    ...services(storage),
+    durableFileSystem: { ...storage.durableFileSystem, ...change },
   };
 }
 
@@ -207,5 +218,77 @@ describe("durable lock claims", () => {
         services(storage),
       ),
     ).resolves.toMatchObject({ resource: "run:run-b" });
+  });
+
+  it.each([
+    "not-json",
+    "[]",
+    '{"claimId":"bad"}',
+    '{"acquiredAt":"2026-08-11T00:00:00Z","claimId":"claim-1","expiresAt":"2026-08-11T00:00:30.000Z","fencingToken":null,"leaseId":null,"owner":"codex:session-01","resource":"project"}',
+    '{"acquiredAt":"2026-08-11T00:00:00.000Z","claimId":"claim-1","expiresAt":"2026-08-11T00:00:30.000Z","fencingToken":-1,"leaseId":null,"owner":"codex:session-01","resource":"project"}',
+  ])("rejects malformed or non-canonical claim bytes: %s", async (content) => {
+    const storage = lockStorage({
+      files: { [lockPaths("project").claimRecord]: content },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("normalizes durable inspection and write failures without deleting state", async () => {
+    const storage = lockStorage();
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          inspect: async () => {
+            throw new Error("fault");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+
+    const writeStorage = lockStorage();
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(writeStorage, {
+          writeSynced: async () => {
+            throw new Error("fault");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+  });
+
+  it.each([
+    "inspect",
+    "create_directory",
+    "sync_directory",
+    "list",
+    "open_file",
+    "write_file",
+    "sync_file",
+    "close_file",
+  ] as const)("contains a first %s durable failure", async (operation) => {
+    const storage = lockStorage();
+    storage.fail({ operation, timing: "before", occurrence: 1 });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it.each([
+    ["lease", lockPaths("project").lease],
+    ["events", lockPaths("project").events],
+  ])("rejects a non-file %s lease artifact", async (_name, path) => {
+    const storage = lockStorage({ directories: [path] });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
   });
 });
