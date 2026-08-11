@@ -118,6 +118,15 @@ describe("README honesty", () => {
     expect(readme).toContain("canonical JSON");
   });
 
+  it("marks only RUN-06 delivered without changing parity evidence", () => {
+    const deliveredRuns = [
+      ...readme.matchAll(/\|\s*`(RUN-\d+)`\s*\|\s*\*\*Delivered\*\*/gu),
+    ].map((match) => match[1]);
+
+    expect(deliveredRuns).toEqual(["RUN-06"]);
+    expect(readme).toContain("parity evidence at 0.00%");
+  });
+
   it("links every required public path", () => {
     for (const link of [
       "[Objective maturity gates](ROADMAP.md)",

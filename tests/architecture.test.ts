@@ -284,12 +284,19 @@ describe("dependency direction", () => {
 
 describe("runtime boundary documentation", () => {
   let guide = "";
+  let eventStoreGuide = "";
 
   beforeAll(async () => {
-    guide = await readFile(
-      join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
-      "utf8",
-    );
+    [guide, eventStoreGuide] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/event-store.md"),
+        "utf8",
+      ),
+    ]);
   });
 
   it.each([
@@ -318,6 +325,26 @@ describe("runtime boundary documentation", () => {
   it("names the issues that own Git and Locks semantics", () => {
     expect(guide).toContain("RUN-07");
     expect(guide).toContain("RUN-08");
+  });
+
+  it.each([
+    "events.jsonl",
+    "state.json",
+    "exact-prefix",
+    "canonical JSON",
+    "previousHash",
+    "eventHash",
+    "64 KiB",
+    "64 MiB",
+    "100,000",
+    "runtime.state_corrupt",
+    "runtime.revision_conflict",
+    "runtime.recovery_required",
+    "tamper evidence",
+    "not authentication",
+    "no raw prompts",
+  ])("publishes the event-store integrity boundary: %s", (required) => {
+    expect(eventStoreGuide).toContain(required);
   });
 });
 
@@ -349,6 +376,24 @@ describe("the repository obeys its own rules", () => {
     expect(modules.some(({ path }) => path.includes("/domain/"))).toBe(true);
     expect(modules.some(({ path }) => path.includes("/ports/"))).toBe(true);
     expect(violations(modules)).toEqual([]);
+  });
+
+  it("sweeps every event-domain module", async () => {
+    const modules = await sourceModules();
+    const eventModules = modules
+      .map(({ path }) => path)
+      .filter((path) => path.startsWith("packages/runtime/src/domain/events/"))
+      .sort();
+
+    expect(eventModules).toEqual([
+      "packages/runtime/src/domain/events/index.ts",
+      "packages/runtime/src/domain/events/model.ts",
+      "packages/runtime/src/domain/events/parse.ts",
+      "packages/runtime/src/domain/events/redaction.ts",
+      "packages/runtime/src/domain/events/reduce.ts",
+      "packages/runtime/src/domain/events/seal.ts",
+      "packages/runtime/src/domain/events/verify.ts",
+    ]);
   });
 });
 

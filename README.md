@@ -131,6 +131,11 @@ now stages managed `.brain/` mutations, records incomplete work, and requires
 explicit token-bound crash recovery. It provides typed runtime infrastructure,
 not a public recovery command or a usable SDD trail.
 
+The internal [event-store integrity contract](docs/architecture/event-store.md)
+now verifies metadata-only hash-linked run history and its replayed snapshot
+through that transaction boundary. It remains internal runtime infrastructure,
+not a public event command or a usable SDD trail.
+
 ### No global Yoda binary
 
 The new runtime is developed in TypeScript and distributed as a self-contained JavaScript ESM bundle inside the plugin. This avoids a separately installed global binary, PATH problems, and runtime/plugin version drift.
@@ -318,6 +323,12 @@ Development uses four evidence-based maturity stages:
 See the [Objective maturity gates](ROADMAP.md) for promotion, regression,
 rollback, and private Go predecessor retirement criteria. No calendar date,
 feature count, or demo can replace the required evidence.
+
+### Internal runtime delivery
+
+| Run | Status |
+| --- | --- |
+| `RUN-06` | **Delivered** — internal event-store integrity and recoverable snapshot commit; this grants no parity credit and does not make the harness usable. |
 
 ## Development
 

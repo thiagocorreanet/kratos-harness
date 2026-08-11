@@ -191,8 +191,11 @@ It normalizes managed create, write, and delete effects into one exact ordered
 plan, then commits them through the
 [atomic transaction boundary](atomic-transactions.md). Structured and human
 emits remain outside that transaction and run in declared order only after a
-commit. `append_event` remains refused until its owning event-store issue
-supplies the canonical append operation.
+commit. `append_event` is a structured internal effect: its owning
+[event-store integrity boundary](event-store.md) derives the run-scoped stream
+and snapshot paths, verifies their persisted binding, prepares one exact-prefix
+append and replayed snapshot, and submits both writes through the same managed
+transaction. It does not add a public command.
 
 Normal execution follows the fixed prepare-and-publish sequence and does not use
 `decideRecovery` as its control loop. That pure policy is limited to explicit
@@ -204,10 +207,10 @@ or blocks on unexpected evidence.
 
 ## Scope
 
-These foundation issues deliver runtime, schema, and internal durable mutation
-boundaries; they define no workflow policy, objective transition, event writer,
-or new command. The objective lifecycle, guardrails, event store, locks, and
-host adapters fill them in through their own issues. Read-only project
+These foundation issues deliver runtime, schema, internal durable mutation, and
+internal event-store boundaries; they define no workflow policy, objective
+transition, or new command. The objective lifecycle, guardrails, locks, and
+host adapters fill their own semantics through later issues. Read-only project
 discovery and typed transaction inspection remain internal and do not change
 the shipped command surface.
 
