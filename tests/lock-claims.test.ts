@@ -327,6 +327,67 @@ describe("durable lock claims", () => {
     expect(storage.snapshot().directories).not.toContain(root);
   });
 
+  it.each(["record-kind", "generation-kind", "lost-during-cleanup"] as const)(
+    "contains expired candidate cleanup %s races",
+    async (mode) => {
+      const candidate: LockClaimRecord = {
+        claimId: `candidate-${mode}`,
+        resource: "admission",
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const recordPath = candidateAdmissionRecord(candidate);
+      const generation = parentDirectory(recordPath);
+      const root = parentDirectory(generation);
+      const storage = lockStorage({
+        files: { [recordPath]: canonicalizeJson(candidate) },
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseRemoveDirectory =
+        storage.durableFileSystem.removeEmptyDirectory;
+      let recordInspections = 0;
+      let generationInspections = 0;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (
+              path === recordPath &&
+              ++recordInspections >= 2 &&
+              mode === "record-kind"
+            )
+              return { kind: "special" };
+            if (
+              path === generation &&
+              ++generationInspections >= 2 &&
+              mode === "generation-kind"
+            )
+              return { kind: "special" };
+            return baseInspect(path);
+          },
+          removeFile: async (path) => {
+            if (mode !== "lost-during-cleanup" || path !== recordPath)
+              return baseRemove(path);
+            await baseRemove(path);
+            await baseRemoveDirectory(generation);
+            await baseRemoveDirectory(root);
+            throw new Error("lost candidate");
+          },
+        }),
+      );
+      if (mode === "lost-during-cleanup")
+        await expect(result).resolves.toMatchObject({ resource: "project" });
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.state_corrupt",
+        });
+    },
+  );
+
   it("does not flatten corrupt claim paths into contention", async () => {
     const storage = lockStorage({
       directories: [lockPaths("project").claimRecord],
