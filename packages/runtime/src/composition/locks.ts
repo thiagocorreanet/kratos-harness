@@ -1,6 +1,7 @@
 import { types } from "node:util";
 
 import {
+  LEASE_SKEW_MS,
   classifyLeaseTime,
   lockPaths,
   parseOwner,
@@ -90,6 +91,11 @@ function claimRecordPath(resource: LeaseResource): string {
   return lockPaths(resource).claimRecord;
 }
 
+function parentDirectory(path: string): string {
+  const parent = path.lastIndexOf("/");
+  return parent === -1 ? "." : path.slice(0, parent);
+}
+
 async function expectDirectoryOrMissing(
   path: string,
   services: LockServices,
@@ -111,7 +117,7 @@ async function createDirectoryIfMissing(
   if ((await expectDirectoryOrMissing(path, services)) === "directory") return;
   try {
     await services.durableFileSystem.createDirectory(path);
-    await services.durableFileSystem.syncDirectory(path);
+    await services.durableFileSystem.syncDirectory(parentDirectory(path));
   } catch {
     throw internal();
   }
@@ -129,6 +135,55 @@ async function assertOnlyChildren(
     if (error instanceof LockFailure) throw error;
     throw internal();
   }
+}
+
+async function assertCanonicalRunChildren(
+  services: LockServices,
+): Promise<void> {
+  const root = `${locksRoot}/runs`;
+  try {
+    for (const name of await services.durableFileSystem.list(root)) {
+      // Canonical unpadded Base64URL is the output alphabet of lockPaths().
+      if (!/^[A-Za-z0-9_-]{2,171}$/u.test(name)) throw corrupt(root);
+      if (
+        (await services.durableFileSystem.inspect(`${root}/${name}`)).kind !==
+        "directory"
+      )
+        throw corrupt(`${root}/${name}`);
+    }
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+}
+
+/** Validate existing metadata without materializing a lock namespace. */
+async function inspectLockNamespace(
+  resource: LeaseResource,
+  services: LockServices,
+): Promise<void> {
+  const paths = lockPaths(resource);
+  const chain = [
+    ".brain",
+    locksRoot,
+    resource === "project" ? paths.root : `${locksRoot}/runs`,
+    paths.root,
+    paths.claim,
+  ];
+  for (const path of chain) {
+    const entry = await services.durableFileSystem.inspect(path).catch(() => {
+      throw internal();
+    });
+    if (entry.kind === "missing") return;
+    if (entry.kind !== "directory") throw corrupt(path);
+  }
+  if (resource.startsWith("run:")) await assertCanonicalRunChildren(services);
+  await assertOnlyChildren(
+    paths.root,
+    ["claim", "events.jsonl", "lease.json"],
+    services,
+  );
+  await assertOnlyChildren(paths.claim, ["claim.json"], services);
 }
 
 /** Create the only layouts lock operations will subsequently accept. */
@@ -158,7 +213,8 @@ export async function ensureLockNamespace(
     await createDirectoryIfMissing(`${locksRoot}/runs`, services);
     const runDirectory = paths.root.split("/").at(-1);
     if (runDirectory === undefined) throw internal();
-    await assertOnlyChildren(`${locksRoot}/runs`, [runDirectory], services);
+    void runDirectory;
+    await assertCanonicalRunChildren(services);
   }
   await createDirectoryIfMissing(paths.root, services);
   await assertOnlyChildren(
@@ -202,10 +258,8 @@ function exactRecord(value: unknown): LockClaimRecord | null {
       (!Number.isSafeInteger(fencingToken) ||
         typeof fencingToken !== "number" ||
         fencingToken < 0)) ||
-    typeof record.acquiredAt !== "string" ||
-    Number.isNaN(Date.parse(record.acquiredAt)) ||
-    typeof record.expiresAt !== "string" ||
-    Number.isNaN(Date.parse(record.expiresAt))
+    !strictTimestamp(record.acquiredAt) ||
+    !strictTimestamp(record.expiresAt)
   )
     return null;
   try {
@@ -225,6 +279,16 @@ function exactRecord(value: unknown): LockClaimRecord | null {
   });
 }
 
+function strictTimestamp(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)
+  )
+    return false;
+  const instant = new Date(value);
+  return !Number.isNaN(instant.getTime()) && instant.toISOString() === value;
+}
+
 async function readClaim(
   resource: LeaseResource,
   services: LockServices,
@@ -239,10 +303,11 @@ async function readClaim(
   if (entry.kind === "missing") return null;
   if (entry.kind !== "file") throw corrupt(path);
   try {
-    const record = exactRecord(
-      JSON.parse(await services.durableFileSystem.readText(path)),
-    );
-    if (record?.resource !== resource) throw corrupt(path);
+    const text = await services.durableFileSystem.readText(path);
+    const record = exactRecord(JSON.parse(text));
+    if (record === null || canonicalizeJson(record) !== text)
+      throw corrupt(path);
+    if (record.resource !== resource) throw corrupt(path);
     return record;
   } catch (error) {
     if (error instanceof LockFailure) throw error;
@@ -254,7 +319,63 @@ function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
   return canonicalizeJson(left) === canonicalizeJson(right);
 }
 
+async function withAdmission<T>(
+  owner: string,
+  services: LockServices,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const paths = lockPaths("project");
+  const now = services.clock.now();
+  const admission: LockClaimRecord = Object.freeze({
+    claimId: "admission",
+    resource: "admission",
+    owner,
+    leaseId: null,
+    fencingToken: null,
+    acquiredAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + 30_000).toISOString(),
+  });
+  try {
+    await services.durableFileSystem.writeSynced(
+      paths.admissionRecord,
+      canonicalizeJson(admission),
+    );
+    await services.durableFileSystem.syncDirectory(paths.admissionClaim);
+  } catch {
+    // A competing exclusive record is contention, never proof of corruption.
+    throw new LockFailure("runtime.recovery_required", [
+      { kind: "artifact", ref: paths.admissionRecord },
+    ]);
+  }
+  try {
+    return await operation();
+  } finally {
+    const entry = await services.durableFileSystem
+      .inspect(paths.admissionRecord)
+      .catch(() => null);
+    if (entry?.kind === "file") {
+      const text = await services.durableFileSystem
+        .readText(paths.admissionRecord)
+        .catch(() => "");
+      if (text === canonicalizeJson(admission)) {
+        await services.durableFileSystem.removeFile(paths.admissionRecord);
+        await services.durableFileSystem.syncDirectory(paths.admissionClaim);
+      }
+    }
+  }
+}
+
 export async function acquireClaim(
+  request: AcquireClaimRequest,
+  services: LockServices,
+): Promise<LockClaimRecord> {
+  await ensureLockNamespace(request.resource, services);
+  return withAdmission(request.owner, services, () =>
+    acquireClaimHeld(request, services),
+  );
+}
+
+async function acquireClaimHeld(
   request: AcquireClaimRequest,
   services: LockServices,
 ): Promise<LockClaimRecord> {
@@ -264,7 +385,6 @@ export async function acquireClaim(
   } catch {
     throw internal();
   }
-  await ensureLockNamespace(request.resource, services);
   const existing = await readClaim(request.resource, services);
   if (existing !== null) throw corrupt(claimRecordPath(request.resource));
   const now = services.clock.now();
@@ -280,6 +400,9 @@ export async function acquireClaim(
   const path = claimRecordPath(request.resource);
   try {
     await services.durableFileSystem.writeSynced(path, canonicalizeJson(claim));
+    await services.durableFileSystem.syncDirectory(
+      lockPaths(request.resource).claim,
+    );
     const fingerprint = await services.durableFileSystem.inspect(path);
     if (
       fingerprint.kind !== "file" ||
@@ -307,6 +430,18 @@ export async function releaseClaim(
   services: LockServices,
 ): Promise<{ readonly kind: "released" | "absent" }> {
   await ensureLockNamespace(request.resource, services);
+  return withAdmission(request.observed.owner, services, () =>
+    releaseClaimHeld(request, services),
+  );
+}
+
+async function releaseClaimHeld(
+  request: {
+    readonly resource: LeaseResource;
+    readonly observed: LockClaimRecord;
+  },
+  services: LockServices,
+): Promise<{ readonly kind: "released" | "absent" }> {
   const current = await readClaim(request.resource, services);
   if (current === null) return { kind: "absent" };
   if (!sameClaim(current, request.observed))
@@ -324,6 +459,20 @@ export async function releaseClaim(
 }
 
 export async function recoverClaim(
+  request: {
+    readonly resource: LeaseResource;
+    readonly owner: string;
+    readonly observed: LockClaimRecord;
+  },
+  services: LockServices,
+): Promise<{ readonly kind: "recovered" | "absent" }> {
+  await ensureLockNamespace(request.resource, services);
+  return withAdmission(request.owner, services, () =>
+    recoverClaimHeld(request, services),
+  );
+}
+
+async function recoverClaimHeld(
   request: {
     readonly resource: LeaseResource;
     readonly owner: string;
@@ -358,14 +507,27 @@ export async function recoverClaim(
       })),
     );
   }
+  for (const summary of summaries) {
+    const root = `.brain/transactions/${summary.transactionId}`;
+    for (const residue of ["progress.next", "staging"]) {
+      const entry = await services.durableFileSystem.inspect(
+        `${root}/${residue}`,
+      );
+      if (entry.kind !== "missing")
+        throw new LockFailure("runtime.recovery_required", [
+          { kind: "artifact", ref: `${root}/${residue}` },
+        ]);
+    }
+  }
   const current = await readClaim(request.resource, services);
   if (current === null) return { kind: "absent" };
   if (
     !sameClaim(current, request.observed) ||
-    Date.parse(current.expiresAt) > services.clock.now().getTime()
+    Date.parse(current.expiresAt) + LEASE_SKEW_MS >
+      services.clock.now().getTime()
   )
     throw corrupt(claimRecordPath(request.resource));
-  return releaseClaim(
+  return releaseClaimHeld(
     { resource: request.resource, observed: current },
     services,
   ).then(() => ({ kind: "recovered" as const }));
@@ -375,7 +537,7 @@ export async function inspectLease(
   resource: LeaseResource,
   services: LockServices,
 ): Promise<ClaimInspection> {
-  await ensureLockNamespace(resource, services);
+  await inspectLockNamespace(resource, services);
   const claim = await readClaim(resource, services);
   const paths = lockPaths(resource);
   const [leaseEntry, eventsEntry] = await Promise.all([

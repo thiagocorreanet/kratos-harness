@@ -15,6 +15,7 @@ import {
   sequentialIds,
 } from "../packages/runtime/src/infra/fake/index.js";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
+import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import { describe, expect, it } from "vitest";
 
 function lockStorage(
@@ -23,9 +24,12 @@ function lockStorage(
   return memoryTransactionStorage(seed);
 }
 
-function services(storage: ReturnType<typeof lockStorage>): LockServices {
+function services(
+  storage: ReturnType<typeof lockStorage>,
+  now = "2026-08-11T00:01:00.000Z",
+): LockServices {
   return {
-    clock: fixedClock("2026-08-11T00:01:00.000Z"),
+    clock: fixedClock(now),
     ids: sequentialIds("claim"),
     digests: storage.digests,
     durableFileSystem: storage.durableFileSystem,
@@ -55,7 +59,7 @@ const observedClaim = {
 function expiredClaimStorage() {
   return lockStorage({
     files: {
-      [lockPaths("project").claimRecord]: JSON.stringify(
+      [lockPaths("project").claimRecord]: canonicalizeJson(
         observedClaim.observed,
       ),
     },
@@ -130,5 +134,40 @@ describe("durable lock claims", () => {
     await expect(
       recoverClaim(observedClaim, services(storage)),
     ).resolves.toEqual({ kind: "absent" });
+  });
+
+  it("keeps inspection read-only when the lock namespace is absent", async () => {
+    const storage = lockStorage();
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({
+      kind: "empty",
+      claim: null,
+    });
+    expect(storage.snapshot()).toEqual({ directories: [], files: {} });
+  });
+
+  it("does not recover a claim until its expiry plus skew allowance", async () => {
+    const storage = expiredClaimStorage();
+    await expect(
+      recoverClaim(
+        observedClaim,
+        services(storage, "2026-08-11T00:00:31.000Z"),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("admits multiple canonical run directories", async () => {
+    const storage = lockStorage();
+    await acquireClaim(
+      { resource: "run:run-01", owner: "codex:session-01", observed: null },
+      services(storage),
+    );
+    await expect(
+      acquireClaim(
+        { resource: "run:run-02", owner: "codex:session-02", observed: null },
+        services(storage),
+      ),
+    ).resolves.toMatchObject({ resource: "run:run-02" });
   });
 });
