@@ -235,7 +235,20 @@ async function assertDeclaredEventStorePreconditions(
   for (const entry of entries) {
     let observed: PathFingerprint;
     try {
-      observed = await observeFingerprint(entry.path, services);
+      const durable = await services.durableFileSystem.inspect(entry.path);
+      if (durable.kind === "special" || durable.kind === "symlink") {
+        evidence.push({
+          kind: entry.path.endsWith("/events.jsonl") ? "event" : "artifact",
+          ref: entry.path,
+        });
+        continue;
+      }
+      observed =
+        durable.kind === "file"
+          ? { kind: "file", size: durable.size, sha256: durable.sha256 }
+          : durable.kind === "directory"
+            ? { kind: "directory" }
+            : { kind: "missing" };
     } catch {
       throw new TransactionFailure("runtime.internal_failure", []);
     }
