@@ -12,6 +12,10 @@ import type {
   EventReducerRegistry,
 } from "@mestre-yoda/runtime/domain/events";
 import { EventIntegrityError } from "@mestre-yoda/runtime/domain/events";
+import {
+  transactionFailureResult,
+  validateResult,
+} from "@mestre-yoda/runtime/domain/result";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import { memoryTransactionStorage } from "@mestre-yoda/runtime/infra/fake";
 import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
@@ -134,6 +138,21 @@ async function failureCode(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe("event-store append preparation", () => {
+  it.each([
+    "contract.state_version_invalid",
+    "contract.state_version_unsupported",
+  ] as const)("publishes %s without forbidden evidence", (reasonCode) => {
+    const result = transactionFailureResult(
+      new TransactionFailure(reasonCode, [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ]),
+    );
+
+    expect(result.evidence).toEqual([]);
+    expect(() => validateResult(result)).not.toThrow();
+  });
+
   it("prepares a first append and exact-prefix successor without writes", async () => {
     const initial = memoryTransactionStorage({
       directories: [".brain/transactions", ".brain/runs/run-01"],
@@ -210,6 +229,28 @@ describe("event-store append preparation", () => {
     expect(storage.calls()).toEqual(["inspect", "inspect"]);
   });
 
+  it("rejects a missing snapshot when the event stream is absent", async () => {
+    const files = await firstFiles();
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+      files: { ".brain/runs/run-01/state.json": files.snapshot },
+    });
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        services(storage),
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+      evidence: [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ],
+    });
+    expect(storage.calls()).toEqual(["inspect", "inspect"]);
+  });
+
   it("rejects a non-file stream entry before reads", async () => {
     const files = await firstFiles();
     const storage = memoryTransactionStorage({
@@ -228,6 +269,59 @@ describe("event-store append preparation", () => {
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.calls()).toEqual(["inspect", "inspect"]);
+  });
+
+  it.each(["symlink", "special"] as const)(
+    "rejects a %s entry with paired corruption evidence",
+    async (kind) => {
+      const files = await firstFiles();
+      const storage = persistedStorage(files);
+      const durableFileSystem: DurableFileSystem = {
+        ...storage.durableFileSystem,
+        inspect: async (path) =>
+          path.endsWith("events.jsonl")
+            ? { kind }
+            : storage.durableFileSystem.inspect(path),
+      };
+
+      await expect(
+        prepareEventAppend(
+          { runId: "run-01", event: draft(2) },
+          { ...services(storage), durableFileSystem },
+        ),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.state_corrupt",
+        evidence: [
+          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        ],
+      });
+    },
+  );
+
+  it("rejects a non-file snapshot entry with paired corruption evidence", async () => {
+    const files = await firstFiles();
+    const storage = persistedStorage(files);
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect: async (path) =>
+        path.endsWith("state.json")
+          ? { kind: "directory" }
+          : storage.durableFileSystem.inspect(path),
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+      evidence: [
+        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
+        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+      ],
+    });
   });
 
   it("rejects an oversized stream from inspected metadata before readText", async () => {
@@ -368,5 +462,155 @@ describe("event-store append preparation", () => {
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.revision_conflict" });
     expect(storage.calls()).toEqual(["inspect", "inspect"]);
+  });
+
+  it("classifies oversized bytes changed after inspection as a revision conflict", async () => {
+    const files = await firstFiles();
+    const storage = persistedStorage(files);
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      readText: async (path) =>
+        path.endsWith("events.jsonl")
+          ? `${files.events}${"x".repeat(64 * 1024 * 1024)}\n`
+          : storage.durableFileSystem.readText(path),
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ kind: "event", ref: ".brain/runs/run-01/events.jsonl" }],
+    });
+  });
+
+  it("classifies forged storage failures as sanitized internal failures", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect: () =>
+        Promise.reject(
+          new TransactionFailure("runtime.state_corrupt", [
+            { kind: "artifact", ref: "private-storage-error" },
+          ]),
+        ),
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        { ...services(storage), durableFileSystem },
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.internal_failure",
+      evidence: [],
+      message: "Managed transaction failed",
+    });
+  });
+
+  it.each([
+    [
+      "digest",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        digests: {
+          sha256: () => {
+            throw new EventIntegrityError("invalid_event");
+          },
+        },
+      }),
+    ],
+    [
+      "schema registry",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        schemaRegistry: {
+          validate: () => {
+            throw new TransactionFailure("runtime.state_corrupt", [
+              { kind: "artifact", ref: "private-schema-error" },
+            ]);
+          },
+        } as never,
+      }),
+    ],
+    [
+      "proxy detector",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        isProxy: () => {
+          throw new EventIntegrityError("invalid_event");
+        },
+      }),
+    ],
+  ] as const)(
+    "sanitizes a forged %s capability error",
+    async (_label, override) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions", ".brain/runs/run-01"],
+      });
+
+      await expect(
+        prepareEventAppend(
+          { runId: "run-01", event: draft(1) },
+          override(services(storage)),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.internal_failure",
+        evidence: [],
+        message: "Managed transaction failed",
+      });
+    },
+  );
+
+  it("rejects root and draft proxies after proxy detection without traps", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    let traps = 0;
+    const handler = {
+      get: () => {
+        traps += 1;
+        throw new Error("proxy trap must not run");
+      },
+    };
+    const root = new Proxy({ runId: "run-01", event: draft(1) }, handler);
+    const event = new Proxy(draft(1), handler);
+
+    for (const input of [root, { runId: "run-01", event }]) {
+      await expect(
+        prepareEventAppend(input as never, services(storage)),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    }
+    expect(traps).toBe(0);
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("does not permit runtime mutation of prepared effects or fingerprints", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const prepared = await prepareEventAppend(
+      { runId: "run-01", event: draft(1) },
+      services(storage),
+    );
+    const events = prepared.effects[0].content;
+    const expected = prepared.expected.get(prepared.paths.events);
+
+    expect(() => {
+      (prepared.effects as unknown as { 0: { content: string } })[0].content =
+        "attacker";
+    }).toThrow();
+    expect(() => {
+      (prepared.expected as unknown as Map<string, unknown>).set(
+        prepared.paths.events,
+        { kind: "file" },
+      );
+    }).toThrow();
+    expect(prepared.effects[0].content).toBe(events);
+    expect(prepared.expected.get(prepared.paths.events)).toEqual(expected);
   });
 });

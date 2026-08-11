@@ -31,6 +31,46 @@ import { TransactionFailure } from "./transactions.js";
 const runIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
 const encoder = new TextEncoder();
 
+/** Private boundary sentinels prevent injected errors from gaining authority. */
+class DependencyFailure extends Error {}
+class IntegrityFailure extends Error {
+  public constructor(
+    public readonly reasonCode:
+      | "contract.state_version_invalid"
+      | "contract.state_version_unsupported"
+      | null = null,
+  ) {
+    super();
+  }
+}
+class RevisionConflict extends Error {
+  public constructor(
+    public readonly evidence: readonly {
+      readonly kind: "event" | "artifact";
+      readonly ref: string;
+    }[],
+  ) {
+    super();
+  }
+}
+
+class DependencyTracker {
+  private failed = false;
+
+  public call<Value>(operation: () => Value): Value {
+    try {
+      return operation();
+    } catch {
+      this.failed = true;
+      throw new DependencyFailure();
+    }
+  }
+
+  public assert(): void {
+    if (this.failed) throw new DependencyFailure();
+  }
+}
+
 export interface EventStorePaths {
   readonly events: string;
   readonly snapshot: string;
@@ -74,31 +114,30 @@ export async function prepareEventAppend<State = JsonState>(
   let paths: EventStorePaths;
   let draft: EventDraftV1;
   let eventServices: EventServices;
+  let tracker: DependencyTracker;
+  let durableFileSystem: DurableFileSystem;
   try {
-    const request = snapshotRequest(input, services.isProxy ?? types.isProxy);
-    paths = eventStorePaths(request.runId);
+    tracker = new DependencyTracker();
+    const trusted = trustedServices(services, tracker);
+    const request = snapshotRequest(input, trusted.events.isProxy, tracker);
+    paths = derivePaths(request.runId);
     draft = request.event;
-    eventServices = {
-      digests: services.digests,
-      isProxy: services.isProxy ?? types.isProxy,
-      schemaRegistry: services.schemaRegistry,
-    };
+    eventServices = trusted.events;
+    durableFileSystem = trusted.durableFileSystem;
   } catch (error) {
     throw classifiedFailure(error, eventEvidenceForUnknownPath());
   }
 
   const evidence = eventEvidence(paths);
   try {
-    const eventEntry = await services.durableFileSystem.inspect(paths.events);
-    const snapshotEntry = await services.durableFileSystem.inspect(
-      paths.snapshot,
+    const eventEntry = await storageCall(() =>
+      durableFileSystem.inspect(paths.events),
     );
-    const expectedEvents = fileFingerprint(eventEntry, paths.events, true);
-    const expectedSnapshot = fileFingerprint(
-      snapshotEntry,
-      paths.snapshot,
-      false,
+    const snapshotEntry = await storageCall(() =>
+      durableFileSystem.inspect(paths.snapshot),
     );
+    const expectedEvents = fileFingerprint(eventEntry, true);
+    const expectedSnapshot = fileFingerprint(snapshotEntry, false);
     const expected = new Map<string, PathFingerprint>([
       [paths.events, expectedEvents],
       [paths.snapshot, expectedSnapshot],
@@ -112,8 +151,9 @@ export async function prepareEventAppend<State = JsonState>(
         paths,
         expected,
         draft,
-        services,
+        trustedAppendServices(services, eventServices, tracker),
         eventServices,
+        tracker,
       );
     }
     if (
@@ -129,33 +169,53 @@ export async function prepareEventAppend<State = JsonState>(
     const eventsText = await readExact(
       paths.events,
       expectedEvents,
-      services.durableFileSystem,
-      services.digests,
+      durableFileSystem,
+      eventServices.digests,
       true,
     );
     const snapshotText = await readExact(
       paths.snapshot,
       expectedSnapshot,
-      services.durableFileSystem,
-      services.digests,
+      durableFileSystem,
+      eventServices.digests,
       false,
     );
-    const verified = verifyEventStream(eventsText, eventServices);
-    const replay = replayEventStream(verified, services.reducers, {
-      isProxy: eventServices.isProxy,
-      schemaRegistry: services.schemaRegistry,
-    });
-    assertPersistedSnapshot(snapshotText, replay.canonical, services);
-
-    const event = sealEvent(draft, verified.cursor, eventServices);
-    const extended = verifyEventStream(
-      `${eventsText}${canonicalEventLine(event)}`,
-      eventServices,
+    const verified = eventDomain(tracker, () =>
+      verifyEventStream(eventsText, eventServices),
     );
-    const nextReplay = replayEventStream(extended, services.reducers, {
-      isProxy: eventServices.isProxy,
-      schemaRegistry: services.schemaRegistry,
-    });
+    const appendServices = trustedAppendServices(
+      services,
+      eventServices,
+      tracker,
+    );
+    const replay = eventDomain(tracker, () =>
+      replayEventStream(verified, appendServices.reducers, {
+        isProxy: eventServices.isProxy,
+        schemaRegistry: eventServices.schemaRegistry,
+      }),
+    );
+    assertPersistedSnapshot(
+      snapshotText,
+      replay.canonical,
+      appendServices,
+      tracker,
+    );
+
+    const event = eventDomain(tracker, () =>
+      sealEvent(draft, verified.cursor, eventServices),
+    );
+    const extended = eventDomain(tracker, () =>
+      verifyEventStream(
+        `${eventsText}${canonicalEventLine(event)}`,
+        eventServices,
+      ),
+    );
+    const nextReplay = eventDomain(tracker, () =>
+      replayEventStream(extended, appendServices.reducers, {
+        isProxy: eventServices.isProxy,
+        schemaRegistry: eventServices.schemaRegistry,
+      }),
+    );
     return prepared(paths, event, expected, eventsText, nextReplay.canonical);
   } catch (error) {
     throw classifiedFailure(error, evidence);
@@ -165,20 +225,24 @@ export async function prepareEventAppend<State = JsonState>(
 function snapshotRequest(
   input: unknown,
   isProxy: EventServices["isProxy"],
+  tracker: DependencyTracker,
 ): { readonly runId: string; readonly event: EventDraftV1 } {
   if (typeof input !== "object" || input === null || isProxy(input)) {
-    throw new EventIntegrityError("invalid_event");
+    throw new IntegrityFailure();
   }
   const runId = ownData(input, "runId");
   const event = ownData(input, "event");
-  if (typeof runId !== "string") throw new EventIntegrityError("invalid_event");
-  return { runId, event: snapshotEventDraft(event, isProxy) };
+  if (typeof runId !== "string") throw new IntegrityFailure();
+  return {
+    runId,
+    event: eventDomain(tracker, () => snapshotEventDraft(event, isProxy)),
+  };
 }
 
 function ownData(value: object, key: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
   if (descriptor === undefined || !("value" in descriptor)) {
-    throw new EventIntegrityError("invalid_event");
+    throw new IntegrityFailure();
   }
   return descriptor.value;
 }
@@ -189,14 +253,143 @@ function prepareFirstAppend<State>(
   draft: EventDraftV1,
   services: EventAppendServices<State>,
   eventServices: EventServices,
+  tracker: DependencyTracker,
 ): PreparedEventAppend {
-  const event = sealEvent(draft, { revision: 0, hash: null }, eventServices);
-  const extended = verifyEventStream(canonicalEventLine(event), eventServices);
-  const replay = replayEventStream(extended, services.reducers, {
-    isProxy: eventServices.isProxy,
-    schemaRegistry: services.schemaRegistry,
-  });
+  const event = eventDomain(tracker, () =>
+    sealEvent(draft, { revision: 0, hash: null }, eventServices),
+  );
+  const extended = eventDomain(tracker, () =>
+    verifyEventStream(canonicalEventLine(event), eventServices),
+  );
+  const replay = eventDomain(tracker, () =>
+    replayEventStream(extended, services.reducers, {
+      isProxy: eventServices.isProxy,
+      schemaRegistry: services.schemaRegistry,
+    }),
+  );
   return prepared(paths, event, expected, "", replay.canonical);
+}
+
+function derivePaths(runId: string): EventStorePaths {
+  if (!runIdPattern.test(runId)) throw new IntegrityFailure();
+  const root = `.brain/runs/${runId}`;
+  return { events: `${root}/events.jsonl`, snapshot: `${root}/state.json` };
+}
+
+function eventDomain<Value>(
+  tracker: DependencyTracker,
+  operation: () => Value,
+): Value {
+  try {
+    const value = operation();
+    tracker.assert();
+    return value;
+  } catch (error) {
+    if (error instanceof DependencyFailure) throw error;
+    try {
+      tracker.assert();
+    } catch {
+      throw new DependencyFailure();
+    }
+    if (error instanceof EventIntegrityError) {
+      throw new IntegrityFailure(error.reasonCode);
+    }
+    throw new DependencyFailure();
+  }
+}
+
+async function storageCall<Value>(
+  operation: () => Promise<Value>,
+): Promise<Value> {
+  try {
+    return await operation();
+  } catch {
+    throw new DependencyFailure();
+  }
+}
+
+function trustedServices<State>(
+  services: EventAppendServices<State>,
+  tracker: DependencyTracker,
+): {
+  readonly durableFileSystem: DurableFileSystem;
+  readonly events: EventServices;
+} {
+  const isProxy = tracker.call(() => services.isProxy ?? types.isProxy);
+  const rawDigests = tracker.call(() => services.digests);
+  const rawSchemaRegistry = tracker.call(() => services.schemaRegistry);
+  return {
+    durableFileSystem: tracker.call(() => services.durableFileSystem),
+    events: {
+      digests: {
+        sha256: (text) => tracker.call(() => rawDigests.sha256(text)),
+      },
+      isProxy: (value) => tracker.call(() => isProxy(value)),
+      schemaRegistry: {
+        validate: (request) =>
+          tracker.call(() => rawSchemaRegistry.validate(request)),
+      },
+    },
+  };
+}
+
+function trustedAppendServices<State>(
+  services: EventAppendServices<State>,
+  events: EventServices,
+  tracker: DependencyTracker,
+): EventAppendServices<State> {
+  const raw = tracker.call(() => services.reducers);
+  const root: {
+    readonly seed: unknown;
+    readonly reducers: unknown;
+    readonly materialize: unknown;
+  } = tracker.call(() => ({
+    seed: descriptorValue(raw, "seed"),
+    reducers: descriptorValue(raw, "reducers"),
+    materialize: descriptorValue(raw, "materialize"),
+  }));
+  const wrappedReducers: Record<
+    string,
+    (state: State, event: EventV1) => State
+  > = {};
+  if (typeof root.reducers === "object" && root.reducers !== null) {
+    for (const key of tracker.call(() =>
+      Object.keys(root.reducers as object),
+    )) {
+      const reducer = tracker.call(() =>
+        descriptorValue(root.reducers as object, key),
+      );
+      if (typeof reducer === "function") {
+        const callback = reducer as (state: State, event: EventV1) => State;
+        wrappedReducers[key] = (state, event) =>
+          tracker.call(() => callback(state, event));
+      }
+    }
+  }
+  return {
+    durableFileSystem: tracker.call(() => services.durableFileSystem),
+    digests: events.digests,
+    isProxy: events.isProxy,
+    schemaRegistry: events.schemaRegistry,
+    reducers: {
+      seed: root.seed as State,
+      reducers: wrappedReducers,
+      materialize: (state, cursor) => {
+        const materialize = root.materialize;
+        return tracker.call(() => {
+          if (typeof materialize !== "function") throw new Error();
+          return (materialize as EventReducerRegistry<State>["materialize"])(
+            state,
+            cursor,
+          );
+        });
+      },
+    },
+  };
+}
+
+function descriptorValue(value: object, key: string): unknown {
+  return Object.getOwnPropertyDescriptor(value, key)?.value as unknown;
 }
 
 function prepared(
@@ -209,10 +402,59 @@ function prepared(
   const events = `${priorEvents}${canonicalEventLine(event)}`;
   const snapshot = `${snapshotCanonical}\n`;
   const effects: readonly [PreparedEventWrite, PreparedEventWrite] = [
-    { kind: "write_file", path: paths.events, content: events },
-    { kind: "write_file", path: paths.snapshot, content: snapshot },
+    Object.freeze({ kind: "write_file", path: paths.events, content: events }),
+    Object.freeze({
+      kind: "write_file",
+      path: paths.snapshot,
+      content: snapshot,
+    }),
   ];
-  return { paths, event, effects, expected: new Map(expected) };
+  return Object.freeze({
+    paths: Object.freeze({ ...paths }),
+    event: freezeEvent(event),
+    effects: Object.freeze(effects),
+    expected: readonlyMap(expected),
+  });
+}
+
+function freezeEvent(event: EventV1): EventV1 {
+  return Object.freeze({
+    ...event,
+    artifactRefs: Object.freeze([...event.artifactRefs]),
+    evidenceRefs: Object.freeze([...event.evidenceRefs]),
+    observedIdentity: Object.freeze({ ...event.observedIdentity }),
+  }) as EventV1;
+}
+
+function readonlyMap(
+  input: ReadonlyMap<string, PathFingerprint>,
+): ReadonlyMap<string, PathFingerprint> {
+  const values = new Map(
+    [...input].map(([key, value]) => [key, Object.freeze({ ...value })]),
+  );
+  const readonly: ReadonlyMap<string, PathFingerprint> = {
+    get size() {
+      return values.size;
+    },
+    get: (key: string) => values.get(key),
+    has: (key: string) => values.has(key),
+    entries: () => values.entries(),
+    keys: () => values.keys(),
+    values: () => values.values(),
+    forEach: (
+      callback: (
+        value: PathFingerprint,
+        key: string,
+        map: ReadonlyMap<string, PathFingerprint>,
+      ) => void,
+    ) => {
+      values.forEach((value, key) => {
+        callback(value, key, readonly);
+      });
+    },
+    [Symbol.iterator]: () => values[Symbol.iterator](),
+  };
+  return Object.freeze(readonly);
 }
 
 function canonicalEventLine(event: EventV1): string {
@@ -221,20 +463,19 @@ function canonicalEventLine(event: EventV1): string {
 
 function fileFingerprint(
   entry: DurableEntry,
-  path: string,
   stream: boolean,
 ): PathFingerprint {
   if (entry.kind === "missing") return { kind: "missing" };
-  if (entry.kind !== "file") throw stateCorrupt(eventEvidenceFor(path));
+  if (entry.kind !== "file") throw new IntegrityFailure();
   if (
     !Number.isSafeInteger(entry.size) ||
     entry.size < 0 ||
     typeof entry.sha256 !== "string"
   ) {
-    throw stateCorrupt(eventEvidenceFor(path));
+    throw new IntegrityFailure();
   }
   if (stream && entry.size > EVENT_STREAM_BYTES) {
-    throw stateCorrupt(eventEvidenceFor(path));
+    throw new IntegrityFailure();
   }
   return { kind: "file", size: entry.size, sha256: entry.sha256 };
 }
@@ -246,16 +487,12 @@ async function readExact(
   digests: Digests,
   stream: boolean,
 ): Promise<string> {
-  const text = await durableFileSystem.readText(path);
+  const text = await storageCall(() => durableFileSystem.readText(path));
   const size = encoder.encode(text).byteLength;
-  if (stream && size > EVENT_STREAM_BYTES)
-    throw stateCorrupt(eventEvidenceFor(path));
   if (size !== expected.size || digests.sha256(text) !== expected.sha256) {
-    throw new TransactionFailure(
-      "runtime.revision_conflict",
-      eventEvidenceFor(path),
-    );
+    throw new RevisionConflict(eventEvidenceFor(path));
   }
+  if (stream && size > EVENT_STREAM_BYTES) throw new IntegrityFailure();
   return text;
 }
 
@@ -263,19 +500,22 @@ function assertPersistedSnapshot<State>(
   text: string,
   replayCanonical: string,
   services: EventAppendServices<State>,
+  tracker: DependencyTracker,
 ): void {
   let value: unknown;
   try {
     value = JSON.parse(text) as unknown;
   } catch {
-    throw new EventIntegrityError("invalid_event");
+    throw new IntegrityFailure();
   }
-  const contract = prepareContract(services.schemaRegistry, {
-    id: "state.snapshot",
-    version: stateContractVersion(value),
-    value,
-    structuralReasonCode: "runtime.state_corrupt",
-  });
+  const contract = eventDomain(tracker, () =>
+    prepareContract(services.schemaRegistry, {
+      id: "state.snapshot",
+      version: stateContractVersion(value),
+      value,
+      structuralReasonCode: "runtime.state_corrupt",
+    }),
+  );
   if (contract.kind === "invalid") {
     const reasonCode = contract.diagnostics
       .map(({ reasonCode }) => reasonCode)
@@ -288,13 +528,13 @@ function assertPersistedSnapshot<State>(
           reason === "contract.state_version_invalid" ||
           reason === "contract.state_version_unsupported",
       );
-    throw new EventIntegrityError("invalid_event", reasonCode ?? null);
+    throw new IntegrityFailure(reasonCode ?? null);
   }
   if (
     text !== `${replayCanonical}\n` ||
     contract.canonical !== replayCanonical
   ) {
-    throw new EventIntegrityError("invalid_event");
+    throw new IntegrityFailure();
   }
 }
 
@@ -310,8 +550,9 @@ function stateCorrupt(
     readonly kind: "event" | "artifact";
     readonly ref: string;
   }[],
-): TransactionFailure {
-  return new TransactionFailure("runtime.state_corrupt", evidence);
+): IntegrityFailure {
+  void evidence;
+  return new IntegrityFailure();
 }
 
 function eventEvidence(
@@ -345,11 +586,13 @@ function classifiedFailure(
     readonly ref: string;
   }[],
 ): TransactionFailure {
-  if (error instanceof TransactionFailure) return error;
-  if (error instanceof EventIntegrityError) {
+  if (error instanceof RevisionConflict) {
+    return new TransactionFailure("runtime.revision_conflict", error.evidence);
+  }
+  if (error instanceof IntegrityFailure) {
     return new TransactionFailure(
       error.reasonCode ?? "runtime.state_corrupt",
-      evidence,
+      error.reasonCode === null ? evidence : [],
     );
   }
   return new TransactionFailure("runtime.internal_failure", []);

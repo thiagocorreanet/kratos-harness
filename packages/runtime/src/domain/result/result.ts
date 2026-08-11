@@ -85,7 +85,11 @@ export function transactionFailureResult(
     return internalFailure();
   }
   return resultFor(error.reasonCode, {
-    evidence: error.evidence,
+    evidence:
+      error.reasonCode === "contract.state_version_invalid" ||
+      error.reasonCode === "contract.state_version_unsupported"
+        ? []
+        : error.evidence,
     summary: "The managed transaction did not reach a committed state.",
     why: ["The durable transaction boundary reported a blocked condition."],
   });
