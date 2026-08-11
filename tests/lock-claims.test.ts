@@ -910,6 +910,66 @@ describe("durable lock claims", () => {
     );
   });
 
+  it("keeps A's replacement when B loses a scheduled admission recovery election", async () => {
+    const paths = lockPaths("project");
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseExclusive = storage.durableFileSystem.createDirectoryExclusive;
+    let opened!: () => void;
+    const openedMarker = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let continueA!: () => void;
+    const releaseA = new Promise<void>((resolve) => {
+      continueA = resolve;
+    });
+    let ordinal = 0;
+    const lockServices = withDurable(storage, {
+      createDirectoryExclusive: async (path) => {
+        await baseExclusive(path);
+        if (path === `${paths.admissionClaim}/.recovery` && ++ordinal === 1) {
+          opened();
+          await releaseA;
+        }
+      },
+    });
+    const clock = "2026-08-11T00:00:35.000Z";
+    const contenderA = acquireClaim(projectClaim, {
+      ...lockServices,
+      clock: fixedClock(clock),
+    });
+    await openedMarker;
+    const contenderB = await acquireClaim(
+      { ...projectClaim, owner: "codex:session-03" },
+      { ...lockServices, clock: fixedClock(clock) },
+    );
+    expect(contenderB).toMatchObject({ kind: "conflict" });
+    continueA();
+    const winner = acquiredClaim(await contenderA);
+    expect(winner.claimId).not.toBe("admission-stale");
+    expect(storage.snapshot().files[paths.claimRecord]).toBe(
+      canonicalizeJson({
+        claimId: winner.claimId,
+        resource: winner.resource,
+        owner: winner.owner,
+        leaseId: winner.leaseId,
+        fencingToken: winner.fencingToken,
+        acquiredAt: winner.acquiredAt,
+        expiresAt: winner.expiresAt,
+      }),
+    );
+  });
+
   it.each(["removeFile", "syncDirectory"] as const)(
     "returns typed recovery-required when admission cleanup %s fails",
     async (failure) => {
