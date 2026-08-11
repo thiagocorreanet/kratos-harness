@@ -8,3 +8,10 @@ export {
 } from "./model.js";
 export { snapshotEventDraft } from "./redaction.js";
 export { sealEvent, unsignedEvent } from "./seal.js";
+export {
+  EVENT_RECORD_BYTES,
+  EVENT_STREAM_BYTES,
+  EVENT_STREAM_COUNT,
+  parseEventLines,
+} from "./parse.js";
+export { verifyEventStream, type VerifiedEventStream } from "./verify.js";
