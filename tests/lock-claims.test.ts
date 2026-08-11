@@ -128,7 +128,7 @@ describe("durable lock claims", () => {
     );
     const snapshot = storage.snapshot();
 
-    expect(claim).toMatchObject({ claimId: "claim-1" });
+    expect(claim).toMatchObject({ claimId: "claim-2" });
     expect(snapshot.directories).toEqual(
       expect.arrayContaining([
         ".brain/locks",
@@ -144,10 +144,28 @@ describe("durable lock claims", () => {
     if (typeof claimText !== "string")
       throw new Error("Claim was not persisted");
     expect(JSON.parse(claimText)).toMatchObject({
-      claimId: "claim-1",
+      claimId: "claim-2",
       resource: "run:run-01",
       owner: "codex:session-01",
     });
+  });
+
+  it("assigns a fresh identity to each admission incarnation", async () => {
+    const storage = lockStorage();
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    const identities: string[] = [];
+    const lockServices = withDurable(storage, {
+      writeSynced: async (path, text) => {
+        if (path === lockPaths("project").admissionRecord)
+          identities.push((JSON.parse(text) as { claimId: string }).claimId);
+        await baseWrite(path, text);
+      },
+    });
+    const first = await acquireClaim(projectClaim, lockServices);
+    await releaseClaim({ resource: "project", observed: first }, lockServices);
+    await acquireClaim(projectClaim, lockServices);
+    expect(identities).toHaveLength(3);
+    expect(new Set(identities).size).toBe(3);
   });
 
   it("does not flatten corrupt claim paths into contention", async () => {
@@ -480,7 +498,7 @@ describe("durable lock claims", () => {
     } else await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  it("contains admission cleanup inspection and read failures", async () => {
+  it("maps admission cleanup inspection and read failures to internal failure", async () => {
     const inspectionStorage = lockStorage();
     const baseInspect = inspectionStorage.durableFileSystem.inspect;
     await expect(
@@ -493,7 +511,7 @@ describe("durable lock claims", () => {
               : baseInspect(path),
         }),
       ),
-    ).resolves.toMatchObject({ resource: "project" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
 
     const readStorage = lockStorage();
     const baseRead = readStorage.durableFileSystem.readText;
@@ -507,7 +525,7 @@ describe("durable lock claims", () => {
               : baseRead(path),
         }),
       ),
-    ).resolves.toMatchObject({ resource: "project" });
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
   it("contains a write race whose winner cannot be safely reread", async () => {
