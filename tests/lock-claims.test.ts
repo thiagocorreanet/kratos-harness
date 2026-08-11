@@ -16,6 +16,9 @@ import {
 } from "../packages/runtime/src/infra/fake/index.js";
 import { createSchemaRegistry } from "@mestre-yoda/runtime/composition/schema";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
+import { prepareLeaseTransition } from "@mestre-yoda/runtime/domain/locks";
+import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
+import { types } from "node:util";
 import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +78,41 @@ function expiredClaimStorage() {
       ),
     },
   });
+}
+
+function boundLeaseFiles() {
+  const paths = lockPaths("project");
+  const prepared = prepareLeaseTransition(
+    {
+      action: "acquire",
+      priorEvents: "",
+      lease: {
+        contractVersion: "1.0.0",
+        stateContract: "1.0.0",
+        resource: "project",
+        owner: "codex:session-01",
+        leaseId: "lease-01",
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:02:00.000Z",
+        fencingToken: 1,
+        stateRevision: 1,
+      },
+      leaseRef: paths.lease,
+      eventId: "event-01",
+      occurredAt: "2026-08-11T00:00:00.000Z",
+      observedIdentity: { host: "codex", model: null },
+    },
+    {
+      digests: sha256Digests(),
+      schemaRegistry: createSchemaRegistry(),
+      isProxy: types.isProxy,
+      isPromise: types.isPromise,
+    },
+  );
+  return {
+    [paths.lease]: prepared.leaseText,
+    [paths.events]: prepared.eventsText,
+  };
 }
 
 describe("durable lock claims", () => {
@@ -287,6 +325,41 @@ describe("durable lock claims", () => {
     const storage = lockStorage({ directories: [path] });
     await expect(
       inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("returns a bound active lease observation and rejects a corrupt binding", async () => {
+    const storage = lockStorage({ files: boundLeaseFiles() });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({
+      kind: "active",
+      guard: { leaseId: "lease-01", fencingToken: 1 },
+    });
+    const corrupt = lockStorage({
+      files: {
+        ...boundLeaseFiles(),
+        [lockPaths("project").events]: "not-json\n",
+      },
+    });
+    await expect(
+      inspectLease("project", services(corrupt)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("refuses recovery when transaction inspection finds an invalid marker", async () => {
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").claimRecord]: canonicalizeJson(
+          observedClaim.observed,
+        ),
+      },
+      directories: [".brain/transactions/transaction-01"],
+    });
+    await expect(
+      recoverClaim(observedClaim, services(storage)),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
     });
