@@ -165,6 +165,12 @@ function publishedAdmissionRecord(record: object): string {
   return `${lockPaths("project").admissionClaim}/.claim-${digest}/claim.json`;
 }
 
+function candidateAdmissionRecord(record: LockClaimRecord): string {
+  const digest = sha256Digests().sha256(canonicalizeJson(record));
+  const root = lockPaths("project").admissionClaim.slice(0, -6);
+  return `${root}/.candidate-${String(Date.parse(record.expiresAt))}-${digest}/.claim-${digest}/claim.json`;
+}
+
 function parentDirectory(path: string): string {
   return path.slice(0, path.lastIndexOf("/"));
 }
@@ -240,6 +246,85 @@ describe("durable lock claims", () => {
     await acquireClaim(projectClaim, lockServices);
     expect(identities).toHaveLength(3);
     expect(new Set(identities).size).toBe(3);
+  });
+
+  it.each([
+    ".candidate-zero-" + "a".repeat(64),
+    ".candidate-123-not-a-digest",
+    ".candidate-123-" + "A".repeat(64),
+  ])("rejects malformed admission candidate %s", async (name) => {
+    const root = lockPaths("project").admissionClaim.slice(0, -6);
+    await expect(
+      inspectLease(
+        "project",
+        services(lockStorage({ directories: [`${root}/${name}`] })),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("reclaims an expired complete candidate without treating it as a holder", async () => {
+    const stale: LockClaimRecord = {
+      claimId: "candidate-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const path = candidateAdmissionRecord(stale);
+    const storage = lockStorage({ files: { [path]: canonicalizeJson(stale) } });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:02:00.000Z")),
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().files[path]).toBeUndefined();
+  });
+
+  it.each(["file-root", "wrong-child", "bad-content"] as const)(
+    "rejects a %s candidate layout",
+    async (mode) => {
+      const candidate: LockClaimRecord = {
+        claimId: "candidate-invalid",
+        resource: "admission",
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const recordPath = candidateAdmissionRecord(candidate);
+      const root = parentDirectory(parentDirectory(recordPath));
+      const seed =
+        mode === "file-root"
+          ? { files: { [root]: "bad" } }
+          : mode === "wrong-child"
+            ? { files: { [`${root}/unexpected`]: "bad" } }
+            : { files: { [recordPath]: "{}" } };
+      await expect(
+        inspectLease("project", services(lockStorage(seed))),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it("reclaims an expired candidate interrupted before its record write", async () => {
+    const candidate: LockClaimRecord = {
+      claimId: "candidate-partial",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const recordPath = candidateAdmissionRecord(candidate);
+    const root = parentDirectory(parentDirectory(recordPath));
+    const storage = lockStorage({
+      directories: [root, parentDirectory(recordPath)],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:02:00.000Z")),
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().directories).not.toContain(root);
   });
 
   it("does not flatten corrupt claim paths into contention", async () => {
@@ -1680,7 +1765,7 @@ describe("durable lock claims", () => {
 
   it.each(["link"] as const)(
     "turns normal admission cleanup %s faults into recovery-required",
-    async (fault) => {
+    async () => {
       const storage = lockStorage();
       const baseWrite = storage.durableFileSystem.writeSynced;
       const baseMarker = storage.durableFileSystem.createDirectoryExclusive;
@@ -1703,7 +1788,7 @@ describe("durable lock claims", () => {
               return baseWrite(path, text);
             },
             linkFileExclusive: async (source, target) => {
-              if (fault === "link" && isPublishedAdmissionRecordPath(source))
+              if (isPublishedAdmissionRecordPath(source))
                 throw new Error("cleanup link fault");
               return storage.durableFileSystem.linkFileExclusive(
                 source,

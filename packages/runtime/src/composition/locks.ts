@@ -696,7 +696,8 @@ async function locateAdmission(
   if (generations.length > 1 || (generations.length !== 0 && legacy))
     throw corrupt(admissionClaim);
   if (generations.length === 0) return legacy ? legacyAdmissionLocation : null;
-  const location = generations[0]!;
+  const location = generations[0];
+  if (location === undefined) throw internal();
   try {
     const entry = await services.durableFileSystem.inspect(location.directory);
     if (entry.kind !== "directory") throw corrupt(location.directory);
