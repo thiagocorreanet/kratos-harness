@@ -83,6 +83,8 @@ interface VersionCase {
   readonly description: string;
   readonly value: unknown;
   readonly reasonCode: EventIntegrityError["reasonCode"];
+  readonly rejectedValue: string | null;
+  readonly diagnosticWording: string;
 }
 
 describe("event hash-chain verification", () => {
@@ -204,32 +206,44 @@ describe("event hash-chain verification", () => {
         );
       })(),
       reasonCode: "contract.state_version_invalid",
+      rejectedValue: null,
+      diagnosticWording: "contract.state_version_invalid",
     },
     {
       description: "a malformed version",
-      value: { ...stream()[0], stateContract: 1 },
+      value: { ...stream()[0], stateContract: "not-a-contract-version" },
       reasonCode: "contract.state_version_invalid",
+      rejectedValue: "not-a-contract-version",
+      diagnosticWording: "contract.state_version_invalid",
     },
     {
       description: "an unsupported version",
       value: { ...stream()[0], stateContract: "2.0.0" },
       reasonCode: "contract.state_version_unsupported",
+      rejectedValue: "2.0.0",
+      diagnosticWording: "contract.state_version_unsupported",
     },
   ])(
     "preserves the allowlisted reason code for $description",
-    ({ value, reasonCode }) => {
+    ({ value, reasonCode, rejectedValue, diagnosticWording }) => {
       const error = integrityError(() =>
         verifyEventStream(`${canonicalizeJson(value)}\n`, services),
       );
 
       expect(error.kind).toBe("invalid_event");
       expect(error.reasonCode).toBe(reasonCode);
+      expect(error.message).toBe("Event stream integrity validation failed");
+      expect(error.message).not.toContain(diagnosticWording);
+      if (rejectedValue !== null) {
+        expect(error.message).not.toContain(rejectedValue);
+      }
     },
   );
 
   it("does not copy rejected content or structural diagnostic wording", () => {
     const [first] = stream();
-    const rejected = "attacker-version-text";
+    const rejected = "attacker payload with spaces";
+    const diagnosticWording = "must match pattern";
     const error = integrityError(() =>
       verifyEventStream(
         `${canonicalizeJson({ ...first, eventId: rejected })}\n`,
@@ -239,27 +253,48 @@ describe("event hash-chain verification", () => {
 
     expect(error.kind).toBe("invalid_event");
     expect(error.reasonCode).toBeNull();
+    expect(error.message).toBe("Event stream integrity validation failed");
     expect(error.message).not.toContain(rejected);
+    expect(error.message).not.toContain(diagnosticWording);
   });
 
   it("returns an empty parsed stream only for empty text", () => {
     expect(parseEventLines("", services.schemaRegistry)).toEqual([]);
   });
 
-  it("enforces record byte limits using UTF-8 byte length", () => {
-    const exact = `${"€".repeat(Math.floor((EVENT_RECORD_BYTES - 1) / 3))}a\n`;
-    const overflow = `${exact.slice(0, -1)}é\n`;
+  it("enforces exact record byte limits", () => {
+    const exact = "a".repeat(EVENT_RECORD_BYTES);
+    const overflow = `${exact}a`;
 
-    expect(new TextEncoder().encode(exact.slice(0, -1)).byteLength).toBe(
-      EVENT_RECORD_BYTES,
-    );
+    expect(new TextEncoder().encode(exact).byteLength).toBe(65_536);
+    expect(new TextEncoder().encode(overflow).byteLength).toBe(65_537);
     expect(
-      integrityError(() => parseEventLines(exact, services.schemaRegistry))
-        .kind,
+      integrityError(() =>
+        parseEventLines(`${exact}\n`, services.schemaRegistry),
+      ).kind,
     ).toBe("invalid_event");
     expect(
-      integrityError(() => parseEventLines(overflow, services.schemaRegistry))
-        .kind,
+      integrityError(() =>
+        parseEventLines(`${overflow}\n`, services.schemaRegistry),
+      ).kind,
+    ).toBe("resource_limit");
+  });
+
+  it("measures multibyte record limits with UTF-8 bytes", () => {
+    const exact = `${"€".repeat(Math.floor((EVENT_RECORD_BYTES - 1) / 3))}a`;
+    const overflow = `${exact}a`;
+
+    expect(new TextEncoder().encode(exact).byteLength).toBe(65_536);
+    expect(new TextEncoder().encode(overflow).byteLength).toBe(65_537);
+    expect(
+      integrityError(() =>
+        parseEventLines(`${exact}\n`, services.schemaRegistry),
+      ).kind,
+    ).toBe("invalid_event");
+    expect(
+      integrityError(() =>
+        parseEventLines(`${overflow}\n`, services.schemaRegistry),
+      ).kind,
     ).toBe("resource_limit");
   });
 
