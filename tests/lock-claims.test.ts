@@ -993,6 +993,7 @@ describe("durable lock claims", () => {
     const baseExclusive = storage.durableFileSystem.createDirectoryExclusive;
     const baseRemove = storage.durableFileSystem.removeFile;
     const baseWrite = storage.durableFileSystem.writeSynced;
+    const baseSync = storage.durableFileSystem.syncDirectory;
     await expect(
       acquireClaim(
         projectClaim,
@@ -1005,6 +1006,7 @@ describe("durable lock claims", () => {
                 paths.admissionRecord,
                 canonicalizeJson(replacement),
               );
+              await baseSync(paths.admissionClaim);
             }
           },
         }),
@@ -1016,6 +1018,35 @@ describe("durable lock claims", () => {
     expect(storage.snapshot().directories).not.toContain(
       `${paths.admissionClaim}/.recovery`,
     );
+  });
+
+  it("returns the observed holder when admission disappears after marker election", async () => {
+    const paths = lockPaths("project");
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseExclusive = storage.durableFileSystem.createDirectoryExclusive;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          createDirectoryExclusive: async (path) => {
+            await baseExclusive(path);
+            await baseRemove(paths.admissionRecord);
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict", claimId: "admission-stale" });
   });
 
   it("fails recoverably when the elected recovery marker cannot be removed", async () => {
