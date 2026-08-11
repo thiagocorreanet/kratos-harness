@@ -249,6 +249,7 @@ describe("durable lock claims", () => {
   });
 
   it.each([
+    ".candidate-0-" + "a".repeat(64),
     ".candidate-zero-" + "a".repeat(64),
     ".candidate-123-not-a-digest",
     ".candidate-123-" + "A".repeat(64),
@@ -261,6 +262,32 @@ describe("durable lock claims", () => {
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
+
+  it.each(["raw", "typed"] as const)(
+    "normalizes %s candidate namespace listing failure",
+    async (mode) => {
+      const root = lockPaths("project").admissionClaim.slice(0, -6);
+      const storage = lockStorage({ directories: [root] });
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            list: async (path) => {
+              if (path !== root) return storage.durableFileSystem.list(path);
+              if (mode === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("candidate list");
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mode === "typed"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
+    },
+  );
 
   it("reclaims an expired complete candidate without treating it as a holder", async () => {
     const stale: LockClaimRecord = {
