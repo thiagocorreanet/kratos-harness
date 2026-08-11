@@ -112,6 +112,7 @@ describe("import extraction", () => {
       "./schema.js",
       "./events.js",
       "./transactions.js",
+      "./locks.js",
     ]);
   });
 });

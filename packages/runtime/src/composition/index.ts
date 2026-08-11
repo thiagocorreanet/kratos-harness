@@ -47,6 +47,18 @@ import {
   type TransactionServices,
   type TransactionSummary,
 } from "./transactions.js";
+import {
+  acquireClaim,
+  ensureLockNamespace,
+  inspectLease,
+  LockFailure,
+  recoverClaim,
+  releaseClaim,
+  type AcquireClaimRequest,
+  type ClaimInspection,
+  type LockClaimRecord,
+  type LockServices,
+} from "./locks.js";
 
 export {
   configurationValidator,
@@ -56,8 +68,20 @@ export {
   preflightManagedTransactions,
   recoverManagedMutation,
   TransactionFailure,
+  acquireClaim,
+  ensureLockNamespace,
+  inspectLease,
+  LockFailure,
+  recoverClaim,
+  releaseClaim,
 };
 export type { TransactionReceipt, TransactionServices, TransactionSummary };
+export type {
+  AcquireClaimRequest,
+  ClaimInspection,
+  LockClaimRecord,
+  LockServices,
+};
 
 /**
  * The one place effect implementations are chosen.
