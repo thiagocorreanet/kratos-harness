@@ -836,11 +836,10 @@ async function recoverClaimHeld(
   return { kind: "recovered" };
 }
 
-export async function inspectLease(
+async function inspectLeaseHeld(
   resource: LeaseResource,
   services: LockServices,
 ): Promise<ClaimInspection> {
-  await inspectLockNamespace(resource, services);
   const claim = await readClaim(resource, services);
   const paths = lockPaths(resource);
   const [leaseEntry, eventsEntry] = await Promise.all([
@@ -887,4 +886,12 @@ export async function inspectLease(
   } catch {
     throw corrupt(paths.lease);
   }
+}
+
+export async function inspectLease(
+  resource: LeaseResource,
+  services: LockServices,
+): Promise<ClaimInspection> {
+  await inspectLockNamespace(resource, services);
+  return inspectLeaseHeld(resource, services);
 }
