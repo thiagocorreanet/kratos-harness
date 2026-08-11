@@ -388,6 +388,51 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("returns conflict and preserves the claim if its fingerprint changes before delete", async () => {
+    const storage = lockStorage();
+    const claimed = await acquireClaim(projectClaim, services(storage));
+    const target = lockPaths("project").claimRecord;
+    const baseInspect = storage.durableFileSystem.inspect;
+    let targetInspections = 0;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: claimed },
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path !== target || entry.kind !== "file") return entry;
+            targetInspections += 1;
+            return targetInspections >= 2
+              ? { ...entry, sha256: "f".repeat(64) }
+              : entry;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+    expect(storage.snapshot().files[target]).toBeTypeOf("string");
+  });
+
+  it("does not delete a claim if its canonical bytes change before delete", async () => {
+    const storage = lockStorage();
+    const claimed = await acquireClaim(projectClaim, services(storage));
+    const target = lockPaths("project").claimRecord;
+    const baseRead = storage.durableFileSystem.readText;
+    let reads = 0;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: claimed },
+        withDurable(storage, {
+          readText: async (path) => {
+            if (path !== target) return baseRead(path);
+            reads += 1;
+            return reads >= 2 ? "{}" : baseRead(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    expect(storage.snapshot().files[target]).toBeTypeOf("string");
+  });
+
   it.each([
     ["lease", lockPaths("project").lease],
     ["events", lockPaths("project").events],
