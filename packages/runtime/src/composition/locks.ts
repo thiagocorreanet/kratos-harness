@@ -37,6 +37,7 @@ const admissionMarker = /^\.recovery-([0-9]{1,13})-([a-f0-9]{64})$/u;
 const admissionTombstone = /^\.retired-([a-f0-9]{64})\.json$/u;
 const admissionGeneration = /^\.claim-([a-f0-9]{64})$/u;
 const admissionCandidate = /^\.candidate-([0-9]{1,13})-([a-f0-9]{64})$/u;
+const admissionQuarantine = /^\.quarantine-([0-9]{1,13})-([a-f0-9]{64})$/u;
 
 interface AdmissionRecoveryMarker {
   readonly path: string;
@@ -140,6 +141,26 @@ function parseAdmissionCandidate(name: string): AdmissionCandidate | null {
       legacy: false,
     }),
   });
+}
+
+function quarantineFor(candidate: AdmissionCandidate): AdmissionCandidate {
+  const path = `${admissionRoot}/.quarantine-${String(candidate.expiresAt)}-${candidate.claimSha256}`;
+  return Object.freeze({
+    ...candidate,
+    path,
+    location: Object.freeze({
+      directory: `${path}/.claim-${candidate.claimSha256}`,
+      recordPath: `${path}/.claim-${candidate.claimSha256}/claim.json`,
+      legacy: false,
+    }),
+  });
+}
+
+function parseAdmissionQuarantine(name: string): AdmissionCandidate | null {
+  const candidate = parseAdmissionCandidate(
+    name.replace(admissionQuarantine, ".candidate-$1-$2"),
+  );
+  return candidate === null ? null : quarantineFor(candidate);
 }
 
 const legacyAdmissionLocation: AdmissionLocation = Object.freeze({
@@ -291,8 +312,10 @@ async function admissionRecoveryMarkers(
       const marker = parseAdmissionMarker(name);
       if (marker === null) {
         const candidate = parseAdmissionCandidate(name);
-        if (candidate === null) throw corrupt(admissionRoot);
-        await assertAdmissionCandidate(candidate, services);
+        const quarantine = parseAdmissionQuarantine(name);
+        const admission = candidate ?? quarantine;
+        if (admission === null) throw corrupt(admissionRoot);
+        await assertAdmissionCandidate(admission, services);
         continue;
       }
       const entry = await services.durableFileSystem.inspect(marker.path);
@@ -319,7 +342,8 @@ async function admissionCandidates(
   try {
     const candidates: AdmissionCandidate[] = [];
     for (const name of await services.durableFileSystem.list(admissionRoot)) {
-      const candidate = parseAdmissionCandidate(name);
+      const candidate =
+        parseAdmissionCandidate(name) ?? parseAdmissionQuarantine(name);
       if (candidate === null) continue;
       await assertAdmissionCandidate(candidate, services);
       candidates.push(candidate);
@@ -1307,7 +1331,14 @@ async function removeAdmissionCandidate(
   candidate: AdmissionCandidate,
   services: LockServices,
 ): Promise<void> {
+  const quarantine = quarantineFor(candidate);
   try {
+    await services.durableFileSystem.renameDirectoryExclusive(
+      candidate.path,
+      quarantine.path,
+    );
+    await services.durableFileSystem.syncDirectory(admissionRoot);
+    candidate = quarantine;
     const record = await services.durableFileSystem.inspect(
       candidate.location.recordPath,
     );
