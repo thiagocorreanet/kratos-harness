@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 
 import type { EventV1, SnapshotV1 } from "@mestre-yoda/contracts";
 import {
@@ -30,12 +31,14 @@ const schemaRegistry = createSchemaRegistry();
 const eventServices = {
   digests: sha256Digests(),
   isProxy: types.isProxy,
+  isPromise: types.isPromise,
   schemaRegistry,
 };
 
 /** Compatible with both the reviewed and corrected third-argument shapes. */
 const replayServices = {
   isProxy: types.isProxy,
+  isPromise: types.isPromise,
   schemaRegistry,
   validate: schemaRegistry.validate.bind(schemaRegistry),
 };
@@ -164,6 +167,17 @@ describe("event reducer replay boundary", () => {
     );
   });
 
+  it("sanitizes a Promise-detector exception", () => {
+    invalidEvent(() =>
+      replayEventStream(stream(), registry(), {
+        ...replayServices,
+        isPromise: () => {
+          throw new Error("private Promise detector failure");
+        },
+      }),
+    );
+  });
+
   it("sanitizes a native Promise whose rejection handler cannot attach", () => {
     const original = Object.getOwnPropertyDescriptor(Promise.prototype, "then");
     if (original === undefined) throw new Error("missing native Promise.then");
@@ -194,6 +208,43 @@ describe("event reducer replay boundary", () => {
 
       invalidEvent(() => replay(value));
       await Promise.resolve();
+    },
+  );
+
+  it("shows that paired hidden reducer state can evade the double-run diagnostic", () => {
+    let invocation = 0;
+    const pairedHiddenState = registry((state, event) => ({
+      ...state,
+      currentStep: `${event.operation}-${String(Math.floor(invocation++ / 2))}`,
+    }));
+
+    const first = replay(pairedHiddenState);
+    const second = replay(pairedHiddenState);
+
+    expect(first.canonical).not.toBe(second.canonical);
+  });
+
+  it.each(["reducer", "materializer"] as const)(
+    "rejects a rejected cross-realm Promise from a %s without leaking it",
+    async (kind) => {
+      const rejected = runInNewContext(
+        "Promise.reject(new Error('private cross-realm rejection'))",
+      ) as Promise<unknown>;
+      const value =
+        kind === "reducer"
+          ? registry(() => rejected as unknown as TestState)
+          : registry(undefined, () => rejected as unknown as SnapshotV1);
+      const unhandled: unknown[] = [];
+      const observe = (reason: unknown) => unhandled.push(reason);
+      process.on("unhandledRejection", observe);
+      try {
+        invalidEvent(() => replay(value));
+        await Promise.resolve();
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off("unhandledRejection", observe);
+      }
     },
   );
 

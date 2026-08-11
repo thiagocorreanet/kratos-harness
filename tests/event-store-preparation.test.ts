@@ -1,6 +1,7 @@
 import { types } from "node:util";
+import { runInNewContext } from "node:vm";
 
-import type { SnapshotV1 } from "@mestre-yoda/contracts";
+import type { EventV1, SnapshotV1 } from "@mestre-yoda/contracts";
 import {
   eventStorePaths,
   prepareEventAppend,
@@ -95,6 +96,7 @@ function services(storage: ReturnType<typeof memoryTransactionStorage>) {
     durableFileSystem: storage.durableFileSystem,
     digests: storage.digests,
     isProxy: types.isProxy,
+    isPromise: types.isPromise,
     reducers,
     schemaRegistry: createSchemaRegistry(),
   };
@@ -206,6 +208,46 @@ describe("event-store append preparation", () => {
     ]);
   });
 
+  it("refuses a first append whose replayed snapshot belongs to another run", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const mismatched: EventReducerRegistry<State> = {
+      ...reducers,
+      seed: { ...seed, runId: "run-02" },
+    };
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(1) },
+        { ...services(storage), reducers: mismatched },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).toEqual(["inspect", "inspect"]);
+    expect(storage.calls()).not.toContain("write_file");
+  });
+
+  it("refuses a persisted snapshot whose replay remains bound to another run", async () => {
+    const mismatched: EventReducerRegistry<State> = {
+      ...reducers,
+      seed: { ...seed, runId: "run-02" },
+    };
+    const first = await firstFiles();
+    const snapshot = JSON.parse(first.snapshot) as SnapshotV1;
+    const storage = persistedStorage({
+      events: first.events,
+      snapshot: `${canonicalizeJson({ ...snapshot, runId: "run-02" })}\n`,
+    });
+
+    await expect(
+      prepareEventAppend(
+        { runId: "run-01", event: draft(2) },
+        { ...services(storage), reducers: mismatched },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).not.toContain("write_file");
+  });
+
   it("returns an immutable map view for prepared fingerprints", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions", ".brain/runs/run-01"],
@@ -247,6 +289,71 @@ describe("event-store append preparation", () => {
         prepareEventAppend({ runId, event: draft(1) }, services(storage)),
       ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
       expect(storage.calls()).toEqual([]);
+    },
+  );
+
+  it.each([
+    [
+      "digest",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        digests: {
+          sha256: () =>
+            runInNewContext(
+              "Promise.reject(new Error('private cross-realm digest'))",
+            ) as never,
+        },
+      }),
+    ],
+    [
+      "schema registry",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        schemaRegistry: {
+          validate: () =>
+            runInNewContext(
+              "Promise.reject(new Error('private cross-realm schema'))",
+            ) as never,
+        } as never,
+      }),
+    ],
+    [
+      "proxy detector",
+      (base: ReturnType<typeof services>) => ({
+        ...base,
+        isProxy: () =>
+          runInNewContext(
+            "Promise.reject(new Error('private cross-realm proxy'))",
+          ) as never,
+      }),
+    ],
+  ] as const)(
+    "sanitizes a rejected cross-realm Promise from %s without an unhandled rejection",
+    async (_label, override) => {
+      const storage = memoryTransactionStorage({
+        directories: [".brain/transactions", ".brain/runs/run-01"],
+      });
+      const unhandled: unknown[] = [];
+      const observe = (reason: unknown) => unhandled.push(reason);
+      process.on("unhandledRejection", observe);
+      try {
+        await expect(
+          prepareEventAppend(
+            { runId: "run-01", event: draft(1) },
+            override(
+              services(storage),
+            ) as unknown as EventAppendServices<State>,
+          ),
+        ).rejects.toMatchObject({
+          reasonCode: "runtime.internal_failure",
+          evidence: [],
+        });
+        await Promise.resolve();
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off("unhandledRejection", observe);
+      }
     },
   );
 
@@ -718,6 +825,46 @@ describe("event-store append preparation", () => {
     expect(prepared.event.operation).toBe("sdd.step-2");
   });
 
+  it("snapshots reducers before the first durable await", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [".brain/transactions", ".brain/runs/run-01"],
+    });
+    const mutable: EventReducerRegistry<State> & {
+      seed: State & { runId: string };
+      reducers: Record<string, (state: State, event: EventV1) => State>;
+    } = {
+      seed: { ...seed },
+      reducers: { ...reducers.reducers },
+      materialize: (state, cursor) => reducers.materialize(state, cursor),
+    };
+    let mutated = false;
+    const durableFileSystem: DurableFileSystem = {
+      ...storage.durableFileSystem,
+      inspect: async (path) => {
+        if (!mutated) {
+          mutated = true;
+          mutable.seed.runId = "run-02";
+          mutable.reducers["policy-01"] = () => ({ ...seed, runId: "run-02" });
+          mutable.materialize = () => {
+            throw new Error("mutated materializer must not run");
+          };
+        }
+        return storage.durableFileSystem.inspect(path);
+      },
+    };
+
+    const prepared = await prepareEventAppend(
+      { runId: "run-01", event: draft(1) },
+      { ...services(storage), durableFileSystem, reducers: mutable },
+    );
+
+    expect(mutated).toBe(true);
+    expect(
+      (JSON.parse(prepared.effects[1].content) as { readonly runId: unknown })
+        .runId,
+    ).toBe("run-01");
+  });
+
   it("refuses throwing input accessors without storage access", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions", ".brain/runs/run-01"],
@@ -880,7 +1027,7 @@ describe("event-store append preparation", () => {
     expect(storage.calls()).toEqual([]);
   });
 
-  it("passes the original registry to the inert replay boundary", async () => {
+  it("rejects a hostile registry before storage without running its traps", async () => {
     const storage = memoryTransactionStorage({
       directories: [".brain/transactions", ".brain/runs/run-01"],
     });
@@ -899,13 +1046,10 @@ describe("event-store append preparation", () => {
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
-      evidence: [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
-      ],
+      evidence: [],
     });
     expect(traps).toBe(0);
-    expect(storage.calls()).toEqual(["inspect", "inspect"]);
+    expect(storage.calls()).toEqual([]);
   });
 
   it.each(["reducer", "materializer"] as const)(

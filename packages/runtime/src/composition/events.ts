@@ -8,6 +8,7 @@ import {
   replayEventStream,
   sealEvent,
   snapshotEventDraft,
+  snapshotEventReducerRegistry,
   verifyEventStream,
   type EventDraftV1,
   type EventReducerRegistry,
@@ -57,10 +58,18 @@ class RevisionConflict extends Error {
 class DependencyTracker {
   private failed = false;
 
+  public constructor(
+    private readonly isPromise: (value: object) => boolean = types.isPromise,
+  ) {}
+
   public call<Value>(operation: () => Value): Value {
     try {
       const value = operation();
-      if (isNativePromise(value)) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        this.isPromise(value)
+      ) {
         void Promise.prototype.then.call(value, undefined, () => undefined);
         this.failed = true;
         throw new DependencyFailure();
@@ -77,12 +86,6 @@ class DependencyTracker {
   }
 }
 
-function isNativePromise(value: unknown): value is Promise<unknown> {
-  return (
-    typeof value === "object" && value !== null && value instanceof Promise
-  );
-}
-
 export interface EventStorePaths {
   readonly events: string;
   readonly snapshot: string;
@@ -92,6 +95,7 @@ export interface EventAppendServices<State = JsonState> {
   readonly durableFileSystem: DurableFileSystem;
   readonly digests: Digests;
   readonly isProxy?: EventServices["isProxy"];
+  readonly isPromise?: EventServices["isPromise"];
   readonly reducers: EventReducerRegistry<State>;
   readonly schemaRegistry: SchemaRegistry;
 }
@@ -124,8 +128,10 @@ export async function prepareEventAppend<State = JsonState>(
   services: EventAppendServices<State>,
 ): Promise<PreparedEventAppend> {
   let paths: EventStorePaths;
+  let runId: string;
   let draft: EventDraftV1;
   let eventServices: EventServices;
+  let reducers: EventReducerRegistry<State>;
   let tracker: DependencyTracker;
   let durableFileSystem: DurableFileSystem;
   try {
@@ -133,8 +139,19 @@ export async function prepareEventAppend<State = JsonState>(
     const trusted = trustedServices(services, tracker);
     const request = snapshotRequest(input, trusted.events.isProxy, tracker);
     paths = derivePaths(request.runId);
+    runId = request.runId;
     draft = request.event;
     eventServices = trusted.events;
+    reducers = eventDomain(tracker, () =>
+      snapshotEventReducerRegistry(
+        tracker.call(() => services.reducers),
+        {
+          isProxy: eventServices.isProxy,
+          isPromise: eventServices.isPromise,
+          schemaRegistry: eventServices.schemaRegistry,
+        },
+      ),
+    );
     durableFileSystem = trusted.durableFileSystem;
   } catch (error) {
     throw classifiedFailure(error, eventEvidenceForUnknownPath());
@@ -162,8 +179,9 @@ export async function prepareEventAppend<State = JsonState>(
       return prepareFirstAppend(
         paths,
         expected,
+        runId,
         draft,
-        services.reducers,
+        reducers,
         eventServices,
         tracker,
       );
@@ -190,11 +208,13 @@ export async function prepareEventAppend<State = JsonState>(
       verifyEventStream(eventsText, eventServices),
     );
     const replay = eventDomain(tracker, () =>
-      replayEventStream(verified, services.reducers, {
+      replayEventStream(verified, reducers, {
         isProxy: eventServices.isProxy,
+        isPromise: eventServices.isPromise,
         schemaRegistry: eventServices.schemaRegistry,
       }),
     );
+    assertReplayRunId(replay.snapshot, runId);
     assertPersistedSnapshot(
       snapshotText,
       replay.canonical,
@@ -212,11 +232,13 @@ export async function prepareEventAppend<State = JsonState>(
       ),
     );
     const nextReplay = eventDomain(tracker, () =>
-      replayEventStream(extended, services.reducers, {
+      replayEventStream(extended, reducers, {
         isProxy: eventServices.isProxy,
+        isPromise: eventServices.isPromise,
         schemaRegistry: eventServices.schemaRegistry,
       }),
     );
+    assertReplayRunId(nextReplay.snapshot, runId);
     return prepared(paths, event, expected, eventsText, nextReplay.canonical);
   } catch (error) {
     throw classifiedFailure(error, evidence);
@@ -251,6 +273,7 @@ function ownData(value: object, key: string): unknown {
 function prepareFirstAppend<State>(
   paths: EventStorePaths,
   expected: ReadonlyMap<string, PathFingerprint>,
+  runId: string,
   draft: EventDraftV1,
   reducers: EventReducerRegistry<State>,
   eventServices: EventServices,
@@ -265,10 +288,19 @@ function prepareFirstAppend<State>(
   const replay = eventDomain(tracker, () =>
     replayEventStream(extended, reducers, {
       isProxy: eventServices.isProxy,
+      isPromise: eventServices.isPromise,
       schemaRegistry: eventServices.schemaRegistry,
     }),
   );
+  assertReplayRunId(replay.snapshot, runId);
   return prepared(paths, event, expected, "", replay.canonical);
+}
+
+function assertReplayRunId(
+  snapshot: { readonly runId: string },
+  runId: string,
+): void {
+  if (snapshot.runId !== runId) throw new IntegrityFailure();
 }
 
 function derivePaths(runId: string): EventStorePaths {
@@ -317,6 +349,7 @@ function trustedServices<State>(
   readonly events: EventServices;
 } {
   const isProxy = tracker.call(() => services.isProxy ?? types.isProxy);
+  const isPromise = tracker.call(() => services.isPromise ?? types.isPromise);
   const rawDigests = tracker.call(() => services.digests);
   const rawSchemaRegistry = tracker.call(() => services.schemaRegistry);
   return {
@@ -326,6 +359,7 @@ function trustedServices<State>(
         sha256: (text) => tracker.call(() => rawDigests.sha256(text)),
       },
       isProxy: (value) => tracker.call(() => isProxy(value)),
+      isPromise: (value) => tracker.call(() => isPromise(value)),
       schemaRegistry: {
         validate: (request) =>
           tracker.call(() => rawSchemaRegistry.validate(request)),

@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 const services = {
   digests: sha256Digests(),
   isProxy: types.isProxy,
+  isPromise: types.isPromise,
   schemaRegistry: createSchemaRegistry(),
 };
 

@@ -633,10 +633,12 @@ describe("effect plan application", () => {
     const verified = verifyEventStream(events, {
       digests: ports.digests,
       isProxy: types.isProxy,
+      isPromise: types.isPromise,
       schemaRegistry,
     });
     const replayed = replayEventStream(verified, eventReducers, {
       isProxy: types.isProxy,
+      isPromise: types.isPromise,
       schemaRegistry,
     });
     expect(state.eventCursor).toBe(1);

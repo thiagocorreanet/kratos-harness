@@ -15,6 +15,29 @@ export interface VerifiedEventStream {
   readonly canonical: string;
 }
 
+const verifiedStreams = new WeakSet<object>();
+
+/** Internal provenance check; intentionally not re-exported by the package API. */
+export function isVerifiedEventStream(
+  value: unknown,
+): value is VerifiedEventStream {
+  return (
+    typeof value === "object" && value !== null && verifiedStreams.has(value)
+  );
+}
+
+function deeplyFreeze<Value>(
+  value: Value,
+  seen = new WeakSet<object>(),
+): Value {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  for (const child of Object.values(value)) deeplyFreeze(child, seen);
+  return Object.freeze(value);
+}
+
 export function verifyEventStream(
   text: string,
   services: EventServices,
@@ -37,5 +60,7 @@ export function verifyEventStream(
     }
     cursor = { revision: event.resultingRevision, hash: event.eventHash };
   }
-  return { events, cursor, canonical: text };
+  const verified = deeplyFreeze({ events, cursor, canonical: text });
+  verifiedStreams.add(verified);
+  return verified;
 }

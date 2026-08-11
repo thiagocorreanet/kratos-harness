@@ -33,5 +33,6 @@ export class EventIntegrityError extends Error {
 export interface EventServices {
   readonly digests: Digests;
   readonly isProxy: (value: object) => boolean;
+  readonly isPromise: (value: object) => boolean;
   readonly schemaRegistry: SchemaRegistry;
 }

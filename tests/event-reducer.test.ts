@@ -29,6 +29,7 @@ interface TestState {
 const services = {
   digests: sha256Digests(),
   isProxy: types.isProxy,
+  isPromise: types.isPromise,
   schemaRegistry: createSchemaRegistry(),
 };
 
@@ -133,6 +134,35 @@ describe("event reducer replay", () => {
     expect(JSON.parse(replay.canonical)).toEqual(replay.snapshot);
   });
 
+  it("accepts only the opaque deeply frozen stream returned by verification", () => {
+    const verified = stream();
+    const event = verified.events.at(0);
+    if (event === undefined) throw new Error("missing verified event");
+
+    expect(Object.isFrozen(verified)).toBe(true);
+    expect(Object.isFrozen(verified.events)).toBe(true);
+    expect(Object.isFrozen(event)).toBe(true);
+    expect(Object.isFrozen(verified.cursor)).toBe(true);
+    expect(Reflect.set(event, "operation", "tampered")).toBe(false);
+    expect(Reflect.set(verified.cursor, "revision", 99)).toBe(false);
+
+    const forgeries = [
+      { ...verified },
+      { ...verified, canonical: "tampered" },
+      { ...verified, events: [{ ...event, operation: "tampered" }] },
+      { ...verified, cursor: { ...verified.cursor, revision: 99 } },
+    ];
+    for (const forged of forgeries) {
+      expect(
+        errorKind(() => replayEventStream(forged, registry, services)),
+      ).toBe("invalid_event");
+    }
+
+    expect(replayEventStream(verified, registry, services).snapshot.runId).toBe(
+      "run-01",
+    );
+  });
+
   it("does not accept a persisted snapshot with a changed bound field", () => {
     const replay = replayEventStream(stream(), registry, services);
     const persisted = { ...replay.snapshot, eventCursor: 99 };
@@ -149,13 +179,15 @@ describe("event reducer replay", () => {
   });
 
   it("rejects an event whose policy has no registered reducer", () => {
-    const verified = stream(1);
-    const event = verified.events.at(0);
-    if (event === undefined) throw new Error("missing verified event");
-    const unsupported = {
-      ...verified,
-      events: [{ ...event, policyVersion: "policy-02" }],
-    };
+    const event = sealEvent(
+      { ...draft(1), policyVersion: "policy-02" },
+      { revision: 0, hash: null },
+      services,
+    );
+    const unsupported = verifyEventStream(
+      `${canonicalizeJson(event)}\n`,
+      services,
+    );
 
     expect(
       errorKind(() => replayEventStream(unsupported, registry, services)),

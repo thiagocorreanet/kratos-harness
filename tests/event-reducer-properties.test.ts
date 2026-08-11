@@ -29,6 +29,7 @@ interface TestState {
 const services = {
   digests: sha256Digests(),
   isProxy: types.isProxy,
+  isPromise: types.isPromise,
   schemaRegistry: createSchemaRegistry(),
 };
 

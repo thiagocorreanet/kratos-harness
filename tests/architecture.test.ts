@@ -285,15 +285,20 @@ describe("dependency direction", () => {
 describe("runtime boundary documentation", () => {
   let guide = "";
   let eventStoreGuide = "";
+  let atomicTransactionsGuide = "";
 
   beforeAll(async () => {
-    [guide, eventStoreGuide] = await Promise.all([
+    [guide, eventStoreGuide, atomicTransactionsGuide] = await Promise.all([
       readFile(
         join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
         "utf8",
       ),
       readFile(
         join(repositoryRoot, "docs/architecture/event-store.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/atomic-transactions.md"),
         "utf8",
       ),
     ]);
@@ -345,6 +350,17 @@ describe("runtime boundary documentation", () => {
     "no raw prompts",
   ])("publishes the event-store integrity boundary: %s", (required) => {
     expect(eventStoreGuide).toContain(required);
+  });
+
+  it("states the conditional reducer and portable filesystem guarantees", () => {
+    expect(eventStoreGuide).toMatch(
+      /caller-supplied reducers and\s+materializer are pure/iu,
+    );
+    expect(eventStoreGuide).toMatch(/double-run comparison is\s+diagnostic/iu);
+    expect(atomicTransactionsGuide).toMatch(
+      /concurrent pathname replacement by a\s+non-cooperating local process/iu,
+    );
+    expect(atomicTransactionsGuide).toContain("directory-handle-relative I/O");
   });
 });
 

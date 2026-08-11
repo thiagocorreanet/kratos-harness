@@ -482,6 +482,7 @@ function snapshotAppendReducers<State>(
             throw new Error("Reducer proxy detector failed");
           }
         },
+        isPromise: types.isPromise,
         schemaRegistry,
       },
     );

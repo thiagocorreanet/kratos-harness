@@ -6,12 +6,13 @@ import {
   type SchemaRegistry,
 } from "../schema/index.js";
 import { EventIntegrityError, type EventChainCursor } from "./model.js";
-import type { VerifiedEventStream } from "./verify.js";
+import { isVerifiedEventStream, type VerifiedEventStream } from "./verify.js";
 
 export type JsonState = unknown;
 
 export interface ReplayServices {
   readonly isProxy: (value: object) => boolean;
+  readonly isPromise: (value: object) => boolean;
   readonly schemaRegistry: SchemaRegistry;
 }
 
@@ -66,6 +67,14 @@ export function isRecognizedReducerRegistryFailure(
 function isProxy(value: object, services: ReplayServices): boolean {
   try {
     return services.isProxy(value);
+  } catch {
+    return invalidEvent();
+  }
+}
+
+function isPromise(value: object, services: ReplayServices): boolean {
+  try {
+    return services.isPromise(value);
   } catch {
     return invalidEvent();
   }
@@ -281,36 +290,14 @@ function freezeJson(value: JsonState): JsonState {
   return Object.freeze(value);
 }
 
-function snapshotStream(
-  stream: VerifiedEventStream,
-  services: ReplayServices,
-): { readonly cursor: EventChainCursor; readonly events: readonly EventV1[] } {
-  const value = normalizeJson(stream, services) as Readonly<
-    Record<string, unknown>
-  >;
-  const sourceEvents = value.events;
-  const cursor = value.cursor;
-  if (!Array.isArray(sourceEvents) || sourceEvents.length === 0) invalidEvent();
-  const events: readonly unknown[] = sourceEvents;
-  if (typeof cursor !== "object" || cursor === null || Array.isArray(cursor)) {
-    invalidEvent();
-  }
-  const last = events.at(-1);
-  if (typeof last !== "object" || last === null || Array.isArray(last))
-    invalidEvent();
-  const cursorRecord = cursor as Readonly<Record<string, unknown>>;
-  const lastEvent = last as Readonly<Record<string, unknown>>;
-  if (
-    typeof cursorRecord.revision !== "number" ||
-    typeof cursorRecord.hash !== "string" ||
-    cursorRecord.revision !== lastEvent.resultingRevision ||
-    cursorRecord.hash !== lastEvent.eventHash
-  ) {
-    invalidEvent();
-  }
+function snapshotStream(stream: VerifiedEventStream): {
+  readonly cursor: EventChainCursor;
+  readonly events: readonly EventV1[];
+} {
+  if (stream.events.length === 0) invalidEvent();
   return {
-    cursor: { hash: cursorRecord.hash, revision: cursorRecord.revision },
-    events: events as readonly EventV1[],
+    cursor: stream.cursor,
+    events: stream.events,
   };
 }
 
@@ -384,7 +371,7 @@ function reduceOnce<State>(
     tracked,
   );
   const result = reducer(stateInput, eventInput);
-  rejectNativePromise(result, services, tracked);
+  rejectPromise(result, services, tracked);
   if (tracked.attempted) invalidEvent();
   return normalizeJson(result, services, tracked) as State;
 }
@@ -405,12 +392,12 @@ function materializeOnce<State>(
     tracked,
   );
   const result = materialize(stateInput, cursorInput);
-  rejectNativePromise(result, services, tracked);
+  rejectPromise(result, services, tracked);
   if (tracked.attempted) invalidEvent();
   return normalizeJson(result, services, tracked) as SnapshotV1;
 }
 
-function rejectNativePromise(
+function rejectPromise(
   value: unknown,
   services: ReplayServices,
   tracked: TrackedViews,
@@ -418,7 +405,7 @@ function rejectNativePromise(
   if (typeof value !== "object" || value === null) return;
   if (tracked.rawByView.has(value)) return;
   if (isProxy(value, services)) invalidEvent();
-  if (!(value instanceof Promise)) return;
+  if (!isPromise(value, services)) return;
   try {
     void Promise.prototype.then.call(value, undefined, () => undefined);
   } catch {
@@ -449,7 +436,7 @@ function replay<State>(
   registry: EventReducerRegistry<State>,
   services: ReplayServices,
 ): ReplayResult<State> | typeof MISSING_REDUCER {
-  const verified = snapshotStream(stream, services);
+  const verified = snapshotStream(stream);
   const inert = snapshotRegistry(registry, services);
   let state = inert.seed;
   for (const event of verified.events) {
@@ -498,6 +485,7 @@ export function replayEventStream<State = JsonState>(
 ): ReplayResult<State> {
   let result: ReplayResult<State> | typeof MISSING_REDUCER;
   try {
+    if (!isVerifiedEventStream(stream)) invalidEvent();
     result = replay(stream, registry, services);
   } catch {
     throw new EventIntegrityError("invalid_event");
