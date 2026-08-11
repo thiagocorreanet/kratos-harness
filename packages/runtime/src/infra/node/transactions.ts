@@ -1,4 +1,4 @@
-import { constants, type Stats } from "node:fs";
+import { constants, lstatSync, realpathSync, type Stats } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -171,23 +171,24 @@ export function nodeDurableFileSystem(
   root: string,
   observer?: DurableOperationObserver,
 ): DurableFileSystem {
-  let canonicalRoot: Promise<CanonicalRootIdentity> | undefined;
-
-  function loadCanonicalRoot(): Promise<CanonicalRootIdentity> {
-    canonicalRoot ??= realpath(root).then(
-      async (path): Promise<CanonicalRootIdentity> => {
-        const details = await lstat(path);
-        if (details.isSymbolicLink() || !details.isDirectory()) {
-          throw new Error("Runtime project root is not a directory");
-        }
-        return { path, device: details.dev, inode: details.ino };
-      },
-    );
-    return canonicalRoot;
-  }
+  const canonicalRoot: CanonicalRootIdentity | Error = (() => {
+    try {
+      const path = realpathSync.native(root);
+      const details = lstatSync(path);
+      if (details.isSymbolicLink() || !details.isDirectory()) {
+        throw new Error("Runtime project root is not a directory");
+      }
+      return { path, device: details.dev, inode: details.ino };
+    } catch (error) {
+      return error instanceof Error
+        ? error
+        : new Error("Runtime project root is unusable");
+    }
+  })();
 
   async function validatedRoot(): Promise<string> {
-    const expected = await loadCanonicalRoot();
+    if (canonicalRoot instanceof Error) throw canonicalRoot;
+    const expected = canonicalRoot;
     try {
       const details = await lstat(expected.path);
       if (

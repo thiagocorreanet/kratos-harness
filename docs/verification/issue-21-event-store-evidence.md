@@ -2,9 +2,9 @@
 
 Issue [#21](https://github.com/thiagocorreanet/mestre-yoda/issues/21)
 (`RUN-06`) records verification for the internal append-only event store. The
-evidence below reports only results captured by Tasks 1–6 and the documentation
-contract run. Durations appear only where the prior run captured one. This
-record does not claim compatibility parity credit or a public command.
+evidence below reports results captured by Tasks 1–7 and the final repository
+gate. Durations appear only where the prior run captured one. This record does
+not claim compatibility parity credit or a public command.
 
 ## Documentation-contract RED
 

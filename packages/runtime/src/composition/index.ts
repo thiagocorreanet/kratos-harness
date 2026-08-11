@@ -234,11 +234,9 @@ function preparedFingerprint(
   prepared: PreparedEventAppend,
   path: string,
 ): PathFingerprint {
-  return [...prepared.expected].reduce<PathFingerprint>(
-    (current, [candidate, fingerprint]) =>
-      candidate === path ? fingerprint : current,
-    { kind: "missing" },
-  );
+  // The prepared effect owns exactly these two map keys.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return prepared.expected.get(path)!;
 }
 
 function snapshotApplyInput(

@@ -170,6 +170,30 @@ describe("node durable filesystem operations", () => {
     });
   });
 
+  it("does not leave an unhandled root lookup when an observer rejects first", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "yoda-node-root-absent-"));
+    const root = join(parent, "missing");
+    const failure = new Error("observer rejected before validation");
+    const rejections: unknown[] = [];
+    const observe = (reason: unknown): void => {
+      rejections.push(reason);
+    };
+    process.on("unhandledRejection", observe);
+    try {
+      const fileSystem = nodeDurableFileSystem(root, () =>
+        Promise.reject(failure),
+      );
+
+      await expect(fileSystem.syncDirectory(".")).rejects.toBe(failure);
+      await Promise.resolve();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", observe);
+      await rm(parent, { force: true, recursive: true });
+    }
+  });
+
   it("downgrades only Windows EISDIR for directory synchronization", () => {
     const error = (code: string): NodeJS.ErrnoException =>
       Object.assign(new Error(code), { code });

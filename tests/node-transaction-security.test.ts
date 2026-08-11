@@ -34,6 +34,38 @@ async function temporaryProject<T>(
 }
 
 describe("node durable filesystem security", () => {
+  it("rejects a root symlink swap before the first durable operation", async () => {
+    const container = await mkdtemp(join(tmpdir(), "yoda-node-root-swap-"));
+    const root = join(container, "project");
+    const displaced = join(container, "project-original");
+    const outside = join(container, "outside");
+    try {
+      await mkdir(join(root, ".brain"), { recursive: true });
+      await mkdir(join(outside, ".brain"), { recursive: true });
+      await writeFile(join(root, ".brain/state.json"), "ORIGINAL", "utf8");
+      await writeFile(join(outside, ".brain/state.json"), "SENTINEL", "utf8");
+      const fileSystem = nodeDurableFileSystem(root);
+      await rename(root, displaced);
+      await symlink(outside, root, "dir");
+
+      await expect(fileSystem.inspect(".brain/state.json")).rejects.toThrow(
+        "project root changed",
+      );
+      await expect(
+        fileSystem.writeSynced(".brain/state.json", "PWNED"),
+      ).rejects.toThrow("project root changed");
+
+      expect(await readFile(join(outside, ".brain/state.json"), "utf8")).toBe(
+        "SENTINEL",
+      );
+      expect(await readFile(join(displaced, ".brain/state.json"), "utf8")).toBe(
+        "ORIGINAL",
+      );
+    } finally {
+      await rm(container, { force: true, recursive: true });
+    }
+  });
+
   it("rejects an operation when the canonical root is persistently replaced by a symlink", async () => {
     const container = await mkdtemp(join(tmpdir(), "yoda-node-root-swap-"));
     const root = join(container, "project");
