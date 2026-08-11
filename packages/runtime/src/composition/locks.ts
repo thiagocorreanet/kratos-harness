@@ -186,6 +186,7 @@ async function assertCanonicalRunChildren(
         "directory"
       )
         throw corrupt(`${root}/${name}`);
+      await readClaim(`run:${decoded}`, services);
     }
   } catch (error) {
     if (error instanceof LockFailure) throw error;
@@ -231,6 +232,7 @@ async function inspectLockNamespace(
       case "file":
         throw corrupt(admissionClaim);
     }
+    await readAdmissionClaim(services);
   }
   const runs = await inspect(`${locksRoot}/runs`);
   if (runs.kind !== "missing") {
@@ -256,6 +258,7 @@ async function inspectLockNamespace(
         services,
       );
     }
+    await readClaim("project", services);
   }
   const chain = [
     ".brain",
