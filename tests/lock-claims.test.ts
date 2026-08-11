@@ -1190,6 +1190,68 @@ describe("durable lock claims", () => {
     },
   );
 
+  it.each(["source", "tombstone", "missing", "replacement"] as const)(
+    "stops safely after failed atomic replace exposing %s",
+    async (state) => {
+      const stale = {
+        claimId: "admission-stale",
+        resource: "admission" as const,
+        owner: "codex:session-02",
+        leaseId: null,
+        fencingToken: null,
+        acquiredAt: "2026-08-11T00:00:00.000Z",
+        expiresAt: "2026-08-11T00:00:30.000Z",
+      };
+      const paths = lockPaths("project");
+      const marker = admissionRecoveryMarker(stale);
+      const tombstone = admissionTombstone(stale);
+      const storage = lockStorage({
+        files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeFile;
+      const baseReplace = storage.durableFileSystem.replaceFile;
+      const baseWrite = storage.durableFileSystem.writeSynced;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          replaceFile: async (source, target) => {
+            if (state === "tombstone") await baseReplace(source, target);
+            if (state === "missing") await baseRemove(source);
+            if (state === "replacement") {
+              await baseRemove(source);
+              await baseWrite(
+                source,
+                canonicalizeJson({ ...stale, claimId: "admission-new" }),
+              );
+            }
+            throw new Error("race");
+          },
+        }),
+      );
+      if (state === "replacement")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.state_corrupt",
+        });
+      else if (state === "source")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.internal_failure",
+        });
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode:
+            state === "missing"
+              ? "runtime.internal_failure"
+              : "runtime.recovery_required",
+        });
+      if (state === "replacement")
+        expect(storage.snapshot().files[paths.admissionRecord]).toBe(
+          canonicalizeJson({ ...stale, claimId: "admission-new" }),
+        );
+      void tombstone;
+    },
+  );
+
   it("rejects a claim record bound to a different resource", async () => {
     const storage = lockStorage({
       files: {
