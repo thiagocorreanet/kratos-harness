@@ -1081,6 +1081,34 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
+  it("maps a marker loser whose admission record disappears to internal failure", async () => {
+    const paths = lockPaths("project");
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission",
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const storage = lockStorage({
+      files: { [paths.admissionRecord]: canonicalizeJson(stale) },
+    });
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          createDirectoryExclusive: async () => {
+            await baseRemove(paths.admissionRecord);
+            throw new Error("lost");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it.each([
     [
       "stale-record",
