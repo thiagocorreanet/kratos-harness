@@ -932,6 +932,41 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
   });
 
+  it("normalizes requested-chain and admission reread inspection failures", async () => {
+    const inspectStorage = lockStorage({ directories: [".brain/locks"] });
+    const baseInspect = inspectStorage.durableFileSystem.inspect;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(inspectStorage, {
+          inspect: async (path) =>
+            path === lockPaths("project").root
+              ? Promise.reject(new Error("fault"))
+              : baseInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+
+    const admission = lockStorage();
+    const baseAdmissionInspect = admission.durableFileSystem.inspect;
+    const baseAdmissionSync = admission.durableFileSystem.syncDirectory;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(admission, {
+          syncDirectory: async (path) =>
+            path === lockPaths("project").admissionClaim
+              ? Promise.reject(new Error("sync"))
+              : baseAdmissionSync(path),
+          inspect: async (path) =>
+            path === lockPaths("project").admissionRecord
+              ? Promise.reject(new Error("reread"))
+              : baseAdmissionInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
   it("rejects a non-directory runs root and observes the active run holder", async () => {
     const corrupt = lockStorage({ files: { ".brain/locks/runs": "bad" } });
     await expect(
