@@ -59,6 +59,33 @@ function replacementPlan(
 
 describe("managed transaction execution", () => {
   it.each([
+    ["options extra", { rootMode: "existing", extra: true }],
+    ["empty tuple", { rootMode: "existing", eventStorePreconditions: [] }],
+    ["one-entry tuple", { rootMode: "existing", eventStorePreconditions: [{}] }],
+    ["outside pair", { rootMode: "existing", eventStorePreconditions: [
+      { path: ".brain/runs/run-01/events.jsonl", expected: { kind: "missing" } },
+      { path: ".brain/outside.json", expected: { kind: "missing" } },
+    ] }],
+  ])("sanitizes invalid eventStorePreconditions: %s", async (_label, options) => {
+    const storage = memoryTransactionStorage({ directories: [".brain", ".brain/transactions"] });
+    await expect(
+      executeManagedMutation(replacementPlan(storage), options as never, services(storage)),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it("rejects an accessor eventStorePreconditions boundary without creating a marker", async () => {
+    const storage = memoryTransactionStorage({ directories: [".brain", ".brain/transactions"] });
+    const options = Object.defineProperty({ rootMode: "existing" }, "eventStorePreconditions", {
+      get() { throw new TransactionFailure("runtime.state_corrupt", [{ kind: "artifact", ref: ".brain/private" }]); },
+    });
+    await expect(
+      executeManagedMutation(replacementPlan(storage), options as never, services(storage)),
+    ).rejects.toEqual(new TransactionFailure("runtime.internal_failure", []));
+    expect(storage.calls()).not.toContain("create_directory_exclusive");
+  });
+
+  it.each([
     {
       label: "non-object plan",
       reasonCode: "runtime.state_corrupt",
