@@ -130,6 +130,8 @@ describe("node durable filesystem operations", () => {
       await fileSystem.list(".brain");
       await fileSystem.syncDirectory(".brain");
       await fileSystem.replaceFile(".brain/staged", ".brain/target");
+      await fileSystem.linkFileExclusive(".brain/target", ".brain/link");
+      await fileSystem.removeFile(".brain/link");
       await fileSystem.removeFile(".brain/target");
       await fileSystem.removeEmptyDirectory(".brain/run");
 
@@ -144,6 +146,7 @@ describe("node durable filesystem operations", () => {
         "sync_file",
         "close_file",
         "replace_file",
+        "link_file_exclusive",
         "remove_file",
         "remove_empty_directory",
         "sync_directory",

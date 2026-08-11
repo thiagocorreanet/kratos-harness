@@ -389,6 +389,9 @@ describe("node durable filesystem security", () => {
       await expect(
         fileSystem.replaceFile(".brain/staged", ".brain/alias"),
       ).rejects.toThrow("regular file");
+      await expect(
+        fileSystem.linkFileExclusive(".brain/staged", ".brain/alias"),
+      ).rejects.toThrow("already has an entry");
 
       expect(await readFile(sentinel, "utf8")).toBe("SAFE");
       expect((await lstat(join(root, ".brain/alias"))).isSymbolicLink()).toBe(

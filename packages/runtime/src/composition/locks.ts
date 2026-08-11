@@ -322,10 +322,10 @@ async function inspectLockNamespace(
       case "file":
         throw corrupt(admissionClaim);
     }
-    await validateAdmissionRecoveryMarkers(
-      await readAdmissionClaim(services),
-      services,
-    );
+    const holder = await readAdmissionClaim(services);
+    const retired = await readAdmissionTombstone(services);
+    if (holder !== null && retired !== null) throw corrupt(admissionClaim);
+    await validateAdmissionRecoveryMarkers(holder, retired, services);
   }
   const runs = await inspect(`${locksRoot}/runs`);
   if (runs.kind !== "missing") {
@@ -403,6 +403,7 @@ export async function ensureLockNamespace(
   await assertAdmissionClaimChildren(services);
   await validateAdmissionRecoveryMarkers(
     await readAdmissionClaim(services),
+    await readAdmissionTombstone(services),
     services,
   );
 
@@ -605,6 +606,15 @@ function tombstoneFor(
 async function readAdmissionTombstone(
   services: LockServices,
 ): Promise<ObservedLockClaim | null> {
+  let claimDirectory: DurableEntry;
+  try {
+    claimDirectory = await services.durableFileSystem.inspect(admissionClaim);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+  if (claimDirectory.kind === "missing") return null;
+  if (claimDirectory.kind !== "directory") throw corrupt(admissionClaim);
   let names: readonly string[];
   try {
     names = await services.durableFileSystem.list(admissionClaim);
@@ -655,19 +665,24 @@ async function readAdmissionTombstone(
 
 async function validateAdmissionRecoveryMarkers(
   holder: ObservedLockClaim | null,
+  retired: ObservedLockClaim | null,
   services: LockServices,
 ): Promise<readonly AdmissionRecoveryMarker[]> {
   const markers = await admissionRecoveryMarkers(services);
   const marker = markers[0];
   if (marker === undefined) return markers;
-  if (holder === null) {
+  const expected = holder ?? retired;
+  if (expected === null) {
     if (marker.expiresAt + LEASE_SKEW_MS > services.clock.now().getTime())
       throw corrupt(marker.path);
     return markers;
   }
-  const expected = recoveryMarkerFor(holder, services);
-  if (marker.path !== expected.path) throw corrupt(marker.path);
-  if (expected.expiresAt + LEASE_SKEW_MS > services.clock.now().getTime())
+  const expectedMarker = recoveryMarkerFor(expected, services);
+  if (marker.path !== expectedMarker.path) throw corrupt(marker.path);
+  if (
+    retired === null &&
+    expectedMarker.expiresAt + LEASE_SKEW_MS > services.clock.now().getTime()
+  )
     throw corrupt(marker.path);
   return markers;
 }
@@ -677,6 +692,14 @@ function sameClaim(left: LockClaimRecord, right: LockClaimRecord): boolean {
     canonicalizeJson(persistedRecord(left)) ===
     canonicalizeJson(persistedRecord(right))
   );
+}
+
+function assertCompatibleAdmissionRecords(
+  holder: ObservedLockClaim | null,
+  retired: ObservedLockClaim | null,
+): void {
+  if (holder !== null && retired !== null && !sameClaim(holder, retired))
+    throw corrupt(admissionClaim);
 }
 
 function validateObservedGuard(observed: LeaseGuard | null): void {
@@ -898,8 +921,12 @@ async function helpAdmissionRecovery(
 ): Promise<AdmissionRecoveryOutcome> {
   const holder = await readAdmissionClaim(services);
   const retired = await readAdmissionTombstone(services);
-  if (holder !== null && retired !== null) throw corrupt(admissionClaim);
-  const markers = await validateAdmissionRecoveryMarkers(holder, services);
+  assertCompatibleAdmissionRecords(holder, retired);
+  const markers = await validateAdmissionRecoveryMarkers(
+    holder,
+    retired,
+    services,
+  );
   if (!markers.some((candidate) => candidate.path === marker.path)) {
     if (holder !== null) return { kind: "blocked", holder };
     return { kind: "lost" };
@@ -909,14 +936,10 @@ async function helpAdmissionRecovery(
     await removeAdmissionClaimParent(services);
     return { kind: await removeAdmissionMarker(marker, services) };
   }
-  if (recoveryMarkerFor(expected, services).path !== marker.path)
-    throw corrupt(marker.path);
   const tombstone = tombstoneFor(expected, services);
-  if (holder !== null) {
+  if (retired === null && holder !== null) {
     try {
-      const prior = await services.durableFileSystem.inspect(tombstone.path);
-      if (prior.kind !== "missing") throw corrupt(tombstone.path);
-      await services.durableFileSystem.replaceFile(
+      await services.durableFileSystem.linkFileExclusive(
         lockPaths("project").admissionRecord,
         tombstone.path,
       );
@@ -927,8 +950,32 @@ async function helpAdmissionRecovery(
       const currentRetired = await readAdmissionTombstone(services);
       if (current === null && currentRetired !== null)
         return helpAdmissionRecovery(marker, services);
-      if (current !== null && !sameClaim(current, holder))
-        throw corrupt(marker.path);
+      if (
+        current !== null &&
+        currentRetired !== null &&
+        sameClaim(current, holder) &&
+        sameClaim(currentRetired, holder)
+      )
+        return helpAdmissionRecovery(marker, services);
+      if (current === null) return { kind: "lost" };
+      if (!sameClaim(current, holder)) throw corrupt(marker.path);
+      throw internal();
+    }
+  }
+  const linked = await readAdmissionTombstone(services);
+  if (linked === null || !sameClaim(linked, expected))
+    throw corrupt(tombstone.path);
+  if (holder !== null) {
+    try {
+      await services.durableFileSystem.removeFile(
+        lockPaths("project").admissionRecord,
+      );
+      await services.durableFileSystem.syncDirectory(admissionClaim);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await readAdmissionClaim(services);
+      if (current === null) return helpAdmissionRecovery(marker, services);
+      if (!sameClaim(current, expected)) throw corrupt(marker.path);
       throw internal();
     }
   }
@@ -953,30 +1000,23 @@ async function resolveAdmissionRecovery(
 ): Promise<AdmissionRecoveryOutcome> {
   const holder = await readAdmissionClaim(services);
   const retired = await readAdmissionTombstone(services);
-  if (holder !== null && retired !== null) throw corrupt(admissionClaim);
-  const markers = await validateAdmissionRecoveryMarkers(holder, services);
+  assertCompatibleAdmissionRecords(holder, retired);
+  const markers = await validateAdmissionRecoveryMarkers(
+    holder,
+    retired,
+    services,
+  );
   const marker = markers[0];
   if (marker !== undefined) return helpAdmissionRecovery(marker, services);
-  if (retired !== null) {
-    const tombstone = tombstoneFor(retired, services);
-    try {
-      await services.durableFileSystem.removeFile(tombstone.path);
-      await services.durableFileSystem.syncDirectory(admissionClaim);
-      return { kind: "cleared" };
-    } catch (error) {
-      if (error instanceof LockFailure) throw error;
-      const current = await readAdmissionTombstone(services);
-      if (current === null) return { kind: "lost" };
-      throw internal();
-    }
-  }
-  if (holder === null) return { kind: "clear" };
+  const expected = holder ?? retired;
+  if (expected === null) return { kind: "clear" };
   if (
-    Date.parse(holder.expiresAt) + LEASE_SKEW_MS >
-    services.clock.now().getTime()
+    retired === null &&
+    Date.parse(expected.expiresAt) + LEASE_SKEW_MS >
+      services.clock.now().getTime()
   )
-    return { kind: "blocked", holder };
-  const elected = recoveryMarkerFor(holder, services);
+    return { kind: "blocked", holder: expected };
+  const elected = recoveryMarkerFor(expected, services);
   try {
     await services.durableFileSystem.createDirectoryExclusive(elected.path);
     await services.durableFileSystem.syncDirectory(admissionRoot);
@@ -998,14 +1038,16 @@ async function retireAdmissionRecord(
 ): Promise<void> {
   const tombstone = tombstoneFor(admission, services);
   try {
-    if (
-      (await services.durableFileSystem.inspect(tombstone.path)).kind !==
-      "missing"
-    )
-      throw corrupt(tombstone.path);
-    await services.durableFileSystem.replaceFile(
+    await services.durableFileSystem.linkFileExclusive(
       lockPaths("project").admissionRecord,
       tombstone.path,
+    );
+    await services.durableFileSystem.syncDirectory(admissionClaim);
+    const linked = await readAdmissionTombstone(services);
+    if (linked === null || !sameClaim(linked, admission))
+      throw corrupt(tombstone.path);
+    await services.durableFileSystem.removeFile(
+      lockPaths("project").admissionRecord,
     );
     await services.durableFileSystem.syncDirectory(admissionClaim);
     if ((await admissionRecoveryMarkers(services)).length !== 0)
