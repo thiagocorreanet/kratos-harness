@@ -34,10 +34,16 @@ const locksRoot = ".brain/locks";
 const admissionRoot = ".brain/locks/.admission";
 const admissionClaim = `${admissionRoot}/claim`;
 const admissionMarker = /^\.recovery-([0-9]{1,13})-([a-f0-9]{64})$/u;
+const admissionTombstone = /^\.retired-([a-f0-9]{64})\.json$/u;
 
 interface AdmissionRecoveryMarker {
   readonly path: string;
   readonly expiresAt: number;
+  readonly claimSha256: string;
+}
+
+interface AdmissionTombstone {
+  readonly path: string;
   readonly claimSha256: string;
 }
 
@@ -50,9 +56,25 @@ function parseAdmissionMarker(name: string): AdmissionRecoveryMarker | null {
     string,
   ];
   const expiresAt = Number(expiresText);
+  if (
+    !Number.isSafeInteger(expiresAt) ||
+    expiresAt <= 0 ||
+    String(expiresAt) !== expiresText
+  )
+    return null;
   return Object.freeze({
     path: `${admissionRoot}/${name}`,
     expiresAt,
+    claimSha256,
+  });
+}
+
+function parseAdmissionTombstone(name: string): AdmissionTombstone | null {
+  const match = admissionTombstone.exec(name);
+  if (match === null) return null;
+  const [, claimSha256] = match as unknown as [string, string];
+  return Object.freeze({
+    path: `${admissionClaim}/${name}`,
     claimSha256,
   });
 }
@@ -217,6 +239,21 @@ async function assertAdmissionChildren(services: LockServices): Promise<void> {
   await admissionRecoveryMarkers(services);
 }
 
+async function assertAdmissionClaimChildren(
+  services: LockServices,
+): Promise<void> {
+  try {
+    for (const name of await services.durableFileSystem.list(admissionClaim)) {
+      if (name === "claim.json" || parseAdmissionTombstone(name) !== null)
+        continue;
+      throw corrupt(admissionClaim);
+    }
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+}
+
 async function assertCanonicalRunChildren(
   services: LockServices,
 ): Promise<void> {
@@ -280,7 +317,7 @@ async function inspectLockNamespace(
       case "missing":
         break;
       case "directory":
-        await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+        await assertAdmissionClaimChildren(services);
         break;
       case "file":
         throw corrupt(admissionClaim);
@@ -363,7 +400,7 @@ export async function ensureLockNamespace(
   await createDirectoryIfMissing(admissionRoot, services);
   await assertAdmissionChildren(services);
   await createDirectoryIfMissing(admissionClaim, services);
-  await assertOnlyChildren(admissionClaim, ["claim.json"], services);
+  await assertAdmissionClaimChildren(services);
   await validateAdmissionRecoveryMarkers(
     await readAdmissionClaim(services),
     services,
@@ -549,6 +586,71 @@ function recoveryMarkerFor(
     expiresAt,
     claimSha256,
   });
+}
+
+function tombstoneFor(
+  record: LockClaimRecord,
+  services: LockServices,
+): AdmissionTombstone {
+  return Object.freeze({
+    path: `${admissionClaim}/.retired-${services.digests.sha256(
+      canonicalizeJson(persistedRecord(record)),
+    )}.json`,
+    claimSha256: services.digests.sha256(
+      canonicalizeJson(persistedRecord(record)),
+    ),
+  });
+}
+
+async function readAdmissionTombstone(
+  services: LockServices,
+): Promise<ObservedLockClaim | null> {
+  let names: readonly string[];
+  try {
+    names = await services.durableFileSystem.list(admissionClaim);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+  const tombstones = names
+    .map(parseAdmissionTombstone)
+    .filter((value): value is AdmissionTombstone => value !== null);
+  if (tombstones.length === 0) return null;
+  if (tombstones.length !== 1) throw corrupt(admissionClaim);
+  // The preceding exact cardinality check establishes index zero.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const tombstone = tombstones[0]!;
+  let entry: DurableEntry;
+  let text: string;
+  try {
+    entry = await services.durableFileSystem.inspect(tombstone.path);
+    if (entry.kind !== "file") throw corrupt(tombstone.path);
+    text = await services.durableFileSystem.readText(tombstone.path);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+  try {
+    const record = exactRecord(JSON.parse(text));
+    if (
+      record?.resource !== "admission" ||
+      canonicalizeJson(record) !== text ||
+      entry.sha256 !== services.digests.sha256(text) ||
+      tombstone.claimSha256 !== entry.sha256
+    )
+      throw corrupt(tombstone.path);
+    return Object.freeze({
+      ...record,
+      fingerprint: {
+        kind: "file" as const,
+        size: entry.size,
+        sha256: entry.sha256,
+      },
+    });
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw corrupt(tombstone.path);
+  }
 }
 
 async function validateAdmissionRecoveryMarkers(
@@ -795,37 +897,58 @@ async function helpAdmissionRecovery(
   services: LockServices,
 ): Promise<AdmissionRecoveryOutcome> {
   const holder = await readAdmissionClaim(services);
+  const retired = await readAdmissionTombstone(services);
+  if (holder !== null && retired !== null) throw corrupt(admissionClaim);
   const markers = await validateAdmissionRecoveryMarkers(holder, services);
   if (!markers.some((candidate) => candidate.path === marker.path)) {
     if (holder !== null) return { kind: "blocked", holder };
     return { kind: "lost" };
   }
-  if (holder !== null) {
-    const fingerprint = holder.fingerprint as Extract<
+  const expected = holder ?? retired;
+  if (expected === null) {
+    await removeAdmissionClaimParent(services);
+    return { kind: await removeAdmissionMarker(marker, services) };
+  }
+  if (recoveryMarkerFor(expected, services).path !== marker.path)
+    throw corrupt(marker.path);
+  const tombstone = tombstoneFor(expected, services);
+  if (retired !== null) {
+    const fingerprint = retired.fingerprint as Extract<
       PathFingerprint,
       { readonly kind: "file" }
     >;
+    if (fingerprint.sha256 !== tombstone.claimSha256)
+      throw corrupt(tombstone.path);
+  }
+  if (holder !== null) {
     try {
-      const entry = await services.durableFileSystem.inspect(
+      const prior = await services.durableFileSystem.inspect(tombstone.path);
+      if (prior.kind !== "missing") throw corrupt(tombstone.path);
+      await services.durableFileSystem.replaceFile(
         lockPaths("project").admissionRecord,
-      );
-      if (
-        entry.kind !== "file" ||
-        entry.size !== fingerprint.size ||
-        entry.sha256 !== fingerprint.sha256
-      )
-        throw corrupt(lockPaths("project").admissionRecord);
-      await services.durableFileSystem.removeFile(
-        lockPaths("project").admissionRecord,
+        tombstone.path,
       );
       await services.durableFileSystem.syncDirectory(admissionClaim);
     } catch (error) {
       if (error instanceof LockFailure) throw error;
       const current = await readAdmissionClaim(services);
-      if (current === null) return helpAdmissionRecovery(marker, services);
-      if (!sameClaim(current, holder)) throw corrupt(marker.path);
+      const currentRetired = await readAdmissionTombstone(services);
+      if (current === null && currentRetired !== null)
+        return helpAdmissionRecovery(marker, services);
+      if (current !== null && !sameClaim(current, holder))
+        throw corrupt(marker.path);
       throw internal();
     }
+  }
+  try {
+    await services.durableFileSystem.removeFile(tombstone.path);
+    await services.durableFileSystem.syncDirectory(admissionClaim);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    const current = await readAdmissionTombstone(services);
+    if (current === null) return { kind: "lost" };
+    if (!sameClaim(current, expected)) throw corrupt(tombstone.path);
+    throw internal();
   }
   // The marker deliberately survives record removal while the old parent is
   // deleted, so a crash at either boundary is helped by the next contender.
@@ -837,9 +960,24 @@ async function resolveAdmissionRecovery(
   services: LockServices,
 ): Promise<AdmissionRecoveryOutcome> {
   const holder = await readAdmissionClaim(services);
+  const retired = await readAdmissionTombstone(services);
+  if (holder !== null && retired !== null) throw corrupt(admissionClaim);
   const markers = await validateAdmissionRecoveryMarkers(holder, services);
   const marker = markers[0];
   if (marker !== undefined) return helpAdmissionRecovery(marker, services);
+  if (retired !== null) {
+    const tombstone = tombstoneFor(retired, services);
+    try {
+      await services.durableFileSystem.removeFile(tombstone.path);
+      await services.durableFileSystem.syncDirectory(admissionClaim);
+      return { kind: "cleared" };
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await readAdmissionTombstone(services);
+      if (current === null) return { kind: "lost" };
+      throw internal();
+    }
+  }
   if (holder === null) return { kind: "clear" };
   if (
     Date.parse(holder.expiresAt) + LEASE_SKEW_MS >
@@ -859,6 +997,36 @@ async function resolveAdmissionRecovery(
     const current = await readAdmissionClaim(services);
     if (current !== null) return { kind: "blocked", holder: current };
     throw internal();
+  }
+}
+
+async function retireAdmissionRecord(
+  admission: LockClaimRecord,
+  services: LockServices,
+): Promise<void> {
+  const tombstone = tombstoneFor(admission, services);
+  try {
+    if (
+      (await services.durableFileSystem.inspect(tombstone.path)).kind !==
+      "missing"
+    )
+      throw corrupt(tombstone.path);
+    await services.durableFileSystem.replaceFile(
+      lockPaths("project").admissionRecord,
+      tombstone.path,
+    );
+    await services.durableFileSystem.syncDirectory(admissionClaim);
+    if ((await admissionRecoveryMarkers(services)).length !== 0)
+      throw new LockFailure("runtime.recovery_required", [
+        { kind: "artifact", ref: admissionRoot },
+      ]);
+    await services.durableFileSystem.removeFile(tombstone.path);
+    await services.durableFileSystem.syncDirectory(admissionClaim);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw new LockFailure("runtime.recovery_required", [
+      { kind: "artifact", ref: tombstone.path },
+    ]);
   }
 }
 
@@ -905,8 +1073,7 @@ async function withAdmission<T>(
     if (current !== null) {
       if (sameClaim(current, admission)) {
         try {
-          await services.durableFileSystem.removeFile(paths.admissionRecord);
-          await services.durableFileSystem.syncDirectory(paths.admissionClaim);
+          await retireAdmissionRecord(admission, services);
         } catch {
           // A stale admission record is recoverable; do not expose port text.
           // eslint-disable-next-line no-unsafe-finally

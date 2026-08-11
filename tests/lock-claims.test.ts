@@ -155,6 +155,12 @@ function admissionRecoveryMarker(
   )}`;
 }
 
+function admissionTombstone(record: Record<string, unknown>): string {
+  return `${lockPaths("project").admissionClaim}/.retired-${sha256Digests().sha256(
+    canonicalizeJson(record),
+  )}.json`;
+}
+
 function acquiredClaim(
   result: Awaited<ReturnType<typeof acquireClaim>>,
 ): ObservedLockClaim {
@@ -609,12 +615,7 @@ describe("durable lock claims", () => {
             },
           }),
         ),
-      ).rejects.toMatchObject({
-        reasonCode:
-          mode === "lost"
-            ? "runtime.recovery_required"
-            : "runtime.state_corrupt",
-      });
+      ).resolves.toMatchObject({ resource: "project" });
     },
   );
 
@@ -917,6 +918,29 @@ describe("durable lock claims", () => {
         }),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("resumes a crash after atomically retiring the stale admission record", async () => {
+    const stale = {
+      claimId: "admission-stale",
+      resource: "admission" as const,
+      owner: "codex:session-02",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:00:00.000Z",
+      expiresAt: "2026-08-11T00:00:30.000Z",
+    };
+    const marker = admissionRecoveryMarker(stale);
+    const tombstone = admissionTombstone(stale);
+    const storage = lockStorage({
+      files: { [tombstone]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage, "2026-08-11T00:00:35.000Z")),
+    ).resolves.toMatchObject({ resource: "project" });
+    expect(storage.snapshot().files[tombstone]).toBeUndefined();
+    expect(storage.snapshot().directories).not.toContain(marker);
   });
 
   it("rejects a claim record bound to a different resource", async () => {
@@ -1736,30 +1760,29 @@ describe("durable lock claims", () => {
       const baseRemove = storage.durableFileSystem.removeFile;
       const baseRemoveDir = storage.durableFileSystem.removeEmptyDirectory;
       const baseSync = storage.durableFileSystem.syncDirectory;
-      await expect(
-        acquireClaim(
-          projectClaim,
-          withDurable(storage, {
-            removeFile: async (path) =>
-              path === target(paths)
-                ? Promise.reject(new Error("fault"))
-                : baseRemove(path),
-            removeEmptyDirectory: async (path) =>
-              path === target(paths)
-                ? Promise.reject(new Error("fault"))
-                : baseRemoveDir(path),
-            syncDirectory: async (path) =>
-              path === target(paths)
-                ? Promise.reject(new Error("fault"))
-                : baseSync(path),
-          }),
-        ),
-      ).rejects.toMatchObject({
-        reasonCode:
-          _name === "admission-parent"
-            ? "runtime.recovery_required"
-            : "runtime.internal_failure",
-      });
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeFile: async (path) =>
+            path === target(paths)
+              ? Promise.reject(new Error("fault"))
+              : baseRemove(path),
+          removeEmptyDirectory: async (path) =>
+            path === target(paths)
+              ? Promise.reject(new Error("fault"))
+              : baseRemoveDir(path),
+          syncDirectory: async (path) =>
+            path === target(paths)
+              ? Promise.reject(new Error("fault"))
+              : baseSync(path),
+        }),
+      );
+      if (_name === "stale-record")
+        await expect(result).resolves.toMatchObject({ resource: "project" });
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.recovery_required",
+        });
     },
   );
 
@@ -1791,10 +1814,7 @@ describe("durable lock claims", () => {
           kind: "conflict",
           resource: "admission",
         });
-      else
-        await result.rejects.toMatchObject({
-          reasonCode: "runtime.recovery_required",
-        });
+      else await result.resolves.toMatchObject({ resource: "project" });
     },
   );
 
