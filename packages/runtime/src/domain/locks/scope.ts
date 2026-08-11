@@ -56,9 +56,12 @@ export function lockPaths(input: string): LockPaths {
 
 export function parseOwner(value: string) {
   const parts = value.split(":");
-  if (parts.length !== 2 || !ownerPart.test(parts[0] ?? "") || !ownerPart.test(parts[1] ?? ""))
+  if (parts.length !== 2) throw new LeasePolicyError("invalid_input");
+  const host = parts[0]!;
+  const sessionId = parts[1]!;
+  if (!ownerPart.test(host) || !ownerPart.test(sessionId))
     throw new LeasePolicyError("invalid_input");
-  return { host: parts[0]!, sessionId: parts[1]!, value } as const;
+  return { host, sessionId, value } as const;
 }
 
 export function validateTtl(ttlMs: number): number {

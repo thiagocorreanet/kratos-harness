@@ -13,6 +13,8 @@ import { describe, expect, it } from "vitest";
 describe("lock domain boundaries", () => {
   it.each([
     ["project", ".brain/locks/project"],
+    ["run:a", ".brain/locks/runs/YQ"],
+    ["run:ab", ".brain/locks/runs/YWI"],
     ["run:run-01", ".brain/locks/runs/cnVuLTAx"],
     ["run:group:run-01", ".brain/locks/runs/Z3JvdXA6cnVuLTAx"],
   ] as const)("maps %s without exposing contract separators", (resource, root) => {
@@ -39,8 +41,11 @@ describe("lock domain boundaries", () => {
       value: "codex:session-01",
     });
     expect(() => parseOwner("codex:session:01")).toThrow("Lock input is invalid");
+    expect(() => parseOwner("codex!:session-01")).toThrow("Lock input is invalid");
+    expect(() => parseOwner("codex:session!01")).toThrow("Lock input is invalid");
     expect(validateTtl(5_000)).toBe(5_000);
     expect(validateTtl(300_000)).toBe(300_000);
+    expect(() => validateTtl(5_000.5)).toThrow("Lock input is invalid");
     expect(() => validateTtl(4_999)).toThrow("Lock input is invalid");
     expect(() => validateTtl(300_001)).toThrow("Lock input is invalid");
     expect({
@@ -68,5 +73,14 @@ describe("lock domain boundaries", () => {
         new Date("2026-08-11T00:00:30.000Z"),
       ),
     ).toBe(expected);
+  });
+
+  it("rejects invalid lease times", () => {
+    expect(() => classifyLeaseTime(new Date("invalid"), new Date())).toThrow(
+      "Lock input is invalid",
+    );
+    expect(() => classifyLeaseTime(new Date(), new Date("invalid"))).toThrow(
+      "Lock input is invalid",
+    );
   });
 });
