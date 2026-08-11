@@ -4,6 +4,7 @@ import {
   decideRelease,
   decideRenew,
   decideTakeover,
+  LeasePolicyError,
   type LeasePolicyBinding,
   type LeasePolicyDecision,
 } from "@mestre-yoda/runtime/domain/locks";
@@ -31,6 +32,24 @@ function transition(decision: LeasePolicyDecision): LeasePolicyBinding {
 }
 
 describe("lease transition policy", () => {
+  it("rejects a fencing token increment beyond the safe integer range", () => {
+    const current = {
+      action: "release" as const,
+      lease: lease({ fencingToken: Number.MAX_SAFE_INTEGER }),
+    };
+    expect(() =>
+      decideAcquire({
+        now: new Date("2026-08-11T00:00:00.000Z"),
+        current,
+        resource: "run:run-01",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toThrow(LeasePolicyError);
+  });
+
   it("keeps fencing tokens monotonic over generated action sequences", () => {
     let current: LeasePolicyBinding | null = null;
     const tokens: number[] = [];
@@ -123,5 +142,195 @@ describe("lease transition policy", () => {
     });
     expect(decision).toEqual({ kind: "conflict" });
     expect(Object.isFrozen(decision)).toBe(true);
+  });
+
+  it("explores each policy refusal boundary without observing external state", () => {
+    const now = new Date("2026-08-11T00:00:00.000Z");
+    const active = { action: "acquire" as const, lease: lease() };
+    const released = { action: "release" as const, lease: lease() };
+    const expired = {
+      action: "renew" as const,
+      lease: lease({ expiresAt: "2026-08-10T23:59:55.000Z" }),
+    };
+    const other = { ...active.lease, owner: "codex:other" };
+
+    expect(
+      decideAcquire({
+        now,
+        current: active,
+        resource: "run:run-01",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideAcquire({
+        now,
+        current: expired,
+        resource: "run:run-01",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "takeover_required" });
+    expect(
+      decideRenew({
+        now,
+        current: active,
+        expectedIdentity: other,
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideRenew({
+        now,
+        current: released,
+        expectedIdentity: released.lease,
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideRelease({
+        now,
+        current: active,
+        expectedIdentity: other,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideRelease({
+        now,
+        current: expired,
+        expectedIdentity: expired.lease,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideRelease({
+        now,
+        current: released,
+        expectedIdentity: released.lease,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideTakeover({
+        now,
+        current: expired,
+        expectedIdentity: other,
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideTakeover({
+        now,
+        current: released,
+        expectedIdentity: released.lease,
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+    expect(
+      decideTakeover({
+        now,
+        current: active,
+        expectedIdentity: active.lease,
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toEqual({ kind: "conflict" });
+  });
+
+  it("rejects invalid policy inputs and overflow in both epoch transitions", () => {
+    const now = new Date("2026-08-11T00:00:00.000Z");
+    const released = {
+      action: "release" as const,
+      lease: lease({ fencingToken: Number.MAX_SAFE_INTEGER }),
+    };
+    const expired = {
+      action: "acquire" as const,
+      lease: lease({
+        fencingToken: Number.MAX_SAFE_INTEGER,
+        expiresAt: "2026-08-10T23:59:55.000Z",
+      }),
+    };
+    expect(() =>
+      decideAcquire({
+        now: new Date("invalid"),
+        current: null,
+        resource: "run:run-01",
+        owner: "codex:session-01",
+        leaseId: "lease-01",
+        ttlMs: 5_000,
+        stateRevision: 0,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideAcquire({
+        now,
+        current: null,
+        resource: "run:run-01",
+        owner: "invalid:owner:shape",
+        leaseId: "lease-01",
+        ttlMs: 5_000,
+        stateRevision: 0,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideAcquire({
+        now,
+        current: null,
+        resource: "run:run-01",
+        owner: "codex:session-01",
+        leaseId: "lease-01",
+        ttlMs: 4_999,
+        stateRevision: -1,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideAcquire({
+        now,
+        current: released,
+        resource: "run:run-01",
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideTakeover({
+        now,
+        current: expired,
+        expectedIdentity: expired.lease,
+        owner: "codex:session-02",
+        leaseId: "lease-02",
+        ttlMs: 5_000,
+        stateRevision: 8,
+      }),
+    ).toThrow(LeasePolicyError);
+    expect(() =>
+      decideAcquire({
+        now: new Date(8_640_000_000_000_000),
+        current: null,
+        resource: "run:run-01",
+        owner: "codex:session-01",
+        leaseId: "lease-01",
+        ttlMs: 5_000,
+        stateRevision: 0,
+      }),
+    ).toThrow(LeasePolicyError);
   });
 });

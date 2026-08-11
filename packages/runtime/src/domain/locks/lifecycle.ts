@@ -7,6 +7,7 @@ import {
   type EventServices,
 } from "../events/index.js";
 import { canonicalizeJson, type SchemaRegistry } from "../schema/index.js";
+import { parseOwner, lockPaths } from "./scope.js";
 
 export type LockLifecycleAction = "acquire" | "renew" | "release" | "takeover";
 
@@ -61,7 +62,23 @@ function validateLease(
     structuralReasonCode: "runtime.state_corrupt",
   });
   if (result.kind !== "valid") integrityFailure();
-  return result.value;
+  try {
+    lockPaths(result.value.resource);
+    parseOwner(result.value.owner);
+    return snapshot(result.value);
+  } catch {
+    return integrityFailure();
+  }
+}
+
+function deeplyFreeze<Value>(value: Value): Value {
+  if (typeof value !== "object" || value === null) return value;
+  for (const child of Object.values(value)) deeplyFreeze(child);
+  return Object.freeze(value);
+}
+
+function snapshot<Value>(value: Value): Value {
+  return deeplyFreeze(JSON.parse(canonicalizeJson(value)) as Value);
 }
 
 export function validateTokenTransition(
@@ -75,6 +92,8 @@ export function validateTokenTransition(
     !Number.isSafeInteger(priorToken) ||
     !Number.isSafeInteger(nextToken) ||
     !Number.isSafeInteger(expected) ||
+    priorToken < 0 ||
+    nextToken < 0 ||
     nextToken !== expected
   ) {
     integrityFailure();
@@ -88,15 +107,17 @@ export function parseLockOperation(operation: string): {
 } {
   const match = operationPattern.exec(operation);
   if (match === null) integrityFailure();
-  const action = match[1];
-  const tokenText = match[2];
-  const digest = match[3];
-  if (action === undefined || tokenText === undefined || digest === undefined)
-    integrityFailure();
+  // The closed regular expression always captures all three groups.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const action = match[1]! as LockLifecycleAction;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const tokenText = match[2]!;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const digest = match[3]!;
   const token = Number(tokenText);
   if (!Number.isSafeInteger(token)) integrityFailure();
   return Object.freeze({
-    action: action as LockLifecycleAction,
+    action,
     token,
     digest,
   });
@@ -119,6 +140,7 @@ function validateActionOrder(
 
 function validateLifecycleEvents(
   events: readonly EventV1[],
+  leaseRef: string,
 ): LockLifecycleAction {
   let previousAction: LockLifecycleAction | null = null;
   let previousToken = 0;
@@ -134,6 +156,7 @@ function validateLifecycleEvents(
       event.reasonCode !== "trail.ok" ||
       event.effect !== "state" ||
       event.artifactRefs.length !== 1 ||
+      event.artifactRefs[0] !== leaseRef ||
       event.evidenceRefs.length !== 0
     ) {
       integrityFailure();
@@ -147,9 +170,9 @@ function validateLifecycleEvents(
 }
 
 function lastEvent(events: readonly EventV1[]): EventV1 {
-  const event = events.at(-1);
-  if (event === undefined) integrityFailure();
-  return event;
+  // Callers validate non-emptiness before requesting the final event.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return events[events.length - 1]!;
 }
 
 function verifiedPrior(
@@ -167,13 +190,17 @@ export function prepareLeaseTransition(
   input: PrepareLeaseTransitionInput,
   services: LockLifecycleServices,
 ): PreparedLeaseTransition {
-  const prior = verifiedPrior(input.priorEvents, services);
   let lease: LockLeaseV1;
   try {
     lease = validateLease(input.lease, services.schemaRegistry);
   } catch {
     return integrityFailure();
   }
+  const expectedLeaseRef = lockPaths(lease.resource).lease;
+  if (input.leaseRef !== expectedLeaseRef) integrityFailure();
+  const prior = verifiedPrior(input.priorEvents, services);
+  if (prior.events.length !== 0)
+    validateLifecycleEvents(prior.events, expectedLeaseRef);
   const previous =
     prior.events.length === 0
       ? null
@@ -200,17 +227,19 @@ export function prepareLeaseTransition(
     evidenceRefs: [],
     observedIdentity: input.observedIdentity,
   };
-  let event: EventV1;
+  let sealed: EventV1;
   try {
-    event = sealEvent(draft, prior.cursor, services);
+    sealed = sealEvent(draft, prior.cursor, services);
   } catch {
     return integrityFailure();
   }
+  const event = snapshot(sealed);
+  const eventsText = `${prior.canonical}${canonicalizeJson(event)}\n`;
   return Object.freeze({
     event,
     lease,
     leaseText,
-    eventsText: `${prior.canonical}${canonicalizeJson(event)}\n`,
+    eventsText,
   });
 }
 
@@ -220,7 +249,6 @@ export function verifyLeaseBinding(
   services: LockLifecycleServices,
 ): LeaseBinding {
   const stream = verifiedPrior(eventsText, services);
-  const finalAction = validateLifecycleEvents(stream.events);
   let parsedLease: unknown;
   try {
     parsedLease = JSON.parse(leaseText) as unknown;
@@ -234,7 +262,9 @@ export function verifyLeaseBinding(
   } catch {
     return integrityFailure();
   }
-  const event = lastEvent(stream.events);
+  const expectedLeaseRef = lockPaths(lease.resource).lease;
+  const finalAction = validateLifecycleEvents(stream.events, expectedLeaseRef);
+  const event = snapshot(lastEvent(stream.events));
   const operation = parseLockOperation(event.operation);
   if (
     operation.digest !== services.digests.sha256(leaseText) ||
@@ -242,10 +272,11 @@ export function verifyLeaseBinding(
   ) {
     integrityFailure();
   }
+  const events = snapshot(stream.events);
   return Object.freeze({
     action: finalAction,
     event,
-    events: stream.events,
+    events,
     lease,
   });
 }

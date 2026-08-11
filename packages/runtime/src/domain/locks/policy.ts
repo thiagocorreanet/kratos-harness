@@ -84,8 +84,15 @@ function exactIdentity(
 
 function nextExpiry(now: Date, ttlMs: number): string {
   const time = now.getTime() + validateTtl(ttlMs);
-  if (!Number.isFinite(time)) invalidInput();
-  return new Date(time).toISOString();
+  const expiresAt = new Date(time);
+  if (!Number.isFinite(expiresAt.getTime())) invalidInput();
+  return expiresAt.toISOString();
+}
+
+function nextFencingToken(token: number): number {
+  if (!Number.isSafeInteger(token) || token >= Number.MAX_SAFE_INTEGER)
+    throw new LeasePolicyError("invalid_transition");
+  return token + 1;
 }
 
 function transition(
@@ -127,7 +134,7 @@ export function decideAcquire(input: DecideAcquireInput): LeasePolicyDecision {
         leaseId: input.leaseId,
         acquiredAt,
         expiresAt: nextExpiry(input.now, input.ttlMs),
-        fencingToken: input.current.lease.fencingToken + 1,
+        fencingToken: nextFencingToken(input.current.lease.fencingToken),
         stateRevision,
       });
     }
@@ -209,7 +216,7 @@ export function decideTakeover(
     leaseId: input.leaseId,
     acquiredAt,
     expiresAt: nextExpiry(input.now, input.ttlMs),
-    fencingToken: input.current.lease.fencingToken + 1,
+    fencingToken: nextFencingToken(input.current.lease.fencingToken),
     stateRevision,
   });
 }
