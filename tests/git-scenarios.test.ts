@@ -18,6 +18,7 @@ import type {
 
 import {
   SCENARIOS,
+  UNDECODABLE_NAME_BYTES,
   createScenarioRepository,
   digestTree,
   type ScenarioName,
@@ -432,6 +433,25 @@ const EXPECTED: Record<ScenarioName, (root: string) => Expected> = {
         changes: [
           change({
             path: text("-dashfile.txt"),
+            tracking: "tracked",
+            index: "added",
+            worktree: "none",
+            entry: "file",
+          }),
+        ],
+      }),
+    ),
+
+  "name-with-undecodable-bytes": (root) =>
+    observed(
+      repository(branchHead(root), {
+        changes: [
+          change({
+            path: {
+              kind: "undecodable",
+              sha256: digests.sha256Bytes(UNDECODABLE_NAME_BYTES),
+              bytes: UNDECODABLE_NAME_BYTES.length,
+            },
             tracking: "tracked",
             index: "added",
             worktree: "none",

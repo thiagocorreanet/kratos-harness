@@ -12,7 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative, sep } from "node:path";
+import { join, sep } from "node:path";
 
 /**
  * The real-repository corpus the atomic observation is proven against.
@@ -52,6 +52,7 @@ export const SCENARIOS = [
   "name-with-newline",
   "name-with-unicode",
   "name-with-leading-dash",
+  "name-with-undecodable-bytes",
 ] as const;
 
 export type ScenarioName = (typeof SCENARIOS)[number];
@@ -643,6 +644,50 @@ function nameWithLeadingDashScenario(): Promise<Scenario> {
   });
 }
 
+/**
+ * Raw bytes forming a filename that is not valid UTF-8 anywhere in it: 0xff
+ * can never begin or continue a UTF-8 byte sequence. Exported so the
+ * scenario corpus test can compute the same digest `decodeGitPath` will.
+ */
+export const UNDECODABLE_NAME_BYTES = Uint8Array.from([
+  0x61, 0xff, 0x62, 0x2e, 0x74, 0x78, 0x74,
+]);
+
+function nameWithUndecodableBytesScenario(): Promise<Scenario> {
+  return withScenarioRoot(
+    "yoda-git-name-with-undecodable-bytes-",
+    async (root) => {
+      commitEmpty(root);
+      // `fs` accepts a `Buffer` path and writes exactly the bytes given,
+      // bypassing the string encoding a JS path would otherwise force this
+      // name through. Git itself never needs this name as a command
+      // argument: `add -A` discovers the file by scanning the working tree,
+      // so no argv element ever has to carry the raw bytes.
+      const target = Buffer.concat([
+        Buffer.from(`${root}/`, "utf8"),
+        Buffer.from(UNDECODABLE_NAME_BYTES),
+      ]);
+      try {
+        await writeFile(target, "x\n", "utf8");
+      } catch (error) {
+        return unavailable(
+          root,
+          `a filename with invalid UTF-8 bytes is not supported on this ` +
+            `filesystem: ${errorMessage(error)}`,
+          disposer(root),
+        );
+      }
+      // Staged, not left untracked: this is what routes the path through
+      // status.ts's "1 "/"2 " record parsing, where the path offset is a
+      // character count over decoded text reused as a byte offset into the
+      // raw buffer — the parser's most delicate line, otherwise proven only
+      // by feeding synthetic bytes directly to `decodeGitPath`.
+      git(root, ["add", "-A"]);
+      return ok(root, disposer(root));
+    },
+  );
+}
+
 const BUILDERS: Record<ScenarioName, () => Promise<Scenario>> = {
   "not-a-repository": notARepository,
   unborn: unbornScenario,
@@ -671,6 +716,7 @@ const BUILDERS: Record<ScenarioName, () => Promise<Scenario>> = {
   "name-with-newline": nameWithNewlineScenario,
   "name-with-unicode": nameWithUnicodeScenario,
   "name-with-leading-dash": nameWithLeadingDashScenario,
+  "name-with-undecodable-bytes": nameWithUndecodableBytesScenario,
 };
 
 /** Build one named scenario as a real temporary Git repository. */
@@ -685,14 +731,25 @@ export function createScenarioRepository(
 // ---------------------------------------------------------------------------
 
 const NUL = Buffer.from([0]);
+const SEP = Buffer.from(sep);
 
+// Directory entries are collected and hashed as raw `Buffer` paths, not
+// strings. A filename is not required to be valid UTF-8 (see the
+// `name-with-undecodable-bytes` scenario), and Node's default string decoding
+// of `readdir` is lossy for such a name — it replaces the invalid bytes with
+// U+FFFD, and that lossy string does not round-trip back to the real path, so
+// a later `readFile`/`readlink` built from it throws ENOENT. `encoding:
+// "buffer"` sidesteps the round trip entirely.
 async function collectPaths(
-  directory: string,
-  results: string[],
+  directory: Buffer,
+  results: Buffer[],
 ): Promise<void> {
-  const entries = await readdir(directory, { withFileTypes: true });
+  const entries = await readdir(directory, {
+    withFileTypes: true,
+    encoding: "buffer",
+  });
   for (const entry of entries) {
-    const absolute = join(directory, entry.name);
+    const absolute = Buffer.concat([directory, SEP, entry.name]);
     if (entry.isSymbolicLink() || entry.isFile()) {
       results.push(absolute);
       continue;
@@ -716,22 +773,23 @@ async function collectPaths(
  * itself — not whatever it happens to resolve to — is the tree content.
  */
 export async function digestTree(root: string): Promise<string> {
-  const absolutePaths: string[] = [];
-  await collectPaths(root, absolutePaths);
+  const rootBuffer = Buffer.from(root, "utf8");
+  const absolutePaths: Buffer[] = [];
+  await collectPaths(rootBuffer, absolutePaths);
   const relativePaths = absolutePaths
-    .map((absolute) => relative(root, absolute).split(sep).join("/"))
-    .sort();
+    .map((absolute) => absolute.subarray(rootBuffer.length + SEP.length))
+    .sort((left, right) => Buffer.compare(left, right));
 
   const hash = createHash("sha256");
   for (const relativePath of relativePaths) {
-    const absolute = join(root, relativePath);
+    const absolute = Buffer.concat([rootBuffer, SEP, relativePath]);
     const info = await lstat(absolute);
-    hash.update(Buffer.from(relativePath, "utf8"));
+    hash.update(relativePath);
     hash.update(NUL);
     if (info.isSymbolicLink()) {
       hash.update(Buffer.from("symlink", "utf8"));
       hash.update(NUL);
-      hash.update(Buffer.from(await readlink(absolute), "utf8"));
+      hash.update(await readlink(absolute, { encoding: "buffer" }));
     } else {
       hash.update(Buffer.from("file", "utf8"));
       hash.update(NUL);
