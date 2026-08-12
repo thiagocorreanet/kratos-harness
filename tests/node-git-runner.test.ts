@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -77,6 +77,13 @@ describe("nodeGitRunner", () => {
         cwd: root,
       },
     );
+    // Right after a commit, the index's cached stat info for a.txt already
+    // matches the working tree, so `git status` has nothing to refresh and
+    // the guard would be untested. Bumping the file's mtime forward makes
+    // the cached stat stale, which is what makes an unguarded `git status`
+    // rewrite the index — see the guard-removal experiment in the report.
+    const stale = new Date(Date.now() + 60_000);
+    await utimes(join(root, "a.txt"), stale, stale);
     const before = await readIndexDigest(root);
 
     await nodeGitRunner(root).run([
