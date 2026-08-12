@@ -188,6 +188,25 @@ describe("change classification", () => {
     });
   });
 
+  it("reports no base when stage-1 is an all-zero object id", () => {
+    const result = parse(
+      ...head,
+      "u UU N... 100644 100644 100644 100644 " +
+        "0".repeat(40) +
+        " " +
+        "b".repeat(40) +
+        " " +
+        "9".repeat(40) +
+        " c.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: true,
+      theirs: true,
+      base: false,
+    });
+  });
+
   it("classifies a symlink by its worktree mode", () => {
     const result = parse(
       ...head,
@@ -310,6 +329,21 @@ describe("unparsable input", () => {
           " " +
           "5".repeat(40) +
           " R100 renamed.txt",
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null on a rename record whose origin path is empty", () => {
+    expect(
+      parse(
+        "# branch.oid " + "a".repeat(40),
+        "# branch.head main",
+        "2 R. N... 100644 100644 100644 " +
+          "5".repeat(40) +
+          " " +
+          "5".repeat(40) +
+          " R100 renamed.txt",
+        "",
       ),
     ).toBeNull();
   });
