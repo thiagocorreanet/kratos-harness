@@ -57,6 +57,17 @@ describe("nodeGitRunner", () => {
     expect(result.exitCode).toBeNull();
   });
 
+  it("composes to a git_absent observation when PATH cannot find git", async () => {
+    const root = await repository();
+
+    const observation = await composeGit(
+      nodeGitRunner(root, { pathOverride: "" }),
+      sha256Digests(),
+    ).observe();
+
+    expect(observation.kind).toBe("git_absent");
+  });
+
   it("reports a timeout without throwing", async () => {
     const root = await repository();
     const result = await nodeGitRunner(root, { timeoutMs: 1 }).run([
