@@ -4,7 +4,6 @@ import type {
   FileSystem,
   Git,
   Ids,
-  Locks,
   Output,
 } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
@@ -218,90 +217,6 @@ export function describeGitContract(
         expect([...paths]).toEqual(
           [...new Set(paths)].sort((a, b) => a.localeCompare(b, "en-US")),
         );
-      } finally {
-        await dispose();
-      }
-    });
-  });
-}
-
-export function describeLocksContract(
-  label: string,
-  factory: () => Promise<Disposable<Locks>>,
-): void {
-  describe(`Locks contract: ${label}`, () => {
-    it("grants a lease on a free scope", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const lease = await port.acquire("run", 1_000);
-        expect(lease).not.toBeNull();
-        expect(lease?.fencingToken).toBeGreaterThan(0);
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("refuses a second lease on a held scope", async () => {
-      const { port, dispose } = await factory();
-      try {
-        await port.acquire("run", 1_000);
-        expect(await port.acquire("run", 1_000)).toBeNull();
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("frees the scope on release and advances the fencing token", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const first = await port.acquire("run", 1_000);
-        expect(first).not.toBeNull();
-        if (first !== null) await port.release(first);
-        const second = await port.acquire("run", 1_000);
-        expect(second).not.toBeNull();
-        // A reused token would let a stale owner be mistaken for the current
-        // one, which is the whole point of fencing.
-        expect(second?.fencingToken).toBeGreaterThan(first?.fencingToken ?? 0);
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("expires a lease in the future, not at the epoch", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const lease = await port.acquire("run", 60_000);
-        // A lease that reads as already expired inverts every expiry check
-        // written against it.
-        expect(lease?.expiresAt.getTime()).toBeGreaterThan(
-          new Date("2020-01-01T00:00:00.000Z").getTime(),
-        );
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("ignores a release from a stale owner", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const held = await port.acquire("run", 60_000);
-        expect(held).not.toBeNull();
-        if (held === null) return;
-
-        // A stale owner holding an old token must not be able to free a lease
-        // someone else now holds -- that is what fencing is for.
-        await port.release({ ...held, fencingToken: held.fencingToken - 1 });
-        expect(await port.acquire("run", 60_000)).toBeNull();
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("keeps scopes independent", async () => {
-      const { port, dispose } = await factory();
-      try {
-        await port.acquire("run", 1_000);
-        expect(await port.acquire("other", 1_000)).not.toBeNull();
       } finally {
         await dispose();
       }

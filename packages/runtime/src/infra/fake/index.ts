@@ -12,12 +12,14 @@ import type {
   FileSystem,
   Git,
   Ids,
-  Lease,
   Locks,
   Output,
   RepositoryState,
   Workspace,
 } from "../../ports/index.js";
+import { createLocks } from "../../composition/locks.js";
+import { createSchemaRegistry } from "../../composition/schema.js";
+import { memoryTransactionStorage } from "./transactions.js";
 
 export {
   memoryTransactionStorage,
@@ -225,28 +227,14 @@ export function stubGit(configured: StubGitState = {}): Git {
 export function memoryLocks(
   clock: Clock = fixedClock("2026-08-07T00:00:00.000Z"),
 ): Locks {
-  const held = new Map<string, Lease>();
-  let token = 0;
-  return {
-    acquire: (scope, ttlMs) => {
-      if (held.has(scope)) return Promise.resolve(null);
-      token += 1;
-      const lease: Lease = {
-        owner: scope,
-        fencingToken: token,
-        expiresAt: new Date(clock.now().getTime() + ttlMs),
-      };
-      held.set(scope, lease);
-      return Promise.resolve(lease);
-    },
-    release: (lease) => {
-      const current = held.get(lease.owner);
-      // A stale owner must not release a lease it no longer holds.
-      if (current?.fencingToken === lease.fencingToken)
-        held.delete(lease.owner);
-      return Promise.resolve();
-    },
-  };
+  const storage = memoryTransactionStorage();
+  return createLocks({
+    clock,
+    ids: sequentialIds("memory-lock"),
+    digests: storage.digests,
+    durableFileSystem: storage.durableFileSystem,
+    schemaRegistry: createSchemaRegistry(),
+  });
 }
 
 export function fixedEnvironment(

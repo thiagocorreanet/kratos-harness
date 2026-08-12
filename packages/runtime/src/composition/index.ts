@@ -49,6 +49,7 @@ import {
 } from "./transactions.js";
 import {
   acquireClaim,
+  createLocks,
   ensureLockNamespace,
   inspectLease,
   LockFailure,
@@ -74,6 +75,7 @@ export {
   recoverManagedMutation,
   TransactionFailure,
   acquireClaim,
+  createLocks,
   ensureLockNamespace,
   inspectLease,
   LockFailure,

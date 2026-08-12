@@ -20,11 +20,14 @@ import type {
   FileSystem,
   Git,
   Ids,
-  Lease,
   Locks,
   Output,
   RepositoryState,
 } from "../../ports/index.js";
+import { createLocks } from "../../composition/locks.js";
+import { createSchemaRegistry } from "../../composition/schema.js";
+import { sha256Digests } from "../digests.js";
+import { nodeDurableFileSystem } from "./transactions.js";
 
 export { nodeWorkspace } from "./workspace.js";
 export { sha256Digests } from "../digests.js";
@@ -216,39 +219,14 @@ export function nodeGit(root: string): Git {
   };
 }
 
-/**
- * Lease acquisition. Deliberately minimal: `RUN-07` owns expiry, renewal, and
- * recovery of an abandoned lease.
- */
 export function nodeLocks(root: string): Locks {
-  let token = 0;
-  return {
-    acquire: async (scope, ttlMs) => {
-      const file = join(root, `${normalizeProjectPath(scope)}.lock`);
-      await mkdir(dirname(file), { recursive: true });
-      try {
-        // `wx` fails if the file exists, so acquisition is atomic rather than
-        // a check followed by a racy write.
-        await writeFile(file, scope, { encoding: "utf8", flag: "wx" });
-      } catch {
-        return null;
-      }
-      token += 1;
-      return {
-        owner: scope,
-        fencingToken: token,
-        expiresAt: new Date(Date.now() + ttlMs),
-      } satisfies Lease;
-    },
-    release: async (lease) => {
-      // A stale owner must not free a lease someone else now holds; that is
-      // exactly what the fencing token is for.
-      if (lease.fencingToken !== token) return;
-      await rm(join(root, `${normalizeProjectPath(lease.owner)}.lock`), {
-        force: true,
-      });
-    },
-  };
+  return createLocks({
+    clock: nodeClock(),
+    ids: nodeIds(),
+    digests: sha256Digests(),
+    durableFileSystem: nodeDurableFileSystem(root),
+    schemaRegistry: createSchemaRegistry(),
+  });
 }
 
 export function nodeEnvironment(): Environment {

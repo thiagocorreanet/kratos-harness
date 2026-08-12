@@ -14,7 +14,6 @@ import {
   fixedClock,
   fixedEnvironment,
   memoryFileSystem,
-  memoryLocks,
   memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
@@ -26,7 +25,6 @@ import {
   nodeFileSystem,
   nodeGit,
   nodeIds,
-  nodeLocks,
   nodeOutput,
   nodeDurableFileSystem,
 } from "@mestre-yoda/runtime/infra/node";
@@ -38,7 +36,6 @@ import {
   describeFileSystemContract,
   describeGitContract,
   describeIdsContract,
-  describeLocksContract,
   describeOutputContract,
 } from "./support/port-contracts.js";
 import {
@@ -93,12 +90,6 @@ describeGitContract("stub", () =>
     dispose: noDispose,
   }),
 );
-describeLocksContract("memory", () =>
-  Promise.resolve({
-    port: memoryLocks(),
-    dispose: noDispose,
-  }),
-);
 describeEnvironmentContract("fixed", () =>
   fixedEnvironment({ EXAMPLE: "value" }, "/project"),
 );
@@ -124,13 +115,6 @@ describeOutputContract("node", () =>
   }),
 );
 
-describeLocksContract("node", async () => {
-  const root = await mkdtemp(join(tmpdir(), "yoda-node-locks-"));
-  return {
-    port: nodeLocks(root),
-    dispose: () => rm(root, { force: true, recursive: true }),
-  };
-});
 describeGitContract("node", async () => {
   const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
   return {

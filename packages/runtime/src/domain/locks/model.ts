@@ -69,12 +69,32 @@ export interface LeaseConflict {
 }
 
 export type LeaseOutcome =
-  | {
-      readonly kind: LeaseSuccessKind;
-      readonly lease: LockLeaseV1;
-      readonly guard: LeaseGuard;
-      readonly event: EventV1;
-    }
+  | (
+      | {
+          readonly kind: "acquired";
+          readonly lease: LockLeaseV1;
+          readonly guard: LeaseGuard;
+          readonly event: EventV1;
+        }
+      | {
+          readonly kind: "renewed";
+          readonly lease: LockLeaseV1;
+          readonly guard: LeaseGuard;
+          readonly event: EventV1;
+        }
+      | {
+          readonly kind: "released";
+          readonly lease: LockLeaseV1;
+          readonly guard: LeaseGuard;
+          readonly event: EventV1;
+        }
+      | {
+          readonly kind: "taken_over";
+          readonly lease: LockLeaseV1;
+          readonly guard: LeaseGuard;
+          readonly event: EventV1;
+        }
+    )
   | { readonly kind: "empty" }
   | { readonly kind: "conflict"; readonly conflict: LeaseConflict }
   | {

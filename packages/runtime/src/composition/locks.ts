@@ -1,11 +1,22 @@
 import { types } from "node:util";
+import type { EventV1, LockLeaseV1 } from "@mestre-yoda/contracts";
 
 import {
   LEASE_SKEW_MS,
   classifyLeaseTime,
+  decideAcquire,
+  decideRelease,
+  decideRenew,
+  decideTakeover,
   lockPaths,
   parseOwner,
+  prepareLeaseTransition,
   verifyLeaseBinding,
+  type AcquireLeaseRequest,
+  type LeaseOutcome,
+  type ReleaseLeaseRequest,
+  type RenewLeaseRequest,
+  type TakeoverLeaseRequest,
   type LeaseObservation,
   type LeaseGuard,
   type LeaseResource,
@@ -24,11 +35,13 @@ import type {
 } from "../ports/index.js";
 import type { PathFingerprint } from "../domain/transactions/index.js";
 import {
+  executeManagedMutation,
   inspectManagedTransactions,
   TransactionFailure,
   type TransactionServices,
   type TransactionSummary,
 } from "./transactions.js";
+import type { Locks } from "../ports/locks.js";
 
 const locksRoot = ".brain/locks";
 const admissionRoot = ".brain/locks/.admission";
@@ -2743,7 +2756,12 @@ async function inspectLeaseHeld(
       services.clock.now(),
       new Date(binding.lease.expiresAt),
     );
-    const kind = time === "writable" ? "active" : time;
+    const kind =
+      binding.action === "release"
+        ? "released"
+        : time === "writable"
+          ? "active"
+          : time;
     return {
       kind,
       lease: binding.lease,
@@ -2782,4 +2800,433 @@ export async function inspectLease(
       { kind: "artifact", ref: marker.path },
     ]);
   return inspectLeaseHeld(resource, services);
+}
+
+function snapshotLockInput<Value>(value: Value): Value {
+  if (typeof value !== "object" || value === null || types.isProxy(value))
+    throw internal();
+  try {
+    return Object.freeze(JSON.parse(canonicalizeJson(value)) as Value);
+  } catch {
+    throw internal();
+  }
+}
+
+function outcomeFailure(error: unknown): LeaseOutcome {
+  if (error instanceof LockFailure) {
+    return {
+      kind:
+        error.reasonCode === "runtime.state_corrupt"
+          ? "corrupt"
+          : error.reasonCode === "runtime.recovery_required"
+            ? "recovery_required"
+            : "internal_failure",
+      evidence: error.evidence.map((entry) => entry.ref),
+    };
+  }
+  if (error instanceof TransactionFailure) {
+    return {
+      kind:
+        error.reasonCode === "runtime.revision_conflict"
+          ? "revision_conflict"
+          : error.reasonCode === "runtime.recovery_required"
+            ? "recovery_required"
+            : error.reasonCode === "runtime.state_corrupt"
+              ? "corrupt"
+              : "internal_failure",
+      evidence: error.evidence.map((entry) => entry.ref),
+    };
+  }
+  return { kind: "internal_failure", evidence: [] };
+}
+
+function expectedLeaseFile(inspection: ClaimInspection): PathFingerprint {
+  return inspection.guard?.leaseFingerprint ?? { kind: "missing" };
+}
+
+function expectedEventsFile(inspection: ClaimInspection): PathFingerprint {
+  return inspection.guard?.eventsFingerprint ?? { kind: "missing" };
+}
+
+function preparedPlan(
+  prepared: ReturnType<typeof prepareLeaseTransition>,
+  inspection: ClaimInspection,
+  services: LockServices,
+) {
+  const paths = lockPaths(prepared.lease.resource);
+  const fingerprint = (content: string) =>
+    Object.freeze({
+      kind: "file" as const,
+      size: new TextEncoder().encode(content).byteLength,
+      sha256: services.digests.sha256(content),
+    });
+  return {
+    operations: [
+      {
+        operationId: "operation-0001",
+        kind: "write_file" as const,
+        path: paths.events,
+        expected: expectedEventsFile(inspection),
+        result: fingerprint(prepared.eventsText),
+        stagedPath: "staging/operation-0001.payload",
+        content: prepared.eventsText,
+      },
+      {
+        operationId: "operation-0002",
+        kind: "write_file" as const,
+        path: paths.lease,
+        expected: expectedLeaseFile(inspection),
+        result: fingerprint(prepared.leaseText),
+        stagedPath: "staging/operation-0002.payload",
+        content: prepared.leaseText,
+      },
+    ],
+  };
+}
+
+async function publishLeaseTransition(
+  action: "acquire" | "renew" | "release" | "takeover",
+  lease: LockLeaseV1,
+  inspection: ClaimInspection,
+  observedIdentity: EventV1["observedIdentity"],
+  services: LockServices,
+) {
+  const paths = lockPaths(lease.resource);
+  const prepared = prepareLeaseTransition(
+    {
+      action,
+      priorEvents:
+        inspection.guard === null
+          ? ""
+          : await services.durableFileSystem.readText(paths.events),
+      lease,
+      leaseRef: paths.lease,
+      eventId: services.ids.next(),
+      occurredAt: services.clock.now().toISOString(),
+      observedIdentity,
+    },
+    { ...services, isProxy: types.isProxy, isPromise: types.isPromise },
+  );
+  await createDirectoryIfMissing(".brain/transactions", services);
+  const receipt = await executeManagedMutation(
+    preparedPlan(prepared, inspection, services),
+    { rootMode: "existing" },
+    transactionServices(services),
+  );
+  if (receipt.phase !== "committed")
+    throw new LockFailure("runtime.recovery_required", [
+      {
+        kind: "artifact",
+        ref: `.brain/transactions/${receipt.transactionId}/progress.json`,
+      },
+    ]);
+  const next = await inspectLeaseHeld(
+    lease.resource as LeaseResource,
+    services,
+  );
+  if (next.guard === null || next.lease === null) throw corrupt(paths.lease);
+  return Object.freeze({
+    lease: next.lease,
+    guard: next.guard,
+    event: prepared.event,
+  });
+}
+
+async function completeWithClaim<Outcome>(
+  resource: LeaseResource,
+  claim: ObservedLockClaim,
+  services: LockServices,
+  operation: () => Promise<Outcome>,
+): Promise<Outcome> {
+  let result: Outcome | undefined;
+  let operationFailure: unknown;
+  try {
+    result = await operation();
+  } catch (error) {
+    operationFailure = error;
+  }
+  let released: ReleaseClaimOutcome;
+  try {
+    released = await releaseClaim({ resource, observed: claim }, services);
+  } catch {
+    throw new LockFailure("runtime.recovery_required", [
+      { kind: "artifact", ref: lockPaths(resource).claim },
+    ]);
+  }
+  if (released.kind !== "released")
+    throw new LockFailure("runtime.recovery_required", [
+      { kind: "artifact", ref: lockPaths(resource).claim },
+    ]);
+  if (operationFailure !== undefined) {
+    if (operationFailure instanceof Error) throw operationFailure;
+    throw internal();
+  }
+  return result as Outcome;
+}
+
+function currentBinding(inspection: ClaimInspection) {
+  if (inspection.lease === null) throw corrupt(".brain/locks");
+  return {
+    action:
+      inspection.kind === "released"
+        ? "release"
+        : inspection.kind === "takeover_eligible"
+          ? "acquire"
+          : "acquire",
+    lease: inspection.lease,
+  } as const;
+}
+
+/** Compose one durable lifecycle service over either fake or Node storage. */
+export function createLocks(services: LockServices): Locks {
+  return Object.freeze({
+    inspect: async (resource: LeaseResource) => {
+      const input = snapshotLockInput({ resource });
+      return inspectLease(input.resource, services);
+    },
+    acquire: async (request: AcquireLeaseRequest): Promise<LeaseOutcome> => {
+      try {
+        const input = snapshotLockInput(request);
+        const proposed = decideAcquire({
+          now: services.clock.now(),
+          current: null,
+          resource: input.resource,
+          owner: input.owner,
+          leaseId: services.ids.next(),
+          ttlMs: input.ttlMs,
+          stateRevision: input.stateRevision,
+        });
+        const beforeClaim = await inspectLease(input.resource, services);
+        if (
+          beforeClaim.kind === "active" ||
+          beforeClaim.kind === "skew" ||
+          beforeClaim.kind === "takeover_eligible"
+        ) {
+          return {
+            kind: "conflict" as const,
+            conflict: leaseConflict(
+              beforeClaim,
+              input.resource,
+              input.owner,
+              services.clock.now().toISOString(),
+            ).conflict,
+          };
+        }
+        const claim = await acquireClaim(
+          {
+            resource: input.resource,
+            owner: input.owner,
+            observed: beforeClaim.guard,
+          },
+          services,
+        );
+        if ("kind" in claim)
+          return { kind: "conflict" as const, conflict: claim.conflict };
+        return await completeWithClaim(
+          input.resource,
+          claim,
+          services,
+          async () => {
+            const inspection = await inspectLeaseHeld(input.resource, services);
+            const decision = decideAcquire({
+              now: services.clock.now(),
+              current:
+                inspection.lease === null ? null : currentBinding(inspection),
+              resource: input.resource,
+              owner: input.owner,
+              leaseId:
+                proposed.kind === "transition"
+                  ? proposed.lease.leaseId
+                  : services.ids.next(),
+              ttlMs: input.ttlMs,
+              stateRevision: input.stateRevision,
+            });
+            if (decision.kind !== "transition") {
+              if (inspection.lease === null)
+                throw corrupt(lockPaths(input.resource).lease);
+              return {
+                kind: "conflict" as const,
+                conflict: leaseConflict(
+                  inspection,
+                  input.resource,
+                  input.owner,
+                  services.clock.now().toISOString(),
+                ).conflict,
+              };
+            }
+            const published = await publishLeaseTransition(
+              decision.action,
+              decision.lease,
+              inspection,
+              input.observedIdentity,
+              services,
+            );
+            return { kind: "acquired", ...published } as const;
+          },
+        );
+      } catch (error) {
+        return outcomeFailure(error);
+      }
+    },
+    renew: async (request: RenewLeaseRequest): Promise<LeaseOutcome> => {
+      try {
+        const input = snapshotLockInput(request);
+        const claim = await acquireClaim(
+          {
+            resource: input.observed.resource,
+            owner: input.observed.owner,
+            observed: input.observed,
+          },
+          services,
+        );
+        if ("kind" in claim)
+          return { kind: "conflict" as const, conflict: claim.conflict };
+        return await completeWithClaim(
+          input.observed.resource,
+          claim,
+          services,
+          async () => {
+            const inspection = await inspectLeaseHeld(
+              input.observed.resource,
+              services,
+            );
+            const decision = decideRenew({
+              now: services.clock.now(),
+              current: currentBinding(inspection),
+              expectedIdentity: input.observed,
+              ttlMs: input.ttlMs,
+              stateRevision: input.resultingStateRevision,
+            });
+            if (decision.kind !== "transition")
+              return {
+                kind: "conflict" as const,
+                conflict: leaseConflict(
+                  inspection,
+                  input.observed.resource,
+                  input.observed.owner,
+                  services.clock.now().toISOString(),
+                ).conflict,
+              };
+            const published = await publishLeaseTransition(
+              decision.action,
+              decision.lease,
+              inspection,
+              input.observedIdentity,
+              services,
+            );
+            return { kind: "renewed", ...published } as const;
+          },
+        );
+      } catch (error) {
+        return outcomeFailure(error);
+      }
+    },
+    release: async (request: ReleaseLeaseRequest): Promise<LeaseOutcome> => {
+      try {
+        const input = snapshotLockInput(request);
+        const claim = await acquireClaim(
+          {
+            resource: input.observed.resource,
+            owner: input.observed.owner,
+            observed: input.observed,
+          },
+          services,
+        );
+        if ("kind" in claim)
+          return { kind: "conflict" as const, conflict: claim.conflict };
+        return await completeWithClaim(
+          input.observed.resource,
+          claim,
+          services,
+          async () => {
+            const inspection = await inspectLeaseHeld(
+              input.observed.resource,
+              services,
+            );
+            const decision = decideRelease({
+              now: services.clock.now(),
+              current: currentBinding(inspection),
+              expectedIdentity: input.observed,
+              stateRevision: input.observed.stateRevision,
+            });
+            if (decision.kind !== "transition")
+              return {
+                kind: "conflict" as const,
+                conflict: leaseConflict(
+                  inspection,
+                  input.observed.resource,
+                  input.observed.owner,
+                  services.clock.now().toISOString(),
+                ).conflict,
+              };
+            const published = await publishLeaseTransition(
+              decision.action,
+              decision.lease,
+              inspection,
+              input.observedIdentity,
+              services,
+            );
+            return { kind: "released", ...published } as const;
+          },
+        );
+      } catch (error) {
+        return outcomeFailure(error);
+      }
+    },
+    takeover: async (request: TakeoverLeaseRequest): Promise<LeaseOutcome> => {
+      try {
+        const input = snapshotLockInput(request);
+        const claim = await acquireClaim(
+          {
+            resource: input.observed.resource,
+            owner: input.owner,
+            observed: input.observed,
+          },
+          services,
+        );
+        if ("kind" in claim)
+          return { kind: "conflict" as const, conflict: claim.conflict };
+        return await completeWithClaim(
+          input.observed.resource,
+          claim,
+          services,
+          async () => {
+            const inspection = await inspectLeaseHeld(
+              input.observed.resource,
+              services,
+            );
+            const decision = decideTakeover({
+              now: services.clock.now(),
+              current: currentBinding(inspection),
+              expectedIdentity: input.observed,
+              owner: input.owner,
+              leaseId: services.ids.next(),
+              ttlMs: input.ttlMs,
+              stateRevision: input.stateRevision,
+            });
+            if (decision.kind !== "transition")
+              return {
+                kind: "conflict" as const,
+                conflict: leaseConflict(
+                  inspection,
+                  input.observed.resource,
+                  input.owner,
+                  services.clock.now().toISOString(),
+                ).conflict,
+              };
+            const published = await publishLeaseTransition(
+              decision.action,
+              decision.lease,
+              inspection,
+              input.observedIdentity,
+              services,
+            );
+            return { kind: "taken_over", ...published } as const;
+          },
+        );
+      } catch (error) {
+        return outcomeFailure(error);
+      }
+    },
+  });
 }
