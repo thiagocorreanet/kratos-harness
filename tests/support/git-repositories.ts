@@ -47,6 +47,7 @@ export const SCENARIOS = [
   "rebase-conflict",
   "cherry-pick-conflict",
   "revert-conflict",
+  "delete-modify-conflict",
   "name-with-space",
   "name-with-newline",
   "name-with-unicode",
@@ -576,6 +577,29 @@ function revertConflictScenario(): Promise<Scenario> {
   });
 }
 
+/**
+ * An asymmetric conflict: one side modifies, the other deletes. This is what
+ * proves `ours`/`theirs` are read independently rather than both defaulting
+ * to `true` — the shape every symmetric (both-sides-modified) conflict
+ * scenario shares, which is exactly what let that bug through review.
+ */
+function deleteModifyConflictScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-delete-modify-conflict-", async (root) => {
+    await writeFile(join(root, "f.txt"), "base\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "base");
+    git(root, ["checkout", "-q", "-b", "other"]);
+    git(root, ["rm", "-q", "f.txt"]);
+    commit(root, "delete-f");
+    git(root, ["checkout", "-q", "main"]);
+    await writeFile(join(root, "f.txt"), "main change\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "modify-f");
+    gitExpectingFailure(root, ["merge", "-q", "other"]);
+    return ok(root, disposer(root));
+  });
+}
+
 function nameWithSpaceScenario(): Promise<Scenario> {
   return withScenarioRoot("yoda-git-name-with-space-", async (root) => {
     commitEmpty(root);
@@ -641,6 +665,7 @@ const BUILDERS: Record<ScenarioName, () => Promise<Scenario>> = {
   "rebase-conflict": rebaseConflictScenario,
   "cherry-pick-conflict": cherryPickConflictScenario,
   "revert-conflict": revertConflictScenario,
+  "delete-modify-conflict": deleteModifyConflictScenario,
   "name-with-space": nameWithSpaceScenario,
   "name-with-newline": nameWithNewlineScenario,
   "name-with-unicode": nameWithUnicodeScenario,

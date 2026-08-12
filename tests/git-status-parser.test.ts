@@ -207,6 +207,106 @@ describe("change classification", () => {
     });
   });
 
+  // `ours` and `theirs` must come from h2/h3, not from the `XY` status
+  // letters: porcelain v2's unmerged `XY` is always one of
+  // `DD AU UD UA DU AA UU`, so a `.` never appears there and cannot signal an
+  // absent side. Each vector below reproduces the real byte layout Git 2.43
+  // emits for its code, confirmed empirically.
+  it("reports both sides absent for a both-deleted conflict (DD)", () => {
+    const result = parse(
+      ...head,
+      "u DD N... 100644 000000 000000 000000 " +
+        "d".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " f.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: false,
+      theirs: false,
+      base: true,
+    });
+  });
+
+  it("reports ours absent for a deleted-by-us conflict (DU)", () => {
+    const result = parse(
+      ...head,
+      "u DU N... 100644 000000 100644 100644 " +
+        "d".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " " +
+        "9".repeat(40) +
+        " f.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: false,
+      theirs: true,
+      base: true,
+    });
+  });
+
+  it("reports theirs absent for a deleted-by-them conflict (UD)", () => {
+    const result = parse(
+      ...head,
+      "u UD N... 100644 100644 000000 100644 " +
+        "d".repeat(40) +
+        " " +
+        "b".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " f.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: true,
+      theirs: false,
+      base: true,
+    });
+  });
+
+  it("reports base and ours absent for an added-by-them conflict (UA)", () => {
+    const result = parse(
+      ...head,
+      "u UA N... 000000 000000 100644 100644 " +
+        "0".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " " +
+        "9".repeat(40) +
+        " g.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: false,
+      theirs: true,
+      base: false,
+    });
+  });
+
+  it("reports base and theirs absent for an added-by-us conflict (AU)", () => {
+    const result = parse(
+      ...head,
+      "u AU N... 000000 100644 000000 100644 " +
+        "0".repeat(40) +
+        " " +
+        "b".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " g.txt",
+    );
+
+    expect(result?.changes[0]?.conflict).toEqual({
+      ours: true,
+      theirs: false,
+      base: false,
+    });
+  });
+
   it("classifies a symlink by its worktree mode", () => {
     const result = parse(
       ...head,

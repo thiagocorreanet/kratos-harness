@@ -97,6 +97,23 @@ function conflictedFile(): GitChange {
   });
 }
 
+/**
+ * The unmerged `f.txt` record `delete-modify-conflict` produces: ours (main)
+ * modified it and is present, theirs (other) deleted it and is absent. This
+ * is what an implementation that hardcodes `{ true, true, true }` — correct
+ * only for a symmetric both-sides-modified conflict — gets wrong.
+ */
+function deleteModifyConflictedFile(): GitChange {
+  return change({
+    path: text("f.txt"),
+    tracking: "tracked",
+    index: "modified",
+    worktree: "modified",
+    conflict: { ours: true, theirs: false, base: true },
+    entry: "file",
+  });
+}
+
 type Expected =
   | { readonly kind: "observed"; readonly repository: GitRepository }
   | { readonly kind: Exclude<GitObservation["kind"], "observed"> };
@@ -353,6 +370,14 @@ const EXPECTED: Record<ScenarioName, (root: string) => Expected> = {
       repository(branchHead(root), {
         operation: "revert",
         changes: [conflictedFile()],
+      }),
+    ),
+
+  "delete-modify-conflict": (root) =>
+    observed(
+      repository(branchHead(root), {
+        operation: "merge",
+        changes: [deleteModifyConflictedFile()],
       }),
     ),
 

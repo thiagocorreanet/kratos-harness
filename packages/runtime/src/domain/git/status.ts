@@ -44,6 +44,11 @@ function entryKindFromMode(mode: string): GitChange["entry"] {
   return "file";
 }
 
+/** An all-zero object id means that Git stage is absent. */
+function hasObjectId(id: string): boolean {
+  return id.replace(/0/gu, "") !== "";
+}
+
 interface HeaderFields {
   oid?: string;
   head?: string;
@@ -201,10 +206,6 @@ export function parseStatusPorcelainV2(
       // `u XY sub m1 m2 m3 mW h1 h2 h3 path` — 10 fields before the path.
       const parts = text.split(" ");
       if (parts.length < 11) return null;
-      /* v8 ignore next -- `parts.length >= 11` is checked above, so index 1
-       * always exists; the fallback exists only because
-       * noUncheckedIndexedAccess types the read as possibly undefined. */
-      const status = parts[1] ?? "";
       const offset = parts.slice(0, 10).join(" ").length + 1;
       changes.push({
         path: decodeGitPath(bytes.subarray(offset), digests),
@@ -212,17 +213,26 @@ export function parseStatusPorcelainV2(
         index: "modified",
         worktree: "modified",
         conflict: {
-          ours: !status.startsWith("."),
-          theirs: status[1] !== ".",
-          // Stage-1 is the merge base; Git emits its object id as `h1`. An
-          // all-zero id means the base is absent, as in add/add conflicts.
+          // Stage 1 is the merge base, stage 2 is ours, stage 3 is theirs;
+          // Git emits their object ids as h1/h2/h3 respectively. An all-zero
+          // id means that stage is absent — the base in an add/add conflict,
+          // or one side in an asymmetric conflict such as modify/delete.
+          // The `XY` status letters are not a substitute: porcelain v2's
+          // unmerged `XY` is always one of `DD AU UD UA DU AA UU`, so `.`
+          // never appears there and cannot signal an absent side.
           /* v8 ignore next -- parts.length >= 11 is already checked above,
            * so parts[7] always exists; the fallback exists only because
            * noUncheckedIndexedAccess types the read as possibly undefined. */
-          base: (parts[7] ?? "").replace(/0/gu, "") !== "",
+          base: hasObjectId(parts[7] ?? ""),
+          /* v8 ignore next -- see the parts[7] fallback above; index 8 is
+           * covered by the same length check. */
+          ours: hasObjectId(parts[8] ?? ""),
+          /* v8 ignore next -- see the parts[7] fallback above; index 9 is
+           * covered by the same length check. */
+          theirs: hasObjectId(parts[9] ?? ""),
         },
         renamedFrom: null,
-        /* v8 ignore next -- see the parts[1] fallback above; index 6 is
+        /* v8 ignore next -- see the parts[7] fallback above; index 6 is
          * covered by the same length check. */
         entry: entryKindFromMode(parts[6] ?? ""),
       });
