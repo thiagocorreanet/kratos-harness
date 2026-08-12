@@ -1113,6 +1113,7 @@ async function assertAdmissionGenerationChildren(
     location.directory.lastIndexOf("/") + 1,
   );
   const generation = admissionGeneration.exec(generationName);
+  /* v8 ignore next -- locateAdmission constructs this location only after the same canonical generation match */
   if (generation === null) throw corrupt(location.directory);
   const [, generationSha256] = generation as unknown as [string, string];
   const markers: AdmissionCleanupMarker[] = [];
