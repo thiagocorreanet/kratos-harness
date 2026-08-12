@@ -161,6 +161,11 @@ function admissionTombstone(record: object): string {
   return `${lockPaths("project").admissionClaim}/.claim-${digest}/.retired-${digest}.json`;
 }
 
+function admissionCleanupMarker(record: LockClaimRecord): string {
+  const generation = parentDirectory(publishedAdmissionRecord(record));
+  return `${generation}/.cleanup-${sha256Digests().sha256(canonicalizeJson(record))}`;
+}
+
 function publishedAdmissionRecord(record: object): string {
   const digest = sha256Digests().sha256(canonicalizeJson(record));
   return `${lockPaths("project").admissionClaim}/.claim-${digest}/claim.json`;
@@ -6433,5 +6438,527 @@ describe("durable lock claims", () => {
         }),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it.each(["project", "run:run-01"] as const)(
+    "closes nested %s cleanup marker layouts",
+    async (resource) => {
+      const claim: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `nested-layout-${resource}`,
+        resource,
+      };
+      const record = publishedScopeRecord(claim);
+      const generation = parentDirectory(record);
+      const parent = parentDirectory(generation);
+      const marker = scopeRecoveryMarker(claim);
+      const wrong = `${generation}/.cleanup-${"f".repeat(64)}`;
+      const secondGeneration = `${parent}/.claim-123-${"a".repeat(64)}`;
+      for (const seed of [
+        { directories: [generation, secondGeneration] },
+        { directories: [`${parent}/unexpected`] },
+        { files: { [marker]: "special" } },
+        { files: { [`${marker}/unexpected`]: "bad" } },
+        { directories: [wrong] },
+        {
+          directories: [marker, `${generation}/.cleanup-${"e".repeat(64)}`],
+        },
+      ]) {
+        await expect(
+          inspectLease(resource, services(lockStorage(seed))),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+      const digest = marker.slice(marker.lastIndexOf("-") + 1);
+      await expect(
+        inspectLease(
+          resource,
+          services(
+            lockStorage({
+              directories: [
+                `${parent}/.claim-0${String(Date.parse(claim.expiresAt))}-${digest}/.cleanup-${digest}`,
+              ],
+            }),
+          ),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it.each(["special", "nonempty", "duplicate"] as const)(
+    "closes %s admission cleanup marker layouts",
+    async (layout) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `admission-cleanup-layout-${layout}`,
+        resource: "admission",
+      };
+      const record = publishedAdmissionRecord(stale);
+      const marker = admissionCleanupMarker(stale);
+      const storage =
+        layout === "special"
+          ? lockStorage({
+              files: { [record]: canonicalizeJson(stale), [marker]: "bad" },
+            })
+          : layout === "nonempty"
+            ? lockStorage({
+                files: {
+                  [record]: canonicalizeJson(stale),
+                  [`${marker}/unexpected`]: "bad",
+                },
+              })
+            : lockStorage({
+                files: { [record]: canonicalizeJson(stale) },
+                directories: [
+                  marker,
+                  `${parentDirectory(marker)}/.cleanup-${"f".repeat(64)}`,
+                ],
+              });
+      await expect(
+        inspectLease("project", services(storage)),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.state_corrupt",
+      });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "recovers an empty nested %s claim generation",
+    async (resource) => {
+      const fixture = await scopeRecoveryFixture(resource);
+      await fixture.storage.durableFileSystem.removeEmptyDirectory(
+        fixture.marker,
+      );
+      await fixture.storage.durableFileSystem.removeFile(fixture.record);
+      await fixture.storage.durableFileSystem.removeEmptyDirectory(
+        fixture.generation,
+      );
+      await expect(
+        releaseClaim(
+          { resource, observed: fixture.claim },
+          services(fixture.storage),
+        ),
+      ).resolves.toEqual({ kind: "absent" });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies empty %s generation cleanup races",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "special",
+        "directory",
+      ] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        await fixture.storage.durableFileSystem.removeEmptyDirectory(
+          fixture.marker,
+        );
+        const baseRemoveFile = fixture.storage.durableFileSystem.removeFile;
+        const baseRemove =
+          fixture.storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        let failed = false;
+        let recordInspections = 0;
+        const result = releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== fixture.generation) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("empty generation cleanup");
+            },
+            inspect: async (path) => {
+              if (
+                path === fixture.record &&
+                ++recordInspections >= (resource === "project" ? 3 : 4)
+              ) {
+                await baseRemoveFile(path);
+                return { kind: "missing" as const };
+              }
+              if (
+                failed &&
+                path === fixture.generation &&
+                outcome === "special"
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost")
+          await expect(result).resolves.toEqual({ kind: "absent" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : outcome === "special"
+                  ? "runtime.state_corrupt"
+                  : "runtime.internal_failure",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies empty %s claim-parent cleanup races",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "directory",
+        "special",
+      ] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        await fixture.storage.durableFileSystem.removeEmptyDirectory(
+          fixture.marker,
+        );
+        const baseRemoveFile = fixture.storage.durableFileSystem.removeFile;
+        const baseRemove =
+          fixture.storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        let failed = false;
+        let recordInspections = 0;
+        const result = releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== fixture.parent) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("empty parent cleanup");
+            },
+            inspect: async (path) => {
+              if (
+                path === fixture.record &&
+                ++recordInspections >= (resource === "project" ? 3 : 4)
+              ) {
+                await baseRemoveFile(path);
+                return { kind: "missing" as const };
+              }
+              if (failed && path === fixture.parent && outcome === "special")
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost" || outcome === "directory")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : "runtime.state_corrupt",
+          });
+      }
+    },
+  );
+
+  it("completes a nested admission cleanup marker", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "nested-admission-cleanup",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const marker = admissionCleanupMarker(stale);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toBeDefined();
+    expect(storage.snapshot().directories).not.toContain(marker);
+  });
+
+  it.each(["duplicate", "digest", "raw", "typed"] as const)(
+    "contains a second-pass %s scope cleanup marker mutation",
+    async (mutation) => {
+      const fixture = await scopeRecoveryFixture("project");
+      const baseList = fixture.storage.durableFileSystem.list;
+      let generationLists = 0;
+      const wrong = `.cleanup-${"f".repeat(64)}`;
+      const typed = new LockFailure("runtime.recovery_required", []);
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(fixture.storage, {
+            list: async (path) => {
+              const names = await baseList(path);
+              if (path !== fixture.generation) return names;
+              generationLists++;
+              if (generationLists !== 2) return names;
+              if (mutation === "raw") throw new Error("scope cleanup list");
+              if (mutation === "typed") throw typed;
+              if (mutation === "duplicate") return [...names, wrong];
+              return names.map((name) =>
+                name.startsWith(".cleanup-") ? wrong : name,
+              );
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mutation === "raw"
+            ? "runtime.internal_failure"
+            : mutation === "typed"
+              ? "runtime.recovery_required"
+              : "runtime.state_corrupt",
+      });
+    },
+  );
+
+  it.each(["special", "nonempty"] as const)(
+    "contains a second-pass %s scope cleanup marker entry",
+    async (mutation) => {
+      const fixture = await scopeRecoveryFixture("project");
+      const baseInspect = fixture.storage.durableFileSystem.inspect;
+      const baseList = fixture.storage.durableFileSystem.list;
+      let markerInspections = 0;
+      let markerLists = 0;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(fixture.storage, {
+            inspect: async (path) => {
+              if (
+                path === fixture.marker &&
+                ++markerInspections >= 2 &&
+                mutation === "special"
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+            list: async (path) => {
+              const names = await baseList(path);
+              if (
+                path === fixture.marker &&
+                ++markerLists >= 2 &&
+                mutation === "nonempty"
+              )
+                return ["unexpected"];
+              return names;
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it.each(["duplicate", "special", "nonempty", "raw", "typed"] as const)(
+    "contains a second-pass %s admission cleanup marker mutation",
+    async (mutation) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `admission-second-pass-${mutation}`,
+        resource: "admission",
+      };
+      const record = publishedAdmissionRecord(stale);
+      const generation = parentDirectory(record);
+      const marker = admissionCleanupMarker(stale);
+      const storage = lockStorage({
+        files: { [record]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseList = storage.durableFileSystem.list;
+      const baseInspect = storage.durableFileSystem.inspect;
+      let generationLists = 0;
+      let markerInspections = 0;
+      let markerLists = 0;
+      const typed = new LockFailure("runtime.recovery_required", []);
+      await expect(
+        acquireClaim(
+          projectClaim,
+          withDurable(storage, {
+            list: async (path) => {
+              const names = await baseList(path);
+              if (path === generation) {
+                generationLists++;
+                if (generationLists === 2) {
+                  if (mutation === "raw") throw new Error("cleanup list");
+                  if (mutation === "typed") throw typed;
+                  if (mutation === "duplicate")
+                    return [...names, `.cleanup-${"f".repeat(64)}`];
+                }
+              }
+              if (
+                path === marker &&
+                ++markerLists >= 2 &&
+                mutation === "nonempty"
+              )
+                return ["unexpected"];
+              return names;
+            },
+            inspect: async (path) => {
+              if (
+                path === marker &&
+                ++markerInspections >= 2 &&
+                mutation === "special"
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          mutation === "raw"
+            ? "runtime.internal_failure"
+            : mutation === "typed"
+              ? "runtime.recovery_required"
+              : "runtime.state_corrupt",
+      });
+    },
+  );
+
+  it.each(["lost", "typed", "present", "reread-typed", "reread-raw"] as const)(
+    "classifies nested scope cleanup marker %s races",
+    async (outcome) => {
+      const fixture = await scopeRecoveryFixture("project");
+      const baseRemove = fixture.storage.durableFileSystem.removeEmptyDirectory;
+      const baseInspect = fixture.storage.durableFileSystem.inspect;
+      let failed = false;
+      const result = releaseClaim(
+        { resource: "project", observed: fixture.claim },
+        withDurable(fixture.storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path !== fixture.marker) return baseRemove(path);
+            failed = true;
+            if (outcome === "lost") await baseRemove(path);
+            if (outcome === "typed")
+              throw new LockFailure("runtime.recovery_required", []);
+            throw new Error("nested marker cleanup");
+          },
+          inspect: async (path) => {
+            if (failed && path === fixture.marker) {
+              if (outcome === "reread-typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              if (outcome === "reread-raw") throw new Error("marker reread");
+            }
+            return baseInspect(path);
+          },
+        }),
+      );
+      if (outcome === "lost")
+        await expect(result).resolves.toEqual({ kind: "released" });
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode:
+            outcome === "typed" || outcome === "reread-typed"
+              ? "runtime.recovery_required"
+              : "runtime.internal_failure",
+        });
+    },
+  );
+
+  it.each(["lost", "typed", "present", "reread-typed", "reread-raw"] as const)(
+    "classifies nested admission cleanup marker %s races",
+    async (outcome) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `admission-marker-race-${outcome}`,
+        resource: "admission",
+      };
+      const record = publishedAdmissionRecord(stale);
+      const marker = admissionCleanupMarker(stale);
+      const storage = lockStorage({
+        files: { [record]: canonicalizeJson(stale) },
+        directories: [marker],
+      });
+      const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+      const baseInspect = storage.durableFileSystem.inspect;
+      let failed = false;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path !== marker) return baseRemove(path);
+            failed = true;
+            if (outcome === "lost") await baseRemove(path);
+            if (outcome === "typed")
+              throw new LockFailure("runtime.recovery_required", []);
+            throw new Error("admission marker cleanup");
+          },
+          inspect: async (path) => {
+            if (failed && path === marker) {
+              if (outcome === "reread-typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              if (outcome === "reread-raw") throw new Error("marker reread");
+            }
+            return baseInspect(path);
+          },
+        }),
+      );
+      if (outcome === "lost") await expect(result).resolves.toBeDefined();
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode:
+            outcome === "typed" || outcome === "reread-typed"
+              ? "runtime.recovery_required"
+              : "runtime.internal_failure",
+        });
+    },
+  );
+
+  it("rejects a special tombstone during nested admission cleanup", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-special-linked",
+      resource: "admission",
+    };
+    const marker = admissionCleanupMarker(stale);
+    const tombstone = admissionTombstone(stale);
+    const storage = lockStorage({
+      files: { [tombstone]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let tombstoneInspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path === tombstone && ++tombstoneInspections >= 4)
+              return { kind: "special" as const };
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+  });
+
+  it("returns lost when an admission cleanup link race loses its holder", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-link-lost",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const marker = admissionCleanupMarker(stale);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          linkFileExclusive: async () => {
+            await baseRemove(record);
+            throw new Error("link lost holder");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
   });
 });
