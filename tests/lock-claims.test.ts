@@ -6982,4 +6982,28 @@ describe("durable lock claims", () => {
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
   });
+
+  it("rejects and preserves a mismatched nested admission cleanup marker", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-cleanup-mismatch",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const generation = parentDirectory(record);
+    const marker = `${generation}/.cleanup-${"f".repeat(64)}`;
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    const before = storage.snapshot();
+
+    await expect(
+      inspectLease("project", services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.snapshot()).toEqual(before);
+  });
 });

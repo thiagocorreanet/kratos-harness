@@ -1109,6 +1109,12 @@ async function assertAdmissionGenerationChildren(
   location: AdmissionLocation,
   services: LockServices,
 ): Promise<void> {
+  const generationName = location.directory.slice(
+    location.directory.lastIndexOf("/") + 1,
+  );
+  const generation = admissionGeneration.exec(generationName);
+  if (generation === null) throw corrupt(location.directory);
+  const [, generationSha256] = generation as unknown as [string, string];
   const markers: AdmissionCleanupMarker[] = [];
   for (const name of await services.durableFileSystem.list(
     location.directory,
@@ -1127,6 +1133,7 @@ async function assertAdmissionGenerationChildren(
   }
   if (markers.length > 1) throw corrupt(location.directory);
   for (const marker of markers) {
+    if (marker.claimSha256 !== generationSha256) throw corrupt(marker.path);
     const entry = await services.durableFileSystem.inspect(marker.path);
     if (entry.kind !== "directory") throw corrupt(marker.path);
     if ((await services.durableFileSystem.list(marker.path)).length !== 0)
