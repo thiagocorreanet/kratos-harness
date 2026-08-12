@@ -166,10 +166,44 @@ async function initRepositoryAt(root: string): Promise<void> {
   git(root, ["init", "-q", "--initial-branch=main"]);
 }
 
-async function initRepository(prefix: string): Promise<string> {
+/**
+ * The same guarantee `withScenarioRoot` gives a single-repository scenario,
+ * for one that spans more than one repository under a shared parent
+ * directory (`submodule`, `branch-with-upstream`, `linked-worktree`).
+ *
+ * `dispose()` only exists once a builder returns a `Scenario`, so a step
+ * that throws partway through construction — a `git()` call failing for a
+ * reason outside the capability-guarded scenarios, say — would otherwise
+ * leave an orphaned directory with nothing able to remove it. This runs
+ * `steps` and, if it throws, removes `directory` before letting the original
+ * error — message, stack, everything — escape unchanged.
+ */
+async function withCleanup<T>(
+  directory: string,
+  steps: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await steps();
+  } catch (error) {
+    await rm(directory, { force: true, recursive: true });
+    throw error;
+  }
+}
+
+/**
+ * Create a fresh temporary repository and run a scenario's setup steps in
+ * it, guaranteeing the directory does not survive a setup failure — see
+ * `withCleanup`, which this is a single-repository specialization of.
+ */
+async function withScenarioRoot(
+  prefix: string,
+  steps: (root: string) => Promise<Scenario>,
+): Promise<Scenario> {
   const root = await scratchDir(prefix);
-  git(root, ["init", "-q", "--initial-branch=main"]);
-  return root;
+  return withCleanup(root, () => {
+    git(root, ["init", "-q", "--initial-branch=main"]);
+    return steps(root);
+  });
 }
 
 function stage(root: string, ...paths: readonly string[]): void {
@@ -218,229 +252,254 @@ async function notARepository(): Promise<Scenario> {
   return ok(root, disposer(root));
 }
 
-async function unbornScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-unborn-");
-  return ok(root, disposer(root));
-}
-
-async function cleanScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-clean-");
-  await writeFile(join(root, "a.txt"), "content\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  return ok(root, disposer(root));
-}
-
-async function stagedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-staged-");
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  await writeFile(join(root, "b.txt"), "b\n", "utf8");
-  stage(root, "b.txt");
-  return ok(root, disposer(root));
-}
-
-async function unstagedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-unstaged-");
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  await writeFile(join(root, "a.txt"), "a\nmodified\n", "utf8");
-  return ok(root, disposer(root));
-}
-
-async function stagedAndUnstagedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-staged-and-unstaged-");
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  await writeFile(join(root, "a.txt"), "a\nstaged\n", "utf8");
-  stage(root, "a.txt");
-  await writeFile(join(root, "a.txt"), "a\nstaged\nunstaged\n", "utf8");
-  return ok(root, disposer(root));
-}
-
-async function deletedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-deleted-");
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  await rm(join(root, "a.txt"));
-  return ok(root, disposer(root));
-}
-
-async function untrackedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-untracked-");
-  commitEmpty(root);
-  await writeFile(join(root, "new.txt"), "new\n", "utf8");
-  return ok(root, disposer(root));
-}
-
-async function ignoredFileScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-ignored-file-");
-  await writeFile(join(root, ".gitignore"), "*.log\n", "utf8");
-  stage(root, ".gitignore");
-  commit(root);
-  await writeFile(join(root, "debug.log"), "log\n", "utf8");
-  return ok(root, disposer(root));
-}
-
-async function ignoredDirectoryScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-ignored-directory-");
-  await writeFile(join(root, ".gitignore"), "node_modules/\n", "utf8");
-  stage(root, ".gitignore");
-  commit(root);
-  const pkg = join(root, "node_modules", "pkg");
-  await mkdir(pkg, { recursive: true });
-  await Promise.all(
-    ["a.txt", "b.txt", "c.txt"].map((name) =>
-      writeFile(join(pkg, name), name, "utf8"),
-    ),
+function unbornScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-unborn-", (root) =>
+    Promise.resolve(ok(root, disposer(root))),
   );
-  return ok(root, disposer(root));
 }
 
-async function renamedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-renamed-");
-  await writeFile(join(root, "old.txt"), LONG_TEXT, "utf8");
-  stage(root, "old.txt");
-  commit(root);
-  git(root, ["mv", "old.txt", "new.txt"]);
-  return ok(root, disposer(root));
+function cleanScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-clean-", async (root) => {
+    await writeFile(join(root, "a.txt"), "content\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    return ok(root, disposer(root));
+  });
 }
 
-async function copiedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-copied-");
-  // Copy detection in `git status` needs a config opt-in — see
-  // `status.renames` — and, unlike rename detection, only ever considers a
-  // file that is itself part of the diff as a possible copy source. That is
-  // why `origin.txt` is also modified here rather than left untouched.
-  git(root, ["config", "status.renames", "copies"]);
-  await writeFile(join(root, "origin.txt"), LONG_TEXT, "utf8");
-  stage(root, "origin.txt");
-  commit(root);
-  await writeFile(join(root, "copy.txt"), LONG_TEXT, "utf8");
-  await writeFile(join(root, "origin.txt"), `${LONG_TEXT}adjusted\n`, "utf8");
-  stage(root, "origin.txt", "copy.txt");
-  return ok(root, disposer(root));
+function stagedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-staged-", async (root) => {
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    await writeFile(join(root, "b.txt"), "b\n", "utf8");
+    stage(root, "b.txt");
+    return ok(root, disposer(root));
+  });
 }
 
-async function typeChangedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-type-changed-");
-  await writeFile(join(root, "f.txt"), "hello\n", "utf8");
-  stage(root, "f.txt");
-  commit(root);
-  await rm(join(root, "f.txt"));
-  try {
-    await symlink("target", join(root, "f.txt"));
-  } catch (error) {
-    return unavailable(
-      root,
-      `symlink() is not supported on this filesystem: ${errorMessage(error)}`,
-      disposer(root),
+function unstagedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-unstaged-", async (root) => {
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    await writeFile(join(root, "a.txt"), "a\nmodified\n", "utf8");
+    return ok(root, disposer(root));
+  });
+}
+
+function stagedAndUnstagedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-staged-and-unstaged-", async (root) => {
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    await writeFile(join(root, "a.txt"), "a\nstaged\n", "utf8");
+    stage(root, "a.txt");
+    await writeFile(join(root, "a.txt"), "a\nstaged\nunstaged\n", "utf8");
+    return ok(root, disposer(root));
+  });
+}
+
+function deletedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-deleted-", async (root) => {
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    await rm(join(root, "a.txt"));
+    return ok(root, disposer(root));
+  });
+}
+
+function untrackedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-untracked-", async (root) => {
+    commitEmpty(root);
+    await writeFile(join(root, "new.txt"), "new\n", "utf8");
+    return ok(root, disposer(root));
+  });
+}
+
+function ignoredFileScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-ignored-file-", async (root) => {
+    await writeFile(join(root, ".gitignore"), "*.log\n", "utf8");
+    stage(root, ".gitignore");
+    commit(root);
+    await writeFile(join(root, "debug.log"), "log\n", "utf8");
+    return ok(root, disposer(root));
+  });
+}
+
+function ignoredDirectoryScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-ignored-directory-", async (root) => {
+    await writeFile(join(root, ".gitignore"), "node_modules/\n", "utf8");
+    stage(root, ".gitignore");
+    commit(root);
+    const pkg = join(root, "node_modules", "pkg");
+    await mkdir(pkg, { recursive: true });
+    await Promise.all(
+      ["a.txt", "b.txt", "c.txt"].map((name) =>
+        writeFile(join(pkg, name), name, "utf8"),
+      ),
     );
-  }
-  stage(root, "f.txt");
-  return ok(root, disposer(root));
+    return ok(root, disposer(root));
+  });
 }
 
-async function symlinkScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-symlink-");
-  try {
-    await symlink("original-target", join(root, "link.txt"));
-  } catch (error) {
-    return unavailable(
-      root,
-      `symlink() is not supported on this filesystem: ${errorMessage(error)}`,
-      disposer(root),
-    );
-  }
-  stage(root, "link.txt");
-  commit(root);
-  await rm(join(root, "link.txt"));
-  await symlink("new-target", join(root, "link.txt"));
-  return ok(root, disposer(root));
+function renamedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-renamed-", async (root) => {
+    await writeFile(join(root, "old.txt"), LONG_TEXT, "utf8");
+    stage(root, "old.txt");
+    commit(root);
+    git(root, ["mv", "old.txt", "new.txt"]);
+    return ok(root, disposer(root));
+  });
+}
+
+function copiedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-copied-", async (root) => {
+    // Copy detection in `git status` needs a config opt-in — see
+    // `status.renames` — and, unlike rename detection, only ever considers a
+    // file that is itself part of the diff as a possible copy source. That
+    // is why `origin.txt` is also modified here rather than left untouched.
+    git(root, ["config", "status.renames", "copies"]);
+    await writeFile(join(root, "origin.txt"), LONG_TEXT, "utf8");
+    stage(root, "origin.txt");
+    commit(root);
+    await writeFile(join(root, "copy.txt"), LONG_TEXT, "utf8");
+    await writeFile(join(root, "origin.txt"), `${LONG_TEXT}adjusted\n`, "utf8");
+    stage(root, "origin.txt", "copy.txt");
+    return ok(root, disposer(root));
+  });
+}
+
+function typeChangedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-type-changed-", async (root) => {
+    await writeFile(join(root, "f.txt"), "hello\n", "utf8");
+    stage(root, "f.txt");
+    commit(root);
+    await rm(join(root, "f.txt"));
+    try {
+      await symlink("target", join(root, "f.txt"));
+    } catch (error) {
+      // Not a bug to fail loudly on: a missing symlink capability is a
+      // platform fact to report via `dispose()` from a valid `Scenario`,
+      // which is why this is caught here rather than left to `withCleanup`.
+      return unavailable(
+        root,
+        `symlink() is not supported on this filesystem: ${errorMessage(error)}`,
+        disposer(root),
+      );
+    }
+    stage(root, "f.txt");
+    return ok(root, disposer(root));
+  });
+}
+
+function symlinkScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-symlink-", async (root) => {
+    try {
+      await symlink("original-target", join(root, "link.txt"));
+    } catch (error) {
+      return unavailable(
+        root,
+        `symlink() is not supported on this filesystem: ${errorMessage(error)}`,
+        disposer(root),
+      );
+    }
+    stage(root, "link.txt");
+    commit(root);
+    await rm(join(root, "link.txt"));
+    await symlink("new-target", join(root, "link.txt"));
+    return ok(root, disposer(root));
+  });
 }
 
 async function submoduleScenario(): Promise<Scenario> {
   const parent = await scratchDir("yoda-git-submodule-");
-  const dispose = disposer(parent);
+  return withCleanup(parent, async () => {
+    const dispose = disposer(parent);
 
-  const origin = join(parent, "sub-origin");
-  await initRepositoryAt(origin);
-  await writeFile(join(origin, "x.txt"), "x\n", "utf8");
-  stage(origin, "x.txt");
-  commit(origin);
+    const origin = join(parent, "sub-origin");
+    await initRepositoryAt(origin);
+    await writeFile(join(origin, "x.txt"), "x\n", "utf8");
+    stage(origin, "x.txt");
+    commit(origin);
 
-  const root = join(parent, "repo");
-  await initRepositoryAt(root);
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
+    const root = join(parent, "repo");
+    await initRepositoryAt(root);
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
 
-  const attempt = tryGit(root, [
-    "submodule",
-    "add",
-    "-q",
-    "../sub-origin",
-    "vendor/sub",
-  ]);
-  if (!attempt.ok) {
-    return unavailable(
-      root,
-      `git submodule add failed: ${attempt.reason}`,
-      dispose,
-    );
-  }
-  return ok(root, dispose);
+    // `tryGit` never throws — a failed `submodule add` is a platform fact
+    // reported through `unavailable`, not a bug `withCleanup` needs to see.
+    const attempt = tryGit(root, [
+      "submodule",
+      "add",
+      "-q",
+      "../sub-origin",
+      "vendor/sub",
+    ]);
+    if (!attempt.ok) {
+      return unavailable(
+        root,
+        `git submodule add failed: ${attempt.reason}`,
+        dispose,
+      );
+    }
+    return ok(root, dispose);
+  });
 }
 
-async function detachedScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-detached-");
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  const sha = git(root, ["rev-parse", "HEAD"]).trim();
-  git(root, ["checkout", "-q", sha]);
-  return ok(root, disposer(root));
+function detachedScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-detached-", async (root) => {
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    const sha = git(root, ["rev-parse", "HEAD"]).trim();
+    git(root, ["checkout", "-q", sha]);
+    return ok(root, disposer(root));
+  });
 }
 
 async function branchWithUpstreamScenario(): Promise<Scenario> {
   const parent = await scratchDir("yoda-git-branch-with-upstream-");
-  const dispose = disposer(parent);
+  return withCleanup(parent, async () => {
+    const dispose = disposer(parent);
 
-  const remote = join(parent, "remote.git");
-  await mkdir(remote, { recursive: true });
-  git(remote, ["init", "-q", "--bare", "--initial-branch=main"]);
+    const remote = join(parent, "remote.git");
+    await mkdir(remote, { recursive: true });
+    git(remote, ["init", "-q", "--bare", "--initial-branch=main"]);
 
-  const root = join(parent, "work");
-  await initRepositoryAt(root);
-  await writeFile(join(root, "a.txt"), "a\n", "utf8");
-  stage(root, "a.txt");
-  commit(root);
-  git(root, ["remote", "add", "origin", "../remote.git"]);
-  git(root, ["push", "-q", "-u", "origin", "main"]);
+    const root = join(parent, "work");
+    await initRepositoryAt(root);
+    await writeFile(join(root, "a.txt"), "a\n", "utf8");
+    stage(root, "a.txt");
+    commit(root);
+    git(root, ["remote", "add", "origin", "../remote.git"]);
+    git(root, ["push", "-q", "-u", "origin", "main"]);
 
-  await writeFile(join(root, "b.txt"), "b\n", "utf8");
-  stage(root, "b.txt");
-  commit(root, "local-only");
-  return ok(root, dispose);
+    await writeFile(join(root, "b.txt"), "b\n", "utf8");
+    stage(root, "b.txt");
+    commit(root, "local-only");
+    return ok(root, dispose);
+  });
 }
 
 async function linkedWorktreeScenario(): Promise<Scenario> {
   const parent = await scratchDir("yoda-git-linked-worktree-");
-  const dispose = disposer(parent);
+  return withCleanup(parent, async () => {
+    const dispose = disposer(parent);
 
-  const principal = join(parent, "principal");
-  await initRepositoryAt(principal);
-  await writeFile(join(principal, "a.txt"), "a\n", "utf8");
-  stage(principal, "a.txt");
-  commit(principal);
+    const principal = join(parent, "principal");
+    await initRepositoryAt(principal);
+    await writeFile(join(principal, "a.txt"), "a\n", "utf8");
+    stage(principal, "a.txt");
+    commit(principal);
 
-  const linked = join(parent, "linked");
-  git(principal, ["worktree", "add", "-q", "-b", "feature", linked]);
-  return ok(linked, dispose);
+    const linked = join(parent, "linked");
+    git(principal, ["worktree", "add", "-q", "-b", "feature", linked]);
+    return ok(linked, dispose);
+  });
 }
 
 /** Two branches that edit the same line differently, ready to collide. */
@@ -458,91 +517,99 @@ async function divergentBranches(root: string): Promise<void> {
   commit(root, "main-change");
 }
 
-async function mergeConflictScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-merge-conflict-");
-  await divergentBranches(root);
-  gitExpectingFailure(root, ["merge", "-q", "other"]);
-  return ok(root, disposer(root));
+function mergeConflictScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-merge-conflict-", async (root) => {
+    await divergentBranches(root);
+    gitExpectingFailure(root, ["merge", "-q", "other"]);
+    return ok(root, disposer(root));
+  });
 }
 
-async function rebaseConflictScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-rebase-conflict-");
-  await writeFile(join(root, "f.txt"), "base\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "base");
-  git(root, ["checkout", "-q", "-b", "feature"]);
-  await writeFile(join(root, "f.txt"), "feature change\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "feature-change");
-  git(root, ["checkout", "-q", "main"]);
-  await writeFile(join(root, "f.txt"), "main change\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "main-change");
-  git(root, ["checkout", "-q", "feature"]);
-  gitExpectingFailure(root, ["rebase", "main"]);
-  return ok(root, disposer(root));
+function rebaseConflictScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-rebase-conflict-", async (root) => {
+    await writeFile(join(root, "f.txt"), "base\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "base");
+    git(root, ["checkout", "-q", "-b", "feature"]);
+    await writeFile(join(root, "f.txt"), "feature change\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "feature-change");
+    git(root, ["checkout", "-q", "main"]);
+    await writeFile(join(root, "f.txt"), "main change\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "main-change");
+    git(root, ["checkout", "-q", "feature"]);
+    gitExpectingFailure(root, ["rebase", "main"]);
+    return ok(root, disposer(root));
+  });
 }
 
-async function cherryPickConflictScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-cherry-pick-conflict-");
-  await divergentBranches(root);
-  const otherSha = git(root, ["rev-parse", "other"]).trim();
-  gitExpectingFailure(root, ["cherry-pick", otherSha]);
-  return ok(root, disposer(root));
+function cherryPickConflictScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-cherry-pick-conflict-", async (root) => {
+    await divergentBranches(root);
+    const otherSha = git(root, ["rev-parse", "other"]).trim();
+    gitExpectingFailure(root, ["cherry-pick", otherSha]);
+    return ok(root, disposer(root));
+  });
 }
 
-async function revertConflictScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-revert-conflict-");
-  await writeFile(join(root, "f.txt"), "base\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "base");
-  await writeFile(join(root, "f.txt"), "changed\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "change");
-  const changeSha = git(root, ["rev-parse", "HEAD"]).trim();
-  await writeFile(join(root, "f.txt"), "further changed\n", "utf8");
-  stage(root, "f.txt");
-  commit(root, "further");
-  gitExpectingFailure(root, ["revert", "--no-edit", changeSha]);
-  return ok(root, disposer(root));
+function revertConflictScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-revert-conflict-", async (root) => {
+    await writeFile(join(root, "f.txt"), "base\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "base");
+    await writeFile(join(root, "f.txt"), "changed\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "change");
+    const changeSha = git(root, ["rev-parse", "HEAD"]).trim();
+    await writeFile(join(root, "f.txt"), "further changed\n", "utf8");
+    stage(root, "f.txt");
+    commit(root, "further");
+    gitExpectingFailure(root, ["revert", "--no-edit", changeSha]);
+    return ok(root, disposer(root));
+  });
 }
 
-async function nameWithSpaceScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-name-with-space-");
-  commitEmpty(root);
-  await writeFile(join(root, "a file.txt"), "x\n", "utf8");
-  return ok(root, disposer(root));
+function nameWithSpaceScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-name-with-space-", async (root) => {
+    commitEmpty(root);
+    await writeFile(join(root, "a file.txt"), "x\n", "utf8");
+    return ok(root, disposer(root));
+  });
 }
 
-async function nameWithNewlineScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-name-with-newline-");
-  commitEmpty(root);
-  try {
-    await writeFile(join(root, "line1\nline2.txt"), "x\n", "utf8");
-  } catch (error) {
-    return unavailable(
-      root,
-      `a filename containing a newline is not supported on this ` +
-        `filesystem: ${errorMessage(error)}`,
-      disposer(root),
-    );
-  }
-  return ok(root, disposer(root));
+function nameWithNewlineScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-name-with-newline-", async (root) => {
+    commitEmpty(root);
+    try {
+      await writeFile(join(root, "line1\nline2.txt"), "x\n", "utf8");
+    } catch (error) {
+      return unavailable(
+        root,
+        `a filename containing a newline is not supported on this ` +
+          `filesystem: ${errorMessage(error)}`,
+        disposer(root),
+      );
+    }
+    return ok(root, disposer(root));
+  });
 }
 
-async function nameWithUnicodeScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-name-with-unicode-");
-  commitEmpty(root);
-  await writeFile(join(root, "café-日本語.txt"), "x\n", "utf8");
-  return ok(root, disposer(root));
+function nameWithUnicodeScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-name-with-unicode-", async (root) => {
+    commitEmpty(root);
+    await writeFile(join(root, "café-日本語.txt"), "x\n", "utf8");
+    return ok(root, disposer(root));
+  });
 }
 
-async function nameWithLeadingDashScenario(): Promise<Scenario> {
-  const root = await initRepository("yoda-git-name-with-leading-dash-");
-  commitEmpty(root);
-  await writeFile(join(root, "-dashfile.txt"), "x\n", "utf8");
-  stage(root, "-dashfile.txt");
-  return ok(root, disposer(root));
+function nameWithLeadingDashScenario(): Promise<Scenario> {
+  return withScenarioRoot("yoda-git-name-with-leading-dash-", async (root) => {
+    commitEmpty(root);
+    await writeFile(join(root, "-dashfile.txt"), "x\n", "utf8");
+    stage(root, "-dashfile.txt");
+    return ok(root, disposer(root));
+  });
 }
 
 const BUILDERS: Record<ScenarioName, () => Promise<Scenario>> = {
