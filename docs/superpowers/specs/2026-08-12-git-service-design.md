@@ -219,11 +219,29 @@ they are arbitrary names read off a disk, and locale ordering is not stable
 across ICU versions. Byte ordering is what makes "platform-consistent"
 defensible.
 
-Ignored entries follow Git's default `--ignored=traditional` aggregation: a
-wholly ignored directory is one entry with `entry: "directory"`, not one entry
-per file inside it. Enumerating `node_modules` file by file on every observation
-is a cost the snapshot does not need to pay, and set comparison over aggregated
-entries is sufficient for detecting a removed ignored path.
+Ignored entries are aggregated: a wholly ignored directory is one entry with
+`entry: "directory"`, not one entry per file inside it. Enumerating
+`node_modules` file by file on every observation is a cost the snapshot does not
+need to pay, and set comparison over aggregated entries is sufficient for
+detecting a removed ignored path.
+
+Aggregation requires `--ignored=matching`, not `--ignored=traditional`. This is
+counterintuitive and was verified empirically rather than read off the flag
+name. `traditional` aggregates only while untracked listing is `normal`;
+combined with `--untracked-files=all` it degrades to one entry per ignored file.
+On a repository with a 500-file `node_modules`, a loose `.env`, and an ignored
+`src/debug.log`:
+
+| Flags | Ignored entries |
+| --- | --- |
+| `-uall --ignored=traditional` | 502 |
+| `-uall --ignored=matching` | 3 (`.env`, `node_modules/`, `src/debug.log`) |
+
+`matching` is the combination that keeps ignored entries aggregated while
+untracked files stay individually listed, which is what both halves of the model
+need. A loose ignored file and an ignored file inside a non-ignored directory
+are both still reported individually — aggregation collapses only a directory
+that is ignored in its entirety.
 
 ## Command evidence
 
@@ -267,9 +285,10 @@ git --no-optional-locks --no-pager -c core.quotepath=false <subcommand> …
    --git-common-dir` — existence and worktree topology in one call. A linked
    worktree is exactly `git-dir !== git-common-dir`.
 2. `status --porcelain=v2 -z --branch --untracked-files=all
-   --ignored=traditional` — branch, HEAD commit, detached state, upstream
+   --ignored=matching` — branch, HEAD commit, detached state, upstream
    divergence, the full change set, and unmerged entries. One read is what makes
-   the snapshot atomic.
+   the snapshot atomic. See "Paths" for why `matching` is the flag that
+   aggregates ignored directories here.
 
 The in-progress operation is then read from the git directory
 (`MERGE_HEAD`, `rebase-merge/`, `rebase-apply/`, `CHERRY_PICK_HEAD`,
