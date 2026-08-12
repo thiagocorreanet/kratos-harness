@@ -16,6 +16,15 @@ export interface RawCommandResult {
  * It lives in the domain because it is an interface with no Node dependency of
  * its own. Declaring it in `infra/node` would force `composition/git.ts` to
  * import an infrastructure module for a type.
+ *
+ * Implementations should resolve, never reject: a process that failed to
+ * spawn, timed out, or exited non-zero is a normal `RawCommandResult`
+ * (`spawned: false`, `timedOut: true`, a non-zero `exitCode`), and a git
+ * directory that cannot be listed is `null` — none of these are exceptions.
+ * `composeGit` defends against a rejecting implementation anyway, mapping any
+ * rejection to the `unreadable` observation rather than letting it escape, so
+ * a runner that breaks this expectation degrades the observation instead of
+ * breaking `observe()`'s own never-rejects contract.
  */
 export interface GitRunner {
   run(args: readonly string[]): Promise<RawCommandResult>;

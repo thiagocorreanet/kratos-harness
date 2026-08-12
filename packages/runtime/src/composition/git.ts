@@ -41,44 +41,60 @@ export function composeGit(runner: GitRunner, digests: Digests): Git {
     observe: async (): Promise<GitObservation> => {
       const evidence: GitCommandRecord[] = [];
 
-      const refs = await runner.run(REV_PARSE);
-      evidence.push(gitCommandRecord(REV_PARSE, refs, digests));
-      if (!refs.spawned) return failure("git_absent", evidence);
-      if (refs.timedOut) return failure("timeout", evidence);
-      // Exit 128 is how Git reports "not a repository" for rev-parse.
-      if (refs.exitCode === 128) return failure("not_a_repository", evidence);
-      if (refs.exitCode !== 0) return failure("command_failed", evidence);
+      // `observe()` must never reject: that is the port's whole contract. A
+      // `GitRunner` is documented to resolve rather than reject, but this
+      // catch defends the contract against one that does not — a rejection
+      // is a repository whose state could not be read, so it maps to
+      // `unreadable` rather than escaping. Wrapping the full body, not each
+      // await individually, means evidence pushed before the rejection is
+      // still in scope and comes back with the failure.
+      try {
+        const refs = await runner.run(REV_PARSE);
+        evidence.push(gitCommandRecord(REV_PARSE, refs, digests));
+        if (!refs.spawned) return failure("git_absent", evidence);
+        if (refs.timedOut) return failure("timeout", evidence);
+        // Exit 128 is how Git reports "not a repository" for rev-parse.
+        if (refs.exitCode === 128) {
+          return failure("not_a_repository", evidence);
+        }
+        if (refs.exitCode !== 0) return failure("command_failed", evidence);
 
-      const facts = parseRevParse(new TextDecoder().decode(refs.stdout));
-      if (facts === null) return failure("unreadable", evidence);
-      // A bare repository and the inside of a .git directory both exit 0 while
-      // reporting false. There is no worktree to classify in either case.
-      if (!facts.insideWorkTree) return failure("not_a_repository", evidence);
+        const facts = parseRevParse(new TextDecoder().decode(refs.stdout));
+        if (facts === null) return failure("unreadable", evidence);
+        // A bare repository and the inside of a .git directory both exit 0
+        // while reporting false. There is no worktree to classify in either
+        // case.
+        if (!facts.insideWorkTree) {
+          return failure("not_a_repository", evidence);
+        }
 
-      const status = await runner.run(STATUS);
-      evidence.push(gitCommandRecord(STATUS, status, digests));
-      if (status.timedOut) return failure("timeout", evidence);
-      if (status.exitCode !== 0) return failure("command_failed", evidence);
+        const status = await runner.run(STATUS);
+        evidence.push(gitCommandRecord(STATUS, status, digests));
+        if (status.timedOut) return failure("timeout", evidence);
+        if (status.exitCode !== 0) return failure("command_failed", evidence);
 
-      const parsed = parseStatusPorcelainV2(status.stdout, digests);
-      if (parsed === null) return failure("unreadable", evidence);
+        const parsed = parseStatusPorcelainV2(status.stdout, digests);
+        if (parsed === null) return failure("unreadable", evidence);
 
-      // A filesystem read, not a command, so it produces no evidence record.
-      // An unreadable marker fails the whole observation rather than silently
-      // reporting `operation: "none"`.
-      const markers = await runner.listGitDirectory(facts.gitDir);
-      if (markers === null) return failure("unreadable", evidence);
+        // A filesystem read, not a command, so it produces no evidence
+        // record. An unreadable marker fails the whole observation rather
+        // than silently reporting `operation: "none"`.
+        const markers = await runner.listGitDirectory(facts.gitDir);
+        if (markers === null) return failure("unreadable", evidence);
 
-      return {
-        kind: "observed",
-        repository: {
-          head: parsed.head,
-          worktree: classifyWorktree(facts),
-          operation: classifyOperation(markers),
-          changes: parsed.changes,
-        },
-        evidence,
-      };
+        return {
+          kind: "observed",
+          repository: {
+            head: parsed.head,
+            worktree: classifyWorktree(facts),
+            operation: classifyOperation(markers),
+            changes: parsed.changes,
+          },
+          evidence,
+        };
+      } catch {
+        return failure("unreadable", evidence);
+      }
     },
   };
 }

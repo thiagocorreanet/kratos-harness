@@ -152,6 +152,23 @@ describe("failure classification", () => {
     expect(result.kind).toBe("not_a_repository");
   });
 
+  it("prioritizes timeout over a 128 exit code when both are reported", async () => {
+    // A killed process can still be reported with a stale exit code. Timeout
+    // must win, or a killed rev-parse would be misclassified as a missing
+    // repository instead of a process that never finished.
+    const result = await observe([
+      {
+        spawned: true,
+        exitCode: 128,
+        stdout: EMPTY,
+        stderr: EMPTY,
+        timedOut: true,
+      },
+    ]);
+
+    expect(result.kind).toBe("timeout");
+  });
+
   it("reports not_a_repository for a bare repository", async () => {
     // Exit 0 with a false work-tree report: bare repo, or inside .git.
     const result = await observe([ok("false\n/p.git\n/p.git\n")]);
@@ -271,5 +288,44 @@ describe("failure classification", () => {
     for (const branch of branches) {
       await expect(observe(branch)).resolves.toBeDefined();
     }
+  });
+});
+
+describe("runner contract defense", () => {
+  // `GitRunner` is documented to resolve rather than reject, but `observe()`
+  // must never reject regardless. These drive a runner that breaks that
+  // documented contract, proving `composeGit` catches it rather than letting
+  // it escape -- and that evidence gathered before the rejection is not lost.
+
+  it("reports unreadable, with evidence collected so far, when run() rejects", async () => {
+    let call = 0;
+    const rejectingRunner: GitRunner = {
+      run: (): Promise<RawCommandResult> => {
+        call += 1;
+        return call === 1
+          ? Promise.resolve(ok(REFS_OK))
+          : Promise.reject(new Error("git spawn failed"));
+      },
+      listGitDirectory: () => Promise.resolve(["HEAD"]),
+    };
+
+    const result = await composeGit(rejectingRunner, digests).observe();
+
+    expect(result.kind).toBe("unreadable");
+    // Only the rev-parse call completed before the status call rejected.
+    expect(result.evidence).toHaveLength(1);
+  });
+
+  it("reports unreadable, with all prior evidence, when listGitDirectory() rejects", async () => {
+    const rejectingRunner: GitRunner = {
+      ...runner([ok(REFS_OK), ok(STATUS_OK)]),
+      listGitDirectory: () => Promise.reject(new Error("readdir failed")),
+    };
+
+    const result = await composeGit(rejectingRunner, digests).observe();
+
+    expect(result.kind).toBe("unreadable");
+    // Both process calls completed; only the directory listing rejected.
+    expect(result.evidence).toHaveLength(2);
   });
 });
