@@ -41,7 +41,7 @@ const admissionQuarantine = /^\.quarantine-([0-9]{1,13})-([a-f0-9]{64})$/u;
 const scopeGeneration = /^\.claim-([0-9]{1,13})-([a-f0-9]{64})$/u;
 const scopeCandidate = /^\.candidate-([0-9]{1,13})-([a-f0-9]{64})$/u;
 const scopeQuarantine = /^\.quarantine-([0-9]{1,13})-([a-f0-9]{64})$/u;
-const scopeRecovery = /^\.recovery-([0-9]{1,13})-([a-f0-9]{64})$/u;
+const cleanupMarker = /^\.cleanup-([a-f0-9]{64})$/u;
 
 interface AdmissionRecoveryMarker {
   readonly path: string;
@@ -80,6 +80,12 @@ interface LocatedAdmissionClaim extends ObservedLockClaim {
   readonly location: AdmissionLocation;
 }
 
+interface AdmissionCleanupMarker {
+  readonly path: string;
+  readonly claimSha256: string;
+  readonly location: AdmissionLocation;
+}
+
 /** A scope claim parent is immutable once published: exactly one generation. */
 interface ScopeLocation {
   readonly directory: string;
@@ -93,9 +99,8 @@ interface ScopeCandidate {
   readonly location: ScopeLocation;
 }
 
-interface ScopeRecoveryMarker {
+interface ScopeCleanupMarker {
   readonly path: string;
-  readonly expiresAt: number;
   readonly claimSha256: string;
   readonly location: ScopeLocation;
 }
@@ -428,7 +433,7 @@ async function assertCanonicalRunChildren(
         "directory"
       )
         throw corrupt(`${root}/${name}`);
-      if ((await scopeRecoveryMarker(`run:${decoded}`, services)) === null)
+      if ((await scopeCleanupMarker(`run:${decoded}`, services)) === null)
         await inspectLeaseHeld(`run:${decoded}`, services);
     }
   } catch (error) {
@@ -496,7 +501,7 @@ async function inspectLockNamespace(
         throw corrupt(`${projectRoot}/claim`);
     }
     await assertScopeRootChildren("project", services);
-    if ((await scopeRecoveryMarker("project", services)) === null)
+    if ((await scopeCleanupMarker("project", services)) === null)
       await inspectLeaseHeld("project", services);
   }
   const chain = [
@@ -692,69 +697,70 @@ function parseScopeCandidate(
   });
 }
 
-function scopeRecoveryMarkerFor(
+function scopeCleanupMarkerFor(
   resource: LeaseResource,
   record: LockClaimRecord,
   services: LockServices,
-): ScopeRecoveryMarker {
+): ScopeCleanupMarker {
   const canonical = canonicalizeJson(persistedRecord(record));
-  const expiresAt = Date.parse(record.expiresAt);
   const claimSha256 = services.digests.sha256(canonical);
-  const root = lockPaths(resource).root;
+  const location = scopeLocationFor(resource, record, services);
   return Object.freeze({
-    path: `${root}/.recovery-${String(expiresAt)}-${claimSha256}`,
-    expiresAt,
-    claimSha256,
-    location: scopeLocationFor(resource, record, services),
-  });
-}
-
-function parseScopeRecoveryMarker(
-  resource: LeaseResource,
-  name: string,
-): ScopeRecoveryMarker | null {
-  const match = scopeRecovery.exec(name);
-  if (match === null) return null;
-  const [, expiresText, claimSha256] = match as unknown as [
-    string,
-    string,
-    string,
-  ];
-  const expiresAt = Number(expiresText);
-  if (
-    !Number.isSafeInteger(expiresAt) ||
-    expiresAt <= 0 ||
-    String(expiresAt) !== expiresText
-  )
-    return null;
-  const root = lockPaths(resource).root;
-  const location = Object.freeze({
-    directory: `${root}/claim/.claim-${expiresText}-${claimSha256}`,
-    recordPath: `${root}/claim/.claim-${expiresText}-${claimSha256}/claim.json`,
-  });
-  return Object.freeze({
-    path: `${root}/${name}`,
-    expiresAt,
+    path: `${location.directory}/.cleanup-${claimSha256}`,
     claimSha256,
     location,
   });
 }
 
-async function scopeRecoveryMarker(
+function parseScopeCleanupMarker(
+  location: ScopeLocation,
+  name: string,
+): ScopeCleanupMarker | null {
+  const match = cleanupMarker.exec(name);
+  if (match === null) return null;
+  const [, claimSha256] = match as unknown as [string, string];
+  return Object.freeze({
+    path: `${location.directory}/${name}`,
+    claimSha256,
+    location,
+  });
+}
+
+async function scopeCleanupMarker(
   resource: LeaseResource,
   services: LockServices,
-): Promise<ScopeRecoveryMarker | null> {
-  const root = lockPaths(resource).root;
+): Promise<ScopeCleanupMarker | null> {
+  const claim = lockPaths(resource).claim;
   try {
-    const rootEntry = await services.durableFileSystem.inspect(root);
-    if (rootEntry.kind === "missing") return null;
-    if (rootEntry.kind !== "directory") throw corrupt(root);
-    const markers = (await services.durableFileSystem.list(root))
-      .map((name) => parseScopeRecoveryMarker(resource, name))
-      .filter((value): value is ScopeRecoveryMarker => value !== null);
-    if (markers.length > 1) throw corrupt(root);
+    const parent = await services.durableFileSystem.inspect(claim);
+    if (parent.kind === "missing") return null;
+    if (parent.kind !== "directory") throw corrupt(claim);
+    const names = await services.durableFileSystem.list(claim);
+    if (names.length === 0) return null;
+    if (names.length !== 1) throw corrupt(claim);
+    const generationName = names[0];
+    if (generationName === undefined) throw corrupt(claim);
+    const match = scopeGeneration.exec(generationName);
+    if (match === null) throw corrupt(claim);
+    const [, expiresText, claimSha256] = match as unknown as [
+      string,
+      string,
+      string,
+    ];
+    const location = Object.freeze({
+      directory: `${claim}/${generationName}`,
+      recordPath: `${claim}/${generationName}/claim.json`,
+    });
+    const markers = (await services.durableFileSystem.list(location.directory))
+      .map((name) => parseScopeCleanupMarker(location, name))
+      .filter((value): value is ScopeCleanupMarker => value !== null);
+    if (markers.length === 0) return null;
+    if (markers.length !== 1) throw corrupt(location.directory);
     const marker = markers[0];
-    if (marker === undefined) return null;
+    if (marker === undefined) throw corrupt(location.directory);
+    if (marker.claimSha256 !== claimSha256) throw corrupt(location.directory);
+    if (String(Number(expiresText)) !== expiresText)
+      throw corrupt(location.directory);
     const entry = await services.durableFileSystem.inspect(marker.path);
     if (entry.kind !== "directory") throw corrupt(marker.path);
     if ((await services.durableFileSystem.list(marker.path)).length !== 0)
@@ -849,6 +855,7 @@ async function assertScopeClaimChildren(
   const claim = lockPaths(resource).claim;
   try {
     const names = await services.durableFileSystem.list(claim);
+    if (names.length === 0) return;
     if (names.length !== 1) throw corrupt(claim);
     const generationName = names.join("");
     const match = scopeGeneration.exec(generationName);
@@ -866,8 +873,43 @@ async function assertScopeClaimChildren(
     )
       throw corrupt(generation);
     const children = await services.durableFileSystem.list(generation);
-    if (children.length !== 1 || children[0] !== "claim.json")
+    const markers = children
+      .map((name) =>
+        parseScopeCleanupMarker(
+          Object.freeze({
+            directory: generation,
+            recordPath: `${generation}/claim.json`,
+          }),
+          name,
+        ),
+      )
+      .filter((value): value is ScopeCleanupMarker => value !== null);
+    if (
+      children.some(
+        (name) =>
+          name !== "claim.json" &&
+          parseScopeCleanupMarker(
+            Object.freeze({
+              directory: generation,
+              recordPath: `${generation}/claim.json`,
+            }),
+            name,
+          ) === null,
+      ) ||
+      markers.length > 1 ||
+      markers.some((marker) => marker.claimSha256 !== claimSha256)
+    )
       throw corrupt(generation);
+    for (const marker of markers) {
+      const markerEntry = await services.durableFileSystem.inspect(marker.path);
+      if (markerEntry.kind !== "directory") throw corrupt(marker.path);
+      if ((await services.durableFileSystem.list(marker.path)).length !== 0)
+        throw corrupt(marker.path);
+    }
+    if (!children.includes("claim.json")) {
+      if (markers.length === 1) return;
+      throw corrupt(generation);
+    }
     const entry = await services.durableFileSystem.inspect(
       `${generation}/claim.json`,
     );
@@ -901,7 +943,6 @@ async function assertScopeRootChildren(
 ): Promise<void> {
   const root = lockPaths(resource).root;
   try {
-    const recovery = await scopeRecoveryMarker(resource, services);
     for (const name of await services.durableFileSystem.list(root)) {
       if (name === "events.jsonl" || name === "lease.json") continue;
       if (name === "claim") {
@@ -910,8 +951,7 @@ async function assertScopeRootChildren(
           "directory"
         )
           throw corrupt(`${root}/claim`);
-        if (recovery === null)
-          await assertScopeClaimChildren(resource, services);
+        await assertScopeClaimChildren(resource, services);
         continue;
       }
       const candidate = parseScopeCandidate(resource, name);
@@ -919,12 +959,7 @@ async function assertScopeRootChildren(
         await assertScopeCandidate(resource, candidate, services);
         continue;
       }
-      const marker = parseScopeRecoveryMarker(resource, name);
-      if (marker === null) throw corrupt(root);
-      const entry = await services.durableFileSystem.inspect(marker.path);
-      if (entry.kind !== "directory") throw corrupt(marker.path);
-      if ((await services.durableFileSystem.list(marker.path)).length !== 0)
-        throw corrupt(marker.path);
+      throw corrupt(root);
     }
   } catch (error) {
     if (error instanceof LockFailure) throw error;
@@ -942,7 +977,9 @@ async function readClaim(
     if (parent.kind === "missing") return null;
     if (parent.kind !== "directory") throw corrupt(claim);
     await assertScopeClaimChildren(resource, services);
-    const generation = (await services.durableFileSystem.list(claim)).join("");
+    const generations = await services.durableFileSystem.list(claim);
+    if (generations.length === 0) return null;
+    const generation = generations.join("");
     const path = `${claim}/${generation}/claim.json`;
     const entry = await services.durableFileSystem.inspect(path);
     if (entry.kind !== "file") throw corrupt(path);
@@ -1070,15 +1107,28 @@ async function assertAdmissionGenerationChildren(
   location: AdmissionLocation,
   services: LockServices,
 ): Promise<void> {
+  const markers: AdmissionCleanupMarker[] = [];
   for (const name of await services.durableFileSystem.list(
     location.directory,
   )) {
+    const marker = parseAdmissionCleanupMarker(location, name);
+    if (marker !== null) {
+      markers.push(marker);
+      continue;
+    }
     if (
       name === "claim.json" ||
       parseAdmissionTombstone(name, location.directory)
     )
       continue;
     throw corrupt(location.directory);
+  }
+  if (markers.length > 1) throw corrupt(location.directory);
+  for (const marker of markers) {
+    const entry = await services.durableFileSystem.inspect(marker.path);
+    if (entry.kind !== "directory") throw corrupt(marker.path);
+    if ((await services.durableFileSystem.list(marker.path)).length !== 0)
+      throw corrupt(marker.path);
   }
 }
 
@@ -1182,6 +1232,57 @@ function admissionLocationFor(
     recordPath: `${directory}/claim.json`,
     legacy: false,
   });
+}
+
+function admissionCleanupMarkerFor(
+  record: LocatedAdmissionClaim,
+  services: LockServices,
+): AdmissionCleanupMarker {
+  const claimSha256 = services.digests.sha256(
+    canonicalizeJson(persistedRecord(record)),
+  );
+  return Object.freeze({
+    path: `${record.location.directory}/.cleanup-${claimSha256}`,
+    claimSha256,
+    location: record.location,
+  });
+}
+
+function parseAdmissionCleanupMarker(
+  location: AdmissionLocation,
+  name: string,
+): AdmissionCleanupMarker | null {
+  const match = cleanupMarker.exec(name);
+  if (match === null) return null;
+  const [, claimSha256] = match as unknown as [string, string];
+  return Object.freeze({
+    path: `${location.directory}/${name}`,
+    claimSha256,
+    location,
+  });
+}
+
+async function admissionCleanupMarker(
+  location: AdmissionLocation,
+  services: LockServices,
+): Promise<AdmissionCleanupMarker | null> {
+  try {
+    const markers = (await services.durableFileSystem.list(location.directory))
+      .map((name) => parseAdmissionCleanupMarker(location, name))
+      .filter((value): value is AdmissionCleanupMarker => value !== null);
+    if (markers.length === 0) return null;
+    if (markers.length !== 1) throw corrupt(location.directory);
+    const marker = markers[0];
+    if (marker === undefined) return null;
+    const entry = await services.durableFileSystem.inspect(marker.path);
+    if (entry.kind !== "directory") throw corrupt(marker.path);
+    if ((await services.durableFileSystem.list(marker.path)).length !== 0)
+      throw corrupt(marker.path);
+    return marker;
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
 }
 
 function candidateFor(
@@ -1791,11 +1892,11 @@ async function recoverExpiredScopeCandidates(
 
 async function helpScopeRecovery(
   resource: LeaseResource,
-  marker: ScopeRecoveryMarker,
+  marker: ScopeCleanupMarker,
   services: LockServices,
 ): Promise<"released" | "absent"> {
   try {
-    const currentMarker = await scopeRecoveryMarker(resource, services);
+    const currentMarker = await scopeCleanupMarker(resource, services);
     if (currentMarker?.path !== marker.path) return "absent";
     const record = await services.durableFileSystem.inspect(
       marker.location.recordPath,
@@ -1813,7 +1914,6 @@ async function helpScopeRecovery(
       if (
         claim?.resource !== resource ||
         canonicalizeJson(claim) !== text ||
-        Date.parse(claim.expiresAt) !== marker.expiresAt ||
         record.sha256 !== marker.claimSha256 ||
         services.digests.sha256(text) !== marker.claimSha256
       )
@@ -1822,6 +1922,14 @@ async function helpScopeRecovery(
       await services.durableFileSystem.syncDirectory(marker.location.directory);
     } else if (record.kind !== "missing")
       throw corrupt(marker.location.recordPath);
+    try {
+      await services.durableFileSystem.removeEmptyDirectory(marker.path);
+      await services.durableFileSystem.syncDirectory(marker.location.directory);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await services.durableFileSystem.inspect(marker.path);
+      if (current.kind !== "missing") throw internal();
+    }
     const generation = await services.durableFileSystem.inspect(
       marker.location.directory,
     );
@@ -1868,13 +1976,61 @@ async function helpScopeRecovery(
       }
     } else if (generation.kind !== "missing")
       throw corrupt(marker.location.directory);
+    return "released";
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+}
+
+async function recoverEmptyScopeGeneration(
+  resource: LeaseResource,
+  location: ScopeLocation,
+  services: LockServices,
+): Promise<"released" | "absent" | null> {
+  try {
+    const record = await services.durableFileSystem.inspect(
+      location.recordPath,
+    );
+    if (record.kind !== "missing") return null;
+    const generation = await services.durableFileSystem.inspect(
+      location.directory,
+    );
+    if (generation.kind === "missing") {
+      const parent = lockPaths(resource).claim;
+      const parentEntry = await services.durableFileSystem.inspect(parent);
+      if (parentEntry.kind === "missing") return "absent";
+      if (parentEntry.kind !== "directory") throw corrupt(parent);
+      return (await services.durableFileSystem.list(parent)).length === 0
+        ? "absent"
+        : null;
+    }
+    if (generation.kind !== "directory") throw corrupt(location.directory);
+    if (
+      (await services.durableFileSystem.list(location.directory)).length !== 0
+    )
+      return null;
     try {
-      await services.durableFileSystem.removeEmptyDirectory(marker.path);
+      await services.durableFileSystem.removeEmptyDirectory(location.directory);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await services.durableFileSystem.inspect(
+        location.directory,
+      );
+      if (current.kind === "missing") return "absent";
+      if (current.kind !== "directory") throw corrupt(location.directory);
+      throw internal();
+    }
+    const parent = lockPaths(resource).claim;
+    await services.durableFileSystem.syncDirectory(parent);
+    try {
+      await services.durableFileSystem.removeEmptyDirectory(parent);
       await services.durableFileSystem.syncDirectory(lockPaths(resource).root);
     } catch (error) {
       if (error instanceof LockFailure) throw error;
-      const current = await services.durableFileSystem.inspect(marker.path);
-      if (current.kind !== "missing") throw internal();
+      const current = await services.durableFileSystem.inspect(parent);
+      if (current.kind !== "missing" && current.kind !== "directory")
+        throw corrupt(parent);
     }
     return "released";
   } catch (error) {
@@ -1890,6 +2046,21 @@ async function resolveAdmissionRecovery(
   const holder = await readAdmissionClaim(services);
   const retired = await readAdmissionTombstone(services);
   assertCompatibleAdmissionRecords(holder, retired);
+  const cleanupTarget = holder ?? retired;
+  if (cleanupTarget !== null) {
+    const cleanup = await admissionCleanupMarker(
+      cleanupTarget.location,
+      services,
+    );
+    if (cleanup !== null) {
+      const outcome = await helpAdmissionCleanup(
+        cleanupTarget,
+        cleanup,
+        services,
+      );
+      return { kind: outcome };
+    }
+  }
   const markers = await validateAdmissionRecoveryMarkers(
     holder,
     retired,
@@ -1933,16 +2104,87 @@ async function resolveAdmissionRecovery(
   }
 }
 
+async function helpAdmissionCleanup(
+  expected: LocatedAdmissionClaim,
+  marker: AdmissionCleanupMarker,
+  services: LockServices,
+): Promise<"cleared" | "lost"> {
+  const currentMarker = await admissionCleanupMarker(
+    expected.location,
+    services,
+  );
+  if (currentMarker?.path !== marker.path) return "lost";
+  if (currentMarker.claimSha256 !== marker.claimSha256)
+    throw corrupt(marker.path);
+  const holder = await readAdmissionClaim(services);
+  const retired = await readAdmissionTombstone(services);
+  assertCompatibleAdmissionRecords(holder, retired);
+  if (holder !== null && !sameClaim(holder, expected))
+    throw corrupt(holder.location.recordPath);
+  if (retired !== null && !sameClaim(retired, expected))
+    throw corrupt(retired.location.recordPath);
+  const tombstone = tombstoneFor(expected, services);
+  if (holder !== null && retired === null) {
+    try {
+      await services.durableFileSystem.linkFileExclusive(
+        holder.location.recordPath,
+        tombstone.path,
+      );
+      await services.durableFileSystem.syncDirectory(holder.location.directory);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await readAdmissionClaim(services);
+      const currentRetired = await readAdmissionTombstone(services);
+      if (
+        currentRetired !== null &&
+        sameClaim(currentRetired, expected) &&
+        (current === null || sameClaim(current, expected))
+      )
+        return helpAdmissionCleanup(expected, marker, services);
+      if (current === null) return "lost";
+      if (!sameClaim(current, expected)) throw corrupt(marker.path);
+      throw internal();
+    }
+  }
+  if (holder !== null) {
+    await services.durableFileSystem.removeFile(holder.location.recordPath);
+    await services.durableFileSystem.syncDirectory(holder.location.directory);
+  }
+  const linked = await services.durableFileSystem.inspect(tombstone.path);
+  if (linked.kind === "file") {
+    await services.durableFileSystem.removeFile(tombstone.path);
+    await services.durableFileSystem.syncDirectory(expected.location.directory);
+  } else if (linked.kind !== "missing") {
+    throw corrupt(tombstone.path);
+  }
+  try {
+    await services.durableFileSystem.removeEmptyDirectory(marker.path);
+    await services.durableFileSystem.syncDirectory(expected.location.directory);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    const current = await services.durableFileSystem.inspect(marker.path);
+    if (current.kind !== "missing") throw internal();
+  }
+  return (await removePublishedAdmissionLocation(
+    expected.location,
+    services,
+  )) === "removed"
+    ? "cleared"
+    : "lost";
+}
+
 async function retireAdmissionRecord(
   admission: LocatedAdmissionClaim,
   services: LockServices,
 ): Promise<void> {
-  const marker = recoveryMarkerFor(admission, services);
+  const marker = admissionCleanupMarkerFor(admission, services);
   try {
     await services.durableFileSystem.createDirectoryExclusive(marker.path);
-    await services.durableFileSystem.syncDirectory(admissionRoot);
-    const outcome = await helpAdmissionRecovery(marker, services);
-    if (outcome.kind !== "cleared")
+    await services.durableFileSystem.syncDirectory(
+      admission.location.directory,
+    );
+    const outcome = await helpAdmissionCleanup(admission, marker, services);
+    if (outcome !== "cleared")
       throw new LockFailure("runtime.recovery_required", [
         { kind: "artifact", ref: marker.path },
       ]);
@@ -2048,7 +2290,7 @@ export async function acquireClaim(
     throw internal();
   }
   await ensureLockNamespace(request.resource, services);
-  if ((await scopeRecoveryMarker(request.resource, services)) !== null)
+  if ((await scopeCleanupMarker(request.resource, services)) !== null)
     return withAdmission(request.owner, services, () =>
       acquireClaimHeld(request, services),
     );
@@ -2068,7 +2310,7 @@ async function acquireClaimHeld(
   request: AcquireClaimRequest,
   services: LockServices,
 ): Promise<AcquireClaimOutcome> {
-  const pendingRecovery = await scopeRecoveryMarker(request.resource, services);
+  const pendingRecovery = await scopeCleanupMarker(request.resource, services);
   if (pendingRecovery !== null)
     await helpScopeRecovery(request.resource, pendingRecovery, services);
   await recoverExpiredScopeCandidates(request.resource, services);
@@ -2173,21 +2415,35 @@ async function releaseClaimHeld(
   services: LockServices,
   verifiedCurrent?: ObservedLockClaim,
 ): Promise<ReleaseClaimOutcome> {
-  const pendingRecovery = await scopeRecoveryMarker(request.resource, services);
-  if (pendingRecovery !== null)
+  const expectedMarker = scopeCleanupMarkerFor(
+    request.resource,
+    request.observed,
+    services,
+  );
+  const pendingRecovery = await scopeCleanupMarker(request.resource, services);
+  if (pendingRecovery !== null) {
+    const outcome = await helpScopeRecovery(
+      request.resource,
+      pendingRecovery,
+      services,
+    );
+    if (pendingRecovery.path !== expectedMarker.path)
+      return releaseClaimHeld(request, services);
     return {
-      kind: await helpScopeRecovery(
-        request.resource,
-        pendingRecovery,
-        services,
-      ),
+      kind: outcome,
     };
+  }
+  const emptyRecovery = await recoverEmptyScopeGeneration(
+    request.resource,
+    expectedMarker.location,
+    services,
+  );
+  if (emptyRecovery !== null) return { kind: emptyRecovery };
   const current =
     verifiedCurrent ?? (await readClaim(request.resource, services));
   if (current === null) return { kind: "absent" };
   if (!sameClaim(current, request.observed))
     throw corrupt(lockPaths(request.resource).claim);
-  const paths = lockPaths(request.resource);
   const location = scopeLocationFor(request.resource, current, services);
   try {
     const entry = await services.durableFileSystem.inspect(location.recordPath);
@@ -2204,7 +2460,7 @@ async function releaseClaimHeld(
       (await services.durableFileSystem.readText(location.recordPath))
     )
       throw corrupt(location.recordPath);
-    const marker = scopeRecoveryMarkerFor(request.resource, current, services);
+    const marker = scopeCleanupMarkerFor(request.resource, current, services);
     const verified = await services.durableFileSystem.inspect(
       location.recordPath,
     );
@@ -2217,7 +2473,7 @@ async function releaseClaimHeld(
       return conflict(current);
     if (verified.sha256 !== marker.claimSha256) return conflict(current);
     await services.durableFileSystem.createDirectoryExclusive(marker.path);
-    await services.durableFileSystem.syncDirectory(paths.root);
+    await services.durableFileSystem.syncDirectory(marker.location.directory);
     return {
       kind: await helpScopeRecovery(request.resource, marker, services),
     };
@@ -2300,11 +2556,28 @@ async function recoverClaimHeld(
         ]);
     }
   }
-  const pendingRecovery = await scopeRecoveryMarker(request.resource, services);
+  const expectedMarker = scopeCleanupMarkerFor(
+    request.resource,
+    request.observed,
+    services,
+  );
+  const pendingRecovery = await scopeCleanupMarker(request.resource, services);
   if (pendingRecovery !== null) {
-    await helpScopeRecovery(request.resource, pendingRecovery, services);
-    return { kind: "recovered" };
+    const outcome = await helpScopeRecovery(
+      request.resource,
+      pendingRecovery,
+      services,
+    );
+    if (pendingRecovery.path === expectedMarker.path)
+      return { kind: outcome === "released" ? "recovered" : "absent" };
   }
+  const emptyRecovery = await recoverEmptyScopeGeneration(
+    request.resource,
+    expectedMarker.location,
+    services,
+  );
+  if (emptyRecovery !== null)
+    return { kind: emptyRecovery === "released" ? "recovered" : "absent" };
   const current = await readClaim(request.resource, services);
   if (current === null) return { kind: "absent" };
   if (
@@ -2398,7 +2671,7 @@ export async function inspectLease(
   services: LockServices,
 ): Promise<ClaimInspection> {
   await inspectLockNamespace(resource, services);
-  const marker = await scopeRecoveryMarker(resource, services);
+  const marker = await scopeCleanupMarker(resource, services);
   if (marker !== null)
     throw new LockFailure("runtime.recovery_required", [
       { kind: "artifact", ref: marker.path },

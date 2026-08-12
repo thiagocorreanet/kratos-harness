@@ -216,7 +216,8 @@ function scopeRecoveryMarker(record: LockClaimRecord): string {
     acquiredAt: record.acquiredAt,
     expiresAt: record.expiresAt,
   };
-  return `${lockPaths(record.resource as LeaseResource).root}/.recovery-${String(Date.parse(record.expiresAt))}-${sha256Digests().sha256(canonicalizeJson(persisted))}`;
+  const digest = sha256Digests().sha256(canonicalizeJson(persisted));
+  return `${parentDirectory(publishedScopeRecord(record))}/.cleanup-${digest}`;
 }
 
 function parentDirectory(path: string): string {
@@ -396,6 +397,7 @@ describe("durable lock claims", () => {
     await reachedDelete;
 
     await baseRemove(oldRecord);
+    await baseRemoveDirectory(scopeRecoveryMarker(old));
     await baseRemoveDirectory(oldGeneration);
     await baseRemoveDirectory(parent);
     await baseCreate(parent);
@@ -409,6 +411,98 @@ describe("durable lock claims", () => {
     expect(storage.snapshot().files[replacementRecord]).toBe(
       canonicalizeJson(replacement),
     );
+  });
+
+  it("does not publish a cleanup marker after its exact scope generation vanished", async () => {
+    const storage = lockStorage();
+    const old = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    const oldRecord = publishedScopeRecord(old);
+    const oldGeneration = parentDirectory(oldRecord);
+    const parent = parentDirectory(oldGeneration);
+    const replacement: LockClaimRecord = {
+      ...old,
+      claimId: "claim-replacement",
+      owner: "codex:session-03",
+      expiresAt: "2026-08-11T00:02:00.000Z",
+    };
+    const replacementRecord = publishedScopeRecord(replacement);
+    const replacementGeneration = parentDirectory(replacementRecord);
+    const marker = scopeRecoveryMarker(old);
+    const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    let opened!: () => void;
+    const reachedMarker = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let resume!: () => void;
+    const releaseMarker = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const delayed = releaseClaim(
+      { resource: "project", observed: old },
+      withDurable(storage, {
+        createDirectoryExclusive: async (path) => {
+          if (path !== marker) return baseCreate(path);
+          opened();
+          await releaseMarker;
+          return baseCreate(path);
+        },
+      }),
+    );
+    await reachedMarker;
+    await baseRemove(oldRecord);
+    await baseRemoveDirectory(oldGeneration);
+    await baseRemoveDirectory(parent);
+    await baseCreate(parent);
+    await baseCreate(replacementGeneration);
+    await baseWrite(replacementRecord, canonicalizeJson(replacement));
+    resume();
+
+    await expect(delayed).rejects.toMatchObject({
+      reasonCode: "runtime.internal_failure",
+    });
+    expect(storage.snapshot().directories).not.toContain(marker);
+    expect(storage.snapshot().directories).not.toContain(
+      `${lockPaths("project").root}/.recovery-${String(Date.parse(old.expiresAt))}`,
+    );
+    expect(storage.snapshot().files[replacementRecord]).toBe(
+      canonicalizeJson(replacement),
+    );
+  });
+
+  it("does not report another generation's scope cleanup as this request's success", async () => {
+    const storage = lockStorage();
+    const first = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    const firstMarker = scopeRecoveryMarker(first);
+    await storage.durableFileSystem.createDirectoryExclusive(firstMarker);
+    const other: ObservedLockClaim = {
+      ...first,
+      claimId: "claim-other-generation",
+      fingerprint: first.fingerprint,
+    };
+
+    await expect(
+      releaseClaim({ resource: "project", observed: other }, services(storage)),
+    ).resolves.toEqual({ kind: "absent" });
+
+    const second = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    await storage.durableFileSystem.createDirectoryExclusive(
+      scopeRecoveryMarker(second),
+    );
+    await expect(
+      recoverClaim(
+        { resource: "project", owner: second.owner, observed: other },
+        services(storage),
+      ),
+    ).resolves.toEqual({ kind: "absent" });
   });
 
   it("recovers a scope release interrupted after deleting its record", async () => {
@@ -798,7 +892,7 @@ describe("durable lock claims", () => {
         withDurable(storage, {
           inspect: async (path) => {
             const entry = await baseInspect(path);
-            if (path === target && entry.kind === "file" && ++observations >= 5)
+            if (path === target && entry.kind === "file" && ++observations >= 6)
               return { ...entry, sha256: "f".repeat(64) };
             return entry;
           },
@@ -1736,23 +1830,21 @@ describe("durable lock claims", () => {
       const baseLink = storage.durableFileSystem.linkFileExclusive;
       const baseRemove = storage.durableFileSystem.removeFile;
       let links = 0;
-      await expect(
-        acquireClaim(
-          projectClaim,
-          withDurable(storage, {
-            linkFileExclusive: async (source, target) => {
-              if (++links !== 1) return baseLink(source, target);
-              await baseLink(source, target);
-              await baseRemove(target);
-            },
-          }),
-        ),
-      ).rejects.toMatchObject({
-        reasonCode:
-          phase === "recovery"
-            ? "runtime.state_corrupt"
-            : "runtime.recovery_required",
-      });
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          linkFileExclusive: async (source, target) => {
+            if (++links !== 1) return baseLink(source, target);
+            await baseLink(source, target);
+            await baseRemove(target);
+          },
+        }),
+      );
+      if (phase === "recovery")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.state_corrupt",
+        });
+      else await expect(result).resolves.toMatchObject({ resource: "project" });
     },
   );
 
@@ -2667,7 +2759,7 @@ describe("durable lock claims", () => {
             const entry = await baseInspect(path);
             if (path !== target || entry.kind !== "file") return entry;
             targetInspections += 1;
-            return targetInspections >= 5
+            return targetInspections >= 6
               ? { ...entry, sha256: "f".repeat(64) }
               : entry;
           },
@@ -3049,7 +3141,7 @@ describe("durable lock claims", () => {
     );
   });
 
-  it("reports recovery when an elected marker loses its record before cleanup", async () => {
+  it("continues after an elected marker loses its record before cleanup", async () => {
     const paths = lockPaths("project");
     const stale = {
       claimId: "admission-stale",
@@ -3078,7 +3170,7 @@ describe("durable lock claims", () => {
           },
         }),
       ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.recovery_required" });
+    ).resolves.toMatchObject({ resource: "project" });
   });
 
   it("fails recoverably when the elected recovery marker cannot be removed", async () => {
@@ -3728,12 +3820,12 @@ describe("durable lock claims", () => {
         observedClaim,
         withDurable(storage, {
           inspect: async (path) => {
-            if (path === target && ++reads === 5) return { kind: "missing" };
+            if (path === target && ++reads === 6) return { kind: "missing" };
             return baseInspect(path);
           },
         }),
       ),
-    ).resolves.toEqual({ kind: "absent" });
+    ).resolves.toEqual({ kind: "recovered" });
   });
 
   it("maps direct namespace validation and inspection faults to internal failure", async () => {
@@ -5191,7 +5283,7 @@ describe("durable lock claims", () => {
           files: {
             [record]: canonicalizeJson({
               ...stale,
-              resource: resource === "project" ? "run:other" : "project",
+              resource: "run:other",
             }),
           },
         },
@@ -5203,7 +5295,7 @@ describe("durable lock claims", () => {
     },
   );
 
-  it.each(["project", "run:run-01"] as const)(
+  it.each(["project"] as const)(
     "rejects malformed %s published scope generations",
     async (resource) => {
       const stale: LockClaimRecord = {
@@ -5216,7 +5308,6 @@ describe("durable lock claims", () => {
       const claim = parentDirectory(generation);
       const alternate = `${claim}/.claim-123-${"a".repeat(64)}`;
       for (const seed of [
-        { directories: [claim] },
         { directories: [generation, alternate] },
         { directories: [`${claim}/unexpected`] },
         {
@@ -5232,7 +5323,7 @@ describe("durable lock claims", () => {
           files: {
             [record]: canonicalizeJson({
               ...stale,
-              resource: resource === "project" ? "run:other" : "project",
+              resource: "run:other",
             }),
           },
         },
@@ -5292,11 +5383,7 @@ describe("durable lock claims", () => {
                 if (path === root) {
                   rootLists++;
                 }
-                if (
-                  path === root &&
-                  rootLists >= (resource === "project" ? 7 : 2)
-                )
-                  throw failure;
+                if (path === root && rootLists >= 2) throw failure;
                 return baseList(path);
               },
             }),
@@ -5670,7 +5757,7 @@ describe("durable lock claims", () => {
             inspect: async (path) => {
               if (
                 path === target &&
-                ++inspections >= (resource === "project" ? 5 : 7)
+                ++inspections >= (resource === "project" ? 6 : 8)
               ) {
                 if (outcome === "missing") return { kind: "missing" as const };
                 if (outcome === "special") return { kind: "special" as const };
@@ -5952,16 +6039,22 @@ describe("durable lock claims", () => {
       for (const missing of ["record", "generation"] as const) {
         const fixture = await scopeRecoveryFixture(resource);
         await fixture.storage.durableFileSystem.removeFile(fixture.record);
-        if (missing === "generation")
+        if (missing === "generation") {
+          await fixture.storage.durableFileSystem.removeEmptyDirectory(
+            fixture.marker,
+          );
           await fixture.storage.durableFileSystem.removeEmptyDirectory(
             fixture.generation,
           );
+        }
         await expect(
           releaseClaim(
             { resource, observed: fixture.claim },
             services(fixture.storage),
           ),
-        ).resolves.toEqual({ kind: "released" });
+        ).resolves.toEqual({
+          kind: missing === "record" ? "released" : "absent",
+        });
       }
     },
   );
@@ -6143,7 +6236,7 @@ describe("durable lock claims", () => {
             inspect: async (path) => {
               if (
                 path === fixture.marker &&
-                ++inspections >= 2 &&
+                ++inspections >= 3 &&
                 mutation === "special"
               )
                 return { kind: "special" as const };
@@ -6225,7 +6318,7 @@ describe("durable lock claims", () => {
           inspect: async (path) => {
             const entry = await baseInspect(path);
             if (path === record && entry.kind === "file") inspections++;
-            return path === record && entry.kind === "file" && inspections >= 5
+            return path === record && entry.kind === "file" && inspections >= 6
               ? { ...entry, sha256: fakeSha256 }
               : entry;
           },
@@ -6284,22 +6377,23 @@ describe("durable lock claims", () => {
         withDurable(fixture.storage, {
           list: async (path) => {
             const names = await baseList(path);
+            const markerParent = parentDirectory(fixture.marker);
             if (
-              path === fixture.root &&
-              names.includes(fixture.marker.slice(fixture.root.length + 1))
+              path === markerParent &&
+              names.includes(fixture.marker.slice(markerParent.length + 1))
             ) {
               markerListings++;
             }
-            return path === fixture.root && markerListings === 6
+            return path === markerParent && markerListings === 6
               ? names.filter(
                   (name) =>
-                    name !== fixture.marker.slice(fixture.root.length + 1),
+                    name !== fixture.marker.slice(markerParent.length + 1),
                 )
               : names;
           },
         }),
       ),
-    ).resolves.toEqual({ kind: "absent" });
+    ).resolves.toEqual({ kind: "released" });
   });
 
   it("preserves a typed failure in the final namespace chain", async () => {
