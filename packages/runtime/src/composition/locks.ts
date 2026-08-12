@@ -1998,8 +1998,10 @@ async function releaseClaimHeld(
     readonly observed: ObservedLockClaim;
   },
   services: LockServices,
+  verifiedCurrent?: ObservedLockClaim,
 ): Promise<ReleaseClaimOutcome> {
-  const current = await readClaim(request.resource, services);
+  const current =
+    verifiedCurrent ?? (await readClaim(request.resource, services));
   if (current === null) return { kind: "absent" };
   if (!sameClaim(current, request.observed))
     throw corrupt(lockPaths(request.resource).claim);
@@ -2007,6 +2009,7 @@ async function releaseClaimHeld(
   const location = scopeLocationFor(request.resource, current, services);
   try {
     const entry = await services.durableFileSystem.inspect(location.recordPath);
+    if (entry.kind === "missing") return { kind: "absent" };
     if (entry.kind !== "file") throw corrupt(location.recordPath);
     if (
       request.observed.fingerprint.kind !== "file" ||
@@ -2135,6 +2138,7 @@ async function recoverClaimHeld(
   const outcome = await releaseClaimHeld(
     { resource: request.resource, observed: current },
     services,
+    current,
   );
   if (outcome.kind === "conflict") return outcome;
   if (outcome.kind !== "released") return { kind: "absent" };

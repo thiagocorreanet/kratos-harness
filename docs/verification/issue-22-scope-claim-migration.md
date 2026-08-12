@@ -20,10 +20,7 @@ delayed old release cannot delete a replacement generation.
 ## Verification on 2026-08-11
 
 - `npm run typecheck` passed.
-- Targeted scope schedules passed: five tests covering closed publication,
-  project/run expired candidate recovery, quarantined-candidate resumption, and
-  byte-exact replacement survival during a delayed old release.
-- `npx vitest run tests/lock-claims.test.ts` remains red: 24 failures of 269.
-  They are the pre-migration static `claim/claim.json` fault hooks and fixtures
-  (plus four pre-existing admission-candidate cleanup failures). They need to
-  be rewritten against generation record paths and candidate/rename boundaries.
+- `npx vitest run tests/lock-claims.test.ts` passed: 269 tests. The migrated
+  schedules cover closed publication, project/run expired candidate recovery,
+  quarantined-candidate resumption, race-winner inspection, and byte-exact
+  replacement survival during a delayed old release.
