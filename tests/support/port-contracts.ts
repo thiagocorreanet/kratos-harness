@@ -2,11 +2,14 @@ import type {
   Clock,
   Environment,
   FileSystem,
+  Git,
   Ids,
   Locks,
   Output,
 } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it } from "vitest";
+
+import { compareGitPaths } from "../../packages/runtime/src/domain/git/index.js";
 
 /**
  * Behavior every implementation of a port must share.
@@ -184,12 +187,88 @@ export function describeFileSystemContract(
   });
 }
 
-// The Git port contract lives with `RUN-08`'s own suite
-// (`tests/git-observation.test.ts`), since `observe()` has no shared shape
-// with the other ports here beyond "returns a promise that resolves".
-// TODO(RUN-08 Task 8): add a real `describeGitContract` for the
-// `observe()`-based port, run against both `stubGit()` and
-// `composeGit(nodeGitRunner(root), digests)`.
+/**
+ * Properties every `Git.observe()` implementation must satisfy, whether the
+ * repository is real or faked. The classification semantics themselves --
+ * which state maps to which `kind`, how a change is parsed -- are `RUN-08`'s
+ * own suite (`tests/git-observation.test.ts`, `tests/git-scenarios.test.ts`);
+ * what is shared here is only what both implementations must already agree
+ * on regardless of the repository observed.
+ */
+export function describeGitContract(
+  label: string,
+  factory: () => Promise<Disposable<Git>>,
+): void {
+  describe(`Git contract: ${label}`, () => {
+    it("returns a kind from the closed set", async () => {
+      const { port, dispose } = await factory();
+      try {
+        expect([
+          "observed",
+          "git_absent",
+          "not_a_repository",
+          "timeout",
+          "command_failed",
+          "unreadable",
+        ]).toContain((await port.observe()).kind);
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("resolves rather than rejecting", async () => {
+      const { port, dispose } = await factory();
+      try {
+        await expect(port.observe()).resolves.toBeDefined();
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("carries evidence that never contains output bytes", async () => {
+      const { port, dispose } = await factory();
+      try {
+        for (const record of (await port.observe()).evidence) {
+          expect(Object.keys(record).sort()).toEqual([
+            "argv",
+            "exitCode",
+            "outcome",
+            "stderrBytes",
+            "stderrSha256",
+            "stdoutBytes",
+            "stdoutSha256",
+          ]);
+        }
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("returns changes sorted by path bytes", async () => {
+      const { port, dispose } = await factory();
+      try {
+        const observation = await port.observe();
+        if (observation.kind !== "observed") return;
+        const paths = observation.repository.changes.map(
+          (change) => change.path,
+        );
+
+        expect([...paths]).toEqual([...paths].sort(compareGitPaths));
+      } finally {
+        await dispose();
+      }
+    });
+
+    it("observes the same repository equally twice", async () => {
+      const { port, dispose } = await factory();
+      try {
+        expect(await port.observe()).toEqual(await port.observe());
+      } finally {
+        await dispose();
+      }
+    });
+  });
+}
 
 export function describeLocksContract(
   label: string,

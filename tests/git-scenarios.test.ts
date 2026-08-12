@@ -517,4 +517,38 @@ describe("real-repository scenario corpus", () => {
       await scenario.dispose();
     }
   });
+
+  it.each(SCENARIOS)(
+    "derives no argv element from observed data in %s",
+    async (name) => {
+      const scenario = await createScenarioRepository(name);
+      try {
+        if (!scenario.available) return;
+        const observation = await composeGit(
+          nodeGitRunner(scenario.root),
+          digests,
+        ).observe();
+        const allowed = new Set([
+          "rev-parse",
+          "--path-format=absolute",
+          "--is-inside-work-tree",
+          "--git-dir",
+          "--git-common-dir",
+          "status",
+          "--porcelain=v2",
+          "-z",
+          "--branch",
+          "-uall",
+          "--ignored=matching",
+        ]);
+
+        for (const record of observation.evidence) {
+          for (const argument of record.argv)
+            expect(allowed).toContain(argument);
+        }
+      } finally {
+        await scenario.dispose();
+      }
+    },
+  );
 });

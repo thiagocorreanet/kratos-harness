@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import {
   mkdtemp,
   readFile,
@@ -23,17 +24,22 @@ import {
   nodeClock,
   nodeEnvironment,
   nodeFileSystem,
+  nodeGitRunner,
   nodeIds,
   nodeLocks,
   nodeOutput,
   nodeDurableFileSystem,
+  sha256Digests,
 } from "@mestre-yoda/runtime/infra/node";
 import { describe, expect, expectTypeOf, it } from "vitest";
+
+import { composeGit } from "../packages/runtime/src/composition/git.js";
 
 import {
   describeClockContract,
   describeEnvironmentContract,
   describeFileSystemContract,
+  describeGitContract,
   describeIdsContract,
   describeLocksContract,
   describeOutputContract,
@@ -94,6 +100,9 @@ describeEnvironmentContract("fixed", () =>
   fixedEnvironment({ EXAMPLE: "value" }, "/project"),
 );
 describeOutputContract("recording", () => recordingOutput());
+describeGitContract("stub", () =>
+  Promise.resolve({ port: stubGit(), dispose: noDispose }),
+);
 
 // The same suites, run against the real implementations. This is the point of
 // having one suite: a fake that drifts from the Node behavior fails here.
@@ -125,12 +134,23 @@ describeLocksContract("node", async () => {
 // `RUN-07` and `RUN-08` own the full semantics of leases and repository
 // classification. What is shared here is only what both implementations must
 // already agree on; the exception is per-assertion, not per-port.
-//
-// TODO(RUN-08 Task 8): rewrite the Git port contract suite for the
-// `observe()` shape, covering both `stubGit()` and
-// `composeGit(nodeGitRunner(root), digests)` against a real repository. The
-// classification semantics themselves are exercised by
-// `tests/git-observation.test.ts`.
+
+/** A freshly initialized, unborn repository -- enough for a real `observe()`. */
+function initGitRepository(root: string): void {
+  execFileSync("git", ["init", "-q", "--initial-branch=main"], {
+    cwd: root,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  });
+}
+
+describeGitContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
+  initGitRepository(root);
+  return {
+    port: composeGit(nodeGitRunner(root), sha256Digests()),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
+});
 
 describe("node filesystem safety", () => {
   it("refuses a final component that is a symlink out of the root", async () => {
@@ -233,19 +253,5 @@ describe("deterministic fakes", () => {
     expect(environment.get("EXAMPLE")).toBe("value");
     expect(environment.get("PATH")).toBeUndefined();
     expect(environment.workingDirectory()).toBe("/project");
-  });
-
-  it("defaults to an observed clean principal worktree", async () => {
-    const result = await stubGit().observe();
-    expect(result).toMatchObject({
-      kind: "observed",
-      repository: { worktree: "principal", operation: "none", changes: [] },
-      evidence: [],
-    });
-  });
-
-  it("reports the fixed observation it was configured with", async () => {
-    const observation = { kind: "not_a_repository" as const, evidence: [] };
-    expect(await stubGit(observation).observe()).toBe(observation);
   });
 });

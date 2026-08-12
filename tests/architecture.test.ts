@@ -413,6 +413,28 @@ describe("the repository obeys its own rules", () => {
       "packages/runtime/src/domain/events/verify.ts",
     ]);
   });
+
+  it("confines child_process to the single Git runner module", async () => {
+    const modules = await sourceModules();
+    const importers = modules
+      .filter(({ path }) => path.startsWith("packages/runtime/"))
+      .filter(({ imports }) =>
+        imports.some((specifier) =>
+          /^node:child_process$|^child_process$/u.test(specifier),
+        ),
+      )
+      .map(({ path }) => path)
+      .sort();
+
+    // The acceptance criterion "policy code never shells out directly" is only
+    // real if it fails CI. One runtime module owns process execution; everything
+    // else reaches Git through the port.
+    //
+    // Scoped to the runtime package deliberately. `packages/differential` spawns
+    // the frozen Go v3 binary — running an external process is the entire point
+    // of the differential harness, and it is not policy code.
+    expect(importers).toEqual(["packages/runtime/src/infra/node/git.ts"]);
+  });
 });
 
 async function sourceModules(): Promise<SourceModule[]> {
