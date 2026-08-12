@@ -1794,86 +1794,93 @@ async function helpScopeRecovery(
   marker: ScopeRecoveryMarker,
   services: LockServices,
 ): Promise<"released" | "absent"> {
-  const currentMarker = await scopeRecoveryMarker(resource, services);
-  if (currentMarker?.path !== marker.path) return "absent";
-  const record = await services.durableFileSystem.inspect(
-    marker.location.recordPath,
-  );
-  if (record.kind === "file") {
-    const text = await services.durableFileSystem.readText(
+  try {
+    const currentMarker = await scopeRecoveryMarker(resource, services);
+    if (currentMarker?.path !== marker.path) return "absent";
+    const record = await services.durableFileSystem.inspect(
       marker.location.recordPath,
     );
-    let claim: LockClaimRecord | null;
-    try {
-      claim = exactRecord(JSON.parse(text));
-    } catch {
-      throw corrupt(marker.location.recordPath);
-    }
-    if (
-      claim?.resource !== resource ||
-      canonicalizeJson(claim) !== text ||
-      Date.parse(claim.expiresAt) !== marker.expiresAt ||
-      record.sha256 !== marker.claimSha256 ||
-      services.digests.sha256(text) !== marker.claimSha256
-    )
-      throw corrupt(marker.location.recordPath);
-    await services.durableFileSystem.removeFile(marker.location.recordPath);
-    await services.durableFileSystem.syncDirectory(marker.location.directory);
-  } else if (record.kind !== "missing")
-    throw corrupt(marker.location.recordPath);
-  const generation = await services.durableFileSystem.inspect(
-    marker.location.directory,
-  );
-  if (generation.kind === "directory") {
-    let removedGeneration = false;
-    try {
-      await services.durableFileSystem.removeEmptyDirectory(
-        marker.location.directory,
+    if (record.kind === "file") {
+      const text = await services.durableFileSystem.readText(
+        marker.location.recordPath,
       );
-      removedGeneration = true;
-    } catch (error) {
-      if (error instanceof LockFailure) throw error;
-      const current = await services.durableFileSystem.inspect(
-        marker.location.directory,
-      );
-      if (current.kind === "missing") {
-        // Another cleaner won the generation removal.  It owns deciding
-        // whether the shared claim parent is still empty.
-      } else if (current.kind !== "directory") {
-        throw corrupt(marker.location.directory);
-      } else {
-        throw internal();
+      let claim: LockClaimRecord | null;
+      try {
+        claim = exactRecord(JSON.parse(text));
+      } catch {
+        throw corrupt(marker.location.recordPath);
       }
-    }
-    if (removedGeneration) {
-      await services.durableFileSystem.syncDirectory(lockPaths(resource).claim);
+      if (
+        claim?.resource !== resource ||
+        canonicalizeJson(claim) !== text ||
+        Date.parse(claim.expiresAt) !== marker.expiresAt ||
+        record.sha256 !== marker.claimSha256 ||
+        services.digests.sha256(text) !== marker.claimSha256
+      )
+        throw corrupt(marker.location.recordPath);
+      await services.durableFileSystem.removeFile(marker.location.recordPath);
+      await services.durableFileSystem.syncDirectory(marker.location.directory);
+    } else if (record.kind !== "missing")
+      throw corrupt(marker.location.recordPath);
+    const generation = await services.durableFileSystem.inspect(
+      marker.location.directory,
+    );
+    if (generation.kind === "directory") {
+      let removedGeneration = false;
       try {
         await services.durableFileSystem.removeEmptyDirectory(
-          lockPaths(resource).claim,
+          marker.location.directory,
         );
-        await services.durableFileSystem.syncDirectory(
-          lockPaths(resource).root,
-        );
+        removedGeneration = true;
       } catch (error) {
         if (error instanceof LockFailure) throw error;
-        const parent = await services.durableFileSystem.inspect(
+        const current = await services.durableFileSystem.inspect(
+          marker.location.directory,
+        );
+        if (current.kind === "missing") {
+          // Another cleaner won the generation removal.  It owns deciding
+          // whether the shared claim parent is still empty.
+        } else if (current.kind !== "directory") {
+          throw corrupt(marker.location.directory);
+        } else {
+          throw internal();
+        }
+      }
+      if (removedGeneration) {
+        await services.durableFileSystem.syncDirectory(
           lockPaths(resource).claim,
         );
-        if (parent.kind !== "missing" && parent.kind !== "directory")
-          throw corrupt(lockPaths(resource).claim);
+        try {
+          await services.durableFileSystem.removeEmptyDirectory(
+            lockPaths(resource).claim,
+          );
+          await services.durableFileSystem.syncDirectory(
+            lockPaths(resource).root,
+          );
+        } catch (error) {
+          if (error instanceof LockFailure) throw error;
+          const parent = await services.durableFileSystem.inspect(
+            lockPaths(resource).claim,
+          );
+          if (parent.kind !== "missing" && parent.kind !== "directory")
+            throw corrupt(lockPaths(resource).claim);
+        }
       }
+    } else if (generation.kind !== "missing")
+      throw corrupt(marker.location.directory);
+    try {
+      await services.durableFileSystem.removeEmptyDirectory(marker.path);
+      await services.durableFileSystem.syncDirectory(lockPaths(resource).root);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await services.durableFileSystem.inspect(marker.path);
+      if (current.kind !== "missing") throw internal();
     }
-  } else if (generation.kind !== "missing")
-    throw corrupt(marker.location.directory);
-  try {
-    await services.durableFileSystem.removeEmptyDirectory(marker.path);
-    await services.durableFileSystem.syncDirectory(lockPaths(resource).root);
+    return "released";
   } catch (error) {
     if (error instanceof LockFailure) throw error;
-    const current = await services.durableFileSystem.inspect(marker.path);
-    if (current.kind !== "missing") throw internal();
+    throw internal();
   }
-  return "released";
 }
 
 async function resolveAdmissionRecovery(
@@ -2218,7 +2225,6 @@ async function releaseClaimHeld(
     if (error instanceof LockFailure) throw error;
     throw internal();
   }
-  return { kind: "released" };
 }
 
 export async function recoverClaim(

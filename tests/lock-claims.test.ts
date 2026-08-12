@@ -255,6 +255,27 @@ function acquiredClaim(
   return result;
 }
 
+async function scopeRecoveryFixture(resource: LeaseResource) {
+  const storage = lockStorage();
+  const claim = acquiredClaim(
+    await acquireClaim(
+      { resource, owner: "codex:session-01", observed: null },
+      services(storage),
+    ),
+  );
+  const marker = scopeRecoveryMarker(claim);
+  await storage.durableFileSystem.createDirectoryExclusive(marker);
+  return {
+    storage,
+    claim,
+    marker,
+    record: publishedScopeRecord(claim),
+    generation: parentDirectory(publishedScopeRecord(claim)),
+    parent: lockPaths(resource).claim,
+    root: lockPaths(resource).root,
+  };
+}
+
 describe("durable lock claims", () => {
   it("publishes a scope claim as one closed generation instead of a reusable record", async () => {
     const storage = lockStorage();
@@ -5268,7 +5289,14 @@ describe("durable lock claims", () => {
             { resource, owner: "codex:session-01", observed: null },
             withDurable(storage, {
               list: async (path) => {
-                if (path === root && ++rootLists >= 2) throw failure;
+                if (path === root) {
+                  rootLists++;
+                }
+                if (
+                  path === root &&
+                  rootLists >= (resource === "project" ? 7 : 2)
+                )
+                  throw failure;
                 return baseList(path);
               },
             }),
@@ -5811,5 +5839,505 @@ describe("durable lock claims", () => {
       acquireClaim(projectClaim, services(storage)),
     ).resolves.toBeDefined();
     expect(storage.snapshot().files[record]).toBe(canonicalizeJson(future));
+  });
+
+  it.each(["project", "run:run-01"] as const)(
+    "closes malformed %s scope recovery marker layouts",
+    async (resource) => {
+      const root = lockPaths(resource).root;
+      for (const name of [
+        `.recovery-0-${"a".repeat(64)}`,
+        `.recovery-0123-${"a".repeat(64)}`,
+        `.recovery-123-${"A".repeat(64)}`,
+      ]) {
+        await expect(
+          inspectLease(
+            resource,
+            services(lockStorage({ directories: [`${root}/${name}`] })),
+          ),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+      const first = `.recovery-123-${"a".repeat(64)}`;
+      const second = `.recovery-124-${"b".repeat(64)}`;
+      await expect(
+        inspectLease(
+          resource,
+          services(
+            lockStorage({
+              directories: [`${root}/${first}`, `${root}/${second}`],
+            }),
+          ),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      await expect(
+        inspectLease(
+          resource,
+          services(lockStorage({ files: { [`${root}/${first}`]: "bad" } })),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      await expect(
+        inspectLease(
+          resource,
+          services(
+            lockStorage({ files: { [`${root}/${first}/unexpected`]: "bad" } }),
+          ),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it.each(["raw", "typed"] as const)(
+    "contains %s scope recovery marker port faults",
+    async (fault) => {
+      const storage = lockStorage({ directories: [lockPaths("project").root] });
+      const baseList = storage.durableFileSystem.list;
+      const failure =
+        fault === "typed"
+          ? new LockFailure("runtime.recovery_required", [])
+          : new Error("marker list");
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            list: async (path) => {
+              if (path === lockPaths("project").root) throw failure;
+              return baseList(path);
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          fault === "typed"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "rejects mutated %s recovery records",
+    async (resource) => {
+      for (const mutation of ["json", "identity", "special"] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        const baseRead = fixture.storage.durableFileSystem.readText;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        await expect(
+          releaseClaim(
+            { resource, observed: fixture.claim },
+            withDurable(fixture.storage, {
+              readText: async (path) => {
+                if (path !== fixture.record) return baseRead(path);
+                if (mutation === "json") return "not-json";
+                if (mutation === "identity")
+                  return canonicalizeJson({
+                    ...fixture.claim,
+                    resource: resource === "project" ? "run:other" : "project",
+                  });
+                return baseRead(path);
+              },
+              inspect: async (path) =>
+                path === fixture.record && mutation === "special"
+                  ? { kind: "special" as const }
+                  : baseInspect(path),
+            }),
+          ),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "resumes a %s cleanup with missing record or generation",
+    async (resource) => {
+      for (const missing of ["record", "generation"] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        await fixture.storage.durableFileSystem.removeFile(fixture.record);
+        if (missing === "generation")
+          await fixture.storage.durableFileSystem.removeEmptyDirectory(
+            fixture.generation,
+          );
+        await expect(
+          releaseClaim(
+            { resource, observed: fixture.claim },
+            services(fixture.storage),
+          ),
+        ).resolves.toEqual({ kind: "released" });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies %s recovery generation cleanup faults",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "special",
+        "directory",
+      ] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        const baseRemove =
+          fixture.storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        let failed = false;
+        const result = releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== fixture.generation) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("generation cleanup");
+            },
+            inspect: async (path) => {
+              if (
+                failed &&
+                path === fixture.generation &&
+                outcome === "special"
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : outcome === "special"
+                  ? "runtime.state_corrupt"
+                  : "runtime.internal_failure",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies %s recovery parent cleanup faults",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "directory",
+        "special",
+      ] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        const baseRemove =
+          fixture.storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        let failed = false;
+        const result = releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== fixture.parent) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("parent cleanup");
+            },
+            inspect: async (path) => {
+              if (failed && path === fixture.parent && outcome === "special")
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost" || outcome === "directory")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : "runtime.state_corrupt",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies %s recovery marker cleanup faults",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "present",
+        "reread-typed",
+        "reread-raw",
+      ] as const) {
+        const fixture = await scopeRecoveryFixture(resource);
+        const baseRemove =
+          fixture.storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = fixture.storage.durableFileSystem.inspect;
+        let failed = false;
+        const result = releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== fixture.marker) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error("marker cleanup");
+            },
+            inspect: async (path) => {
+              if (failed && path === fixture.marker) {
+                if (outcome === "reread-typed")
+                  throw new LockFailure("runtime.recovery_required", []);
+                if (outcome === "reread-raw") throw new Error("marker reread");
+              }
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed" || outcome === "reread-typed"
+                ? "runtime.recovery_required"
+                : "runtime.internal_failure",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "recovers a pending %s cleanup marker",
+    async (resource) => {
+      const fixture = await scopeRecoveryFixture(resource);
+      await expect(
+        recoverClaim(
+          {
+            resource,
+            owner: "codex:session-02",
+            observed: fixture.claim,
+          },
+          services(fixture.storage),
+        ),
+      ).resolves.toEqual({ kind: "recovered" });
+    },
+  );
+
+  it.each(["special", "nonempty"] as const)(
+    "rejects a scope marker changed on its second %s validation",
+    async (mutation) => {
+      const fixture = await scopeRecoveryFixture("project");
+      const baseInspect = fixture.storage.durableFileSystem.inspect;
+      const baseList = fixture.storage.durableFileSystem.list;
+      let inspections = 0;
+      let lists = 0;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(fixture.storage, {
+            inspect: async (path) => {
+              if (
+                path === fixture.marker &&
+                ++inspections >= 2 &&
+                mutation === "special"
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+            list: async (path) => {
+              const names = await baseList(path);
+              if (
+                path === fixture.marker &&
+                ++lists >= 2 &&
+                mutation === "nonempty"
+              )
+                return ["unexpected"];
+              return names;
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "rejects a special %s scope recovery generation",
+    async (resource) => {
+      const fixture = await scopeRecoveryFixture(resource);
+      await fixture.storage.durableFileSystem.removeFile(fixture.record);
+      const baseInspect = fixture.storage.durableFileSystem.inspect;
+      await expect(
+        releaseClaim(
+          { resource, observed: fixture.claim },
+          withDurable(fixture.storage, {
+            inspect: async (path) =>
+              path === fixture.generation
+                ? { kind: "special" as const }
+                : baseInspect(path),
+          }),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it("normalizes a raw scope marker publication failure", async () => {
+    const storage = lockStorage();
+    const claim = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    const marker = scopeRecoveryMarker(claim);
+    const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: claim },
+        withDurable(storage, {
+          createDirectoryExclusive: async (path) => {
+            if (path === marker) throw new Error("marker publish");
+            return baseCreate(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it("rejects a verified fingerprint that is not bound to its marker", async () => {
+    const storage = lockStorage();
+    const claim = acquiredClaim(
+      await acquireClaim(projectClaim, services(storage)),
+    );
+    const record = publishedScopeRecord(claim);
+    const fakeSha256 = "f".repeat(64);
+    const observed = {
+      ...claim,
+      fingerprint: { ...claim.fingerprint, sha256: fakeSha256 },
+    };
+    const baseInspect = storage.durableFileSystem.inspect;
+    let inspections = 0;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed },
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path === record && entry.kind === "file") inspections++;
+            return path === record && entry.kind === "file" && inspections >= 5
+              ? { ...entry, sha256: fakeSha256 }
+              : entry;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "conflict" });
+  });
+
+  it.each(["content", "verified"] as const)(
+    "detects a %s mutation during marker election",
+    async (mutation) => {
+      const storage = lockStorage();
+      const claim = acquiredClaim(
+        await acquireClaim(projectClaim, services(storage)),
+      );
+      const record = publishedScopeRecord(claim);
+      const baseInspect = storage.durableFileSystem.inspect;
+      const baseRead = storage.durableFileSystem.readText;
+      let inspections = 0;
+      let reads = 0;
+      const result = releaseClaim(
+        { resource: "project", observed: claim },
+        withDurable(storage, {
+          inspect: async (path) => {
+            const entry = await baseInspect(path);
+            if (path !== record || entry.kind !== "file") return entry;
+            inspections++;
+            return mutation === "verified" && inspections >= 6
+              ? { ...entry, sha256: "e".repeat(64) }
+              : entry;
+          },
+          readText: async (path) => {
+            const text = await baseRead(path);
+            if (path === record) reads++;
+            return mutation === "content" && path === record && reads >= 5
+              ? `${text}\n`
+              : text;
+          },
+        }),
+      );
+      if (mutation === "content")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.state_corrupt",
+        });
+      else await expect(result).resolves.toMatchObject({ kind: "conflict" });
+    },
+  );
+
+  it("returns absent when its elected scope marker disappears", async () => {
+    const fixture = await scopeRecoveryFixture("project");
+    const baseList = fixture.storage.durableFileSystem.list;
+    let markerListings = 0;
+    await expect(
+      releaseClaim(
+        { resource: "project", observed: fixture.claim },
+        withDurable(fixture.storage, {
+          list: async (path) => {
+            const names = await baseList(path);
+            if (
+              path === fixture.root &&
+              names.includes(fixture.marker.slice(fixture.root.length + 1))
+            ) {
+              markerListings++;
+            }
+            return path === fixture.root && markerListings === 6
+              ? names.filter(
+                  (name) =>
+                    name !== fixture.marker.slice(fixture.root.length + 1),
+                )
+              : names;
+          },
+        }),
+      ),
+    ).resolves.toEqual({ kind: "absent" });
+  });
+
+  it("preserves a typed failure in the final namespace chain", async () => {
+    const storage = lockStorage({
+      directories: [lockPaths("run:run-01").root],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let brainInspections = 0;
+    const typed = new LockFailure("runtime.recovery_required", []);
+    await expect(
+      inspectLease(
+        "run:run-01",
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path === ".brain" && ++brainInspections >= 2) throw typed;
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).rejects.toBe(typed);
+  });
+
+  it("rejects a scope root that changes kind during marker lookup", async () => {
+    const root = lockPaths("project").root;
+    const storage = lockStorage({ directories: [root] });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let rootInspections = 0;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path === root && ++rootInspections >= 2)
+              return { kind: "special" as const };
+            return baseInspect(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 });
