@@ -17,6 +17,7 @@ const ok = (stdout: string): RawCommandResult => ({
   stdout: utf8(stdout),
   stderr: EMPTY,
   timedOut: false,
+  bufferExceeded: false,
 });
 
 const REFS_OK = "true\n/p/.git\n/p/.git\n";
@@ -131,6 +132,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: false,
+        bufferExceeded: false,
       },
     ]);
 
@@ -146,6 +148,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: false,
+        bufferExceeded: false,
       },
     ]);
 
@@ -163,6 +166,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: true,
+        bufferExceeded: false,
       },
     ]);
 
@@ -184,6 +188,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: true,
+        bufferExceeded: false,
       },
     ]);
 
@@ -199,6 +204,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: true,
+        bufferExceeded: false,
       },
     ]);
 
@@ -213,6 +219,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: false,
+        bufferExceeded: false,
       },
     ]);
 
@@ -228,6 +235,7 @@ describe("failure classification", () => {
         stdout: EMPTY,
         stderr: EMPTY,
         timedOut: false,
+        bufferExceeded: false,
       },
     ]);
 
@@ -252,6 +260,42 @@ describe("failure classification", () => {
     expect(result.kind).toBe("unreadable");
   });
 
+  // A repository too large to buffer is not a command that failed. Node
+  // reports overflow as `error.code = "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"`
+  // with `killed` left undefined, which without this classification would
+  // fall through the exit-code checks to `command_failed` -- contradicting
+  // the documented `unreadable` outcome.
+  it("reports unreadable when rev-parse output exceeds maxBuffer", async () => {
+    const result = await observe([
+      {
+        spawned: true,
+        exitCode: null,
+        stdout: EMPTY,
+        stderr: EMPTY,
+        timedOut: false,
+        bufferExceeded: true,
+      },
+    ]);
+
+    expect(result.kind).toBe("unreadable");
+  });
+
+  it("reports unreadable when status output exceeds maxBuffer", async () => {
+    const result = await observe([
+      ok(REFS_OK),
+      {
+        spawned: true,
+        exitCode: null,
+        stdout: EMPTY,
+        stderr: EMPTY,
+        timedOut: false,
+        bufferExceeded: true,
+      },
+    ]);
+
+    expect(result.kind).toBe("unreadable");
+  });
+
   it("resolves rather than rejecting on every failure branch", async () => {
     const branches: RawCommandResult[][] = [
       [
@@ -261,6 +305,7 @@ describe("failure classification", () => {
           stdout: EMPTY,
           stderr: EMPTY,
           timedOut: false,
+          bufferExceeded: false,
         },
       ],
       [
@@ -270,6 +315,7 @@ describe("failure classification", () => {
           stdout: EMPTY,
           stderr: EMPTY,
           timedOut: false,
+          bufferExceeded: false,
         },
       ],
       [
@@ -279,6 +325,7 @@ describe("failure classification", () => {
           stdout: EMPTY,
           stderr: EMPTY,
           timedOut: true,
+          bufferExceeded: false,
         },
       ],
       [ok("nonsense\n")],

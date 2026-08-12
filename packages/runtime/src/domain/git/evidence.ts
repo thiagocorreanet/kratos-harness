@@ -8,6 +8,14 @@ export interface RawCommandResult {
   readonly stdout: Uint8Array;
   readonly stderr: Uint8Array;
   readonly timedOut: boolean;
+  /**
+   * `true` when output was truncated because it exceeded the runner's
+   * `maxBuffer`. A repository too large to buffer is not a command that
+   * failed — it is unread, the same as unparsable output — so `composeGit`
+   * maps this to `unreadable` rather than the `command_failed` an
+   * unclassified non-zero-or-null exit code would otherwise produce.
+   */
+  readonly bufferExceeded: boolean;
 }
 
 /**

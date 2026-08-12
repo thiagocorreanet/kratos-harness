@@ -14,6 +14,7 @@ const raw = (
   stdout: utf8(""),
   stderr: utf8(""),
   timedOut: false,
+  bufferExceeded: false,
   ...overrides,
 });
 

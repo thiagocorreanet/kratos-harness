@@ -76,6 +76,7 @@ export function nodeGitRunner(
               stdout: toBytes(stdout),
               stderr: toBytes(stderr),
               timedOut: error?.killed === true,
+              bufferExceeded: code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
             });
           },
         );

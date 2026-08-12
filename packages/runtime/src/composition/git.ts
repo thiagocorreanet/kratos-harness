@@ -43,16 +43,21 @@ export function composeGit(runner: GitRunner, digests: Digests): Git {
 
       // `observe()` must never reject: that is the port's whole contract. A
       // `GitRunner` is documented to resolve rather than reject, but this
-      // catch defends the contract against one that does not — a rejection
-      // is a repository whose state could not be read, so it maps to
-      // `unreadable` rather than escaping. Wrapping the full body, not each
-      // await individually, means evidence pushed before the rejection is
-      // still in scope and comes back with the failure.
+      // catch's reach is broader than defending against a rejecting runner:
+      // it also swallows any throw from the parsing calls below
+      // (`parseRevParse`, `parseStatusPorcelainV2`, `classifyWorktree`,
+      // `classifyOperation`). Either kind of failure is a repository whose
+      // state could not be read, so it maps to `unreadable` rather than
+      // escaping. Wrapping the full body, not each await individually, means
+      // evidence pushed before the failure is still in scope and comes back
+      // with the observation.
       try {
         const refs = await runner.run(REV_PARSE);
         evidence.push(gitCommandRecord(REV_PARSE, refs, digests));
         if (!refs.spawned) return failure("git_absent", evidence);
         if (refs.timedOut) return failure("timeout", evidence);
+        // A repository too large to buffer is not a command that failed.
+        if (refs.bufferExceeded) return failure("unreadable", evidence);
         // Exit 128 is how Git reports "not a repository" for rev-parse.
         if (refs.exitCode === 128) {
           return failure("not_a_repository", evidence);
@@ -71,6 +76,7 @@ export function composeGit(runner: GitRunner, digests: Digests): Git {
         const status = await runner.run(STATUS);
         evidence.push(gitCommandRecord(STATUS, status, digests));
         if (status.timedOut) return failure("timeout", evidence);
+        if (status.bufferExceeded) return failure("unreadable", evidence);
         if (status.exitCode !== 0) return failure("command_failed", evidence);
 
         const parsed = parseStatusPorcelainV2(status.stdout, digests);

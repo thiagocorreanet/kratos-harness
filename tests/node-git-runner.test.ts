@@ -3,8 +3,10 @@ import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { nodeGitRunner } from "@mestre-yoda/runtime/infra/node";
+import { nodeGitRunner, sha256Digests } from "@mestre-yoda/runtime/infra/node";
 import { afterEach, describe, expect, it } from "vitest";
+
+import { composeGit } from "../packages/runtime/src/composition/git.js";
 
 const roots: string[] = [];
 
@@ -64,6 +66,44 @@ describe("nodeGitRunner", () => {
     ]);
 
     expect(result.timedOut).toBe(true);
+  });
+
+  it("reports a maxBuffer overflow without throwing", async () => {
+    const root = await repository();
+    const result = await nodeGitRunner(root, { maxBuffer: 1 }).run([
+      "rev-parse",
+      "--is-inside-work-tree",
+    ]);
+
+    expect(result.bufferExceeded).toBe(true);
+  });
+
+  it("composes to an unreadable observation when status output exceeds maxBuffer", async () => {
+    const root = await repository();
+    await Promise.all(
+      Array.from({ length: 50 }, (_, index) =>
+        writeFile(join(root, `untracked-${String(index)}.txt`), "x", "utf8"),
+      ),
+    );
+
+    // Sized from the real rev-parse output so this is not a guess at a
+    // magic number: large enough for rev-parse to succeed, far too small
+    // for a status listing 50 untracked files to fit.
+    const refs = await nodeGitRunner(root).run([
+      "rev-parse",
+      "--path-format=absolute",
+      "--is-inside-work-tree",
+      "--git-dir",
+      "--git-common-dir",
+    ]);
+    const maxBuffer = refs.stdout.length + 16;
+
+    const observation = await composeGit(
+      nodeGitRunner(root, { maxBuffer }),
+      sha256Digests(),
+    ).observe();
+
+    expect(observation.kind).toBe("unreadable");
   });
 
   it("does not write the index while observing", async () => {
