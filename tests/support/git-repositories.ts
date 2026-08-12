@@ -185,7 +185,13 @@ async function withCleanup<T>(
   try {
     return await steps();
   } catch (error) {
-    await rm(directory, { force: true, recursive: true });
+    try {
+      await rm(directory, { force: true, recursive: true });
+    } catch {
+      // A cleanup failure must not replace the error that caused it. The
+      // directory leaks in that case, which is strictly better than losing
+      // the diagnosis.
+    }
     throw error;
   }
 }
