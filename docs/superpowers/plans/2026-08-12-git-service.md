@@ -2316,6 +2316,7 @@ Append to `tests/architecture.test.ts`, reusing the existing `sourceModules` hel
 it("confines child_process to the single Git runner module", async () => {
   const modules = await sourceModules();
   const importers = modules
+    .filter(({ path }) => path.startsWith("packages/runtime/"))
     .filter(({ imports }) =>
       imports.some((specifier) => /^node:child_process$|^child_process$/u.test(specifier)),
     )
@@ -2323,11 +2324,17 @@ it("confines child_process to the single Git runner module", async () => {
     .sort();
 
   // The acceptance criterion "policy code never shells out directly" is only
-  // real if it fails CI. One module owns process execution; everything else
-  // reaches Git through the port.
+  // real if it fails CI. One runtime module owns process execution; everything
+  // else reaches Git through the port.
+  //
+  // Scoped to the runtime package deliberately. `packages/differential` spawns
+  // the frozen Go v3 binary — running an external process is the entire point
+  // of the differential harness, and it is not policy code.
   expect(importers).toEqual(["packages/runtime/src/infra/node/git.ts"]);
 });
 ```
+
+The assertion above only holds once Task 6 deletes `nodeGit` from `packages/runtime/src/infra/node/index.ts`, which is that file's last remaining reason to import `node:child_process`. Task 5 deliberately leaves it in place.
 
 - [ ] **Step 4: Add the guard test for argv purity**
 
