@@ -329,9 +329,16 @@ describe("runtime boundary documentation", () => {
     expect(guide).toMatch(/only an entry point may import composition/iu);
   });
 
-  it("names the issues that own Git and Locks semantics", () => {
+  // `RUN-01` asserted that this document named both pending owners, `RUN-07`
+  // and `RUN-08`. `RUN-08` has since delivered, so the document stops naming
+  // it as a future owner and points at the shipped contract instead. `Locks`
+  // is the only port whose semantics are still owed.
+  it("names the issue that still owns pending port semantics", () => {
     expect(guide).toContain("RUN-07");
-    expect(guide).toContain("RUN-08");
+  });
+
+  it("points at the delivered Git service contract", () => {
+    expect(guide).toContain("git-service.md");
   });
 
   it.each([

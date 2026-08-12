@@ -61,7 +61,7 @@
 - Consumes: nothing.
 - Produces: every type below, plus `decodeGitPath(bytes: Uint8Array, digests: Digests): GitPath` and `compareGitPaths(left: GitPath, right: GitPath): number`.
 
-- [ ] **Step 1: Extend the `Digests` port**
+- [x] **Step 1: Extend the `Digests` port**
 
 In `packages/runtime/src/ports/transactions.ts`, replace the `Digests` interface:
 
@@ -89,7 +89,7 @@ export function sha256Digests(): Digests {
 }
 ```
 
-- [ ] **Step 2: Write `model.ts`**
+- [x] **Step 2: Write `model.ts`**
 
 Types only, no logic. This file is pure declarations, so it carries no test of its own; Tasks 2 through 6 exercise every member.
 
@@ -186,7 +186,7 @@ export type GitObservation =
     };
 ```
 
-- [ ] **Step 3: Write the failing test**
+- [x] **Step 3: Write the failing test**
 
 Create `tests/git-paths.test.ts`:
 
@@ -297,12 +297,12 @@ describe("compareGitPaths", () => {
 });
 ```
 
-- [ ] **Step 4: Run the test to verify it fails**
+- [x] **Step 4: Run the test to verify it fails**
 
 Run: `npx vitest run tests/git-paths.test.ts`
 Expected: FAIL — cannot resolve `../packages/runtime/src/domain/git/paths.js`.
 
-- [ ] **Step 5: Implement `paths.ts`**
+- [x] **Step 5: Implement `paths.ts`**
 
 ```ts
 import type { Digests } from "../../ports/index.js";
@@ -357,17 +357,17 @@ export function compareGitPaths(left: GitPath, right: GitPath): number {
 }
 ```
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `npx vitest run tests/git-paths.test.ts`
 Expected: PASS, 12 tests.
 
-- [ ] **Step 7: Confirm no existing caller broke**
+- [x] **Step 7: Confirm no existing caller broke**
 
 Run: `npx vitest run tests/ports-contract.test.ts tests/event-chain.test.ts tests/node-transactions.test.ts`
 Expected: PASS. The `Digests` change is additive, so these must be unaffected.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src/domain/git packages/runtime/src/ports/transactions.ts packages/runtime/src/infra/digests.ts tests/git-paths.test.ts
@@ -375,7 +375,7 @@ git add packages/runtime/src/domain/git packages/runtime/src/ports/transactions.
 git commit -m "feat: add Git path decoding and byte ordering"
 ```
 
-- [ ] **Step 9: Write the property test**
+- [x] **Step 9: Write the property test**
 
 The repository has no `fast-check` dependency. Property tests here use a seeded LCG, following `tests/canonical-json-properties.test.ts:12-18`. Create `tests/git-paths-properties.test.ts`:
 
@@ -477,12 +477,12 @@ describe("decoding never fabricates a name", () => {
 });
 ```
 
-- [ ] **Step 10: Run the property test**
+- [x] **Step 10: Run the property test**
 
 Run: `npx vitest run tests/git-paths-properties.test.ts`
 Expected: PASS.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 npx prettier --write tests/git-paths-properties.test.ts
@@ -520,7 +520,7 @@ u UU N... 100644 100644 100644 100644 df967b9... b19a1e9... 950b81b... c.txt
 
 Unborn HEAD emits `# branch.oid (initial)`. Detached HEAD emits `# branch.head (detached)`. An upstream adds `# branch.upstream origin/main` and `# branch.ab +2 -1`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/git-status-parser.test.ts`:
 
@@ -761,12 +761,12 @@ describe("unparsable input", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/git-status-parser.test.ts`
 Expected: FAIL — cannot resolve `status.js`.
 
-- [ ] **Step 3: Implement `status.ts`**
+- [x] **Step 3: Implement `status.ts`**
 
 ```ts
 import type { Digests } from "../../ports/index.js";
@@ -998,12 +998,12 @@ export function parseStatusPorcelainV2(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/git-status-parser.test.ts`
 Expected: PASS, 21 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src/domain/git/status.ts tests/git-status-parser.test.ts
@@ -1038,7 +1038,7 @@ true
 
 A merge in progress leaves `AUTO_MERGE`, `MERGE_HEAD`, `MERGE_MODE`, and `MERGE_MSG` in the git directory.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/git-refs.test.ts`:
 
@@ -1136,12 +1136,12 @@ describe("classifyOperation", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/git-refs.test.ts`
 Expected: FAIL — cannot resolve `refs.js`.
 
-- [ ] **Step 3: Implement `refs.ts`**
+- [x] **Step 3: Implement `refs.ts`**
 
 ```ts
 import type { GitOperation } from "./model.js";
@@ -1189,12 +1189,12 @@ export function classifyOperation(markers: readonly string[]): GitOperation {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/git-refs.test.ts`
 Expected: PASS, 14 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src/domain/git/refs.ts tests/git-refs.test.ts
@@ -1229,7 +1229,7 @@ export interface RawCommandResult {
 
 `RawCommandResult` and `GitRunner` are both declared in `evidence.ts`. They are the exact contract Task 5's Node adapter implements and Task 6's composition consumes. `index.ts` re-exports every public member of `model.ts`, `paths.ts`, `status.ts`, `refs.ts`, and `evidence.ts`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/git-evidence.test.ts`:
 
@@ -1323,12 +1323,12 @@ describe("gitCommandRecord", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/git-evidence.test.ts`
 Expected: FAIL — cannot resolve `evidence.js`.
 
-- [ ] **Step 3: Implement `evidence.ts` and `index.ts`**
+- [x] **Step 3: Implement `evidence.ts` and `index.ts`**
 
 ```ts
 import type { Digests } from "../../ports/index.js";
@@ -1396,12 +1396,12 @@ export * from "./status.js";
 export * from "./evidence.js";
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/git-evidence.test.ts`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src/domain/git tests/git-evidence.test.ts
@@ -1444,7 +1444,7 @@ export function nodeGitRunner(
 
 `listGitDirectory` returns `null` when the directory cannot be read, which Task 6 maps to `unreadable`. `workspace.ts` replaces its private `gitOutput` with this runner.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/node-git-runner.test.ts`:
 
@@ -1559,12 +1559,12 @@ async function readIndexDigest(root: string): Promise<string> {
 
 `pathOverride` is an extra `GitRunnerOptions` field used only to simulate an absent executable; document it as test-facing in the source comment.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/node-git-runner.test.ts`
 Expected: FAIL — `nodeGitRunner` is not exported.
 
-- [ ] **Step 3: Implement `infra/node/git.ts`**
+- [x] **Step 3: Implement `infra/node/git.ts`**
 
 ```ts
 import { execFile } from "node:child_process";
@@ -1659,21 +1659,21 @@ export function nodeGitRunner(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/node-git-runner.test.ts`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 5: Migrate `workspace.ts` to the shared runner**
+- [x] **Step 5: Migrate `workspace.ts` to the shared runner**
 
 Delete the private `gitOutput` helper (`workspace.ts:116-130`) and its `execFile`/`promisify` imports. Replace its three call sites in `locateWorktree` with the runner, decoding stdout and trimming, and mapping a non-zero exit to `null` so the existing behavior is preserved exactly.
 
-- [ ] **Step 6: Verify the migration changed no behavior**
+- [x] **Step 6: Verify the migration changed no behavior**
 
 Run: `npx vitest run tests/node-workspace.test.ts tests/project-discovery-composition.test.ts tests/project-root-resolution.test.ts`
 Expected: PASS with no test modified. If any fails, the migration changed behavior and must be corrected rather than the test adjusted.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src/infra/node tests/node-git-runner.test.ts
@@ -1705,7 +1705,7 @@ git commit -m "feat: add one Git process runner and consolidate invocation"
 
 Task 6's test defines its own positional runner inline rather than importing a shared scripted fake. The sequence is two calls, so a positional stub is smaller than a keyed one and needs no argv-matching logic of its own to go wrong.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/git-observation.test.ts`. Every case uses the scripted runner, so no process runs and every failure branch is reachable:
 
@@ -1927,12 +1927,12 @@ describe("failure classification", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/git-observation.test.ts`
 Expected: FAIL — cannot resolve `composition/git.js`.
 
-- [ ] **Step 3: Implement `composition/git.ts`**
+- [x] **Step 3: Implement `composition/git.ts`**
 
 ```ts
 import {
@@ -2021,21 +2021,21 @@ export function composeGit(runner: GitRunner, digests: Digests): Git {
 }
 ```
 
-- [ ] **Step 4: Replace the port and rewire composition**
+- [x] **Step 4: Replace the port and rewire composition**
 
 In `ports/index.ts`, delete `RepositoryState` and the three placeholder methods, and import `GitObservation` from `domain/git/index.js`. In `composition/index.ts`, build the port as `composeGit(nodeGitRunner(root), digests)`. Remove `nodeGit` from `infra/node/index.ts`.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run tests/git-observation.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Typecheck the whole package**
+- [x] **Step 6: Typecheck the whole package**
 
 Run: `npm run typecheck`
 Expected: PASS. Any error here is a caller of the deleted methods that must be updated, not suppressed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 npx prettier --write packages/runtime/src tests/git-observation.test.ts
@@ -2082,13 +2082,13 @@ export function digestTree(root: string): Promise<string>;
 
 `digestTree` walks the whole directory recursively, sorts entries by path, and hashes each path followed by its bytes. Including `.git` is the point: an index refresh changes `.git/index` and nothing else, so a digest that skipped it would let a mutating observation pass.
 
-- [ ] **Step 1: Write the scenario builder**
+- [x] **Step 1: Write the scenario builder**
 
 One function per scenario, each returning a real temporary repository. Every repository is created with `git init -q --initial-branch=main` and `-c user.email=t@e.com -c user.name=T -c commit.gpgsign=false`, so no test depends on the developer's Git identity.
 
 Scenarios: `not-a-repository`, `unborn`, `clean`, `staged`, `unstaged`, `staged-and-unstaged`, `deleted`, `untracked`, `ignored-file`, `ignored-directory`, `renamed`, `copied`, `type-changed`, `symlink`, `submodule`, `detached`, `branch-with-upstream`, `linked-worktree`, `merge-conflict`, `rebase-conflict`, `cherry-pick-conflict`, `revert-conflict`, `name-with-space`, `name-with-newline`, `name-with-unicode`, `name-with-leading-dash`.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `tests/git-scenarios.test.ts` asserts, per scenario, the expected normalized observation, plus two cross-cutting properties for every scenario:
 
@@ -2126,12 +2126,12 @@ it.each(SCENARIOS)("leaves %s byte-identical", async (name) => {
 
 `EXPECTED` is a record mapping each scenario name to its full expected `GitObservation`, written out per scenario. Evidence digests vary with the repository's own object ids, so `EXPECTED` compares `repository` and `kind` exactly and asserts `evidence` separately by shape — two records, both `outcome: "ok"`.
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/git-scenarios.test.ts`
 Expected: FAIL — the support module does not exist.
 
-- [ ] **Step 4: Implement the builder until the tests pass**
+- [x] **Step 4: Implement the builder until the tests pass**
 
 Report missing platform capabilities rather than skipping. `createScenarioRepository` probes support while building — a `symlink` scenario attempts `symlink()` and catches `EPERM`, a `name-with-newline` scenario attempts the write and catches `EINVAL` — and returns `available: false` with a reason instead of throwing. Every test then reports the gap rather than vanishing:
 
@@ -2154,12 +2154,12 @@ it.each(SCENARIOS)("observes %s deterministically", async (name) => {
 });
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/git-scenarios.test.ts`
 Expected: PASS across all scenarios.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 npx prettier --write tests/support/git-repositories.ts tests/git-scenarios.test.ts
@@ -2167,7 +2167,7 @@ git add tests/support/git-repositories.ts tests/git-scenarios.test.ts
 git commit -m "test: observe every classified Git state in real repositories"
 ```
 
-- [ ] **Step 7: Close the loop between real repositories and the pure parser**
+- [x] **Step 7: Close the loop between real repositories and the pure parser**
 
 The spec requires that the byte vectors feeding the pure parser come from real Git output rather than being authored by hand. Task 2's vectors were transcribed from captured output, which drifts silently if Git changes its format. Add a test that regenerates them:
 
@@ -2196,12 +2196,12 @@ it.each(SCENARIOS)("parses the real status bytes of %s", async (name) => {
 });
 ```
 
-- [ ] **Step 8: Run the test**
+- [x] **Step 8: Run the test**
 
 Run: `npx vitest run tests/git-scenarios.test.ts`
 Expected: PASS. A `null` here means real Git emitted a record shape Task 2's parser rejects — fix the parser, not the assertion.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 npx prettier --write tests/git-scenarios.test.ts
@@ -2225,7 +2225,7 @@ git commit -m "test: parse real status output for every scenario"
 - Consumes: `Git`, `GitObservation`, `stubGit`, `composeGit`, `nodeGitRunner`.
 - Produces: a rewritten `describeGitContract(label: string, factory: () => Promise<Disposable<Git>>): void`.
 
-- [ ] **Step 1: Rewrite `describeGitContract`**
+- [x] **Step 1: Rewrite `describeGitContract`**
 
 Replace the three placeholder assertions with contract properties both implementations must satisfy:
 
@@ -2304,11 +2304,11 @@ export function describeGitContract(
 }
 ```
 
-- [ ] **Step 2: Update `tests/ports-contract.test.ts`**
+- [x] **Step 2: Update `tests/ports-contract.test.ts`**
 
 Replace the `nodeGit` import with `composeGit` and `nodeGitRunner`; run `describeGitContract` against both the stub and the composed Node implementation; delete the `node git classification` block at lines 146-198, whose assertions Task 7 now owns against real repositories.
 
-- [ ] **Step 3: Add the guard test for shell-out isolation**
+- [x] **Step 3: Add the guard test for shell-out isolation**
 
 Append to `tests/architecture.test.ts`, reusing the existing `sourceModules` helper:
 
@@ -2336,7 +2336,7 @@ it("confines child_process to the single Git runner module", async () => {
 
 The assertion above only holds once Task 6 deletes `nodeGit` from `packages/runtime/src/infra/node/index.ts`, which is that file's last remaining reason to import `node:child_process`. Task 5 deliberately leaves it in place.
 
-- [ ] **Step 4: Add the guard test for argv purity**
+- [x] **Step 4: Add the guard test for argv purity**
 
 Append to `tests/git-scenarios.test.ts`:
 
@@ -2364,12 +2364,12 @@ it.each(SCENARIOS)("derives no argv element from observed data in %s", async (na
 });
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npx vitest run tests/ports-contract.test.ts tests/architecture.test.ts tests/git-scenarios.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 npx prettier --write tests
@@ -2392,15 +2392,15 @@ git commit -m "test: contract and guard the Git observation boundary"
 - Consumes: the finished implementation.
 - Produces: no code.
 
-- [ ] **Step 1: Write `docs/architecture/git-service.md`**
+- [x] **Step 1: Write `docs/architecture/git-service.md`**
 
 Document, in this order: the observation model and why it is one call; the failure variants and why `git_absent` stays distinct from `not_a_repository`; the command sequence; the environment table with the reason for each variable; why `--ignored=matching` rather than `traditional`, including the 502-versus-3 measurement; the evidence boundary; the read-only guarantee; path decoding and byte ordering; and the platform-consistency scope boundary against `QAL-03`.
 
-- [ ] **Step 2: Update `runtime-boundaries.md`**
+- [x] **Step 2: Update `runtime-boundaries.md`**
 
 In the ports table, change the `Git` row to "atomic repository observation". Delete the sentence assigning repository classification to `RUN-08` and the paragraph excusing its contract assertions, leaving the `RUN-07` half intact. State that `Git` now runs the full shared contract suite with no exception.
 
-- [ ] **Step 3: Run the documentation gates**
+- [x] **Step 3: Run the documentation gates**
 
 Run: `npx prettier --check . && npm run spellcheck && npx markdownlint-cli2`
 Expected: PASS. Add any genuinely new term to `.cspell.json` in alphabetical order.
