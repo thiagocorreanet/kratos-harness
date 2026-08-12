@@ -27,6 +27,7 @@ import type {
 } from "../../ports/index.js";
 
 export { nodeWorkspace } from "./workspace.js";
+export { nodeGitRunner, type GitRunnerOptions } from "./git.js";
 export { sha256Digests } from "../digests.js";
 export {
   nodeDurableFileSystem,
