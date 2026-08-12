@@ -92,10 +92,6 @@ interface ScopeCandidate {
   readonly location: ScopeLocation;
 }
 
-interface LocatedScopeClaim extends ObservedLockClaim {
-  readonly location: ScopeLocation;
-}
-
 function parseAdmissionMarker(name: string): AdmissionRecoveryMarker | null {
   const match = admissionMarker.exec(name);
   if (match === null) return null;
@@ -500,9 +496,12 @@ async function inspectLockNamespace(
     paths.root,
   ];
   for (const path of chain) {
-    const entry = await services.durableFileSystem.inspect(path).catch(() => {
-      throw internal();
-    });
+    const entry = await services.durableFileSystem
+      .inspect(path)
+      .catch((error: unknown) => {
+        if (error instanceof LockFailure) throw error;
+        throw internal();
+      });
     if (entry.kind === "missing") {
       if (resource.startsWith("run:") && path === paths.root)
         await assertCanonicalRunChildren(services);
@@ -767,7 +766,8 @@ async function assertScopeClaimChildren(
   try {
     const names = await services.durableFileSystem.list(claim);
     if (names.length !== 1) throw corrupt(claim);
-    const match = scopeGeneration.exec(names[0]!);
+    const generationName = names.join("");
+    const match = scopeGeneration.exec(generationName);
     if (match === null) throw corrupt(claim);
     const [, expiresText, claimSha256] = match as unknown as [
       string,
@@ -775,7 +775,7 @@ async function assertScopeClaimChildren(
       string,
     ];
     if (String(Number(expiresText)) !== expiresText) throw corrupt(claim);
-    const generation = `${claim}/${names[0]!}`;
+    const generation = `${claim}/${generationName}`;
     if (
       (await services.durableFileSystem.inspect(generation)).kind !==
       "directory"
@@ -848,7 +848,7 @@ async function readClaim(
     if (parent.kind === "missing") return null;
     if (parent.kind !== "directory") throw corrupt(claim);
     await assertScopeClaimChildren(resource, services);
-    const generation = (await services.durableFileSystem.list(claim))[0]!;
+    const generation = (await services.durableFileSystem.list(claim)).join("");
     const path = `${claim}/${generation}/claim.json`;
     const entry = await services.durableFileSystem.inspect(path);
     if (entry.kind !== "file") throw corrupt(path);
@@ -879,7 +879,7 @@ async function readClaim(
         size: entry.size,
         sha256: entry.sha256,
       },
-    }) as LocatedScopeClaim;
+    });
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     throw internal();
@@ -895,7 +895,8 @@ async function readAdmissionClaim(
   let entry: DurableEntry;
   try {
     entry = await services.durableFileSystem.inspect(location.recordPath);
-  } catch {
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
     throw internal();
   }
   if (entry.kind === "missing") return null;
@@ -903,7 +904,8 @@ async function readAdmissionClaim(
   let text: string;
   try {
     text = await services.durableFileSystem.readText(location.recordPath);
-  } catch {
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
     throw internal();
   }
   try {
@@ -995,7 +997,8 @@ async function readAdmissionCandidate(
     entry = await services.durableFileSystem.inspect(
       candidate.location.recordPath,
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
     throw internal();
   }
   if (entry.kind === "missing") return null;
@@ -1622,7 +1625,8 @@ async function removeAdmissionCandidate(
         "missing"
       )
         return;
-    } catch {
+    } catch (inspectError) {
+      if (inspectError instanceof LockFailure) throw inspectError;
       throw internal();
     }
     throw internal();
@@ -1953,12 +1957,7 @@ async function acquireClaimHeld(
     if (error instanceof LockFailure) throw error;
     // An exclusive durable create that lost a race is verified rather than
     // collapsed into a generic filesystem error.
-    const winner = await readClaim(request.resource, services).catch(
-      (readError) => {
-        if (readError instanceof LockFailure) throw readError;
-        return null;
-      },
-    );
+    const winner = await readClaim(request.resource, services);
     if (winner !== null) return conflict(winner);
     throw internal();
   }
@@ -1969,7 +1968,7 @@ async function acquireClaimHeld(
       size: fingerprint.size,
       sha256: fingerprint.sha256,
     },
-  }) as LocatedScopeClaim;
+  });
 }
 
 export async function releaseClaim(
@@ -2118,7 +2117,8 @@ async function recoverClaimHeld(
       let entry: DurableEntry;
       try {
         entry = await services.durableFileSystem.inspect(`${root}/${residue}`);
-      } catch {
+      } catch (error) {
+        if (error instanceof LockFailure) throw error;
         throw internal();
       }
       if (entry.kind !== "missing")
@@ -2158,19 +2158,31 @@ async function inspectLeaseHeld(
       services.durableFileSystem.inspect(paths.lease),
       services.durableFileSystem.inspect(paths.events),
     ]);
-  } catch {
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
     throw internal();
   }
   if (leaseEntry.kind === "missing" && eventsEntry.kind === "missing")
     return { kind: "empty", lease: null, guard: null, claim };
   if (leaseEntry.kind !== "file") throw corrupt(paths.lease);
   if (eventsEntry.kind !== "file") throw corrupt(paths.events);
+  let eventsText: string;
+  let leaseText: string;
   try {
-    const binding = verifyLeaseBinding(
-      await services.durableFileSystem.readText(paths.events),
-      await services.durableFileSystem.readText(paths.lease),
-      { ...services, isProxy: types.isProxy, isPromise: types.isPromise },
-    );
+    [eventsText, leaseText] = await Promise.all([
+      services.durableFileSystem.readText(paths.events),
+      services.durableFileSystem.readText(paths.lease),
+    ]);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+  }
+  try {
+    const binding = verifyLeaseBinding(eventsText, leaseText, {
+      ...services,
+      isProxy: types.isProxy,
+      isPromise: types.isPromise,
+    });
     const time = classifyLeaseTime(
       services.clock.now(),
       new Date(binding.lease.expiresAt),

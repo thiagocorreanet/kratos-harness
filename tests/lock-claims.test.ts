@@ -186,6 +186,10 @@ function candidateScopeRecord(record: LockClaimRecord): string {
   return `${paths.root}/.candidate-${expiresAt}-${digest}/.claim-${expiresAt}-${digest}/claim.json`;
 }
 
+function quarantinedScopeRecord(record: LockClaimRecord): string {
+  return candidateScopeRecord(record).replace("/.candidate-", "/.quarantine-");
+}
+
 function publishedScopeRecord(record: LockClaimRecord): string {
   const persisted: LockClaimRecord = {
     claimId: record.claimId,
@@ -3384,21 +3388,33 @@ describe("durable lock claims", () => {
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
   });
 
-  it("normalizes lease binding read failures", async () => {
-    const storage = lockStorage({ files: boundLeaseFiles() });
-    const baseRead = storage.durableFileSystem.readText;
-    await expect(
-      inspectLease(
-        "project",
-        withDurable(storage, {
-          readText: async (path) =>
-            path === lockPaths("project").events
-              ? Promise.reject(new Error("event read"))
-              : baseRead(path),
-        }),
-      ),
-    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
-  });
+  it.each(["raw", "typed"] as const)(
+    "%s lease binding read failures respect the port boundary",
+    async (fault) => {
+      const storage = lockStorage({ files: boundLeaseFiles() });
+      const baseRead = storage.durableFileSystem.readText;
+      const failure =
+        fault === "typed"
+          ? new LockFailure("runtime.recovery_required", [])
+          : new Error("event read");
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            readText: async (path) =>
+              path === lockPaths("project").events
+                ? Promise.reject(failure)
+                : baseRead(path),
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          fault === "typed"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
+    },
+  );
 
   it("rejects invalid caller scope before claim creation", async () => {
     const storage = lockStorage();
@@ -4301,7 +4317,7 @@ describe("durable lock claims", () => {
       ).rejects.toMatchObject({
         reasonCode:
           fault === "typed"
-            ? "runtime.internal_failure"
+            ? "runtime.recovery_required"
             : "runtime.state_corrupt",
       });
     },
@@ -4896,4 +4912,830 @@ describe("durable lock claims", () => {
       });
     },
   );
+
+  it.each([
+    "namespace-chain",
+    "admission-record",
+    "admission-candidate",
+    "lease-metadata",
+    "transaction-residue",
+  ] as const)("preserves typed %s port failures", async (boundary) => {
+    const typed = new LockFailure("runtime.recovery_required", []);
+    if (boundary === "namespace-chain") {
+      const storage = lockStorage({ directories: [lockPaths("project").root] });
+      const baseInspect = storage.durableFileSystem.inspect;
+      let rootInspections = 0;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (path === lockPaths("project").root && ++rootInspections >= 2)
+                throw typed;
+              return baseInspect(path);
+            },
+          }),
+        ),
+      ).rejects.toBe(typed);
+      return;
+    }
+    if (boundary === "admission-record") {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: "typed-admission",
+        resource: "admission",
+      };
+      const record = publishedAdmissionRecord(stale);
+      const storage = lockStorage({
+        files: { [record]: canonicalizeJson(stale) },
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (path === record) throw typed;
+              return baseInspect(path);
+            },
+          }),
+        ),
+      ).rejects.toBe(typed);
+      return;
+    }
+    if (boundary === "admission-candidate") {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: "typed-candidate",
+        resource: "admission",
+      };
+      const record = candidateAdmissionRecord(stale);
+      const storage = lockStorage({
+        files: { [record]: canonicalizeJson(stale) },
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (path === record) throw typed;
+              return baseInspect(path);
+            },
+          }),
+        ),
+      ).rejects.toBe(typed);
+      return;
+    }
+    if (boundary === "lease-metadata") {
+      const storage = lockStorage({ directories: [lockPaths("project").root] });
+      const baseInspect = storage.durableFileSystem.inspect;
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (path === lockPaths("project").lease) throw typed;
+              return baseInspect(path);
+            },
+          }),
+        ),
+      ).rejects.toBe(typed);
+      return;
+    }
+    const storage = expiredClaimStorage();
+    const baseInspect = storage.durableFileSystem.inspect;
+    await expect(
+      recoverClaim(observedClaim, {
+        ...services(storage),
+        inspectTransactions: async () => [
+          {
+            transactionId: "tx-typed",
+            manifestDigest: null,
+            recoveryToken: "token",
+            phase: "committed",
+            evidenceRef: ".brain/transactions/tx-typed/progress.json",
+          },
+        ],
+        durableFileSystem: {
+          ...storage.durableFileSystem,
+          inspect: async (path) => {
+            if (path.endsWith("/progress.next")) throw typed;
+            return baseInspect(path);
+          },
+        },
+      }),
+    ).rejects.toBe(typed);
+  });
+
+  it.each(["project", "run:run-01"] as const)(
+    "validates malformed and partial %s scope candidates",
+    async (resource) => {
+      const root = lockPaths(resource).root;
+      for (const name of [
+        `.candidate-0-${"a".repeat(64)}`,
+        `.candidate-zero-${"a".repeat(64)}`,
+        `.candidate-123-${"A".repeat(64)}`,
+        `.quarantine-0-${"a".repeat(64)}`,
+        `.quarantine-123-not-a-digest`,
+      ]) {
+        await expect(
+          inspectLease(
+            resource,
+            services(lockStorage({ directories: [`${root}/${name}`] })),
+          ),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `partial-${resource}`,
+        resource,
+      };
+      const record = candidateScopeRecord(stale);
+      const generation = parentDirectory(record);
+      const candidate = parentDirectory(generation);
+      await expect(
+        inspectLease(
+          resource,
+          services(lockStorage({ directories: [candidate] })),
+        ),
+      ).resolves.toMatchObject({ kind: "empty" });
+      await expect(
+        inspectLease(
+          resource,
+          services(lockStorage({ directories: [generation] })),
+        ),
+      ).resolves.toMatchObject({ kind: "empty" });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "rejects malformed %s scope candidate layouts",
+    async (resource) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `candidate-layout-${resource}`,
+        resource,
+      };
+      const record = candidateScopeRecord(stale);
+      const generation = parentDirectory(record);
+      const candidate = parentDirectory(generation);
+      for (const seed of [
+        { files: { [candidate]: "bad" } },
+        { files: { [`${candidate}/unexpected`]: "bad" } },
+        { files: { [generation]: "bad" } },
+        { files: { [`${generation}/unexpected`]: "bad" } },
+        { directories: [record] },
+        { files: { [record]: "not-json" } },
+        {
+          files: {
+            [record]: canonicalizeJson({
+              ...stale,
+              resource: resource === "project" ? "run:other" : "project",
+            }),
+          },
+        },
+      ]) {
+        await expect(
+          inspectLease(resource, services(lockStorage(seed))),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "rejects malformed %s published scope generations",
+    async (resource) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `published-layout-${resource}`,
+        resource,
+      };
+      const record = publishedScopeRecord(stale);
+      const generation = parentDirectory(record);
+      const claim = parentDirectory(generation);
+      const alternate = `${claim}/.claim-123-${"a".repeat(64)}`;
+      for (const seed of [
+        { directories: [claim] },
+        { directories: [generation, alternate] },
+        { directories: [`${claim}/unexpected`] },
+        {
+          directories: [
+            `${claim}/.claim-0-${sha256Digests().sha256(canonicalizeJson(stale))}`,
+          ],
+        },
+        { files: { [generation]: "bad" } },
+        { files: { [`${generation}/unexpected`]: "bad" } },
+        { directories: [record] },
+        { files: { [record]: "not-json" } },
+        {
+          files: {
+            [record]: canonicalizeJson({
+              ...stale,
+              resource: resource === "project" ? "run:other" : "project",
+            }),
+          },
+        },
+      ]) {
+        await expect(
+          inspectLease(resource, services(lockStorage(seed))),
+        ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "removes every partial expired %s scope candidate form",
+    async (resource) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `partial-cleanup-${resource}`,
+        resource,
+      };
+      const candidateRecord = candidateScopeRecord(stale);
+      const quarantineRecord = quarantinedScopeRecord(stale);
+      for (const directory of [
+        parentDirectory(parentDirectory(candidateRecord)),
+        parentDirectory(candidateRecord),
+        parentDirectory(parentDirectory(quarantineRecord)),
+        parentDirectory(quarantineRecord),
+      ]) {
+        const storage = lockStorage({ directories: [directory] });
+        await expect(
+          acquireClaim(
+            { resource, owner: "codex:session-01", observed: null },
+            services(storage),
+          ),
+        ).resolves.toMatchObject({ resource });
+        expect(storage.snapshot().directories).not.toContain(directory);
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "contains raw and typed %s scope enumeration faults",
+    async (resource) => {
+      for (const fault of ["raw", "typed"] as const) {
+        const storage = lockStorage();
+        const baseList = storage.durableFileSystem.list;
+        const root = lockPaths(resource).root;
+        let rootLists = 0;
+        const failure =
+          fault === "typed"
+            ? new LockFailure("runtime.recovery_required", [])
+            : new Error("scope list");
+        await expect(
+          acquireClaim(
+            { resource, owner: "codex:session-01", observed: null },
+            withDurable(storage, {
+              list: async (path) => {
+                if (path === root && ++rootLists >= 2) throw failure;
+                return baseList(path);
+              },
+            }),
+          ),
+        ).rejects.toMatchObject({
+          reasonCode:
+            fault === "typed"
+              ? "runtime.recovery_required"
+              : "runtime.internal_failure",
+        });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies delayed %s generation removal outcomes",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "special",
+        "directory",
+      ] as const) {
+        const storage = lockStorage();
+        const claimed = acquiredClaim(
+          await acquireClaim(
+            { resource, owner: "codex:session-01", observed: null },
+            services(storage),
+          ),
+        );
+        const generation = parentDirectory(publishedScopeRecord(claimed));
+        const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = storage.durableFileSystem.inspect;
+        let failed = false;
+        const result = releaseClaim(
+          { resource, observed: claimed },
+          withDurable(storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== generation) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error(`generation ${outcome}`);
+            },
+            inspect: async (path) => {
+              if (failed && path === generation && outcome === "special")
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : outcome === "special"
+                  ? "runtime.state_corrupt"
+                  : "runtime.internal_failure",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies delayed %s claim-parent removal outcomes",
+    async (resource) => {
+      for (const outcome of [
+        "typed",
+        "lost",
+        "directory",
+        "special",
+      ] as const) {
+        const storage = lockStorage();
+        const claimed = acquiredClaim(
+          await acquireClaim(
+            { resource, owner: "codex:session-01", observed: null },
+            services(storage),
+          ),
+        );
+        const parent = lockPaths(resource).claim;
+        const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+        const baseInspect = storage.durableFileSystem.inspect;
+        let failed = false;
+        const result = releaseClaim(
+          { resource, observed: claimed },
+          withDurable(storage, {
+            removeEmptyDirectory: async (path) => {
+              if (path !== parent) return baseRemove(path);
+              failed = true;
+              if (outcome === "lost") await baseRemove(path);
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              throw new Error(`parent ${outcome}`);
+            },
+            inspect: async (path) => {
+              if (failed && path === parent && outcome === "special")
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost" || outcome === "directory")
+          await expect(result).resolves.toEqual({ kind: "released" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed"
+                ? "runtime.recovery_required"
+                : "runtime.state_corrupt",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "fails closed on second-pass %s claim mutations",
+    async (resource) => {
+      const record: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `second-pass-${resource}`,
+        resource,
+      };
+      const target = publishedScopeRecord(record);
+      for (const mutation of [
+        "kind",
+        "json",
+        "identity",
+        "location",
+        "raw",
+        "typed",
+      ] as const) {
+        const storage = lockStorage({
+          files: { [target]: canonicalizeJson(record) },
+        });
+        const baseInspect = storage.durableFileSystem.inspect;
+        const baseRead = storage.durableFileSystem.readText;
+        let inspections = 0;
+        let reads = 0;
+        const result = inspectLease(
+          resource,
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (path === target && ++inspections >= 3) {
+                if (mutation === "kind") return { kind: "directory" as const };
+                if (mutation === "raw") throw new Error("second inspect");
+                if (mutation === "typed")
+                  throw new LockFailure("runtime.recovery_required", []);
+              }
+              return baseInspect(path);
+            },
+            readText: async (path) => {
+              const text = await baseRead(path);
+              if (path !== target || ++reads < 3) return text;
+              if (mutation === "json") return "not-json";
+              if (mutation === "identity")
+                return canonicalizeJson({
+                  ...record,
+                  resource: resource === "project" ? "run:other" : "project",
+                });
+              if (mutation === "location")
+                return canonicalizeJson({ ...record, claimId: "changed" });
+              return text;
+            },
+          }),
+        );
+        await expect(result).rejects.toMatchObject({
+          reasonCode:
+            mutation === "raw"
+              ? "runtime.internal_failure"
+              : mutation === "typed"
+                ? "runtime.recovery_required"
+                : "runtime.state_corrupt",
+        });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "rejects noncanonical %s generation epochs",
+    async (resource) => {
+      const claim = lockPaths(resource).claim;
+      await expect(
+        inspectLease(
+          resource,
+          services(
+            lockStorage({
+              directories: [`${claim}/.claim-0123-${"a".repeat(64)}`],
+            }),
+          ),
+        ),
+      ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    },
+  );
+
+  it.each(["raw", "typed"] as const)(
+    "contains %s scope candidate validation faults",
+    async (fault) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `scope-validation-${fault}`,
+      };
+      const target = candidateScopeRecord(stale);
+      const storage = lockStorage({
+        files: { [target]: canonicalizeJson(stale) },
+      });
+      const baseRead = storage.durableFileSystem.readText;
+      const failure =
+        fault === "typed"
+          ? new LockFailure("runtime.recovery_required", [])
+          : new Error("candidate read");
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            readText: async (path) => {
+              if (path === target) throw failure;
+              return baseRead(path);
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          fault === "typed"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
+    },
+  );
+
+  it.each(["raw", "typed"] as const)(
+    "contains %s admission candidate layout faults",
+    async (fault) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `admission-layout-${fault}`,
+        resource: "admission",
+      };
+      const target = candidateAdmissionRecord(stale);
+      const generation = parentDirectory(target);
+      const storage = lockStorage({
+        files: { [target]: canonicalizeJson(stale) },
+      });
+      const baseList = storage.durableFileSystem.list;
+      const failure =
+        fault === "typed"
+          ? new LockFailure("runtime.recovery_required", [])
+          : new Error("candidate generation list");
+      await expect(
+        inspectLease(
+          "project",
+          withDurable(storage, {
+            list: async (path) => {
+              if (path === generation) throw failure;
+              return baseList(path);
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        reasonCode:
+          fault === "typed"
+            ? "runtime.recovery_required"
+            : "runtime.internal_failure",
+      });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "contains every expired %s scope cleanup fault",
+    async (resource) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `cleanup-fault-${resource}`,
+        resource,
+      };
+      for (const outcome of [
+        "lost",
+        "typed",
+        "raw",
+        "reread-typed",
+        "reread-raw",
+        "record-special",
+        "generation-special",
+      ] as const) {
+        const record =
+          outcome === "lost"
+            ? candidateScopeRecord(stale)
+            : quarantinedScopeRecord(stale);
+        const cleanupRecord = quarantinedScopeRecord(stale);
+        const generation = parentDirectory(record);
+        const candidate = parentDirectory(generation);
+        const storage = lockStorage({
+          files: { [record]: canonicalizeJson(stale) },
+        });
+        const baseRemove = storage.durableFileSystem.removeFile;
+        const baseInspect = storage.durableFileSystem.inspect;
+        let cleanupFailed = false;
+        let inspections = 0;
+        const result = acquireClaim(
+          { resource, owner: "codex:session-01", observed: null },
+          withDurable(storage, {
+            removeFile: async (path) => {
+              if (path !== cleanupRecord) return baseRemove(path);
+              cleanupFailed = true;
+              if (outcome === "typed")
+                throw new LockFailure("runtime.recovery_required", []);
+              if (
+                ["lost", "raw", "reread-typed", "reread-raw"].includes(outcome)
+              )
+                throw new Error("cleanup remove");
+              return baseRemove(path);
+            },
+            inspect: async (path) => {
+              if (cleanupFailed && path === candidate) {
+                if (outcome === "reread-typed")
+                  throw new LockFailure("runtime.recovery_required", []);
+                if (outcome === "reread-raw") throw new Error("cleanup reread");
+              }
+              if (
+                path === record &&
+                outcome === "record-special" &&
+                ++inspections >= 3
+              )
+                return { kind: "special" as const };
+              if (
+                path === generation &&
+                outcome === "generation-special" &&
+                ++inspections >= 3
+              )
+                return { kind: "special" as const };
+              return baseInspect(path);
+            },
+          }),
+        );
+        if (outcome === "lost") await expect(result).resolves.toBeDefined();
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode:
+              outcome === "typed" || outcome === "reread-typed"
+                ? "runtime.recovery_required"
+                : outcome.endsWith("special")
+                  ? "runtime.state_corrupt"
+                  : "runtime.internal_failure",
+          });
+      }
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "classifies %s release record races and mutations",
+    async (resource) => {
+      for (const outcome of ["missing", "special", "bytes"] as const) {
+        const storage = lockStorage();
+        const claimed = acquiredClaim(
+          await acquireClaim(
+            { resource, owner: "codex:session-01", observed: null },
+            services(storage),
+          ),
+        );
+        const target = publishedScopeRecord(claimed);
+        const baseInspect = storage.durableFileSystem.inspect;
+        const baseRead = storage.durableFileSystem.readText;
+        let inspections = 0;
+        let reads = 0;
+        const result = releaseClaim(
+          { resource, observed: claimed },
+          withDurable(storage, {
+            inspect: async (path) => {
+              if (
+                path === target &&
+                ++inspections >= (resource === "project" ? 4 : 6)
+              ) {
+                if (outcome === "missing") return { kind: "missing" as const };
+                if (outcome === "special") return { kind: "special" as const };
+              }
+              return baseInspect(path);
+            },
+            readText: async (path) => {
+              const text = await baseRead(path);
+              if (path === target && ++reads >= 4 && outcome === "bytes")
+                return `${text}\n`;
+              return text;
+            },
+          }),
+        );
+        if (outcome === "missing")
+          await expect(result).resolves.toEqual({ kind: "absent" });
+        else
+          await expect(result).rejects.toMatchObject({
+            reasonCode: "runtime.state_corrupt",
+          });
+      }
+    },
+  );
+
+  it("rejects a special namespace component and contains a raw scope-root listing fault", async () => {
+    const special = lockStorage({
+      directories: [lockPaths("run:run-01").root],
+    });
+    const specialInspect = special.durableFileSystem.inspect;
+    let brainInspections = 0;
+    await expect(
+      inspectLease(
+        "run:run-01",
+        withDurable(special, {
+          inspect: async (path) =>
+            path === ".brain" && ++brainInspections >= 2
+              ? { kind: "special" as const }
+              : specialInspect(path),
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+
+    const raw = lockStorage({ directories: [lockPaths("project").root] });
+    const rawList = raw.durableFileSystem.list;
+    await expect(
+      inspectLease(
+        "project",
+        withDurable(raw, {
+          list: async (path) => {
+            if (path === lockPaths("project").root)
+              throw new Error("scope root list");
+            return rawList(path);
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+  });
+
+  it.each(["removed", "lost", "special"] as const)(
+    "recovers an orphan admission generation with a %s outcome",
+    async (outcome) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `orphan-generation-${outcome}`,
+        resource: "admission",
+      };
+      const marker = admissionRecoveryMarker(stale);
+      const digest = marker.slice(marker.lastIndexOf("-") + 1);
+      const generation = `${lockPaths("project").admissionClaim}/.claim-${digest}`;
+      const storage = lockStorage({ directories: [marker, generation] });
+      const baseRemove = storage.durableFileSystem.removeEmptyDirectory;
+      const baseInspect = storage.durableFileSystem.inspect;
+      let generationInspections = 0;
+      const result = acquireClaim(
+        projectClaim,
+        outcome === "lost"
+          ? withDurable(storage, {
+              removeEmptyDirectory: async (path) => {
+                if (path === generation) {
+                  await baseRemove(path);
+                  throw new Error("lost generation removal");
+                }
+                return baseRemove(path);
+              },
+            })
+          : outcome === "special"
+            ? withDurable(storage, {
+                inspect: async (path) => {
+                  if (path === generation) {
+                    generationInspections++;
+                  }
+                  if (path === generation && generationInspections === 7)
+                    return { kind: "special" as const };
+                  return baseInspect(path);
+                },
+              })
+            : services(storage),
+      );
+      if (outcome === "special")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.state_corrupt",
+        });
+      else if (outcome === "lost")
+        await expect(result).rejects.toMatchObject({
+          reasonCode: "runtime.recovery_required",
+        });
+      else await expect(result).resolves.toBeDefined();
+    },
+  );
+
+  it.each(["lost", "typed-reread", "raw-reread"] as const)(
+    "contains an admission candidate cleanup %s race",
+    async (outcome) => {
+      const stale: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `admission-cleanup-${outcome}`,
+        resource: "admission",
+      };
+      const original = candidateAdmissionRecord(stale);
+      const quarantine = quarantinedAdmissionRecord(stale);
+      const quarantineRoot = parentDirectory(parentDirectory(quarantine));
+      const storage = lockStorage({
+        files: { [original]: canonicalizeJson(stale) },
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+      const baseRemoveDirectory =
+        storage.durableFileSystem.removeEmptyDirectory;
+      let failed = false;
+      const result = acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path !== quarantineRoot) return baseRemoveDirectory(path);
+            await baseRemoveDirectory(path);
+            failed = true;
+            throw new Error("admission cleanup");
+          },
+          inspect: async (path) => {
+            if (failed && path === quarantineRoot) {
+              if (outcome === "typed-reread")
+                throw new LockFailure("runtime.recovery_required", []);
+              if (outcome === "raw-reread") throw new Error("admission reread");
+            }
+            return baseInspect(path);
+          },
+        }),
+      );
+      if (outcome === "lost") await expect(result).resolves.toBeDefined();
+      else
+        await expect(result).rejects.toMatchObject({
+          reasonCode:
+            outcome === "typed-reread"
+              ? "runtime.recovery_required"
+              : "runtime.internal_failure",
+        });
+    },
+  );
+
+  it("leaves an unexpired scope candidate for a later contender", async () => {
+    const future: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "future-candidate",
+      expiresAt: "2026-08-11T00:03:00.000Z",
+    };
+    const record = candidateScopeRecord(future);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(future) },
+    });
+    await expect(
+      acquireClaim(projectClaim, services(storage)),
+    ).resolves.toBeDefined();
+    expect(storage.snapshot().files[record]).toBe(canonicalizeJson(future));
+  });
 });

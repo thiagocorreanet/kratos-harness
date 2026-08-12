@@ -17,21 +17,26 @@ describe("lock domain boundaries", () => {
     ["run:ab", ".brain/locks/runs/YWI"],
     ["run:run-01", ".brain/locks/runs/cnVuLTAx"],
     ["run:group:run-01", ".brain/locks/runs/Z3JvdXA6cnVuLTAx"],
-  ] as const)("maps %s without exposing contract separators", (resource, root) => {
-    expect(lockPaths(resource)).toEqual({
-      root,
-      lease: `${root}/lease.json`,
-      events: `${root}/events.jsonl`,
-      claim: `${root}/claim`,
-      claimRecord: `${root}/claim/claim.json`,
-      admissionClaim: ".brain/locks/.admission/claim",
-      admissionRecord: ".brain/locks/.admission/claim/claim.json",
-    });
-  });
+  ] as const)(
+    "maps %s without exposing contract separators",
+    (resource, root) => {
+      expect(lockPaths(resource)).toEqual({
+        root,
+        lease: `${root}/lease.json`,
+        events: `${root}/events.jsonl`,
+        claim: `${root}/claim`,
+        claimRecord: `${root}/claim/claim.json`,
+        admissionClaim: ".brain/locks/.admission/claim",
+        admissionRecord: ".brain/locks/.admission/claim/claim.json",
+      });
+    },
+  );
 
   it.each(["run:", "run:a/b", "run:a\\b", "Project", ".admission"])(
     "rejects invalid resource %s",
-    (resource) => expect(() => lockPaths(resource)).toThrow("Lock input is invalid"),
+    (resource) => {
+      expect(() => lockPaths(resource)).toThrow("Lock input is invalid");
+    },
   );
 
   it("closes owner and duration policy", () => {
@@ -40,9 +45,15 @@ describe("lock domain boundaries", () => {
       sessionId: "session-01",
       value: "codex:session-01",
     });
-    expect(() => parseOwner("codex:session:01")).toThrow("Lock input is invalid");
-    expect(() => parseOwner("codex!:session-01")).toThrow("Lock input is invalid");
-    expect(() => parseOwner("codex:session!01")).toThrow("Lock input is invalid");
+    expect(() => parseOwner("codex:session:01")).toThrow(
+      "Lock input is invalid",
+    );
+    expect(() => parseOwner("codex!:session-01")).toThrow(
+      "Lock input is invalid",
+    );
+    expect(() => parseOwner("codex:session!01")).toThrow(
+      "Lock input is invalid",
+    );
     expect(validateTtl(5_000)).toBe(5_000);
     expect(validateTtl(300_000)).toBe(300_000);
     expect(() => validateTtl(5_000.5)).toThrow("Lock input is invalid");
@@ -68,10 +79,7 @@ describe("lock domain boundaries", () => {
     ["2026-08-11T00:00:35.000Z", "takeover_eligible"],
   ] as const)("classifies %s as %s", (now, expected) => {
     expect(
-      classifyLeaseTime(
-        new Date(now),
-        new Date("2026-08-11T00:00:30.000Z"),
-      ),
+      classifyLeaseTime(new Date(now), new Date("2026-08-11T00:00:30.000Z")),
     ).toBe(expected);
   });
 

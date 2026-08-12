@@ -8,19 +8,21 @@ import {
 
 const id = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const ownerPart = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/u;
-const base64url = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const base64url =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 function encodeRunId(value: string): string {
   let encoded = "";
   for (let index = 0; index < value.length; index += 3) {
     const first = value.charCodeAt(index);
-    const second = index + 1 < value.length ? value.charCodeAt(index + 1) : null;
+    const second =
+      index + 1 < value.length ? value.charCodeAt(index + 1) : null;
     const third = index + 2 < value.length ? value.charCodeAt(index + 2) : null;
-    encoded += base64url[first >> 2]!;
-    encoded += base64url[((first & 0x03) << 4) | ((second ?? 0) >> 4)]!;
+    encoded += base64url.charAt(first >> 2);
+    encoded += base64url.charAt(((first & 0x03) << 4) | ((second ?? 0) >> 4));
     if (second !== null)
-      encoded += base64url[((second & 0x0f) << 2) | ((third ?? 0) >> 6)]!;
-    if (third !== null) encoded += base64url[third & 0x3f]!;
+      encoded += base64url.charAt(((second & 0x0f) << 2) | ((third ?? 0) >> 6));
+    if (third !== null) encoded += base64url.charAt(third & 0x3f);
   }
   return encoded;
 }
@@ -57,15 +59,18 @@ export function lockPaths(input: string): LockPaths {
 export function parseOwner(value: string) {
   const parts = value.split(":");
   if (parts.length !== 2) throw new LeasePolicyError("invalid_input");
-  const host = parts[0]!;
-  const sessionId = parts[1]!;
+  const [host = "", sessionId = ""] = parts;
   if (!ownerPart.test(host) || !ownerPart.test(sessionId))
     throw new LeasePolicyError("invalid_input");
   return { host, sessionId, value } as const;
 }
 
 export function validateTtl(ttlMs: number): number {
-  if (!Number.isSafeInteger(ttlMs) || ttlMs < MIN_LEASE_TTL_MS || ttlMs > MAX_LEASE_TTL_MS)
+  if (
+    !Number.isSafeInteger(ttlMs) ||
+    ttlMs < MIN_LEASE_TTL_MS ||
+    ttlMs > MAX_LEASE_TTL_MS
+  )
     throw new LeasePolicyError("invalid_input");
   return ttlMs;
 }

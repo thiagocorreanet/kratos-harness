@@ -10,7 +10,8 @@ export const CLAIM_TTL_MS = 30_000;
 
 export type LeaseResource = "project" | `run:${string}`;
 export type LeaseTimeState = "writable" | "skew" | "takeover_eligible";
-export type LeaseSuccessKind = "acquired" | "renewed" | "released" | "taken_over";
+export type LeaseSuccessKind =
+  "acquired" | "renewed" | "released" | "taken_over";
 
 export interface LeaseIdentity {
   readonly resource: LeaseResource;
@@ -86,7 +87,9 @@ export type LeaseOutcome =
     };
 
 export class LeasePolicyError extends Error {
-  public constructor(public readonly kind: "invalid_input" | "invalid_transition") {
+  public constructor(
+    public readonly kind: "invalid_input" | "invalid_transition",
+  ) {
     super("Lock input is invalid");
     this.name = "LeasePolicyError";
   }
