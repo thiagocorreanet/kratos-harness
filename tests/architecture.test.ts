@@ -95,6 +95,7 @@ describe("import extraction", () => {
       "node:path",
       "../../domain/project/index.js",
       "../../ports/index.js",
+      "./git.js",
       "./transactions.js",
     ]);
 
@@ -109,6 +110,7 @@ describe("import extraction", () => {
       "../domain/transactions/index.js",
       "../infra/node/index.js",
       "../ports/index.js",
+      "./git.js",
       "./schema.js",
       "./events.js",
       "./transactions.js",

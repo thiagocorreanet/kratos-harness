@@ -1,3 +1,4 @@
+import type { GitObservation } from "../domain/git/index.js";
 import type {
   DirectoryProbe,
   WorktreeLocation,
@@ -47,17 +48,15 @@ export interface FileSystem {
   stat(path: string): Promise<FileStat | null>;
 }
 
-export type RepositoryState =
-  "absent" | "clean" | "dirty" | "detached" | "unborn";
-
 /**
- * Repository classification. `RUN-08` owns the semantics; this fixes the shape
- * so it implements against a settled interface instead of inventing one.
+ * Atomic Git observation.
+ *
+ * `observe()` never rejects: every failure the underlying process or
+ * filesystem can produce is a typed variant of `GitObservation` rather than a
+ * thrown error, so a caller never needs a try/catch to read a repository.
  */
 export interface Git {
-  state(): Promise<RepositoryState>;
-  head(): Promise<string | null>;
-  changedPaths(): Promise<readonly string[]>;
+  observe(): Promise<GitObservation>;
 }
 
 export interface Lease {

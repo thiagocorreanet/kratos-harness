@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import {
   mkdtemp,
   readFile,
@@ -24,7 +23,6 @@ import {
   nodeClock,
   nodeEnvironment,
   nodeFileSystem,
-  nodeGit,
   nodeIds,
   nodeLocks,
   nodeOutput,
@@ -36,7 +34,6 @@ import {
   describeClockContract,
   describeEnvironmentContract,
   describeFileSystemContract,
-  describeGitContract,
   describeIdsContract,
   describeLocksContract,
   describeOutputContract,
@@ -87,12 +84,6 @@ describeFileSystemContract("memory transaction storage", () =>
     dispose: noDispose,
   }),
 );
-describeGitContract("stub", () =>
-  Promise.resolve({
-    port: stubGit(),
-    dispose: noDispose,
-  }),
-);
 describeLocksContract("memory", () =>
   Promise.resolve({
     port: memoryLocks(),
@@ -131,75 +122,15 @@ describeLocksContract("node", async () => {
     dispose: () => rm(root, { force: true, recursive: true }),
   };
 });
-describeGitContract("node", async () => {
-  const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-  return {
-    port: nodeGit(root),
-    dispose: () => rm(root, { force: true, recursive: true }),
-  };
-});
-
 // `RUN-07` and `RUN-08` own the full semantics of leases and repository
 // classification. What is shared here is only what both implementations must
 // already agree on; the exception is per-assertion, not per-port.
-
-describe("node git classification", () => {
-  async function repository(): Promise<string> {
-    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-    execFileSync("git", ["init", "-q", "--initial-branch=main"], { cwd: root });
-    return root;
-  }
-
-  it("classifies a repository with no commit as unborn", async () => {
-    const root = await repository();
-    try {
-      expect(await nodeGit(root).state()).toBe("unborn");
-      expect(await nodeGit(root).head()).toBeNull();
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
-  });
-
-  it("classifies a directory with no repository as absent", async () => {
-    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-    try {
-      expect(await nodeGit(root).state()).toBe("absent");
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
-  });
-
-  it("classifies a committed tree as clean and a modified one as dirty", async () => {
-    const root = await repository();
-    try {
-      await writeFile(join(root, "a.txt"), "one", "utf8");
-      execFileSync("git", ["add", "a.txt"], { cwd: root });
-      execFileSync(
-        "git",
-        [
-          "-c",
-          "user.name=Test",
-          "-c",
-          "user.email=test@example.invalid",
-          "commit",
-          "-qm",
-          "first",
-        ],
-        { cwd: root },
-      );
-
-      expect(await nodeGit(root).state()).toBe("clean");
-      expect(await nodeGit(root).head()).toMatch(/^[a-f0-9]{40}$/u);
-      expect(await nodeGit(root).changedPaths()).toEqual([]);
-
-      await writeFile(join(root, "a.txt"), "two", "utf8");
-      expect(await nodeGit(root).state()).toBe("dirty");
-      expect(await nodeGit(root).changedPaths()).toEqual(["a.txt"]);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
-  });
-});
+//
+// TODO(RUN-08 Task 8): rewrite the Git port contract suite for the
+// `observe()` shape, covering both `stubGit()` and
+// `composeGit(nodeGitRunner(root), digests)` against a real repository. The
+// classification semantics themselves are exercised by
+// `tests/git-observation.test.ts`.
 
 describe("node filesystem safety", () => {
   it("refuses a final component that is a symlink out of the root", async () => {
@@ -304,15 +235,17 @@ describe("deterministic fakes", () => {
     expect(environment.workingDirectory()).toBe("/project");
   });
 
-  it("reports the repository state it was configured with", async () => {
-    const git = stubGit({
-      state: "dirty",
-      head: "a".repeat(40),
-      changedPaths: ["b.txt", "a.txt"],
+  it("defaults to an observed clean principal worktree", async () => {
+    const result = await stubGit().observe();
+    expect(result).toMatchObject({
+      kind: "observed",
+      repository: { worktree: "principal", operation: "none", changes: [] },
+      evidence: [],
     });
-    expect(await git.state()).toBe("dirty");
-    expect(await git.head()).toBe("a".repeat(40));
-    // Sorting is the port's job, not the caller's.
-    expect(await git.changedPaths()).toEqual(["a.txt", "b.txt"]);
+  });
+
+  it("reports the fixed observation it was configured with", async () => {
+    const observation = { kind: "not_a_repository" as const, evidence: [] };
+    expect(await stubGit(observation).observe()).toBe(observation);
   });
 });

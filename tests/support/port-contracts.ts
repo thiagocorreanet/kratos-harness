@@ -2,7 +2,6 @@ import type {
   Clock,
   Environment,
   FileSystem,
-  Git,
   Ids,
   Locks,
   Output,
@@ -185,45 +184,12 @@ export function describeFileSystemContract(
   });
 }
 
-export function describeGitContract(
-  label: string,
-  factory: () => Promise<Disposable<Git>>,
-): void {
-  describe(`Git contract: ${label}`, () => {
-    it("classifies a repository state from the closed set", async () => {
-      const { port, dispose } = await factory();
-      try {
-        expect(["absent", "clean", "dirty", "detached", "unborn"]).toContain(
-          await port.state(),
-        );
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("reports head as a digest or null, never an empty string", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const head = await port.head();
-        expect(head === null || /^[a-f0-9]{40}$/u.test(head)).toBe(true);
-      } finally {
-        await dispose();
-      }
-    });
-
-    it("returns sorted, unique changed paths", async () => {
-      const { port, dispose } = await factory();
-      try {
-        const paths = await port.changedPaths();
-        expect([...paths]).toEqual(
-          [...new Set(paths)].sort((a, b) => a.localeCompare(b, "en-US")),
-        );
-      } finally {
-        await dispose();
-      }
-    });
-  });
-}
+// The Git port contract lives with `RUN-08`'s own suite
+// (`tests/git-observation.test.ts`), since `observe()` has no shared shape
+// with the other ports here beyond "returns a promise that resolves".
+// TODO(RUN-08 Task 8): add a real `describeGitContract` for the
+// `observe()`-based port, run against both `stubGit()` and
+// `composeGit(nodeGitRunner(root), digests)`.
 
 export function describeLocksContract(
   label: string,
