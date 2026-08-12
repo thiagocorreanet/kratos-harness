@@ -357,8 +357,6 @@ function trustedServices<State>(
     events: {
       digests: {
         sha256: (text) => tracker.call(() => rawDigests.sha256(text)),
-        sha256Bytes: (bytes) =>
-          tracker.call(() => rawDigests.sha256Bytes(bytes)),
       },
       isProxy: (value) => tracker.call(() => isProxy(value)),
       isPromise: (value) => tracker.call(() => isPromise(value)),
@@ -462,7 +460,7 @@ async function readExact(
   path: string,
   expected: Extract<PathFingerprint, { readonly kind: "file" }>,
   durableFileSystem: DurableFileSystem,
-  digests: Digests,
+  digests: Pick<Digests, "sha256">,
 ): Promise<string> {
   const text = await storageCall(() => durableFileSystem.readText(path));
   const size = encoder.encode(text).byteLength;
