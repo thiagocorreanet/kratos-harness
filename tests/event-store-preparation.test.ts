@@ -959,6 +959,9 @@ describe("event-store append preparation", () => {
           sha256: () => {
             throw new EventIntegrityError("invalid_event");
           },
+          sha256Bytes: () => {
+            throw new EventIntegrityError("invalid_event");
+          },
         },
       }),
     ],

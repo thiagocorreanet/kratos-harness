@@ -357,6 +357,8 @@ function trustedServices<State>(
     events: {
       digests: {
         sha256: (text) => tracker.call(() => rawDigests.sha256(text)),
+        sha256Bytes: (bytes) =>
+          tracker.call(() => rawDigests.sha256Bytes(bytes)),
       },
       isProxy: (value) => tracker.call(() => isProxy(value)),
       isPromise: (value) => tracker.call(() => isPromise(value)),
