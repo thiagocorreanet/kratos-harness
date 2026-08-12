@@ -135,17 +135,58 @@ describeLocksContract("node", async () => {
 // classification. What is shared here is only what both implementations must
 // already agree on; the exception is per-assertion, not per-port.
 
-/** A freshly initialized, unborn repository -- enough for a real `observe()`. */
-function initGitRepository(root: string): void {
+const GIT_IDENTITY = [
+  "-c",
+  "user.email=t@e.com",
+  "-c",
+  "user.name=T",
+  "-c",
+  "commit.gpgsign=false",
+] as const;
+
+/**
+ * A freshly initialized repository whose change list needs a real sort to
+ * land in `compareGitPaths` order, so the shared "changes sorted by path
+ * bytes" contract property has data it can actually fail against.
+ *
+ * Two properties of `git status --porcelain=v2` make an unordered fixture
+ * insufficient here. First, it groups records by category -- ordinary
+ * tracked changes before untracked entries -- regardless of path bytes, so a
+ * modified `m.txt` is emitted *before* an untracked `a.txt` even though `a`
+ * sorts first; confirmed empirically before writing this. Only a fixture
+ * that spans both categories can catch a regression that drops the sort
+ * entirely. Second, `B.txt` exercises byte order against locale order: byte
+ * order sorts upper-case ASCII before lower-case (`B.txt` < `a.txt` <
+ * `m.txt`), while locale collation would not put it there.
+ */
+async function initGitRepository(root: string): Promise<void> {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
   execFileSync("git", ["init", "-q", "--initial-branch=main"], {
     cwd: root,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env,
   });
+  await writeFile(join(root, "m.txt"), "1\n", "utf8");
+  execFileSync("git", [...GIT_IDENTITY, "add", "--", "m.txt"], {
+    cwd: root,
+    env,
+  });
+  execFileSync("git", [...GIT_IDENTITY, "commit", "-q", "-m", "initial"], {
+    cwd: root,
+    env,
+  });
+  // Tracked and modified: an ordinary "1 " record, emitted by Git before any
+  // untracked record regardless of path bytes.
+  await writeFile(join(root, "m.txt"), "2\n", "utf8");
+  // Untracked, and alphabetically before "m.txt" -- only a real sort moves
+  // it ahead of the ordinary record above.
+  await writeFile(join(root, "a.txt"), "a\n", "utf8");
+  // Untracked, upper-case: byte order puts this ahead of "a.txt" too.
+  await writeFile(join(root, "B.txt"), "B\n", "utf8");
 }
 
 describeGitContract("node", async () => {
   const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-  initGitRepository(root);
+  await initGitRepository(root);
   return {
     port: composeGit(nodeGitRunner(root), sha256Digests()),
     dispose: () => rm(root, { force: true, recursive: true }),
@@ -253,5 +294,24 @@ describe("deterministic fakes", () => {
     expect(environment.get("EXAMPLE")).toBe("value");
     expect(environment.get("PATH")).toBeUndefined();
     expect(environment.workingDirectory()).toBe("/project");
+  });
+
+  it("defaults to an observed clean principal worktree", async () => {
+    const result = await stubGit().observe();
+    expect(result).toMatchObject({
+      kind: "observed",
+      repository: { worktree: "principal", operation: "none", changes: [] },
+      evidence: [],
+    });
+  });
+
+  it("reports the fixed observation it was configured with", async () => {
+    // `describeGitContract("stub", …)` only ever calls `stubGit()` with no
+    // argument, so the parameterized echo -- the entire reason `observation`
+    // is a parameter -- needs its own assertion. `toEqual` rather than `toBe`:
+    // a defensively-copying implementation would still satisfy the contract,
+    // and this test should not forbid one.
+    const observation = { kind: "not_a_repository" as const, evidence: [] };
+    expect(await stubGit(observation).observe()).toEqual(observation);
   });
 });
