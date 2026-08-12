@@ -2061,6 +2061,27 @@ async function recoverEmptyScopeGeneration(
   }
 }
 
+async function recoverEmptyAdmissionGeneration(
+  location: AdmissionLocation,
+  marker: AdmissionCleanupMarker | null,
+  services: LockServices,
+): Promise<"cleared" | "lost"> {
+  if (marker !== null) {
+    try {
+      await services.durableFileSystem.removeEmptyDirectory(marker.path);
+      await services.durableFileSystem.syncDirectory(location.directory);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      const current = await services.durableFileSystem.inspect(marker.path);
+      if (current.kind !== "missing") throw internal();
+    }
+  }
+  return (await removePublishedAdmissionLocation(location, services)) ===
+    "removed"
+    ? "cleared"
+    : "lost";
+}
+
 async function resolveAdmissionRecovery(
   services: LockServices,
 ): Promise<AdmissionRecoveryOutcome> {
@@ -2082,6 +2103,19 @@ async function resolveAdmissionRecovery(
       );
       return { kind: outcome };
     }
+  }
+  const location = await locateAdmission(services);
+  if (cleanupTarget === null && location !== null && !location.legacy) {
+    const cleanup = await admissionCleanupMarker(location, services);
+    const names = await services.durableFileSystem.list(location.directory);
+    if (cleanup !== null || names.length === 0)
+      return {
+        kind: await recoverEmptyAdmissionGeneration(
+          location,
+          cleanup,
+          services,
+        ),
+      };
   }
   const markers = await validateAdmissionRecoveryMarkers(
     holder,
@@ -2110,16 +2144,19 @@ async function resolveAdmissionRecovery(
       services.clock.now().getTime()
   )
     return { kind: "blocked", holder: expected };
-  const elected = recoveryMarkerFor(expected, services);
+  const elected = admissionCleanupMarkerFor(expected, services);
   try {
     await services.durableFileSystem.createDirectoryExclusive(elected.path);
-    await services.durableFileSystem.syncDirectory(admissionRoot);
-    return await helpAdmissionRecovery(elected, services);
+    await services.durableFileSystem.syncDirectory(expected.location.directory);
+    return { kind: await helpAdmissionCleanup(expected, elected, services) };
   } catch (error) {
     if (error instanceof LockFailure) throw error;
-    const currentMarkers = await admissionRecoveryMarkers(services);
-    if (currentMarkers.some((candidate) => candidate.path === elected.path))
-      return helpAdmissionRecovery(elected, services);
+    const currentMarker = await admissionCleanupMarker(
+      expected.location,
+      services,
+    );
+    if (currentMarker?.path === elected.path)
+      return { kind: await helpAdmissionCleanup(expected, elected, services) };
     const current = await readAdmissionClaim(services);
     if (current !== null) return { kind: "blocked", holder: current };
     throw internal();
