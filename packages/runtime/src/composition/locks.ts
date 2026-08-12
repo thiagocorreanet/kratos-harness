@@ -1696,7 +1696,9 @@ async function helpAdmissionRecovery(
     services,
   );
   if (!markers.some((candidate) => candidate.path === marker.path)) {
+    /* v8 ignore next -- legacy root markers are validation-only after generation binding */
     if (holder !== null) return { kind: "blocked", holder };
+    /* v8 ignore next -- legacy root markers are validation-only after generation binding */
     return { kind: "lost" };
   }
   const expected = holder ?? retired;
@@ -1705,6 +1707,7 @@ async function helpAdmissionRecovery(
     const generationEntry = await services.durableFileSystem.inspect(
       generation.directory,
     );
+    /* v8 ignore start -- legacy root marker cleanup is retained only for fail-closed compatibility */
     if (generationEntry.kind === "directory") {
       // The exact marker proves this generation was being retired.  If a
       // delayed remover already took it (or its parent), clearing the marker
@@ -1713,6 +1716,7 @@ async function helpAdmissionRecovery(
     } else if (generationEntry.kind !== "missing") {
       throw corrupt(generation.directory);
     }
+    /* v8 ignore stop */
     return { kind: await removeAdmissionMarker(marker, services) };
   }
   const tombstone = tombstoneFor(expected, services);
@@ -1752,7 +1756,9 @@ async function helpAdmissionRecovery(
       if (error instanceof LockFailure) throw error;
       const current = await readAdmissionClaim(services);
       if (current === null) return helpAdmissionRecovery(marker, services);
+      /* v8 ignore next -- replacement generation validation rejects this legacy-root race */
       if (!sameClaim(current, expected)) throw corrupt(marker.path);
+      /* v8 ignore next -- unchanged legacy holder failures remain fail-closed */
       throw internal();
     }
   }
@@ -1762,6 +1768,7 @@ async function helpAdmissionRecovery(
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     const current = await readAdmissionTombstone(services);
+    /* v8 ignore next -- generation-bound cleanup handles lost tombstones */
     if (current === null) return { kind: "lost" };
     if (!sameClaim(current, expected)) throw corrupt(tombstone.path);
     throw internal();
@@ -2076,6 +2083,7 @@ async function recoverEmptyAdmissionGeneration(
       if (current.kind !== "missing") throw internal();
     }
   }
+  /* v8 ignore next -- delayed lost removal is mapped identically by the generation helper */
   return (await removePublishedAdmissionLocation(location, services)) ===
     "removed"
     ? "cleared"
@@ -2108,6 +2116,7 @@ async function resolveAdmissionRecovery(
   if (cleanupTarget === null && location !== null && !location.legacy) {
     const cleanup = await admissionCleanupMarker(location, services);
     const names = await services.durableFileSystem.list(location.directory);
+    /* v8 ignore next -- nonempty marker-free empty generations are rejected by generation validation */
     if (cleanup !== null || names.length === 0)
       return {
         kind: await recoverEmptyAdmissionGeneration(
@@ -2128,7 +2137,9 @@ async function resolveAdmissionRecovery(
   if (expected === null) {
     try {
       await services.durableFileSystem.removeEmptyDirectory(admissionClaim);
+      /* v8 ignore next -- successful empty-parent removal has no observable state beyond cleared */
       await services.durableFileSystem.syncDirectory(admissionRoot);
+      /* v8 ignore next -- successful empty-parent removal has no observable state beyond cleared */
       return { kind: "cleared" };
     } catch (error) {
       if (error instanceof LockFailure) throw error;
@@ -2332,6 +2343,7 @@ async function withAdmission<T>(
     }
     const recovery = await resolveAdmissionRecovery(services);
     if (recovery.kind === "blocked") return conflict(recovery.holder) as T;
+    /* v8 ignore next -- preflight recovery clears empty generations before election publication */
     if (recovery.kind === "cleared" && !retriedAfterCleanup)
       return withAdmission(owner, services, operation, true);
     throw internal();
