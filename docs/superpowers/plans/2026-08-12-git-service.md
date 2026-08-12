@@ -2410,7 +2410,7 @@ Expected: PASS. Add any genuinely new term to `.cspell.json` in alphabetical ord
 Run: `npm run verify`
 Expected: PASS, including 100% coverage over `domain/**` and `composition/**`. A coverage gap in `composition/git.ts` means a failure branch has no scripted-runner test — add the test rather than lowering the threshold.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs .cspell.json
