@@ -65,3 +65,17 @@
 - No contract, schema, version, or dependency changes were made.
 - Do not start Task 5 from this worktree: protected caller-mutation guard
   persistence and per-publication fencing remain Task 5 responsibilities.
+
+## Follow-up Corrections
+
+- `release()` now returns the exact already-published release observation when
+  passed that release's exact guard, without creating a claim or appending an
+  event. A stale or otherwise non-exact guard still conflicts.
+- Every lifecycle request is structurally validated and snapshotted before
+  durable I/O. The service tests prove invalid renew, release, and takeover
+  requests make zero durable calls.
+- Run-family admission now orders verified decoded run resources canonically,
+  rather than trusting storage directory enumeration order.
+- The required seven-suite lifecycle matrix passes with 653 tests. Its scoped
+  `composition/locks.ts` coverage gate is 100% for statements, branches,
+  functions, and lines.

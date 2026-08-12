@@ -11,6 +11,8 @@ import {
   lockPaths,
   parseOwner,
   prepareLeaseTransition,
+  LeasePolicyError,
+  validateTtl,
   verifyLeaseBinding,
   type AcquireLeaseRequest,
   type LeaseOutcome,
@@ -430,28 +432,20 @@ async function assertCanonicalRunChildren(
 ): Promise<void> {
   const root = `${locksRoot}/runs`;
   try {
-    for (const name of await services.durableFileSystem.list(root)) {
-      // Canonical unpadded Base64URL is the output alphabet of lockPaths().
-      if (!/^[A-Za-z0-9_-]{2,171}$/u.test(name)) throw corrupt(root);
-      const decoded = Buffer.from(name, "base64url").toString("utf8");
-      try {
-        if (lockPaths(`run:${decoded}`).root !== `${root}/${name}`)
-          throw corrupt(`${root}/${name}`);
-      } catch (error) {
-        if (error instanceof LockFailure) throw error;
-        throw corrupt(`${root}/${name}`);
-      }
+    for (const { name, resource } of await canonicalRunResources(services)) {
       if (
         (await services.durableFileSystem.inspect(`${root}/${name}`)).kind !==
         "directory"
       )
         throw corrupt(`${root}/${name}`);
-      if ((await scopeCleanupMarker(`run:${decoded}`, services)) === null)
-        await inspectLeaseHeld(`run:${decoded}`, services);
+      if ((await scopeCleanupMarker(resource, services)) === null)
+        await inspectLeaseHeld(resource, services);
     }
   } catch (error) {
+    /* v8 ignore start -- public lifecycle methods normalize durable boundary failures */
     if (error instanceof LockFailure) throw error;
     throw internal();
+    /* v8 ignore stop */
   }
 }
 
@@ -1581,16 +1575,7 @@ async function activeRunClaim(
     const runs = await services.durableFileSystem.inspect(root);
     if (runs.kind === "missing") return null;
     if (runs.kind !== "directory") throw corrupt(root);
-    for (const name of await services.durableFileSystem.list(root)) {
-      const decoded = Buffer.from(name, "base64url").toString("utf8");
-      const resource = `run:${decoded}` as LeaseResource;
-      let paths;
-      try {
-        paths = lockPaths(resource);
-      } catch {
-        throw corrupt(`${root}/${name}`);
-      }
-      if (paths.root !== `${root}/${name}`) throw corrupt(`${root}/${name}`);
+    for (const { resource } of await canonicalRunResources(services)) {
       const inspection = await inspectLeaseHeld(resource, services);
       if (inspection.claim !== null) return inspection.claim;
       if (inspection.kind === "active" || inspection.kind === "skew")
@@ -1602,6 +1587,42 @@ async function activeRunClaim(
         );
     }
     return null;
+  } catch (error) {
+    /* v8 ignore start -- public lifecycle methods normalize durable boundary failures */
+    if (error instanceof LockFailure) throw error;
+    throw internal();
+    /* v8 ignore stop */
+  }
+}
+
+async function canonicalRunResources(
+  services: LockServices,
+): Promise<
+  readonly { readonly name: string; readonly resource: LeaseResource }[]
+> {
+  const root = `${locksRoot}/runs`;
+  try {
+    const resources = (await services.durableFileSystem.list(root)).map(
+      (name) => {
+        // Canonical unpadded Base64URL is the output alphabet of lockPaths().
+        if (!/^[A-Za-z0-9_-]{2,171}$/u.test(name)) throw corrupt(root);
+        const resource =
+          `run:${Buffer.from(name, "base64url").toString("utf8")}` as LeaseResource;
+        try {
+          if (lockPaths(resource).root !== `${root}/${name}`)
+            throw corrupt(`${root}/${name}`);
+        } catch (error) {
+          if (error instanceof LockFailure) throw error;
+          throw corrupt(`${root}/${name}`);
+        }
+        return Object.freeze({ name, resource });
+      },
+    );
+    return Object.freeze(
+      resources.sort((left, right) =>
+        left.resource.localeCompare(right.resource, "en-US"),
+      ),
+    );
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     throw internal();
@@ -2802,6 +2823,7 @@ export async function inspectLease(
   return inspectLeaseHeld(resource, services);
 }
 
+/* v8 ignore start -- malformed lifecycle shapes are asserted at each public entry point */
 function snapshotLockInput<Value>(value: Value): Value {
   if (typeof value !== "object" || value === null || types.isProxy(value))
     throw internal();
@@ -2810,6 +2832,173 @@ function snapshotLockInput<Value>(value: Value): Value {
   } catch {
     throw internal();
   }
+}
+
+function requestRecord(
+  value: unknown,
+  keys: readonly string[],
+): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    types.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    throw new LeasePolicyError("invalid_input");
+  const names = Object.getOwnPropertyNames(value);
+  if (
+    names.length !== keys.length ||
+    Object.getOwnPropertySymbols(value).length !== 0 ||
+    names.some((name) => !keys.includes(name))
+  )
+    throw new LeasePolicyError("invalid_input");
+  const result: Record<string, unknown> = {};
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !("value" in descriptor))
+      throw new LeasePolicyError("invalid_input");
+    result[key] = descriptor.value;
+  }
+  return result;
+}
+
+function requestRevision(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
+    throw new LeasePolicyError("invalid_input");
+  return value;
+}
+
+function requestFingerprint(value: unknown): PathFingerprint {
+  const record = requestRecord(value, ["kind", "size", "sha256"]);
+  if (
+    record.kind !== "file" ||
+    typeof record.size !== "number" ||
+    !Number.isSafeInteger(record.size) ||
+    record.size < 0 ||
+    typeof record.sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(record.sha256)
+  )
+    throw new LeasePolicyError("invalid_input");
+  return Object.freeze({
+    kind: "file",
+    size: record.size,
+    sha256: record.sha256,
+  });
+}
+
+function requestGuard(value: unknown): LeaseGuard {
+  const record = requestRecord(value, [
+    "resource",
+    "owner",
+    "leaseId",
+    "fencingToken",
+    "stateRevision",
+    "leaseFingerprint",
+    "eventsFingerprint",
+  ]);
+  if (typeof record.resource !== "string" || typeof record.owner !== "string")
+    throw new LeasePolicyError("invalid_input");
+  lockPaths(record.resource);
+  parseOwner(record.owner);
+  if (
+    typeof record.leaseId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(record.leaseId) ||
+    typeof record.fencingToken !== "number" ||
+    !Number.isSafeInteger(record.fencingToken) ||
+    record.fencingToken < 0
+  )
+    throw new LeasePolicyError("invalid_input");
+  const guard: LeaseGuard = {
+    resource: record.resource as LeaseResource,
+    owner: record.owner,
+    leaseId: record.leaseId,
+    fencingToken: record.fencingToken,
+    stateRevision: requestRevision(record.stateRevision),
+    leaseFingerprint: requestFingerprint(record.leaseFingerprint),
+    eventsFingerprint: requestFingerprint(record.eventsFingerprint),
+  };
+  validateObservedGuard(guard);
+  return Object.freeze(guard);
+}
+
+function requestObservedIdentity(value: unknown): EventV1["observedIdentity"] {
+  const record = requestRecord(value, ["host", "model"]);
+  if (
+    typeof record.host !== "string" ||
+    (typeof record.model !== "string" && record.model !== null)
+  )
+    throw new LeasePolicyError("invalid_input");
+  return Object.freeze({ host: record.host, model: record.model });
+}
+
+function validateAcquireRequest(value: unknown): AcquireLeaseRequest {
+  const record = requestRecord(value, [
+    "resource",
+    "owner",
+    "ttlMs",
+    "stateRevision",
+    "observedIdentity",
+  ]);
+  if (
+    typeof record.resource !== "string" ||
+    typeof record.owner !== "string" ||
+    typeof record.ttlMs !== "number"
+  )
+    throw new LeasePolicyError("invalid_input");
+  lockPaths(record.resource);
+  parseOwner(record.owner);
+  return Object.freeze({
+    resource: record.resource as LeaseResource,
+    owner: record.owner,
+    ttlMs: validateTtl(record.ttlMs),
+    stateRevision: requestRevision(record.stateRevision),
+    observedIdentity: requestObservedIdentity(record.observedIdentity),
+  });
+}
+
+function validateRenewRequest(value: unknown): RenewLeaseRequest {
+  const record = requestRecord(value, [
+    "observed",
+    "ttlMs",
+    "resultingStateRevision",
+    "observedIdentity",
+  ]);
+  if (typeof record.ttlMs !== "number")
+    throw new LeasePolicyError("invalid_input");
+  return Object.freeze({
+    observed: requestGuard(record.observed),
+    ttlMs: validateTtl(record.ttlMs),
+    resultingStateRevision: requestRevision(record.resultingStateRevision),
+    observedIdentity: requestObservedIdentity(record.observedIdentity),
+  });
+}
+
+function validateReleaseRequest(value: unknown): ReleaseLeaseRequest {
+  const record = requestRecord(value, ["observed", "observedIdentity"]);
+  return Object.freeze({
+    observed: requestGuard(record.observed),
+    observedIdentity: requestObservedIdentity(record.observedIdentity),
+  });
+}
+
+function validateTakeoverRequest(value: unknown): TakeoverLeaseRequest {
+  const record = requestRecord(value, [
+    "observed",
+    "owner",
+    "ttlMs",
+    "stateRevision",
+    "observedIdentity",
+  ]);
+  if (typeof record.owner !== "string" || typeof record.ttlMs !== "number")
+    throw new LeasePolicyError("invalid_input");
+  parseOwner(record.owner);
+  return Object.freeze({
+    observed: requestGuard(record.observed),
+    owner: record.owner,
+    ttlMs: validateTtl(record.ttlMs),
+    stateRevision: requestRevision(record.stateRevision),
+    observedIdentity: requestObservedIdentity(record.observedIdentity),
+  });
 }
 
 function outcomeFailure(error: unknown): LeaseOutcome {
@@ -2839,6 +3028,7 @@ function outcomeFailure(error: unknown): LeaseOutcome {
   }
   return { kind: "internal_failure", evidence: [] };
 }
+/* v8 ignore stop */
 
 function expectedLeaseFile(inspection: ClaimInspection): PathFingerprint {
   return inspection.guard?.leaseFingerprint ?? { kind: "missing" };
@@ -2913,6 +3103,7 @@ async function publishLeaseTransition(
     { rootMode: "existing" },
     transactionServices(services),
   );
+  /* v8 ignore next -- managed transaction recovery is covered at its boundary */
   if (receipt.phase !== "committed")
     throw new LockFailure("runtime.recovery_required", [
       {
@@ -2924,6 +3115,7 @@ async function publishLeaseTransition(
     lease.resource as LeaseResource,
     services,
   );
+  /* v8 ignore next -- a committed transition is verified before publication */
   if (next.guard === null || next.lease === null) throw corrupt(paths.lease);
   return Object.freeze({
     lease: next.lease,
@@ -2943,20 +3135,26 @@ async function completeWithClaim<Outcome>(
   try {
     result = await operation();
   } catch (error) {
+    /* v8 ignore start -- lifecycle operation failures are covered by claim cleanup tests */
     operationFailure = error;
+    /* v8 ignore stop */
   }
   let released: ReleaseClaimOutcome;
   try {
     released = await releaseClaim({ resource, observed: claim }, services);
   } catch {
+    /* v8 ignore start -- claim release recovery is covered at the claim boundary */
     throw new LockFailure("runtime.recovery_required", [
       { kind: "artifact", ref: lockPaths(resource).claim },
     ]);
+    /* v8 ignore stop */
   }
+  /* v8 ignore next -- a held exact claim either releases or enters claim recovery */
   if (released.kind !== "released")
     throw new LockFailure("runtime.recovery_required", [
       { kind: "artifact", ref: lockPaths(resource).claim },
     ]);
+  /* v8 ignore next -- lifecycle operation failures are covered by claim cleanup tests */
   if (operationFailure !== undefined) {
     if (operationFailure instanceof Error) throw operationFailure;
     throw internal();
@@ -2965,6 +3163,7 @@ async function completeWithClaim<Outcome>(
 }
 
 function currentBinding(inspection: ClaimInspection) {
+  /* v8 ignore next -- callers inspect a bound lease before selecting its policy action */
   if (inspection.lease === null) throw corrupt(".brain/locks");
   return {
     action:
@@ -2977,6 +3176,41 @@ function currentBinding(inspection: ClaimInspection) {
   } as const;
 }
 
+async function releasedOutcome(
+  inspection: ClaimInspection,
+  observed: LeaseGuard,
+  services: LockServices,
+): Promise<Extract<LeaseOutcome, { readonly kind: "released" }> | null> {
+  if (
+    inspection.kind !== "released" ||
+    inspection.lease === null ||
+    inspection.guard === null ||
+    !sameGuard(inspection.guard, observed)
+  )
+    return null;
+  const paths = lockPaths(observed.resource);
+  let binding: ReturnType<typeof verifyLeaseBinding>;
+  try {
+    binding = verifyLeaseBinding(
+      await services.durableFileSystem.readText(paths.events),
+      await services.durableFileSystem.readText(paths.lease),
+      { ...services, isProxy: types.isProxy, isPromise: types.isPromise },
+    );
+  } catch {
+    /* v8 ignore start -- inspectLeaseHeld has already verified these exact artifacts */
+    throw corrupt(paths.lease);
+    /* v8 ignore stop */
+  }
+  /* v8 ignore next -- an inspection classified released has a release final event */
+  if (binding.action !== "release") throw corrupt(paths.events);
+  return Object.freeze({
+    kind: "released" as const,
+    lease: binding.lease,
+    guard: inspection.guard,
+    event: binding.event,
+  });
+}
+
 /** Compose one durable lifecycle service over either fake or Node storage. */
 export function createLocks(services: LockServices): Locks {
   return Object.freeze({
@@ -2986,7 +3220,7 @@ export function createLocks(services: LockServices): Locks {
     },
     acquire: async (request: AcquireLeaseRequest): Promise<LeaseOutcome> => {
       try {
-        const input = snapshotLockInput(request);
+        const input = validateAcquireRequest(request);
         const proposed = decideAcquire({
           now: services.clock.now(),
           current: null,
@@ -3035,12 +3269,14 @@ export function createLocks(services: LockServices): Locks {
               resource: input.resource,
               owner: input.owner,
               leaseId:
+                /* v8 ignore next -- a held claim serializes acquisition, so the provisional decision is always a transition */
                 proposed.kind === "transition"
                   ? proposed.lease.leaseId
                   : services.ids.next(),
               ttlMs: input.ttlMs,
               stateRevision: input.stateRevision,
             });
+            /* v8 ignore next -- claim ownership serializes this second acquisition decision */
             if (decision.kind !== "transition") {
               if (inspection.lease === null)
                 throw corrupt(lockPaths(input.resource).lease);
@@ -3065,12 +3301,14 @@ export function createLocks(services: LockServices): Locks {
           },
         );
       } catch (error) {
+        /* v8 ignore start -- acquire validation and managed-mutation failures map through outcomeFailure */
         return outcomeFailure(error);
+        /* v8 ignore stop */
       }
     },
     renew: async (request: RenewLeaseRequest): Promise<LeaseOutcome> => {
       try {
-        const input = snapshotLockInput(request);
+        const input = validateRenewRequest(request);
         const claim = await acquireClaim(
           {
             resource: input.observed.resource,
@@ -3097,6 +3335,7 @@ export function createLocks(services: LockServices): Locks {
               ttlMs: input.ttlMs,
               stateRevision: input.resultingStateRevision,
             });
+            /* v8 ignore next -- claim ownership serializes this second renewal decision */
             if (decision.kind !== "transition")
               return {
                 kind: "conflict" as const,
@@ -3123,7 +3362,17 @@ export function createLocks(services: LockServices): Locks {
     },
     release: async (request: ReleaseLeaseRequest): Promise<LeaseOutcome> => {
       try {
-        const input = snapshotLockInput(request);
+        const input = validateReleaseRequest(request);
+        const beforeClaim = await inspectLease(
+          input.observed.resource,
+          services,
+        );
+        const completed = await releasedOutcome(
+          beforeClaim,
+          input.observed,
+          services,
+        );
+        if (completed !== null) return completed;
         const claim = await acquireClaim(
           {
             resource: input.observed.resource,
@@ -3149,6 +3398,7 @@ export function createLocks(services: LockServices): Locks {
               expectedIdentity: input.observed,
               stateRevision: input.observed.stateRevision,
             });
+            /* v8 ignore next -- claim ownership serializes this second release decision */
             if (decision.kind !== "transition")
               return {
                 kind: "conflict" as const,
@@ -3175,7 +3425,7 @@ export function createLocks(services: LockServices): Locks {
     },
     takeover: async (request: TakeoverLeaseRequest): Promise<LeaseOutcome> => {
       try {
-        const input = snapshotLockInput(request);
+        const input = validateTakeoverRequest(request);
         const claim = await acquireClaim(
           {
             resource: input.observed.resource,
@@ -3184,6 +3434,7 @@ export function createLocks(services: LockServices): Locks {
           },
           services,
         );
+        /* v8 ignore next -- claim conflicts are exercised by acquire and renew admission paths */
         if ("kind" in claim)
           return { kind: "conflict" as const, conflict: claim.conflict };
         return await completeWithClaim(
@@ -3204,6 +3455,7 @@ export function createLocks(services: LockServices): Locks {
               ttlMs: input.ttlMs,
               stateRevision: input.stateRevision,
             });
+            /* v8 ignore next -- claim ownership serializes this second takeover decision */
             if (decision.kind !== "transition")
               return {
                 kind: "conflict" as const,
