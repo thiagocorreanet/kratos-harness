@@ -213,6 +213,23 @@ Decoding uses `TextDecoder` with `fatal: true`. `TextDecoder` is a JavaScript
 global, not a Node builtin, so it does not violate the layering rule enforced by
 `tests/architecture.test.ts`.
 
+Digesting an undecodable path requires hashing raw bytes, and `Digests` exposes
+only `sha256(text: string)`. The port gains one additive method:
+
+```ts
+export interface Digests {
+  sha256(text: string): string;
+  sha256Bytes(bytes: Uint8Array): string;
+}
+```
+
+Hex-encoding the bytes and hashing that string instead would produce a digest of
+the encoding rather than of the path, which is not what the field claims to be.
+Computing the digest in the Node adapter would move the decodable/undecodable
+decision outside the coverage gate. Only `infra/digests.ts` implements this
+port — the fake reuses the same construction — so the change lands in one place
+and no existing caller is affected.
+
 Paths are sorted by UTF-8 byte sequence. The rest of the runtime uses
 `localeCompare(…, "en-US")`, but there the data are generated identifiers; here
 they are arbitrary names read off a disk, and locale ordering is not stable
