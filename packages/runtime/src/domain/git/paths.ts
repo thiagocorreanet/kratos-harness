@@ -23,6 +23,9 @@ export function decodeGitPath(bytes: Uint8Array, digests: Digests): GitPath {
 function compareBytes(left: Uint8Array, right: Uint8Array): number {
   const shared = Math.min(left.length, right.length);
   for (let index = 0; index < shared; index += 1) {
+    /* v8 ignore next -- index is always < shared <= both lengths, so the
+     * indexed access is never actually out of range; the fallback exists
+     * only because noUncheckedIndexedAccess types it as possibly undefined. */
     const difference = (left[index] ?? 0) - (right[index] ?? 0);
     if (difference !== 0) return difference;
   }
