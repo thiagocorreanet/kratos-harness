@@ -23,9 +23,24 @@ consuming gates ask. `complete.observation_changed` compares an observation
 taken at declaration time against one taken at completion. Three independent
 reads can tear: HEAD is read, the user checks out a branch, the change set is
 read, and the result is a snapshot describing a repository that never existed.
-Assembling the snapshot behind a single call makes tearing between the parts
-unrepresentable, so a caller cannot construct the inconsistent view by
-accident.
+
+`observe()` is not one atomic read end to end. `composeGit` runs `rev-parse`,
+then `status`, then a directory listing — three separate reads, with the
+repository free to change between any of them. What is actually atomic, and
+what matters most, is narrower: HEAD and the complete change set both come out
+of the single `git status --porcelain=v2 --branch` invocation, so exactly the
+pair `complete.observation_changed` compares — "what changed" against "what
+HEAD it changed relative to" — cannot tear against each other. Worktree
+topology (from `rev-parse`) and the in-progress operation (from the directory
+listing) are composed around that one atomic read, so tearing between them and
+the status read is representable: abort a rebase between the status read and
+the marker read, and the observation can report unmerged entries with
+`operation: "none"`, a state that never existed as such on disk. What removes
+the class of bug a caller could otherwise construct by accident is not
+field-by-field atomicity but whole-observation comparison:
+`complete.observation_changed` treats the entire snapshot as the unit of
+comparison, so a caller can only ever compare two complete observations
+against each other, never assemble one from parts read at different times.
 
 The change set keeps its distinctions rather than collapsing them into one
 `dirty` flag. Each `GitChange` carries its tracking state (`tracked`,
@@ -71,6 +86,15 @@ either case, so both are `not_a_repository` rather than a successful
 observation with an empty change set. A repository too large to buffer is not a
 command that failed, so `maxBuffer` overflow classifies as `unreadable`.
 
+`unreadable` is also what a defect in `composeGit`'s own parsing surfaces as.
+`parseRevParse`, `parseStatusPorcelainV2`, `classifyWorktree`, and
+`classifyOperation` are pure and return `null` on malformed input rather than
+throwing, but `composeGit` wraps the whole read in a `try`/`catch`, so a bug
+that throws instead — in those calls or anywhere else in the sequence — is
+caught by the same handler that defends against a misbehaving `GitRunner`, and
+reported the same way. Anyone debugging a mysterious `unreadable` should
+consider a parser defect, not only a Git or filesystem problem.
+
 No reason code is introduced. Mapping a variant to a `Result` is a policy
 decision owned by the issues that define completion and guard semantics, and
 the frozen catalog remains at revision 1.3.
@@ -82,10 +106,12 @@ same fixed prefix:
 
 ```text
 git --no-optional-locks --no-pager -c core.quotepath=false \
+  -c status.renames=copies \
   rev-parse --path-format=absolute --is-inside-work-tree \
   --git-dir --git-common-dir
 
 git --no-optional-locks --no-pager -c core.quotepath=false \
+  -c status.renames=copies \
   status --porcelain=v2 -z --branch -uall --ignored=matching
 ```
 
@@ -117,6 +143,26 @@ inside it, so `rebase` wins.
 `core.quotepath=false` stops Git from escaping non-ASCII bytes in path output,
 so the parser receives real bytes and decodes them once, explicitly, rather
 than reversing Git's own quoting.
+
+## Pinning rename and copy detection
+
+The environment table below neutralizes system and global Git config, but
+`.git/config` — repository-local config — is still read by an ordinary
+invocation. A repository with `status.renames=false` would turn every rename
+into a plain add plus a delete, silently: no failure, no evidence, just a
+`renamedFrom: null` where a caller expected a pair. `renamedFrom` is
+load-bearing precisely because a file moved out of a declared scope is a case
+the scope gate must see, and the rename pair is the only way to see it.
+
+`-c status.renames=copies` in the fixed argv prefix pins this. `-c` on the
+command line always outranks repository config, so a hostile or merely
+differently-configured repository cannot suppress the signal the way it could
+suppress an environment variable by never being asked to inherit one. `copies`
+rather than plain `true` is a deliberate choice: it enables copy detection as
+well as rename detection, which is what the `copied` scenario in the test
+corpus depends on. Before this pin, that scenario opted into copy detection
+with its own local `git config status.renames copies` — now redundant, since
+the pin already forces it, and removed from the scenario for that reason.
 
 ## Environment
 
@@ -186,9 +232,17 @@ work.
 Duration and timestamps are absent by construction rather than by redaction.
 Either would make two observations of an unchanged repository unequal, and
 equality across repeated observation is the determinism property the port is
-tested for. `argv` is safe to record because the command sequence is fixed and
-carries no user data — a guard test pins every argument against an allow-list,
-so a future argument carrying a path fails the build.
+tested for. `argv` is safe to record because the command sequence carries no
+observed data — a guard test asserts that no argument in the recorded evidence
+comes from anything the repository itself reported, so a future argument
+derived from an observed path fails the build. That guard checks the evidence,
+not the runner's actual argv: the fixed prefix (`--no-optional-locks
+--no-pager -c core.quotepath=false -c status.renames=copies`) is applied
+inside `nodeGitRunner` and is never recorded or checked, so a path added there
+would be invisible to it. The claim the guard proves is narrower than "every
+argument is pinned" — it is that no *observed* path is ever fed back into an
+argv, which is the property that actually matters: the prefix is fixed source,
+not repository-derived data.
 
 Evidence survives failure. A variant that returns early still carries the
 records accumulated before the failure, so an observation that found no

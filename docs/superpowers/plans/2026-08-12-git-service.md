@@ -2417,7 +2417,7 @@ git add docs .cspell.json
 git commit -m "docs: document the Git service and repository-state classification"
 ```
 
-- [ ] **Step 6: Open the pull request**
+- [x] **Step 6: Open the pull request**
 
 The PR must link issue #23; explain the atomic-observation choice and the removal of the three placeholder methods; state that no reason code was added and why; explain the additive `Digests.sha256Bytes` method; record the `--ignored=matching` measurement; list the exact verification commands; and record the cross-platform scope boundary against `QAL-03`.
 

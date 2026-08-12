@@ -363,11 +363,12 @@ function renamedScenario(): Promise<Scenario> {
 
 function copiedScenario(): Promise<Scenario> {
   return withScenarioRoot("yoda-git-copied-", async (root) => {
-    // Copy detection in `git status` needs a config opt-in — see
-    // `status.renames` — and, unlike rename detection, only ever considers a
-    // file that is itself part of the diff as a possible copy source. That
-    // is why `origin.txt` is also modified here rather than left untouched.
-    git(root, ["config", "status.renames", "copies"]);
+    // Copy detection in `git status` needs a config opt-in — `status.renames
+    // = copies` — which `nodeGitRunner` now pins in its fixed argv prefix, so
+    // no local config is set here; the pin is what makes this scenario work.
+    // Unlike rename detection, copy detection only ever considers a file
+    // that is itself part of the diff as a possible copy source, which is
+    // why `origin.txt` is also modified here rather than left untouched.
     await writeFile(join(root, "origin.txt"), LONG_TEXT, "utf8");
     stage(root, "origin.txt");
     commit(root);
