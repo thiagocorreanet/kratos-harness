@@ -44,6 +44,24 @@ function entryKindFromMode(mode: string): GitChange["entry"] {
   return "file";
 }
 
+// The all-zero mode Git uses to mean "this side does not have the entry".
+const ABSENT_MODE = "000000";
+
+/**
+ * The first mode that is not the all-zero "absent" sentinel.
+ *
+ * The worktree mode alone cannot classify a deleted entry: it is `000000`
+ * for any deletion, a removed symlink or submodule included, so falling
+ * through to the index mode and then the head mode recovers what the entry
+ * was before it was deleted.
+ */
+function firstNonZeroMode(...modes: readonly string[]): string {
+  /* v8 ignore next -- a "1 "/"2 " record always means something changed, so
+   * Git never emits one where head, index, and worktree modes are all
+   * absent; the fallback exists only to give `.find` a total return type. */
+  return modes.find((mode) => mode !== ABSENT_MODE) ?? ABSENT_MODE;
+}
+
 /** An all-zero object id means that Git stage is absent. */
 function hasObjectId(id: string): boolean {
   return id.replace(/0/gu, "") !== "";
@@ -170,6 +188,12 @@ export function parseStatusPorcelainV2(
       const indexKind = KINDS.get(status[0] ?? "");
       const worktreeKind = KINDS.get(status[1] ?? "");
       if (indexKind === undefined || worktreeKind === undefined) return null;
+      /* v8 ignore next -- see the parts[1] fallback above; index 3 is
+       * covered by the same length check. */
+      const headMode = parts[3] ?? "";
+      /* v8 ignore next -- see the parts[1] fallback above; index 4 is
+       * covered by the same length check. */
+      const indexMode = parts[4] ?? "";
       /* v8 ignore next -- see the parts[1] fallback above; index 5 is
        * covered by the same length check. */
       const worktreeMode = parts[5] ?? "";
@@ -197,7 +221,9 @@ export function parseStatusPorcelainV2(
         worktree: worktreeKind,
         conflict: null,
         renamedFrom,
-        entry: entryKindFromMode(worktreeMode),
+        entry: entryKindFromMode(
+          firstNonZeroMode(worktreeMode, indexMode, headMode),
+        ),
       });
       continue;
     }

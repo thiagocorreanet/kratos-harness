@@ -333,6 +333,35 @@ describe("change classification", () => {
     expect(result?.changes[0]?.entry).toBe("submodule");
   });
 
+  // A deletion always reports the worktree mode as `000000`, which alone
+  // cannot classify the entry kind. Each vector reproduces the real byte
+  // layout Git 2.43 emits, confirmed empirically.
+  it("classifies a deleted symlink by falling back to the index mode", () => {
+    const result = parse(
+      ...head,
+      "1 .D N... 120000 120000 000000 " +
+        "1".repeat(40) +
+        " " +
+        "1".repeat(40) +
+        " link",
+    );
+
+    expect(result?.changes[0]?.entry).toBe("symlink");
+  });
+
+  it("classifies a removed submodule by falling back to the head mode", () => {
+    const result = parse(
+      ...head,
+      "1 D. N... 160000 000000 000000 " +
+        "1".repeat(40) +
+        " " +
+        "0".repeat(40) +
+        " vendor/sub",
+    );
+
+    expect(result?.changes[0]?.entry).toBe("submodule");
+  });
+
   it("classifies a sparse directory entry by its worktree mode", () => {
     const result = parse(
       ...head,
