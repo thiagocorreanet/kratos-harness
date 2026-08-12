@@ -32,6 +32,16 @@ describe("parseRevParse", () => {
   it("returns null on empty output", () => {
     expect(parseRevParse("")).toBeNull();
   });
+
+  it("does not transpose gitDir and gitCommonDir", () => {
+    expect(
+      parseRevParse("true\n/repo/.git/worktrees/feature\n/repo/.git\n"),
+    ).toEqual({
+      insideWorkTree: true,
+      gitDir: "/repo/.git/worktrees/feature",
+      gitCommonDir: "/repo/.git",
+    });
+  });
 });
 
 describe("classifyWorktree", () => {
@@ -53,6 +63,14 @@ describe("classifyWorktree", () => {
         gitCommonDir: "/p/.git",
       }),
     ).toBe("linked");
+  });
+
+  it("derives a linked worktree from parsed rev-parse output", () => {
+    const facts = parseRevParse(
+      "true\n/repo/.git/worktrees/feature\n/repo/.git\n",
+    );
+    if (facts === null) throw new Error("expected parseRevParse to succeed");
+    expect(classifyWorktree(facts)).toBe("linked");
   });
 });
 

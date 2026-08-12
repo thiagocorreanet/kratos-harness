@@ -6,20 +6,17 @@ export interface RevParseFacts {
   readonly gitCommonDir: string;
 }
 
+function isTriple(
+  lines: readonly string[],
+): lines is readonly [string, string, string] {
+  return lines.length === 3;
+}
+
 /** Read the three fields `rev-parse` emits, one per line, in argument order. */
 export function parseRevParse(stdout: string): RevParseFacts | null {
   const lines = stdout.split("\n").filter((line) => line.length > 0);
-  if (lines.length !== 3) return null;
-  /* v8 ignore next -- `lines.length === 3` is checked above, so index 0
-   * always exists; the fallback exists only because noUncheckedIndexedAccess
-   * types the read as possibly undefined. */
-  const worktree = lines[0] ?? "";
-  /* v8 ignore next -- see the index-0 fallback above; index 1 is covered by
-   * the same length check. */
-  const gitDir = lines[1] ?? "";
-  /* v8 ignore next -- see the index-0 fallback above; index 2 is covered by
-   * the same length check. */
-  const gitCommonDir = lines[2] ?? "";
+  if (!isTriple(lines)) return null;
+  const [worktree, gitDir, gitCommonDir] = lines;
   if (worktree !== "true" && worktree !== "false") return null;
   return { insideWorkTree: worktree === "true", gitDir, gitCommonDir };
 }
