@@ -110,8 +110,16 @@ Where a difference is genuine it is a named exception on a specific
 implementations end up disagreeing on a field's units or the sign of a timestamp
 while a document claims they agree.
 
-`Git` runs the full shared suite against both implementations with no
-exception. `Locks` runs it against both as well; only the semantics `RUN-07`
+`Git` runs the same shared suite, mechanically unmodified, against both
+implementations — but two of its five properties are vacuous on the stub.
+`stubGit` is a fixed pass-through with a default `changes: []`, so "returns
+changes sorted by path bytes" cannot meaningfully fail there (there is no sort
+step to regress), and "observes the same repository equally twice" cannot
+either (a constant return can never diverge from itself). Only the Node
+implementation exercises those two against a live sort and a live process. The
+remaining three — a kind from the closed set, resolving rather than
+rejecting, and evidence carrying no output bytes — are proven on both sides.
+`Locks` runs the same suite against both as well; only the semantics `RUN-07`
 owns are left for that issue to assert.
 
 ### Path safety

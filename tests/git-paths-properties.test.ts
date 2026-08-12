@@ -45,6 +45,18 @@ describe("path ordering is a total order", () => {
       }
     }
 
+    // Transitivity, asserted directly over triples rather than only implied
+    // by a sort: if a <= b and b <= c, then a <= c must hold too.
+    for (const a of paths) {
+      for (const b of paths) {
+        if (compareGitPaths(a, b) > 0) continue;
+        for (const c of paths) {
+          if (compareGitPaths(b, c) > 0) continue;
+          expect(compareGitPaths(a, c)).toBeLessThanOrEqual(0);
+        }
+      }
+    }
+
     const sorted = [...paths].sort(compareGitPaths);
     for (let index = 1; index < sorted.length; index += 1) {
       expect(

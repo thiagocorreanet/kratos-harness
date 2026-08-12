@@ -298,9 +298,21 @@ describe("deterministic fakes", () => {
 
   it("defaults to an observed clean principal worktree", async () => {
     const result = await stubGit().observe();
-    expect(result).toMatchObject({
+    // `toEqual`, not `toMatchObject`: the latter would silently skip `head`,
+    // the only stub field no other test in this suite checks.
+    expect(result).toEqual({
       kind: "observed",
-      repository: { worktree: "principal", operation: "none", changes: [] },
+      repository: {
+        head: {
+          kind: "branch",
+          branch: "main",
+          commit: "0".repeat(40),
+          upstream: null,
+        },
+        worktree: "principal",
+        operation: "none",
+        changes: [],
+      },
       evidence: [],
     });
   });
