@@ -17,7 +17,7 @@
 - All source, tests, fixtures, comments, errors, docs, commits, and PR text in English.
 - `domain/` and `ports/` must not import any Node builtin, Ajv, a schema JSON path, or `infra/schema`. Enforced by `tests/architecture.test.ts`.
 - Only an entry point may import `composition`.
-- Coverage thresholds are 100% branches, functions, lines, statements over `domain/**`, `composition/**`, `infra/schema/**`. `infra/node/**` is excluded — so no decision branch may live there.
+- Coverage thresholds are 100% branches, functions, lines, statements over `domain/**`, `composition/**`, `infra/schema/**`. `infra/node/**` is excluded, so **no domain classification rule may live there**. Mapping a Node error object to `RawCommandResult` (`ENOENT` → not spawned, `killed` → timed out, numeric `code` → exit code) is the one exception: the error object does not cross the domain boundary cleanly. Those three branches stay in the adapter and are covered directly by `tests/node-git-runner.test.ts` against real Git.
 - `observe()` must never reject and must never mutate the repository.
 - No new reason code. The catalog stays at revision 1.3.
 - Command evidence carries no output bytes, no file content, no duration, no timestamp.
