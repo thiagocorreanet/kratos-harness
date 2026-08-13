@@ -76,6 +76,19 @@ another person. If one of your commits lacks a valid sign-off, amend or rebase
 your own commits and force-push your contribution branch safely. Maintainers do
 not add certification on a contributor's behalf.
 
+### How it is enforced
+
+CI checks every non-merge commit in a pull request and fails with the list of
+commits that need a sign-off. A trailer without a reachable address does not
+count: `Signed-off-by: me` certifies nothing.
+
+Merge commits are exempt. A merge created by the forge has no author to certify
+it, so requiring a sign-off there would fail every branch that merges its base.
+
+The check applies from the commit that introduced it forward. Part of the
+history predates enforcement and is not signed; that history is not rewritten,
+because rebasing merged commits costs more than it recovers.
+
 ## Intellectual-property provenance checklist
 
 Access to private material does not grant permission to publish or relicense it.
