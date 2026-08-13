@@ -31,7 +31,9 @@ export class EventIntegrityError extends Error {
 }
 
 export interface EventServices {
-  readonly digests: Digests;
+  /** Only sha256 is used inside the event store; a full Digests would be an
+   * unused capability that no test could honestly exercise. */
+  readonly digests: Pick<Digests, "sha256">;
   readonly isProxy: (value: object) => boolean;
   readonly isPromise: (value: object) => boolean;
   readonly schemaRegistry: SchemaRegistry;
