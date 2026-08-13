@@ -113,6 +113,7 @@ describe("import extraction", () => {
       "../infra/node/index.js",
       "../ports/index.js",
       "./read-only.js",
+      "./preview-result.js",
       "./git.js",
       "./schema.js",
       "./events.js",

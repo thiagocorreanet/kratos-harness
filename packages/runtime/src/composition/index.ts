@@ -35,6 +35,7 @@ import {
 } from "../infra/node/index.js";
 import type { DurableEntry, RuntimePorts } from "../ports/index.js";
 import { readOnlyPorts, ReadOnlyViolation } from "./read-only.js";
+import { previewResult } from "./preview-result.js";
 
 import { composeGit } from "./git.js";
 import { configurationValidator, createSchemaRegistry } from "./schema.js";
@@ -77,6 +78,7 @@ import {
 export {
   configurationValidator,
   createSchemaRegistry,
+  previewResult,
   readOnlyPorts,
   ReadOnlyViolation,
   executeManagedMutation,
