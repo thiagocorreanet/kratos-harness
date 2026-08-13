@@ -22,6 +22,18 @@ async function temporaryProject<T>(
 }
 
 describe("node durable filesystem operations", () => {
+  it("refuses a file where a directory was requested", async () => {
+    await temporaryProject(async (root) => {
+      const fileSystem = nodeDurableFileSystem(root);
+      await fileSystem.createDirectory(".brain");
+      await writeFile(join(root, ".brain/entry"), "value", "utf8");
+
+      await expect(fileSystem.createDirectory(".brain/entry")).rejects.toThrow(
+        "Runtime durable path is not a directory",
+      );
+    });
+  });
+
   it("observes the exact before and after boundaries of a synced write", async () => {
     await temporaryProject(async (root) => {
       const events: DurableOperationEvent[] = [];

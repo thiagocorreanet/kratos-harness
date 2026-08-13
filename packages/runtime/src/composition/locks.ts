@@ -396,8 +396,8 @@ async function admissionCandidates(
       const candidate =
         parseAdmissionCandidate(name) ?? parseAdmissionQuarantine(name);
       if (candidate === null) continue;
-      await assertAdmissionCandidate(candidate, services);
-      candidates.push(candidate);
+      if (await assertAdmissionCandidate(candidate, services))
+        candidates.push(candidate);
     }
     return Object.freeze(candidates);
   } catch (error) {
@@ -782,38 +782,42 @@ async function scopeCleanupMarker(
   }
 }
 
+/** Validate one candidate, or report that it is no longer there to validate. */
 async function assertScopeCandidate(
   resource: LeaseResource,
   candidate: ScopeCandidate,
   services: LockServices,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    if (
-      (await services.durableFileSystem.inspect(candidate.path)).kind !==
-      "directory"
-    )
-      throw corrupt(candidate.path);
+    const root = await services.durableFileSystem.inspect(candidate.path);
+    /* v8 ignore next -- only a concurrent cleanup removes an entry a listing just reported */
+    if (root.kind === "missing") return false;
+    if (root.kind !== "directory") throw corrupt(candidate.path);
     const names = await services.durableFileSystem.list(candidate.path);
-    if (names.length === 0) return;
+    if (names.length === 0) return true;
     const generation = candidate.location.directory.slice(
       candidate.path.length + 1,
     );
     if (names.length !== 1 || names[0] !== generation)
       throw corrupt(candidate.path);
-    if (
-      (await services.durableFileSystem.inspect(candidate.location.directory))
-        .kind !== "directory"
-    )
+    const directory = await services.durableFileSystem.inspect(
+      candidate.location.directory,
+    );
+    /* v8 ignore next -- only a concurrent cleanup removes an entry a listing just reported */
+    if (directory.kind === "missing") return false;
+    if (directory.kind !== "directory")
       throw corrupt(candidate.location.directory);
     const children = await services.durableFileSystem.list(
       candidate.location.directory,
     );
-    if (children.length === 0) return;
+    if (children.length === 0) return true;
     if (children.length !== 1 || children[0] !== "claim.json")
       throw corrupt(candidate.location.directory);
     const entry = await services.durableFileSystem.inspect(
       candidate.location.recordPath,
     );
+    /* v8 ignore next -- only a concurrent cleanup removes an entry a listing just reported */
+    if (entry.kind === "missing") return false;
     if (entry.kind !== "file") throw corrupt(candidate.location.recordPath);
     const text = await services.durableFileSystem.readText(
       candidate.location.recordPath,
@@ -832,8 +836,13 @@ async function assertScopeCandidate(
       candidate.expiresAt !== Date.parse(record.expiresAt)
     )
       throw corrupt(candidate.location.recordPath);
+    return true;
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A listing or read can fail because the entry went away mid-inspection,
+    // which the explicit checks above cannot observe on their own.
+    /* v8 ignore next -- only a concurrent cleanup makes a just-listed entry unreadable */
+    if (await vanished(candidate.path, services)) return false;
     throw internal();
   }
 }
@@ -848,8 +857,8 @@ async function scopeCandidates(
     for (const name of await services.durableFileSystem.list(root)) {
       const candidate = parseScopeCandidate(resource, name);
       if (candidate === null) continue;
-      await assertScopeCandidate(resource, candidate, services);
-      candidates.push(candidate);
+      if (await assertScopeCandidate(resource, candidate, services))
+        candidates.push(candidate);
     }
     return Object.freeze(candidates);
   } catch (error) {
@@ -1194,15 +1203,40 @@ async function readAdmissionCandidate(
   }
 }
 
+/**
+ * Whether a path is gone rather than broken.
+ *
+ * A candidate that disappeared between being enumerated and being validated was
+ * published or reclaimed by whoever owned it. Reading that as corruption would
+ * turn every concurrent cleanup into a fault nobody can repair.
+ */
+async function vanished(
+  path: string,
+  services: LockServices,
+): Promise<boolean> {
+  try {
+    return (await services.durableFileSystem.inspect(path)).kind === "missing";
+    /* v8 ignore start -- a re-check that fails proves nothing, so the original
+     * failure keeps the floor; only a storage fault during the re-read reaches
+     * here and no single-process test can schedule one. */
+  } catch {
+    return false;
+  }
+  /* v8 ignore stop */
+}
+
+/** Validate one candidate, or report that it is no longer there to validate. */
 async function assertAdmissionCandidate(
   candidate: AdmissionCandidate,
   services: LockServices,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const entry = await services.durableFileSystem.inspect(candidate.path);
+    /* v8 ignore next -- only a concurrent cleanup removes an entry a listing just reported */
+    if (entry.kind === "missing") return false;
     if (entry.kind !== "directory") throw corrupt(candidate.path);
     const names = await services.durableFileSystem.list(candidate.path);
-    if (names.length === 0) return;
+    if (names.length === 0) return true;
     if (
       names.length !== 1 ||
       names[0] !== candidate.location.directory.slice(candidate.path.length + 1)
@@ -1211,17 +1245,24 @@ async function assertAdmissionCandidate(
     const generation = await services.durableFileSystem.inspect(
       candidate.location.directory,
     );
+    /* v8 ignore next -- only a concurrent cleanup removes an entry a listing just reported */
+    if (generation.kind === "missing") return false;
     if (generation.kind !== "directory")
       throw corrupt(candidate.location.directory);
     const children = await services.durableFileSystem.list(
       candidate.location.directory,
     );
-    if (children.length === 0) return;
+    if (children.length === 0) return true;
     if (children.length !== 1 || children[0] !== "claim.json")
       throw corrupt(candidate.location.directory);
     await readAdmissionCandidate(candidate, services);
+    return true;
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A listing or read can fail because the entry went away mid-inspection,
+    // which the explicit checks above cannot observe on their own.
+    /* v8 ignore next -- only a concurrent cleanup makes a just-listed entry unreadable */
+    if (await vanished(candidate.path, services)) return false;
     throw internal();
   }
 }
