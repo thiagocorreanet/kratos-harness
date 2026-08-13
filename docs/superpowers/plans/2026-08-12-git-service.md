@@ -2405,7 +2405,7 @@ In the ports table, change the `Git` row to "atomic repository observation". Del
 Run: `npx prettier --check . && npm run spellcheck && npx markdownlint-cli2`
 Expected: PASS. Add any genuinely new term to `.cspell.json` in alphabetical order.
 
-- [ ] **Step 4: Run the full verification suite**
+- [x] **Step 4: Run the full verification suite**
 
 Run: `npm run verify`
 Expected: PASS, including 100% coverage over `domain/**` and `composition/**`. A coverage gap in `composition/git.ts` means a failure branch has no scripted-runner test — add the test rather than lowering the threshold.
