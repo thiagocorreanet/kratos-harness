@@ -29,6 +29,7 @@ import {
   sha256Digests,
 } from "../infra/node/index.js";
 import type { DurableEntry, RuntimePorts } from "../ports/index.js";
+import { readOnlyPorts, ReadOnlyViolation } from "./read-only.js";
 
 import { composeGit } from "./git.js";
 import { configurationValidator, createSchemaRegistry } from "./schema.js";
@@ -71,6 +72,8 @@ import {
 export {
   configurationValidator,
   createSchemaRegistry,
+  readOnlyPorts,
+  ReadOnlyViolation,
   executeManagedMutation,
   inspectManagedTransactions,
   preflightManagedTransactions,
