@@ -95,6 +95,7 @@ describe("import extraction", () => {
       "node:path",
       "../../domain/project/index.js",
       "../../ports/index.js",
+      "./git.js",
       "./transactions.js",
     ]);
 
@@ -109,6 +110,7 @@ describe("import extraction", () => {
       "../domain/transactions/index.js",
       "../infra/node/index.js",
       "../ports/index.js",
+      "./git.js",
       "./schema.js",
       "./events.js",
       "./transactions.js",
@@ -328,9 +330,16 @@ describe("runtime boundary documentation", () => {
     expect(guide).toMatch(/only an entry point may import composition/iu);
   });
 
-  it("names the issues that own Git and Locks semantics", () => {
+  // `RUN-01` asserted that this document named both pending owners, `RUN-07`
+  // and `RUN-08`. `RUN-08` has since delivered, so the document stops naming
+  // it as a future owner and points at the shipped contract instead. `Locks`
+  // is the only port whose semantics are still owed.
+  it("names the issue that still owns pending port semantics", () => {
     expect(guide).toContain("RUN-07");
-    expect(guide).toContain("RUN-08");
+  });
+
+  it("points at the delivered Git service contract", () => {
+    expect(guide).toContain("git-service.md");
   });
 
   it.each([
@@ -411,6 +420,28 @@ describe("the repository obeys its own rules", () => {
       "packages/runtime/src/domain/events/seal.ts",
       "packages/runtime/src/domain/events/verify.ts",
     ]);
+  });
+
+  it("confines child_process to the single Git runner module", async () => {
+    const modules = await sourceModules();
+    const importers = modules
+      .filter(({ path }) => path.startsWith("packages/runtime/"))
+      .filter(({ imports }) =>
+        imports.some((specifier) =>
+          /^node:child_process$|^child_process$/u.test(specifier),
+        ),
+      )
+      .map(({ path }) => path)
+      .sort();
+
+    // The acceptance criterion "policy code never shells out directly" is only
+    // real if it fails CI. One runtime module owns process execution; everything
+    // else reaches Git through the port.
+    //
+    // Scoped to the runtime package deliberately. `packages/differential` spawns
+    // the frozen Go v3 binary — running an external process is the entire point
+    // of the differential harness, and it is not policy code.
+    expect(importers).toEqual(["packages/runtime/src/infra/node/git.ts"]);
   });
 });
 

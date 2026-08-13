@@ -1,16 +1,14 @@
-import { execFile } from "node:child_process";
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { promisify } from "node:util";
 
+import type { GitRunner } from "../../domain/git/index.js";
 import type {
   ConfigurationObservation,
   DirectoryProbe,
   WorktreeLocation,
 } from "../../domain/project/index.js";
 import type { Workspace } from "../../ports/index.js";
-
-const run = promisify(execFile);
+import { nodeGitRunner } from "./git.js";
 
 function unsafe(path: string): boolean {
   let control = false;
@@ -114,19 +112,12 @@ async function probe(path: string): Promise<DirectoryProbe> {
 }
 
 async function gitOutput(
-  cwd: string,
+  runner: GitRunner,
   args: readonly string[],
 ): Promise<string | null> {
-  try {
-    const result = await run("git", [...args], {
-      cwd,
-      encoding: "utf8",
-      env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: "1", LC_ALL: "C" },
-    });
-    return result.stdout.trim();
-  } catch {
-    return null;
-  }
+  const result = await runner.run(args);
+  if (!result.spawned || result.exitCode !== 0) return null;
+  return new TextDecoder().decode(result.stdout).trim();
 }
 
 function principalFromWorktreeList(output: string): string | null {
@@ -174,14 +165,15 @@ export function nodeWorkspace(): Workspace {
     locateWorktree: async (start): Promise<WorktreeLocation | null> => {
       const canonical = await canonicalize(start, start);
       if (canonical === null) return null;
+      const runner = nodeGitRunner(canonical);
       const [topLevelText, commonText, worktreesText] = await Promise.all([
-        gitOutput(canonical, ["rev-parse", "--show-toplevel"]),
-        gitOutput(canonical, [
+        gitOutput(runner, ["rev-parse", "--show-toplevel"]),
+        gitOutput(runner, [
           "rev-parse",
           "--path-format=absolute",
           "--git-common-dir",
         ]),
-        gitOutput(canonical, ["worktree", "list", "--porcelain", "-z"]),
+        gitOutput(runner, ["worktree", "list", "--porcelain", "-z"]),
       ]);
       const principalText =
         worktreesText === null

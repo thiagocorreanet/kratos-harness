@@ -1070,6 +1070,9 @@ describe("managed transaction execution", () => {
         sha256: () => {
           throw new Error("digest detail");
         },
+        sha256Bytes: () => {
+          throw new Error("digest detail");
+        },
       },
     };
 

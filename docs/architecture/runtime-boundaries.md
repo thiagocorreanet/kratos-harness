@@ -71,7 +71,7 @@ that imports it, which is what the layering exists to prevent.
 | `Clock` | current instant | wall-clock time |
 | `Ids` | identifier generation | randomness |
 | `FileSystem` | read, write, list, remove, stat | ambient disk state |
-| `Git` | repository classification and changed paths | subprocess behavior |
+| `Git` | atomic repository observation | subprocess behavior |
 | `Locks` | acquire and release a fenced lease | concurrency timing |
 | `Environment` | environment variables and working directory | ambient process state |
 | `Output` | structured and human output | stream side effects |
@@ -85,13 +85,18 @@ Its production configuration adapter crosses the
 [schema registry contract](schema-registry.md) before a configuration value can
 enter the domain.
 
-`Git` and `Locks` ship deliberately thin implementations. `RUN-08` owns
-repository classification and approved scope deltas; `RUN-07` owns lease expiry,
-renewal, and recovery of an abandoned lease. This issue fixes their shape so
-those issues implement against a settled interface instead of inventing one.
-Both still run the shared contract suite against both implementations —
-narrowing an exception to the assertions those issues own, rather than excusing
-the whole port.
+`Git` returns one atomic observation of a repository: HEAD, worktree kind,
+in-progress operation, and the complete change set, assembled behind a single
+call so the parts cannot tear between reads. See the
+[Git service contract](git-service.md) for the failure variants, the evidence
+boundary, and the read-only guarantee.
+
+`Locks` ships a deliberately thin implementation. `RUN-07` owns lease expiry,
+renewal, and recovery of an abandoned lease. This issue fixes its shape so that
+issue implements against a settled interface instead of inventing one. It still
+runs the shared contract suite against both implementations — narrowing an
+exception to the assertions that issue owns, rather than excusing the whole
+port.
 
 ### One contract suite per port
 
@@ -105,8 +110,17 @@ Where a difference is genuine it is a named exception on a specific
 implementations end up disagreeing on a field's units or the sign of a timestamp
 while a document claims they agree.
 
-`Git` and `Locks` run the shared suite against both implementations; only the
-semantics `RUN-07` and `RUN-08` own are left for those issues to assert.
+`Git` runs the same shared suite, mechanically unmodified, against both
+implementations — but two of its five properties are vacuous on the stub.
+`stubGit` is a fixed pass-through with a default `changes: []`, so "returns
+changes sorted by path bytes" cannot meaningfully fail there (there is no sort
+step to regress), and "observes the same repository equally twice" cannot
+either (a constant return can never diverge from itself). Only the Node
+implementation exercises those two against a live sort and a live process. The
+remaining three — a kind from the closed set, resolving rather than
+rejecting, and evidence carrying no output bytes — are proven on both sides.
+`Locks` runs the same suite against both as well; only the semantics `RUN-07`
+owns are left for that issue to assert.
 
 ### Path safety
 

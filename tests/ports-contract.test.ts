@@ -23,12 +23,15 @@ import {
   nodeClock,
   nodeEnvironment,
   nodeFileSystem,
-  nodeGit,
+  nodeGitRunner,
   nodeIds,
   nodeOutput,
   nodeDurableFileSystem,
+  sha256Digests,
 } from "@mestre-yoda/runtime/infra/node";
 import { describe, expect, expectTypeOf, it } from "vitest";
+
+import { composeGit } from "../packages/runtime/src/composition/git.js";
 
 import {
   describeClockContract,
@@ -84,16 +87,13 @@ describeFileSystemContract("memory transaction storage", () =>
     dispose: noDispose,
   }),
 );
-describeGitContract("stub", () =>
-  Promise.resolve({
-    port: stubGit(),
-    dispose: noDispose,
-  }),
-);
 describeEnvironmentContract("fixed", () =>
   fixedEnvironment({ EXAMPLE: "value" }, "/project"),
 );
 describeOutputContract("recording", () => recordingOutput());
+describeGitContract("stub", () =>
+  Promise.resolve({ port: stubGit(), dispose: noDispose }),
+);
 
 // The same suites, run against the real implementations. This is the point of
 // having one suite: a fake that drifts from the Node behavior fails here.
@@ -115,74 +115,66 @@ describeOutputContract("node", () =>
   }),
 );
 
-describeGitContract("node", async () => {
-  const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-  return {
-    port: nodeGit(root),
-    dispose: () => rm(root, { force: true, recursive: true }),
-  };
-});
-
 // `RUN-07` and `RUN-08` own the full semantics of leases and repository
 // classification. What is shared here is only what both implementations must
 // already agree on; the exception is per-assertion, not per-port.
 
-describe("node git classification", () => {
-  async function repository(): Promise<string> {
-    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-    execFileSync("git", ["init", "-q", "--initial-branch=main"], { cwd: root });
-    return root;
-  }
+const GIT_IDENTITY = [
+  "-c",
+  "user.email=t@e.com",
+  "-c",
+  "user.name=T",
+  "-c",
+  "commit.gpgsign=false",
+] as const;
 
-  it("classifies a repository with no commit as unborn", async () => {
-    const root = await repository();
-    try {
-      expect(await nodeGit(root).state()).toBe("unborn");
-      expect(await nodeGit(root).head()).toBeNull();
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+/**
+ * A freshly initialized repository whose change list needs a real sort to
+ * land in `compareGitPaths` order, so the shared "changes sorted by path
+ * bytes" contract property has data it can actually fail against.
+ *
+ * Two properties of `git status --porcelain=v2` make an unordered fixture
+ * insufficient here. First, it groups records by category -- ordinary
+ * tracked changes before untracked entries -- regardless of path bytes, so a
+ * modified `m.txt` is emitted *before* an untracked `a.txt` even though `a`
+ * sorts first; confirmed empirically before writing this. Only a fixture
+ * that spans both categories can catch a regression that drops the sort
+ * entirely. Second, `B.txt` exercises byte order against locale order: byte
+ * order sorts upper-case ASCII before lower-case (`B.txt` < `a.txt` <
+ * `m.txt`), while locale collation would not put it there.
+ */
+async function initGitRepository(root: string): Promise<void> {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  execFileSync("git", ["init", "-q", "--initial-branch=main"], {
+    cwd: root,
+    env,
   });
-
-  it("classifies a directory with no repository as absent", async () => {
-    const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
-    try {
-      expect(await nodeGit(root).state()).toBe("absent");
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+  await writeFile(join(root, "m.txt"), "1\n", "utf8");
+  execFileSync("git", [...GIT_IDENTITY, "add", "--", "m.txt"], {
+    cwd: root,
+    env,
   });
-
-  it("classifies a committed tree as clean and a modified one as dirty", async () => {
-    const root = await repository();
-    try {
-      await writeFile(join(root, "a.txt"), "one", "utf8");
-      execFileSync("git", ["add", "a.txt"], { cwd: root });
-      execFileSync(
-        "git",
-        [
-          "-c",
-          "user.name=Test",
-          "-c",
-          "user.email=test@example.invalid",
-          "commit",
-          "-qm",
-          "first",
-        ],
-        { cwd: root },
-      );
-
-      expect(await nodeGit(root).state()).toBe("clean");
-      expect(await nodeGit(root).head()).toMatch(/^[a-f0-9]{40}$/u);
-      expect(await nodeGit(root).changedPaths()).toEqual([]);
-
-      await writeFile(join(root, "a.txt"), "two", "utf8");
-      expect(await nodeGit(root).state()).toBe("dirty");
-      expect(await nodeGit(root).changedPaths()).toEqual(["a.txt"]);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+  execFileSync("git", [...GIT_IDENTITY, "commit", "-q", "-m", "initial"], {
+    cwd: root,
+    env,
   });
+  // Tracked and modified: an ordinary "1 " record, emitted by Git before any
+  // untracked record regardless of path bytes.
+  await writeFile(join(root, "m.txt"), "2\n", "utf8");
+  // Untracked, and alphabetically before "m.txt" -- only a real sort moves
+  // it ahead of the ordinary record above.
+  await writeFile(join(root, "a.txt"), "a\n", "utf8");
+  // Untracked, upper-case: byte order puts this ahead of "a.txt" too.
+  await writeFile(join(root, "B.txt"), "B\n", "utf8");
+}
+
+describeGitContract("node", async () => {
+  const root = await mkdtemp(join(tmpdir(), "yoda-node-git-"));
+  await initGitRepository(root);
+  return {
+    port: composeGit(nodeGitRunner(root), sha256Digests()),
+    dispose: () => rm(root, { force: true, recursive: true }),
+  };
 });
 
 describe("node filesystem safety", () => {
@@ -288,15 +280,34 @@ describe("deterministic fakes", () => {
     expect(environment.workingDirectory()).toBe("/project");
   });
 
-  it("reports the repository state it was configured with", async () => {
-    const git = stubGit({
-      state: "dirty",
-      head: "a".repeat(40),
-      changedPaths: ["b.txt", "a.txt"],
+  it("defaults to an observed clean principal worktree", async () => {
+    const result = await stubGit().observe();
+    // `toEqual`, not `toMatchObject`: the latter would silently skip `head`,
+    // the only stub field no other test in this suite checks.
+    expect(result).toEqual({
+      kind: "observed",
+      repository: {
+        head: {
+          kind: "branch",
+          branch: "main",
+          commit: "0".repeat(40),
+          upstream: null,
+        },
+        worktree: "principal",
+        operation: "none",
+        changes: [],
+      },
+      evidence: [],
     });
-    expect(await git.state()).toBe("dirty");
-    expect(await git.head()).toBe("a".repeat(40));
-    // Sorting is the port's job, not the caller's.
-    expect(await git.changedPaths()).toEqual(["a.txt", "b.txt"]);
+  });
+
+  it("reports the fixed observation it was configured with", async () => {
+    // `describeGitContract("stub", …)` only ever calls `stubGit()` with no
+    // argument, so the parameterized echo -- the entire reason `observation`
+    // is a parameter -- needs its own assertion. `toEqual` rather than `toBe`:
+    // a defensively-copying implementation would still satisfy the contract,
+    // and this test should not forbid one.
+    const observation = { kind: "not_a_repository" as const, evidence: [] };
+    expect(await stubGit(observation).observe()).toEqual(observation);
   });
 });

@@ -460,7 +460,7 @@ async function readExact(
   path: string,
   expected: Extract<PathFingerprint, { readonly kind: "file" }>,
   durableFileSystem: DurableFileSystem,
-  digests: Digests,
+  digests: Pick<Digests, "sha256">,
 ): Promise<string> {
   const text = await storageCall(() => durableFileSystem.readText(path));
   const size = encoder.encode(text).byteLength;

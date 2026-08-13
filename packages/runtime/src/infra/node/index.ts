@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -10,7 +9,6 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
-import { promisify } from "node:util";
 
 import { normalizeProjectPath } from "../fake/index.js";
 import type {
@@ -18,11 +16,9 @@ import type {
   Environment,
   FileStat,
   FileSystem,
-  Git,
   Ids,
   Locks,
   Output,
-  RepositoryState,
 } from "../../ports/index.js";
 import { createLocks } from "../../composition/locks.js";
 import { createSchemaRegistry } from "../../composition/schema.js";
@@ -30,6 +26,7 @@ import { sha256Digests } from "../digests.js";
 import { nodeDurableFileSystem } from "./transactions.js";
 
 export { nodeWorkspace } from "./workspace.js";
+export { nodeGitRunner, type GitRunnerOptions } from "./git.js";
 export { sha256Digests } from "../digests.js";
 export {
   nodeDurableFileSystem,
@@ -37,8 +34,6 @@ export {
   type DurableOperationEvent,
   type DurableOperationObserver,
 } from "./transactions.js";
-
-const run = promisify(execFile);
 
 export function nodeClock(): Clock {
   return { now: () => new Date() };
@@ -152,68 +147,6 @@ export function nodeFileSystem(root: string): FileSystem {
           throw error;
         }
         return null;
-      }
-    },
-  };
-}
-
-/**
- * Repository classification. Deliberately minimal: `RUN-08` owns the full
- * semantics, including scope deltas and approved-change calculation.
- */
-export function nodeGit(root: string): Git {
-  const git = async (args: readonly string[]): Promise<string> => {
-    const result = await run("git", [...args], {
-      cwd: root,
-      encoding: "utf8",
-      env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: "1", LC_ALL: "C" },
-    });
-    return result.stdout;
-  };
-
-  return {
-    state: async (): Promise<RepositoryState> => {
-      try {
-        if (
-          (await git(["rev-parse", "--is-inside-work-tree"])).trim() !== "true"
-        ) {
-          return "absent";
-        }
-      } catch {
-        return "absent";
-      }
-      try {
-        await git(["rev-parse", "HEAD"]);
-      } catch {
-        return "unborn";
-      }
-      if (
-        (await git(["symbolic-ref", "--quiet", "HEAD"]).catch(() => "")) === ""
-      ) {
-        return "detached";
-      }
-      return (await git(["status", "--porcelain"])).trim() === ""
-        ? "clean"
-        : "dirty";
-    },
-    head: async () => {
-      try {
-        return (await git(["rev-parse", "HEAD"])).trim() || null;
-      } catch {
-        return null;
-      }
-    },
-    changedPaths: async () => {
-      try {
-        const lines = (await git(["status", "--porcelain"]))
-          .split("\n")
-          .map((line) => line.slice(3).trim())
-          .filter((line) => line.length > 0);
-        return [...new Set(lines)].sort((left, right) =>
-          left.localeCompare(right, "en-US"),
-        );
-      } catch {
-        return [];
       }
     },
   };

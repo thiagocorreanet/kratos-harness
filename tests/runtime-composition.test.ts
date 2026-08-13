@@ -894,6 +894,9 @@ describe("effect plan application", () => {
             sha256() {
               throw new Error("/absolute/private-payload");
             },
+            sha256Bytes() {
+              throw new Error("/absolute/private-payload");
+            },
           },
         },
       ),

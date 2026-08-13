@@ -31,4 +31,5 @@ export interface DurableFileSystem {
 /** Injected content digests, so domain code never imports a crypto runtime. */
 export interface Digests {
   sha256(text: string): string;
+  sha256Bytes(bytes: Uint8Array): string;
 }

@@ -23,7 +23,7 @@ import {
   nodeDurableFileSystem,
   nodeEnvironment,
   nodeFileSystem,
-  nodeGit,
+  nodeGitRunner,
   nodeIds,
   nodeLocks,
   nodeOutput,
@@ -31,6 +31,7 @@ import {
 } from "../infra/node/index.js";
 import type { DurableEntry, RuntimePorts } from "../ports/index.js";
 
+import { composeGit } from "./git.js";
 import { configurationValidator, createSchemaRegistry } from "./schema.js";
 import {
   eventStorePaths,
@@ -115,13 +116,14 @@ export function createRuntimeAt(
   root: string,
   overrides: Partial<RuntimePorts> = {},
 ): RuntimePorts {
+  const digests = sha256Digests();
   return {
     clock: nodeClock(),
     ids: nodeIds(),
-    digests: sha256Digests(),
+    digests,
     durableFileSystem: nodeDurableFileSystem(root),
     fileSystem: nodeFileSystem(root),
-    git: nodeGit(root),
+    git: composeGit(nodeGitRunner(root), digests),
     locks: nodeLocks(root),
     environment: nodeEnvironment(),
     output: nodeOutput(),

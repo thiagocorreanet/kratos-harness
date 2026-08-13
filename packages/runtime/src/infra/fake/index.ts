@@ -10,17 +10,16 @@ import type {
   Environment,
   FileStat,
   FileSystem,
-  Git,
   Ids,
   Locks,
   Output,
-  RepositoryState,
   Workspace,
 } from "../../ports/index.js";
 import { createLocks } from "../../composition/locks.js";
 import { createSchemaRegistry } from "../../composition/schema.js";
 import { memoryTransactionStorage } from "./transactions.js";
 
+export { stubGit } from "./git.js";
 export {
   memoryTransactionStorage,
   type DurableOperation,
@@ -201,26 +200,6 @@ export function memoryFileSystem(
         }
         return null;
       }),
-  };
-}
-
-export interface StubGitState {
-  readonly state?: RepositoryState;
-  readonly head?: string | null;
-  readonly changedPaths?: readonly string[];
-}
-
-export function stubGit(configured: StubGitState = {}): Git {
-  const changed = [...(configured.changedPaths ?? [])];
-  return {
-    state: () => Promise.resolve(configured.state ?? "clean"),
-    head: () => Promise.resolve(configured.head ?? null),
-    changedPaths: () =>
-      Promise.resolve(
-        [...new Set(changed)].sort((left, right) =>
-          left.localeCompare(right, "en-US"),
-        ),
-      ),
   };
 }
 

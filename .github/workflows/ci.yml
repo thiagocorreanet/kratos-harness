@@ -121,3 +121,34 @@ jobs:
           retention-days: 3
           compression-level: 6
           include-hidden-files: true
+
+  dco:
+    name: DCO sign-off
+    # Only a pull request has a base and a head to compare. A push to a
+    # protected branch arrives already reviewed, and its range would be the
+    # merged history rather than the contribution.
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The default shallow fetch cannot walk base..head.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up exact Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Require a Developer Certificate of Origin sign-off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/check-dco.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
