@@ -70,7 +70,7 @@ describe("pull-request CI workflow", () => {
 
   it("pins a single bounded GitHub-hosted quality job", () => {
     const jobs = object(workflow.jobs, "jobs");
-    expect(Object.keys(jobs)).toEqual(["quality"]);
+    expect(Object.keys(jobs)).toEqual(["quality", "dco"]);
 
     const quality = object(jobs.quality, "quality");
     expect(quality.name).toBe("Node quality and package");
@@ -115,6 +115,43 @@ describe("pull-request CI workflow", () => {
       "check-latest": false,
       "node-version-file": ".nvmrc",
       "package-manager-cache": false,
+    });
+  });
+
+  // The sign-off gate is a second job rather than another step in `quality`
+  // so it answers in seconds instead of behind the full pipeline, and so a
+  // contributor who forgot `-s` is not told about it only after coverage has
+  // run. It carries the same authority and boundedness the quality job does.
+  it("pins the DCO job to the same bounded, fork-safe shape", () => {
+    const jobs = object(workflow.jobs, "jobs");
+    const dco = object(jobs.dco, "dco");
+
+    expect(dco.name).toBe("DCO sign-off");
+    expect(dco["runs-on"]).toBe("ubuntu-latest");
+    expect(dco["timeout-minutes"]).toBe(5);
+    expect(dco.permissions).toBeUndefined();
+    expect(dco["continue-on-error"]).toBeUndefined();
+    // Only a pull request has a base and a head to compare.
+    expect(dco.if).toBe("${{ github.event_name == 'pull_request' }}");
+
+    const steps = dco.steps as JsonObject[];
+    expect(steps.every((step) => step["continue-on-error"] === undefined)).toBe(
+      true,
+    );
+    expect(steps.map((step) => step.name)).toEqual([
+      "Checkout",
+      "Set up exact Node.js",
+      "Require a Developer Certificate of Origin sign-off",
+    ]);
+    expect(steps.filter((step) => step.uses).map((step) => step.uses)).toEqual([
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    ]);
+    // A shallow fetch cannot walk base..head, so the range would come back
+    // empty and the gate would pass without checking anything.
+    expect(object(steps[0]?.with, "checkout.with")).toEqual({
+      "fetch-depth": 0,
+      "persist-credentials": false,
     });
   });
 
