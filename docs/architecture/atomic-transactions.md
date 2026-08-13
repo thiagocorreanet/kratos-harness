@@ -182,6 +182,22 @@ Cleanup enumerates only the validated transaction layout. It removes known
 payloads, `progress.next`, an unbound regular manifest, and the empty staging
 directory. It never performs an unconstrained recursive deletion.
 
+## Protected mutations
+
+A caller holding a lease binds it to a transaction by passing a `leaseGuard` to
+`executeManagedMutation`. The transaction prepends the renewal event and the
+renewed lease to the caller's own effects, and re-derives the holder's
+authority from durable state before the transaction directory exists, before
+publication is authorized, before every publication, and — from its own
+manifest — before a recovery publishes or accepts terminal results. A worker
+whose fencing token has been superseded is refused with
+`runtime.lease_conflict` and publishes nothing.
+
+The manifest schema is unchanged. The two reserved writes are ordinary
+operations, and the fact that they carry a lease guard is recovered from their
+paths rather than from a property added for the purpose. See the
+[concurrency lock contract](concurrency-locks.md).
+
 ## Verification evidence
 
 The deterministic fake enumerates all 13 `DurableOperation` variants. The

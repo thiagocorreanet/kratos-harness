@@ -91,12 +91,11 @@ call so the parts cannot tear between reads. See the
 [Git service contract](git-service.md) for the failure variants, the evidence
 boundary, and the read-only guarantee.
 
-`Locks` ships a deliberately thin implementation. `RUN-07` owns lease expiry,
-renewal, and recovery of an abandoned lease. This issue fixes its shape so that
-issue implements against a settled interface instead of inventing one. It still
-runs the shared contract suite against both implementations — narrowing an
-exception to the assertions that issue owns, rather than excusing the whole
-port.
+`Locks` acquires, renews, releases, and takes over a durable fenced lease over
+one project or one run. See the
+[concurrency lock contract](concurrency-locks.md) for the scope shapes, the
+time table, the fencing rules, how a protected mutation is guarded, and what a
+conflict is allowed to say.
 
 ### One contract suite per port
 
@@ -119,8 +118,8 @@ either (a constant return can never diverge from itself). Only the Node
 implementation exercises those two against a live sort and a live process. The
 remaining three — a kind from the closed set, resolving rather than
 rejecting, and evidence carrying no output bytes — are proven on both sides.
-`Locks` runs the same suite against both as well; only the semantics `RUN-07`
-owns are left for that issue to assert.
+`Locks` runs the same suite against both as well, with no assertion excused on
+either side.
 
 ### Path safety
 

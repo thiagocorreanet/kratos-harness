@@ -5,6 +5,8 @@ import type {
 } from "../domain/project/observation.js";
 import type { Digests, DurableFileSystem } from "./transactions.js";
 
+export type { Locks } from "./locks.js";
+
 export type {
   Digests,
   DurableEntry,
@@ -59,17 +61,7 @@ export interface Git {
   observe(): Promise<GitObservation>;
 }
 
-export interface Lease {
-  readonly owner: string;
-  readonly fencingToken: number;
-  readonly expiresAt: Date;
-}
-
-/** Serialized mutation leases. `RUN-07` owns expiry and fencing semantics. */
-export interface Locks {
-  acquire(scope: string, ttlMs: number): Promise<Lease | null>;
-  release(lease: Lease): Promise<void>;
-}
+import type { Locks } from "./locks.js";
 
 /** Ambient process state, read through a boundary so tests can fix it. */
 export interface Environment {

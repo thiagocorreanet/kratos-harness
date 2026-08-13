@@ -1,6 +1,7 @@
 import { constants, lstatSync, realpathSync, type Stats } from "node:fs";
 import {
   lstat,
+  link,
   mkdir,
   open,
   readdir,
@@ -26,6 +27,8 @@ export type DurableOperation =
   | "sync_file"
   | "close_file"
   | "replace_file"
+  | "link_file_exclusive"
+  | "rename_directory_exclusive"
   | "remove_file"
   | "remove_empty_directory"
   | "sync_directory";
@@ -150,6 +153,15 @@ function missing(error: unknown): boolean {
     typeof error === "object" &&
     "code" in error &&
     error.code === "ENOENT"
+  );
+}
+
+function alreadyExists(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "EEXIST"
   );
 }
 
@@ -363,11 +375,24 @@ export function nodeDurableFileSystem(
       boundary("create_directory", async () => {
         const observation = await scan(path);
         requireDeclaredParent(observation);
-        if (observation.details === null) {
-          await mkdir(observation.absolute);
+        if (observation.details !== null) {
+          assertDirectory(observation.details);
           return;
         }
-        assertDirectory(observation.details);
+        try {
+          await mkdir(observation.absolute);
+          /* v8 ignore start -- another process has to win the window between
+           * the scan above and this call, which one process cannot schedule:
+           * both of two concurrent callers here observe the same lstat order
+           * and the loser's scan already sees the finished directory. */
+        } catch (error) {
+          // This primitive promises the directory exists, not that this process
+          // is the one that made it, so re-observe rather than fail -- while
+          // still refusing whatever else may have appeared in its place.
+          if (!alreadyExists(error)) throw error;
+          assertDirectory((await scan(path)).details);
+        }
+        /* v8 ignore stop */
       }),
     createDirectoryExclusive: (path) =>
       boundary("create_directory_exclusive", async () => {
@@ -418,6 +443,30 @@ export function nodeDurableFileSystem(
         await requireDirectory(parentPath(staged.normalized));
         await requireDirectory(parentPath(target.normalized));
         await rename(staged.absolute, target.absolute);
+      }),
+    linkFileExclusive: (sourcePath, targetPath) =>
+      boundary("link_file_exclusive", async () => {
+        const source = await scan(sourcePath);
+        const target = await scan(targetPath);
+        assertRegularFile(source.details);
+        requireDeclaredParent(target);
+        if (target.details !== null)
+          throw new Error("Runtime durable path already has an entry");
+        await requireDirectory(parentPath(source.normalized));
+        await requireDirectory(parentPath(target.normalized));
+        await link(source.absolute, target.absolute);
+      }),
+    renameDirectoryExclusive: (sourcePath, targetPath) =>
+      boundary("rename_directory_exclusive", async () => {
+        const source = await scan(sourcePath);
+        const target = await scan(targetPath);
+        assertDirectory(source.details);
+        requireDeclaredParent(target);
+        if (target.details !== null)
+          throw new Error("Runtime durable path already has an entry");
+        await requireDirectory(parentPath(source.normalized));
+        await requireDirectory(parentPath(target.normalized));
+        await rename(source.absolute, target.absolute);
       }),
     removeFile: (path) =>
       boundary("remove_file", async () => {

@@ -25,7 +25,6 @@ import {
   nodeFileSystem,
   nodeGitRunner,
   nodeIds,
-  nodeLocks,
   nodeOutput,
   sha256Digests,
 } from "../infra/node/index.js";
@@ -48,6 +47,26 @@ import {
   type TransactionServices,
   type TransactionSummary,
 } from "./transactions.js";
+import {
+  acquireClaim,
+  createLocks,
+  ensureLockNamespace,
+  inspectLease,
+  LockFailure,
+  prepareLeaseGuard,
+  recoverClaim,
+  releaseClaim,
+  type AcquireClaimRequest,
+  type AcquireClaimOutcome,
+  type ClaimInspection,
+  type ClaimConflict,
+  type LeaseGuardBinding,
+  type LockClaimRecord,
+  type LockServices,
+  type ObservedLockClaim,
+  type RecoverClaimOutcome,
+  type ReleaseClaimOutcome,
+} from "./locks.js";
 
 export {
   configurationValidator,
@@ -57,8 +76,28 @@ export {
   preflightManagedTransactions,
   recoverManagedMutation,
   TransactionFailure,
+  acquireClaim,
+  createLocks,
+  ensureLockNamespace,
+  inspectLease,
+  LockFailure,
+  prepareLeaseGuard,
+  recoverClaim,
+  releaseClaim,
 };
 export type { TransactionReceipt, TransactionServices, TransactionSummary };
+export type {
+  AcquireClaimRequest,
+  AcquireClaimOutcome,
+  ClaimInspection,
+  ClaimConflict,
+  LeaseGuardBinding,
+  LockClaimRecord,
+  LockServices,
+  ObservedLockClaim,
+  RecoverClaimOutcome,
+  ReleaseClaimOutcome,
+};
 
 /**
  * The one place effect implementations are chosen.
@@ -80,15 +119,24 @@ export function createRuntimeAt(
   root: string,
   overrides: Partial<RuntimePorts> = {},
 ): RuntimePorts {
+  const clock = nodeClock();
+  const ids = nodeIds();
   const digests = sha256Digests();
+  const durableFileSystem = nodeDurableFileSystem(root);
   return {
-    clock: nodeClock(),
-    ids: nodeIds(),
+    clock,
+    ids,
     digests,
-    durableFileSystem: nodeDurableFileSystem(root),
+    durableFileSystem,
     fileSystem: nodeFileSystem(root),
     git: composeGit(nodeGitRunner(root), digests),
-    locks: nodeLocks(root),
+    locks: createLocks({
+      clock,
+      ids,
+      digests,
+      durableFileSystem,
+      schemaRegistry: createSchemaRegistry(),
+    }),
     environment: nodeEnvironment(),
     output: nodeOutput(),
     ...overrides,

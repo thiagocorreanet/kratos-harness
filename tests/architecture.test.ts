@@ -114,6 +114,7 @@ describe("import extraction", () => {
       "./schema.js",
       "./events.js",
       "./transactions.js",
+      "./locks.js",
     ]);
   });
 });
@@ -288,22 +289,28 @@ describe("runtime boundary documentation", () => {
   let guide = "";
   let eventStoreGuide = "";
   let atomicTransactionsGuide = "";
+  let concurrencyLocksGuide = "";
 
   beforeAll(async () => {
-    [guide, eventStoreGuide, atomicTransactionsGuide] = await Promise.all([
-      readFile(
-        join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
-        "utf8",
-      ),
-      readFile(
-        join(repositoryRoot, "docs/architecture/event-store.md"),
-        "utf8",
-      ),
-      readFile(
-        join(repositoryRoot, "docs/architecture/atomic-transactions.md"),
-        "utf8",
-      ),
-    ]);
+    [guide, eventStoreGuide, atomicTransactionsGuide, concurrencyLocksGuide] =
+      await Promise.all([
+        readFile(
+          join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+          "utf8",
+        ),
+        readFile(
+          join(repositoryRoot, "docs/architecture/event-store.md"),
+          "utf8",
+        ),
+        readFile(
+          join(repositoryRoot, "docs/architecture/atomic-transactions.md"),
+          "utf8",
+        ),
+        readFile(
+          join(repositoryRoot, "docs/architecture/concurrency-locks.md"),
+          "utf8",
+        ),
+      ]);
   });
 
   it.each([
@@ -330,15 +337,11 @@ describe("runtime boundary documentation", () => {
   });
 
   // `RUN-01` asserted that this document named both pending owners, `RUN-07`
-  // and `RUN-08`. `RUN-08` has since delivered, so the document stops naming
-  // it as a future owner and points at the shipped contract instead. `Locks`
-  // is the only port whose semantics are still owed.
-  it("names the issue that still owns pending port semantics", () => {
-    expect(guide).toContain("RUN-07");
-  });
-
-  it("points at the delivered Git service contract", () => {
+  // and `RUN-08`. Both have since delivered, so the document names no port
+  // whose semantics are still owed and points at the shipped contracts.
+  it("points at the delivered port contracts", () => {
     expect(guide).toContain("git-service.md");
+    expect(guide).toContain("concurrency-locks.md");
   });
 
   it.each([
@@ -359,6 +362,29 @@ describe("runtime boundary documentation", () => {
     "no raw prompts",
   ])("publishes the event-store integrity boundary: %s", (required) => {
     expect(eventStoreGuide).toContain(required);
+  });
+
+  it.each([
+    "run:<run-id>",
+    ".brain/locks/project",
+    ".brain/locks/runs/<encoded-run-id>",
+    "Base64URL",
+    "30 seconds",
+    "10 seconds",
+    "5 seconds",
+    "runtime.lease_conflict",
+    "runtime.recovery_required",
+    "explicit takeover",
+    "fencing token",
+    "read-only",
+  ])("publishes the lock boundary: %s", (required) => {
+    expect(concurrencyLocksGuide).toContain(required);
+  });
+
+  it("states what the lock contract refuses to promise", () => {
+    expect(concurrencyLocksGuide).toMatch(/does\s+not add a public command/iu);
+    expect(concurrencyLocksGuide).toContain("PID");
+    expect(concurrencyLocksGuide).toContain("#99");
   });
 
   it("states the conditional reducer and portable filesystem guarantees", () => {

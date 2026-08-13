@@ -14,7 +14,6 @@ import {
   fixedClock,
   fixedEnvironment,
   memoryFileSystem,
-  memoryLocks,
   memoryTransactionStorage,
   recordingOutput,
   sequentialIds,
@@ -26,7 +25,6 @@ import {
   nodeFileSystem,
   nodeGitRunner,
   nodeIds,
-  nodeLocks,
   nodeOutput,
   nodeDurableFileSystem,
   sha256Digests,
@@ -41,7 +39,6 @@ import {
   describeFileSystemContract,
   describeGitContract,
   describeIdsContract,
-  describeLocksContract,
   describeOutputContract,
 } from "./support/port-contracts.js";
 import {
@@ -90,12 +87,6 @@ describeFileSystemContract("memory transaction storage", () =>
     dispose: noDispose,
   }),
 );
-describeLocksContract("memory", () =>
-  Promise.resolve({
-    port: memoryLocks(),
-    dispose: noDispose,
-  }),
-);
 describeEnvironmentContract("fixed", () =>
   fixedEnvironment({ EXAMPLE: "value" }, "/project"),
 );
@@ -124,13 +115,6 @@ describeOutputContract("node", () =>
   }),
 );
 
-describeLocksContract("node", async () => {
-  const root = await mkdtemp(join(tmpdir(), "yoda-node-locks-"));
-  return {
-    port: nodeLocks(root),
-    dispose: () => rm(root, { force: true, recursive: true }),
-  };
-});
 // `RUN-07` and `RUN-08` own the full semantics of leases and repository
 // classification. What is shared here is only what both implementations must
 // already agree on; the exception is per-assertion, not per-port.

@@ -22,6 +22,18 @@ async function temporaryProject<T>(
 }
 
 describe("node durable filesystem operations", () => {
+  it("refuses a file where a directory was requested", async () => {
+    await temporaryProject(async (root) => {
+      const fileSystem = nodeDurableFileSystem(root);
+      await fileSystem.createDirectory(".brain");
+      await writeFile(join(root, ".brain/entry"), "value", "utf8");
+
+      await expect(fileSystem.createDirectory(".brain/entry")).rejects.toThrow(
+        "Runtime durable path is not a directory",
+      );
+    });
+  });
+
   it("observes the exact before and after boundaries of a synced write", async () => {
     await temporaryProject(async (root) => {
       const events: DurableOperationEvent[] = [];
@@ -130,6 +142,14 @@ describe("node durable filesystem operations", () => {
       await fileSystem.list(".brain");
       await fileSystem.syncDirectory(".brain");
       await fileSystem.replaceFile(".brain/staged", ".brain/target");
+      await fileSystem.linkFileExclusive(".brain/target", ".brain/link");
+      await fileSystem.createDirectory(".brain/candidate");
+      await fileSystem.writeSynced(".brain/candidate/claim", "content");
+      await fileSystem.renameDirectoryExclusive(
+        ".brain/candidate",
+        ".brain/published",
+      );
+      await fileSystem.removeFile(".brain/link");
       await fileSystem.removeFile(".brain/target");
       await fileSystem.removeEmptyDirectory(".brain/run");
 
@@ -144,6 +164,8 @@ describe("node durable filesystem operations", () => {
         "sync_file",
         "close_file",
         "replace_file",
+        "link_file_exclusive",
+        "rename_directory_exclusive",
         "remove_file",
         "remove_empty_directory",
         "sync_directory",

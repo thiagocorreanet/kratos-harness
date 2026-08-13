@@ -149,6 +149,14 @@ function countingDurableFileSystem(root: string): {
         calls.push("replace_file");
         return actual.replaceFile(stagedPath, targetPath);
       },
+      linkFileExclusive: async (sourcePath, targetPath) => {
+        calls.push("link_file_exclusive");
+        return actual.linkFileExclusive(sourcePath, targetPath);
+      },
+      renameDirectoryExclusive: async (sourcePath, targetPath) => {
+        calls.push("rename_directory_exclusive");
+        return actual.renameDirectoryExclusive(sourcePath, targetPath);
+      },
       removeFile: async (path) => {
         calls.push("remove_file");
         return actual.removeFile(path);

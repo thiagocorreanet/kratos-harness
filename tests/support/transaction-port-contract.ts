@@ -137,6 +137,42 @@ export function describeDurableFileSystemContract(
       });
     });
 
+    it("exclusively hard-links a regular source without consuming it", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+        await fileSystem.writeSynced(".brain/source", "retired claim");
+        await fileSystem.linkFileExclusive(".brain/source", ".brain/tombstone");
+
+        expect(await fileSystem.readText(".brain/source")).toBe(
+          "retired claim",
+        );
+        expect(await fileSystem.readText(".brain/tombstone")).toBe(
+          "retired claim",
+        );
+        await expect(
+          fileSystem.linkFileExclusive(".brain/source", ".brain/tombstone"),
+        ).rejects.toThrow();
+      });
+    });
+
+    it("publishes a prepopulated directory only to a missing target", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+        await fileSystem.createDirectory(".brain/candidate");
+        await fileSystem.writeSynced(".brain/candidate/claim.json", "claim");
+        await fileSystem.renameDirectoryExclusive(
+          ".brain/candidate",
+          ".brain/claim",
+        );
+        expect(await fileSystem.readText(".brain/claim/claim.json")).toBe(
+          "claim",
+        );
+        await expect(
+          fileSystem.renameDirectoryExclusive(".brain/claim", ".brain/claim"),
+        ).rejects.toThrow();
+      });
+    });
+
     it("removes only regular files", async () => {
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);

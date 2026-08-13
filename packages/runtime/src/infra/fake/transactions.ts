@@ -18,6 +18,8 @@ export type DurableOperation =
   | "sync_file"
   | "close_file"
   | "replace_file"
+  | "link_file_exclusive"
+  | "rename_directory_exclusive"
   | "remove_file"
   | "remove_empty_directory"
   | "sync_directory";
@@ -397,6 +399,52 @@ export function memoryTransactionStorage(
           }
           files.delete(normalizedStaged);
           files.set(normalizedTarget, content);
+        });
+      }),
+    linkFileExclusive: (sourcePath, targetPath) =>
+      deferred(() => {
+        const normalizedSource = normalizeDurablePath(sourcePath);
+        const normalizedTarget = normalizeDurablePath(targetPath);
+        boundary("link_file_exclusive", () => {
+          requireParentDirectory(normalizedSource);
+          requireParentDirectory(normalizedTarget);
+          const content = requireFile(normalizedSource);
+          if (
+            files.has(normalizedTarget) ||
+            directories.has(normalizedTarget)
+          ) {
+            throw new Error(
+              `Memory transaction storage already has an entry at ${normalizedTarget}`,
+            );
+          }
+          files.set(normalizedTarget, content);
+        });
+      }),
+    renameDirectoryExclusive: (sourcePath, targetPath) =>
+      deferred(() => {
+        const source = normalizeDurablePath(sourcePath);
+        const target = normalizeDurablePath(targetPath);
+        boundary("rename_directory_exclusive", () => {
+          requireParentDirectory(source);
+          requireParentDirectory(target);
+          requireDirectory(source);
+          if (files.has(target) || directories.has(target))
+            throw new Error(
+              `Memory transaction storage already has an entry at ${target}`,
+            );
+          const replace = (path: string) =>
+            path === source ? target : `${target}${path.slice(source.length)}`;
+          const movedFiles = [...files.entries()].filter(
+            ([path]) => path === source || path.startsWith(`${source}/`),
+          );
+          const movedDirectories = [...directories].filter(
+            (path) => path === source || path.startsWith(`${source}/`),
+          );
+          for (const [path] of movedFiles) files.delete(path);
+          for (const path of movedDirectories) directories.delete(path);
+          for (const [path, content] of movedFiles)
+            files.set(replace(path), content);
+          for (const path of movedDirectories) directories.add(replace(path));
         });
       }),
     removeFile: (path) =>
