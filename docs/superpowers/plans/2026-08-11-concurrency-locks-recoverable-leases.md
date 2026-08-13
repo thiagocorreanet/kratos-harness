@@ -44,12 +44,14 @@ takeover.
 ### Task 1: Lock Domain Model, Scope, Identity, and Time Boundaries
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/locks/model.ts`
 - Create: `packages/runtime/src/domain/locks/scope.ts`
 - Create: `packages/runtime/src/domain/locks/index.ts`
 - Create: `tests/lock-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LockLeaseV1` from `@mestre-yoda/contracts`; no effect port and no Node builtin.
 - Produces: `LeaseResource`, `LeaseIdentity`, request/outcome types, `LeaseGuard`, `LockPaths`, `LeasePolicyError`, `lockPaths()`, `parseOwner()`, `validateTtl()`, and `classifyLeaseTime()`.
 
@@ -330,6 +332,7 @@ git commit -m "feat: define recoverable lease model"
 ### Task 2: Hash-Linked Lease Lifecycle and Pure Transition Policy
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/locks/lifecycle.ts`
 - Create: `packages/runtime/src/domain/locks/policy.ts`
 - Modify: `packages/runtime/src/domain/locks/index.ts`
@@ -337,6 +340,7 @@ git commit -m "feat: define recoverable lease model"
 - Create: `tests/lock-policy-properties.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 types, `sealEvent()`, `verifyEventStream()`, `canonicalizeJson()`, injected `Clock`, `Digests`, and `SchemaRegistry`.
 - Produces: `LockLifecycleAction`, `PreparedLeaseTransition`, `prepareLeaseTransition()`, `verifyLeaseBinding()`, `decideAcquire()`, `decideRenew()`, `decideRelease()`, and `decideTakeover()`.
 
@@ -499,12 +503,14 @@ git commit -m "feat: seal lease lifecycle history"
 ### Task 3: Durable Namespace, Inspection, and Recoverable Claims
 
 **Files:**
+
 - Create: `packages/runtime/src/composition/locks.ts`
 - Create: `tests/lock-claims.test.ts`
 - Modify: `packages/runtime/src/composition/index.ts`
 - Modify: `tests/architecture.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 2 lifecycle verification, `DurableFileSystem`, `Clock`, `Ids`, `Digests`, and `SchemaRegistry`.
 - Produces: `LockServices`, `LeaseObservation`, `inspectLease()`, `acquireClaim()`, `releaseClaim()`, and `recoverClaim()`.
 
@@ -589,6 +595,7 @@ git commit -m "feat: add recoverable lock claims"
 ### Task 4: Acquire, Renew, Release, Takeover, and Scope Admission
 
 **Files:**
+
 - Create: `packages/runtime/src/ports/locks.ts`
 - Modify: `packages/runtime/src/ports/index.ts`
 - Modify: `packages/runtime/src/composition/locks.ts`
@@ -600,6 +607,7 @@ git commit -m "feat: add recoverable lock claims"
 - Create: `tests/lock-service.test.ts`
 
 **Interfaces:**
+
 - Consumes: Tasks 1–3 and `executeManagedMutation()`.
 - Produces: the final `Locks` port with `inspect`, `acquire`, `renew`, `release`, and `takeover`; `createLocks()` shared composition; production and memory factories using the same service.
 
@@ -686,6 +694,7 @@ git commit -m "feat: implement recoverable work leases"
 ### Task 5: Protected Transaction Lease Guard and Recovery Fencing
 
 **Files:**
+
 - Modify: `packages/runtime/src/composition/transactions.ts`
 - Modify: `packages/runtime/src/composition/index.ts`
 - Modify: `packages/runtime/src/domain/transactions/model.ts`
@@ -695,6 +704,7 @@ git commit -m "feat: implement recoverable work leases"
 - Modify: `tests/transaction-recovery.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LeaseGuard`, lifecycle preparation, `ManagedMutationPlan`, and existing transaction recovery.
 - Produces: `LeaseGuardBinding`, `bindLeaseGuard()`, `assertLeaseAuthority()`, and guarded execute/recover options without changing `TransactionManifestV1`.
 
@@ -783,11 +793,13 @@ git commit -m "feat: fence protected transaction commits"
 ### Task 6: Deterministic Interleaving and Fault-Injection Campaign
 
 **Files:**
+
 - Create: `tests/lock-schedules.test.ts`
 - Create: `tests/lock-fault-campaign.test.ts`
 - Modify: `packages/runtime/src/infra/fake/transactions.ts` only if a missing existing filesystem observation seam is proven by a RED test.
 
 **Interfaces:**
+
 - Consumes: final `Locks`, guarded transactions, `FailureRule`, injected clock/IDs, and memory snapshots.
 - Produces: exhaustive bounded schedules and crash-boundary evidence; no new production API unless the existing fake durable filesystem cannot observe a required boundary.
 
@@ -854,12 +866,14 @@ git commit -m "test: prove lease scheduling and crash safety"
 ### Task 7: Real Multi-Process Contention, Renewal, Crash, and Clock Skew
 
 **Files:**
+
 - Create: `tests/fixtures/locks/worker.ts`
 - Create: `tests/lock-process-contention.test.ts`
 - Create: `tests/node-lock-security.test.ts`
 - Modify: `packages/runtime/src/infra/node/transactions.ts` only for a RED-proven portable filesystem defect.
 
 **Interfaces:**
+
 - Consumes: production `createLocks()`, `nodeDurableFileSystem()`, guarded transactions, and a worker JSON-lines protocol.
 - Produces: real-process acceptance evidence for contention, crash, renewal, takeover, skew, unusual paths, and stale publication.
 
@@ -926,6 +940,7 @@ git commit -m "test: prove multi-process lease fencing"
 ### Task 8: Architecture Documentation, Evidence, and Repository Gate
 
 **Files:**
+
 - Create: `docs/architecture/concurrency-locks.md`
 - Create: `docs/verification/issue-22-lock-evidence.md`
 - Modify: `docs/architecture/runtime-boundaries.md`
@@ -935,6 +950,7 @@ git commit -m "test: prove multi-process lease fencing"
 - Modify: `.cspell.json` only for unavoidable approved technical terms.
 
 **Interfaces:**
+
 - Consumes: all completed implementation and exact command output.
 - Produces: public architecture contract, reproducible issue evidence, documentation assertions, and final verification record.
 
