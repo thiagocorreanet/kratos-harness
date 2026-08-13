@@ -143,19 +143,31 @@ preview would advance a sequence the real apply then skips.
 
 ## Preconditions and invalidation
 
-The criterion "applying an unchanged valid plan produces the effects described;
-changed preconditions invalidate it" needs no new machinery.
+This section claimed no new machinery was needed, and the property test written
+against it proved that wrong. The reasoning was that every `ManagedOperation`
+already carries the `expected` fingerprint its destination held, and the
+transaction boundary already refuses a plan whose destinations moved.
 
-Every `ManagedOperation` already carries the `expected` fingerprint the
-destination held when the decision was made, and the transaction boundary
-already refuses a plan whose destinations moved, with
-`runtime.revision_conflict`. The preview exposes those same fingerprints as its
-`observed` set. A caller that previews, then applies, is running the same
-comparison the transaction already performs.
+Both facts are true and neither closes the gap. An apply does not replay a
+plan; it re-decides from current state, which is what keeps it correct. So a
+destination that moved after the preview simply produces a *different* valid
+decision, and the apply commits that one — silently substituting work a person
+never saw for the work they approved. Nothing conflicts, because nothing is
+being compared.
 
-This is a property to prove, not a mechanism to build: preview then apply
-produces the manifest the preview named; preview, mutate a destination, then
-apply produces `runtime.revision_conflict` naming that destination.
+`ApplyPlanOptions` therefore accepts the preview the caller was shown. When it
+is present, the apply compares the decision it just reached against that
+preview and refuses with `runtime.revision_conflict`, naming the destination
+that diverged. Comparing plan digests is enough: they are derived from the same
+canonical operations the manifest records, so any change in destination, order,
+precondition, or content changes them.
+
+The comparison includes the precondition, not only the outcome. A destination
+somebody else rewrote can still end at the same bytes, and the only trace of
+their write is the state the decision started from.
+
+Passing the preview back is optional. An apply with no preview in hand behaves
+exactly as it did before, which keeps every existing caller correct.
 
 ## Redaction
 

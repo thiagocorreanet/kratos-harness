@@ -157,6 +157,16 @@ export type ApplyPlanOutcome =
 export interface ApplyPlanOptions<State = JsonState> {
   readonly rootMode: "existing" | "initialize";
   readonly eventReducers?: EventReducerRegistry<State>;
+  /**
+   * A preview this apply must still agree with.
+   *
+   * An apply re-decides from current state rather than replaying a plan, which
+   * is what keeps it correct. But it also means a caller who previewed, showed
+   * the preview to a person, and then applied could commit something the
+   * person never saw. Passing the preview back turns that silent substitution
+   * into `runtime.revision_conflict`.
+   */
+  readonly expectPreview?: MutationPreview;
 }
 
 class MissingReducerRegistry extends Error {}
@@ -176,6 +186,7 @@ export async function applyPlan<State = JsonState>(
 ): Promise<ApplyPlanOutcome> {
   const decided = await decideMutation(plan, ports, options, "commit");
   const { frozenOptions, services, prepared, normalized, emits } = decided;
+  assertPreviewStillHolds(options.expectPreview, normalized, ports);
 
   let outcome: ApplyPlanOutcome;
   if (normalized.kind === "noop") {
@@ -318,6 +329,74 @@ async function decideMutation<State = JsonState>(
     await assertPreparedAppendIsFresh(prepared, ports);
 
   return { frozenOptions, services, prepared, normalized, emits };
+}
+
+/**
+ * Refuse to commit something other than what the caller was shown.
+ *
+ * The apply recomputes rather than replaying, so the decision it reaches may
+ * differ from the one a person approved. Comparing digests is enough: they are
+ * derived from the same canonical operations the manifest records, so any
+ * difference in destination, order, or content changes them.
+ */
+function assertPreviewStillHolds(
+  expected: MutationPreview | undefined,
+  normalized: ReturnType<typeof normalizeManagedMutationPlan>,
+  ports: RuntimePorts,
+): void {
+  if (expected === undefined) return;
+  const decided: MutationPreview =
+    normalized.kind === "noop"
+      ? { kind: "noop" }
+      : {
+          kind: "ready",
+          operations: previewOperations(normalized.plan),
+          planDigest: planDigestOf(normalized.plan, ports),
+        };
+  if (
+    expected.kind === decided.kind &&
+    (expected.kind !== "ready" ||
+      (decided.kind === "ready" && expected.planDigest === decided.planDigest))
+  ) {
+    return;
+  }
+  throw new TransactionFailure(
+    "runtime.revision_conflict",
+    firstDivergence(expected, decided),
+  );
+}
+
+/** Name the destination a person can look at to see what moved. */
+function firstDivergence(
+  expected: MutationPreview,
+  decided: MutationPreview,
+): readonly EvidenceRef[] {
+  const before = expected.kind === "ready" ? expected.operations : [];
+  const after = decided.kind === "ready" ? decided.operations : [];
+  for (const [index, operation] of before.entries()) {
+    const current = after[index];
+    // The precondition matters as much as the outcome here: a destination
+    // someone else rewrote still ends at the same bytes, and the only trace of
+    // their write is the state the decision started from.
+    if (current === undefined || !sameOperation(current, operation)) {
+      return [{ kind: "artifact", ref: operation.path }];
+    }
+  }
+  const extra = after[before.length];
+  return [{ kind: "artifact", ref: extra?.path ?? ".brain" }];
+}
+
+function sameOperation(
+  left: PreviewOperation,
+  right: PreviewOperation,
+): boolean {
+  return (
+    left.operationId === right.operationId &&
+    left.kind === right.kind &&
+    left.path === right.path &&
+    sameFingerprint(left.expected, right.expected) &&
+    sameFingerprint(left.result, right.result)
+  );
 }
 
 /** One decided destination, carrying what it depends on and never its bytes. */
