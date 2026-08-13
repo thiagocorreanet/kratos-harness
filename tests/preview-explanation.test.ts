@@ -128,4 +128,28 @@ describe("preview explanation", () => {
     expect(result.stateChanged).toBe(false);
     expect(result.evidence[0]?.ref).toContain(".brain/transactions/");
   });
+
+  it("names a directory it would create without a content digest", async () => {
+    const subject = fakeRuntime();
+    const preview = await previewPlan(
+      planOf({
+        kind: "write_file",
+        path: ".brain/runs/run-01/result.json",
+        content: "result",
+      }),
+      readOnlyPorts(subject.ports),
+    );
+
+    const result = previewResult(preview);
+
+    // A directory has no bytes to digest, and inventing a field for it would
+    // make the absence of one look like a missing value instead of the answer.
+    const directory = result.evidence.find(({ ref }) => ref === ".brain/runs");
+    expect(directory).toEqual({ kind: "artifact", ref: ".brain/runs" });
+    expect(result.evidence.map(({ ref }) => ref)).toEqual([
+      ".brain/runs",
+      ".brain/runs/run-01",
+      ".brain/runs/run-01/result.json",
+    ]);
+  });
 });

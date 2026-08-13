@@ -164,4 +164,119 @@ describe("mutation preview properties", () => {
     expect(manifestOf(subject.storage).planDigest).toBe(preview.planDigest);
     expect(subject.storage.snapshot().files[".brain/state.json"]).toBe("new");
   });
+
+  it("refuses when the work was already done by somebody else", async () => {
+    const subject = fakeRuntime();
+    const plan = planOf(write(".brain/state.json", "new"));
+    const preview = ready(
+      await previewPlan(plan, readOnlyPorts(subject.ports)),
+    );
+
+    // Another worker commits the identical change first, so the decision this
+    // apply reaches is that there is nothing left to do.
+    await applyPlan(plan, subject.ports);
+
+    await expect(
+      applyPlan(plan, subject.ports, {
+        rootMode: "existing",
+        expectPreview: preview,
+      }),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ kind: "artifact", ref: ".brain/state.json" }],
+    });
+  });
+
+  it("refuses when work appeared where the preview found none", async () => {
+    const subject = fakeRuntime();
+    const plan = planOf(write(".brain/state.json", "old"));
+    const preview = await previewPlan(plan, readOnlyPorts(subject.ports));
+    expect(preview).toEqual({ kind: "noop" });
+
+    // The destination moves away from what the plan already matched, so the
+    // same plan now has something to do -- which the person never approved.
+    await subject.ports.durableFileSystem.writeSynced(".brain/moved", "moved");
+    await subject.ports.durableFileSystem.replaceFile(
+      ".brain/moved",
+      ".brain/state.json",
+    );
+
+    await expect(
+      applyPlan(plan, subject.ports, {
+        rootMode: "existing",
+        expectPreview: preview,
+      }),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ kind: "artifact", ref: ".brain/state.json" }],
+    });
+  });
+
+  it("reports a failing port as blocked rather than crashing", async () => {
+    const subject = fakeRuntime();
+    subject.storage.fail({
+      operation: "inspect",
+      timing: "before",
+      occurrence: 1,
+    });
+
+    // The boundary sanitizes a storage failure into a typed one on its way
+    // out, so a preview keeps its promise of always being renderable even when
+    // the filesystem underneath it is the thing that is broken.
+    await expect(
+      previewPlan(planOf(write(".brain/state.json", "new")), subject.ports),
+    ).resolves.toMatchObject({
+      kind: "blocked",
+      reasonCode: "runtime.internal_failure",
+    });
+  });
+
+  it("names the destination that moved, not the first one it checked", async () => {
+    const subject = fakeRuntime();
+    const plan = planOf(
+      write(".brain/state.json", "new"),
+      write(".brain/second.json", "second"),
+    );
+    const preview = ready(
+      await previewPlan(plan, readOnlyPorts(subject.ports)),
+    );
+
+    // Only the second destination moves. A refusal that pointed at the first
+    // would send a person to a file nobody touched.
+    await subject.ports.durableFileSystem.writeSynced(
+      ".brain/second.json",
+      "already here",
+    );
+
+    await expect(
+      applyPlan(plan, subject.ports, {
+        rootMode: "existing",
+        expectPreview: preview,
+      }),
+    ).rejects.toMatchObject({
+      evidence: [{ kind: "artifact", ref: ".brain/second.json" }],
+    });
+  });
+
+  it("refuses a plan that would write something else entirely", async () => {
+    const subject = fakeRuntime();
+    const preview = ready(
+      await previewPlan(
+        planOf(write(".brain/state.json", "new")),
+        readOnlyPorts(subject.ports),
+      ),
+    );
+
+    // Same destination, same precondition, different bytes: approving one
+    // decision must not authorize a different one at the same address.
+    await expect(
+      applyPlan(planOf(write(".brain/state.json", "other")), subject.ports, {
+        rootMode: "existing",
+        expectPreview: preview,
+      }),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ kind: "artifact", ref: ".brain/state.json" }],
+    });
+  });
 });

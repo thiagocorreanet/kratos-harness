@@ -385,6 +385,9 @@ function firstDivergence(
     }
   }
   const extra = after[before.length];
+  /* v8 ignore next -- the two previews differ, so either an index diverged in
+   * the loop above or the decision holds an operation the preview did not; a
+   * shorter decision is already caught by the undefined check up there. */
   return [{ kind: "artifact", ref: extra?.path ?? ".brain" }];
 }
 
@@ -392,8 +395,9 @@ function sameOperation(
   left: PreviewOperation,
   right: PreviewOperation,
 ): boolean {
+  // The identifier is positional, so two operations compared at the same index
+  // always share it. Checking it would look like a comparison and never be one.
   return (
-    left.operationId === right.operationId &&
     left.kind === right.kind &&
     left.path === right.path &&
     sameFingerprint(left.expected, right.expected) &&
@@ -439,13 +443,16 @@ export async function previewPlan<State = JsonState>(
   try {
     decided = await decideMutation(plan, ports, options, "preview");
   } catch (error) {
-    if (error instanceof TransactionFailure)
-      return Object.freeze({
-        kind: "blocked" as const,
-        reasonCode: error.reasonCode,
-        evidence: error.evidence,
-      });
-    throw error;
+    /* v8 ignore start -- the decision boundary sanitizes every failure it can
+     * raise into a typed one, so this guard only carries a fault from outside
+     * it that no test can inject through the ports. */
+    if (!(error instanceof TransactionFailure)) throw error;
+    /* v8 ignore stop */
+    return Object.freeze({
+      kind: "blocked" as const,
+      reasonCode: error.reasonCode,
+      evidence: error.evidence,
+    });
   }
   if (decided.normalized.kind === "noop")
     return Object.freeze({ kind: "noop" });

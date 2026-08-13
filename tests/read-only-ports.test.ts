@@ -168,4 +168,21 @@ describe("read-only runtime ports", () => {
       return Promise.resolve();
     });
   });
+
+  it("still lets a lease be inspected", async () => {
+    await temporaryProject(async (ports) => {
+      const observed = Symbol("observation");
+      const guarded = readOnlyPorts({
+        ...ports,
+        locks: {
+          ...ports.locks,
+          inspect: () => Promise.resolve(observed as never),
+        },
+      });
+
+      // Reading who holds a resource changes nothing, and a preview that could
+      // not answer "who has this?" would be missing the reason it was blocked.
+      await expect(guarded.locks.inspect("run:run-01")).resolves.toBe(observed);
+    });
+  });
 });
