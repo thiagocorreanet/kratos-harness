@@ -145,9 +145,38 @@ function corruptScalar(line: string, scalar: ProtectedScalar): string {
 }
 
 const seed = 0x21_08_2026;
+
+// Stream lengths cycle 1 through 32, so 32 streams cover every length exactly
+// once and the "covers every generated length" assertion below still holds.
+//
+// The corpus used to be 200 streams, repeating each length about six times
+// with different content. The per-stream cost is quadratic — every record is
+// deleted in turn and the whole chain re-verified — so that repetition cost
+// roughly 6.25x the work for redundant length coverage. It took this file to
+// ~9 minutes on its own and pushed the CI job past its 15-minute limit.
+//
+// The wider sweep is still available on demand:
+//
+//   YODA_TEST_EXHAUSTIVE_EVENT_CHAIN=1 npx vitest run tests/event-chain-properties.test.ts
+const exhaustiveStreamCount = 200;
+const cycleStreamCount = 32;
+
+// Corpus size and per-case duration are separate problems. Trimming the corpus
+// fixes the suite's total runtime, but the longest streams stay individually
+// expensive: one case deletes every record of a 32-event stream and re-verifies
+// the whole chain each time, which is quadratic in the stream's length. Under
+// v8 coverage instrumentation that tips past vitest's 5-second default, so the
+// heavy case gets an explicit budget rather than a shrinking stream length that
+// would weaken what it proves. Same remedy as `28d1c3a` for the fault campaign.
+const sequenceCorruptionTimeoutMilliseconds = 30_000;
+const streamCount =
+  process.env.YODA_TEST_EXHAUSTIVE_EVENT_CHAIN === "1"
+    ? exhaustiveStreamCount
+    : cycleStreamCount;
+
 const cases = (() => {
   const random = generator(seed);
-  return Array.from({ length: 200 }, (_, streamIndex) => ({
+  return Array.from({ length: streamCount }, (_, streamIndex) => ({
     streamIndex,
     streamSeed: random(),
     count: (streamIndex % 32) + 1,
@@ -284,5 +313,6 @@ describe("event hash-chain generated corruption cases", () => {
         ).toBe("invalid_sequence");
       }
     },
+    sequenceCorruptionTimeoutMilliseconds,
   );
 });
