@@ -40,6 +40,7 @@ import {
   executeManagedMutation,
   inspectManagedTransactions,
   TransactionFailure,
+  type EventStorePrecondition,
   type TransactionServices,
   type TransactionSummary,
 } from "./transactions.js";
@@ -281,6 +282,7 @@ export class LockFailure extends Error {
     public readonly reasonCode:
       | "runtime.state_corrupt"
       | "runtime.internal_failure"
+      | "runtime.lease_conflict"
       | "runtime.recovery_required",
     public readonly evidence: readonly EvidenceRef[],
   ) {
@@ -3029,6 +3031,96 @@ function outcomeFailure(error: unknown): LeaseOutcome {
   return { kind: "internal_failure", evidence: [] };
 }
 /* v8 ignore stop */
+
+/**
+ * A renewal prepared but not published, so a caller's own protected
+ * transaction can publish it together with the caller's writes.
+ *
+ * The binding carries the exact serialized bytes rather than only the objects.
+ * Re-serializing the lease or the event downstream could produce bytes that
+ * differ from the ones the lifecycle hash chain was computed over, which would
+ * make an honest renewal read as tampering.
+ *
+ * A binding is evidence of what the caller believed when it was built, never
+ * proof that the belief still holds. Authority is re-derived from durable state
+ * at the moment of publication.
+ */
+export interface LeaseGuardBinding {
+  readonly guard: LeaseGuard;
+  readonly renewedLease: LockLeaseV1;
+  readonly lifecycleEvent: EventV1;
+  readonly leaseText: string;
+  readonly eventsText: string;
+  readonly expected: readonly [EventStorePrecondition, EventStorePrecondition];
+}
+
+/**
+ * Prepare the renewal a guarded transaction will publish.
+ *
+ * No durable claim is taken here. Holding one across the caller's whole
+ * transaction would wedge the resource whenever a caller died mid-flight, which
+ * is the failure this subsystem exists to prevent. The claim is taken at the
+ * publication point instead, and the authority check is re-derived there.
+ */
+export async function prepareLeaseGuard(
+  request: RenewLeaseRequest,
+  services: LockServices,
+): Promise<LeaseGuardBinding> {
+  const input = validateRenewRequest(request);
+  const resource = input.observed.resource;
+  const inspection = await inspectLeaseHeld(resource, services);
+  const decision = decideRenew({
+    now: services.clock.now(),
+    current: currentBinding(inspection),
+    expectedIdentity: input.observed,
+    ttlMs: input.ttlMs,
+    stateRevision: input.resultingStateRevision,
+  });
+  const paths = lockPaths(resource);
+  if (decision.kind !== "transition")
+    throw new LockFailure("runtime.lease_conflict", [
+      { kind: "artifact", ref: paths.lease },
+    ]);
+  const prepared = prepareLeaseTransition(
+    {
+      action: decision.action,
+      priorEvents: await services.durableFileSystem.readText(paths.events),
+      lease: decision.lease,
+      leaseRef: paths.lease,
+      eventId: services.ids.next(),
+      occurredAt: services.clock.now().toISOString(),
+      observedIdentity: input.observedIdentity,
+    },
+    { ...services, isProxy: types.isProxy, isPromise: types.isPromise },
+  );
+  // A renewal that leaves the lease byte-identical writes no evidence that this
+  // transaction was ever authorized, and a durable write from a state to itself
+  // is what the transaction machinery reads as corruption. A protected mutation
+  // advances the state revision, so this is a malformed request, not a race.
+  const current = expectedLeaseFile(inspection);
+  if (
+    current.kind === "file" &&
+    current.sha256 === services.digests.sha256(prepared.leaseText)
+  )
+    throw internal();
+  return Object.freeze({
+    guard: input.observed,
+    renewedLease: prepared.lease,
+    lifecycleEvent: prepared.event,
+    leaseText: prepared.leaseText,
+    eventsText: prepared.eventsText,
+    expected: Object.freeze([
+      Object.freeze({
+        path: paths.events,
+        expected: expectedEventsFile(inspection),
+      }),
+      Object.freeze({
+        path: paths.lease,
+        expected: expectedLeaseFile(inspection),
+      }),
+    ] as const),
+  });
+}
 
 function expectedLeaseFile(inspection: ClaimInspection): PathFingerprint {
   return inspection.guard?.leaseFingerprint ?? { kind: "missing" };

@@ -6,6 +6,7 @@ import {
 import { types } from "node:util";
 
 import type { EvidenceRef } from "../domain/result/index.js";
+import type { LeaseGuardBinding } from "./locks.js";
 import {
   canonicalizeJson,
   type SchemaRegistry,
@@ -29,6 +30,8 @@ import type {
 const contractVersion = "1.0.0" as const;
 const stateContract = "1.0.0" as const;
 const transactionsRoot = ".brain/transactions";
+const lockNamespace = ".brain/locks";
+const lockScope = /^\.brain\/locks\/(project|runs\/[A-Za-z0-9._:-]{1,128})\//u;
 
 export interface TransactionReceipt {
   readonly transactionId: string;
@@ -62,6 +65,12 @@ export interface EventStorePrecondition {
 export interface ExecuteManagedMutationOptions {
   readonly rootMode: "existing" | "initialize";
   readonly eventStorePreconditions?: readonly EventStorePrecondition[];
+  /**
+   * Authority for a protected caller mutation. Present means the caller claims
+   * to hold a lease; it never means the claim is still true, which is re-derived
+   * from durable state at publication.
+   */
+  readonly leaseGuard?: LeaseGuardBinding;
 }
 
 interface TransactionFailureContext {
@@ -76,6 +85,7 @@ export class TransactionFailure extends Error {
     public readonly reasonCode:
       | "guard.outside_allow"
       | "runtime.internal_failure"
+      | "runtime.lease_conflict"
       | "runtime.recovery_required"
       | "runtime.revision_conflict"
       | "runtime.state_corrupt"
@@ -98,6 +108,13 @@ export async function executeManagedMutation(
   try {
     frozenOptions = freezeExecuteOptions(options);
     frozenPlan = freezeManagedPlan(plan, services);
+    if (frozenOptions.leaseGuard !== undefined) {
+      frozenPlan = bindLeaseGuard(
+        frozenPlan,
+        frozenOptions.leaseGuard,
+        services,
+      );
+    }
   } catch (error) {
     if (error instanceof TransactionFailure) throw error;
     throw new TransactionFailure("runtime.internal_failure", []);
@@ -124,12 +141,14 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
   try {
     const root = exactData(
       value,
-      ["rootMode", "eventStorePreconditions"],
+      ["rootMode", "eventStorePreconditions", "leaseGuard"],
       true,
     );
     const rootMode = root.rootMode;
     if (rootMode !== "existing" && rootMode !== "initialize") throw new Error();
-    if (!("eventStorePreconditions" in root)) return { rootMode };
+    const leaseGuard = freezeLeaseGuard(root);
+    if (!("eventStorePreconditions" in root))
+      return leaseGuard === undefined ? { rootMode } : { rootMode, leaseGuard };
     const tuple = root.eventStorePreconditions;
     if (
       !Array.isArray(tuple) ||
@@ -157,9 +176,248 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
       left[1] !== right[1]
     )
       throw new Error();
-    return { rootMode, eventStorePreconditions: preconditions };
+    return leaseGuard === undefined
+      ? { rootMode, eventStorePreconditions: preconditions }
+      : { rootMode, eventStorePreconditions: preconditions, leaseGuard };
   } catch {
     throw new TransactionFailure("runtime.internal_failure", []);
+  }
+}
+
+/** A frozen plain object, refusing a proxy or an exotic prototype. */
+function plainObject(value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    types.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    throw new Error();
+  return Object.freeze({ ...(value as Record<string, unknown>) });
+}
+
+/**
+ * Structurally validate a caller-supplied lease guard binding.
+ *
+ * This proves the shape only, which is why the result is asserted rather than
+ * inferred: whether the guard still holds authority is a question about durable
+ * state, answered at publication by `assertLeaseAuthority` and never here. The
+ * transaction reads only the serialized bytes and their preconditions, so the
+ * carried lease and event objects are checked for shape and passed through.
+ */
+function freezeLeaseGuard(
+  root: Record<string, unknown>,
+): LeaseGuardBinding | undefined {
+  if (!("leaseGuard" in root)) return undefined;
+  const binding = exactData(root.leaseGuard, [
+    "guard",
+    "renewedLease",
+    "lifecycleEvent",
+    "leaseText",
+    "eventsText",
+    "expected",
+  ]);
+  if (
+    typeof binding.leaseText !== "string" ||
+    typeof binding.eventsText !== "string"
+  )
+    throw new Error();
+  const expected = binding.expected;
+  if (
+    !Array.isArray(expected) ||
+    types.isProxy(expected) ||
+    Object.getPrototypeOf(expected) !== Array.prototype ||
+    expected.length !== 2 ||
+    Reflect.ownKeys(expected).length !== 3
+  )
+    throw new Error();
+  const pair: readonly [EventStorePrecondition, EventStorePrecondition] = [
+    freezePrecondition(arrayData(expected, 0)),
+    freezePrecondition(arrayData(expected, 1)),
+  ];
+  // The reserved writes are the lock's own events log and lease file, in that
+  // order. Anything else means the binding was not built by prepareLeaseGuard.
+  if (
+    !reservedGuardPath(pair[0].path, "events.jsonl") ||
+    !reservedGuardPath(pair[1].path, "lease.json")
+  )
+    throw new Error();
+  return Object.freeze({
+    guard: plainObject(binding.guard),
+    renewedLease: plainObject(binding.renewedLease),
+    lifecycleEvent: plainObject(binding.lifecycleEvent),
+    leaseText: binding.leaseText,
+    eventsText: binding.eventsText,
+    expected: Object.freeze(pair),
+  }) as unknown as LeaseGuardBinding;
+}
+
+function reservedGuardPath(path: string, name: string): boolean {
+  return lockScope.test(path) && path.endsWith(`/${name}`);
+}
+
+/**
+ * Prepend the reserved lock writes a guarded transaction publishes on the
+ * caller's behalf, and renumber the caller's own effects behind them.
+ *
+ * Publishing the renewal first is what makes the fence hold. Once the renewed
+ * lease is durable, a takeover observes a live lease and its own policy refuses
+ * it, so no third party can slip between the last authority check and the
+ * caller's writes.
+ */
+function bindLeaseGuard(
+  plan: ManagedMutationPlan,
+  binding: LeaseGuardBinding,
+  services: TransactionServices,
+): ManagedMutationPlan {
+  for (const operation of plan.operations) {
+    // Only this function may write under the lock namespace. A caller reaching
+    // in directly could forge the very authority it is being checked for.
+    if (
+      operation.path === lockNamespace ||
+      operation.path.startsWith(`${lockNamespace}/`)
+    ) {
+      throw new TransactionFailure("guard.outside_allow", []);
+    }
+  }
+  const [events, lease] = binding.expected;
+  const operations: readonly ManagedOperation[] = [
+    reservedGuardWrite(0, events, binding.eventsText, services),
+    reservedGuardWrite(1, lease, binding.leaseText, services),
+    ...plan.operations.map((operation, index) =>
+      renumbered(operation, index + 2),
+    ),
+  ];
+  validateManagedRelationships(operations);
+  return { operations };
+}
+
+function reservedGuardWrite(
+  index: number,
+  precondition: EventStorePrecondition,
+  content: string,
+  services: TransactionServices,
+): ManagedOperation {
+  const operationId = operationIdAt(index);
+  return {
+    operationId,
+    kind: "write_file",
+    path: precondition.path,
+    expected: precondition.expected,
+    result: contentFingerprint(content, services),
+    stagedPath: `staging/${operationId}.payload`,
+    content,
+  };
+}
+
+function renumbered(
+  operation: ManagedOperation,
+  index: number,
+): ManagedOperation {
+  const operationId = operationIdAt(index);
+  return operation.kind === "write_file"
+    ? {
+        ...operation,
+        operationId,
+        stagedPath: `staging/${operationId}.payload`,
+      }
+    : { ...operation, operationId };
+}
+
+function operationIdAt(index: number): string {
+  return `operation-${String(index + 1).padStart(4, "0")}`;
+}
+
+function contentFingerprint(
+  content: string,
+  services: TransactionServices,
+): PathFingerprint {
+  return {
+    kind: "file",
+    size: new TextEncoder().encode(content).byteLength,
+    sha256: services.digests.sha256(content),
+  };
+}
+
+/**
+ * One lock artifact a guarded transaction depends on, in the only two states
+ * its holder may legitimately observe: as it stood when the guard was prepared,
+ * and as this transaction itself published it.
+ */
+interface GuardedArtifact {
+  readonly path: string;
+  readonly expected: PathFingerprint;
+  readonly published: PathFingerprint;
+}
+
+type LeaseAuthority = readonly [GuardedArtifact, GuardedArtifact];
+
+function bindingAuthority(
+  binding: LeaseGuardBinding,
+  services: TransactionServices,
+): LeaseAuthority {
+  const [events, lease] = binding.expected;
+  return [
+    {
+      path: events.path,
+      expected: events.expected,
+      published: contentFingerprint(binding.eventsText, services),
+    },
+    {
+      path: lease.path,
+      expected: lease.expected,
+      published: contentFingerprint(binding.leaseText, services),
+    },
+  ];
+}
+
+/**
+ * Re-derive a crashed transaction's authority from its own manifest.
+ *
+ * The reserved writes already record both states the check needs, so fencing
+ * survives a crash without adding a manifest property or changing its schema.
+ * A lock's own lifecycle transaction writes exactly those two operations and
+ * nothing else, so a longer plan is what marks a protected caller mutation.
+ */
+function manifestAuthority(
+  manifest: TransactionManifestV1,
+): LeaseAuthority | undefined {
+  const [events, lease] = manifest.operations;
+  if (
+    lease === undefined ||
+    manifest.operations.length <= 2 ||
+    !reservedGuardPath(events.path, "events.jsonl") ||
+    !reservedGuardPath(lease.path, "lease.json")
+  ) {
+    return undefined;
+  }
+  return [
+    { path: events.path, expected: events.expected, published: events.result },
+    { path: lease.path, expected: lease.expected, published: lease.result },
+  ];
+}
+
+/**
+ * Refuse to act unless the lock artifacts still stand where this transaction
+ * left them. Any third state means another writer intervened, which makes this
+ * worker's fencing token stale no matter what it believed when it started.
+ */
+async function assertLeaseAuthority(
+  authority: LeaseAuthority | undefined,
+  services: TransactionServices,
+): Promise<void> {
+  if (authority === undefined) return;
+  for (const artifact of authority) {
+    const observed = await observeFingerprint(artifact.path, services);
+    if (
+      !sameFingerprint(observed, artifact.expected) &&
+      !sameFingerprint(observed, artifact.published)
+    ) {
+      throw new TransactionFailure(
+        "runtime.lease_conflict",
+        evidence(artifact.path),
+      );
+    }
   }
 }
 
@@ -319,7 +577,7 @@ function freezeManagedOperation(
   services: TransactionServices,
 ): ManagedOperation {
   if (!isRecord(value)) throw invalidPlan();
-  const operationId = `operation-${String(index + 1).padStart(4, "0")}`;
+  const operationId = operationIdAt(index);
   if (value.operationId !== operationId || typeof value.path !== "string") {
     throw invalidPlan();
   }
@@ -530,10 +788,17 @@ function invalidPlan(): TransactionFailure {
 
 async function driveExecution(
   plan: ManagedMutationPlan,
-  options: { readonly rootMode: "existing" | "initialize" },
+  options: ExecuteManagedMutationOptions,
   services: TransactionServices,
   attempt: TransactionFailureContext,
 ): Promise<TransactionReceipt> {
+  const authority =
+    options.leaseGuard === undefined
+      ? undefined
+      : bindingAuthority(options.leaseGuard, services);
+  // A worker that has already lost the lease leaves no residue behind: the
+  // refusal lands before this attempt creates a transaction directory at all.
+  await assertLeaseAuthority(authority, services);
   await assertExistingRoot(options.rootMode, services);
 
   const transactionId = services.ids.next();
@@ -626,6 +891,9 @@ async function driveExecution(
   );
   directorySync = await persistProgress(progress, services);
 
+  // Authorizing publication is the last point at which a refusal still leaves a
+  // transaction recovery can simply abort, so the guard is re-derived here.
+  await assertLeaseAuthority(authority, services);
   progress = validateProgress(
     {
       ...progress,
@@ -640,6 +908,7 @@ async function driveExecution(
 
   const publishedOperationIds: string[] = [];
   for (const operation of plan.operations) {
+    await assertLeaseAuthority(authority, services);
     await assertPublishable(operation, services);
     if (operation.kind === "write_file") {
       await assertExecutionPayload(operation, root, services);
@@ -787,6 +1056,14 @@ async function driveRecovery(
   /* v8 ignore next -- inspection validated this entry before recovery */
   if (manifestEntry.kind !== "file") throw corrupt(`${root}/manifest.json`);
   const manifest = await readRequiredManifest(root, progress, services);
+  // Only a transaction that will publish or accept results needs authority. A
+  // recovery that can still abort is safe under any lease, and refusing it
+  // would strand the very residue the abort exists to clear.
+  const authority =
+    progress.phase === "publishing" || progress.phase === "committed"
+      ? manifestAuthority(manifest)
+      : undefined;
+  await assertLeaseAuthority(authority, services);
 
   for (;;) {
     const observation = await observeTransaction(manifest, services);
@@ -854,6 +1131,7 @@ async function driveRecovery(
         if (operation.kind === "write_file") {
           await assertPersistedPayload(operation, services);
         }
+        await assertLeaseAuthority(authority, services);
         await publishPersistedOperation(operation, services);
         let directorySync = mergeDirectorySync(
           progress.directorySync,
@@ -1031,6 +1309,10 @@ async function classifyDriverFailure(
   if (typedFailure !== undefined && transactionId === undefined) {
     throw typedFailure;
   }
+  // A lease conflict is a statement about durable lock state, not about this
+  // transaction's own residue. Re-classifying it as recoverable would invite
+  // the caller to republish under a fencing token that no longer holds.
+  if (typedFailure?.reasonCode === "runtime.lease_conflict") throw typedFailure;
   try {
     if (typedFailure === undefined && transactionId !== undefined) {
       await cleanupUnmarkedTransaction(transactionId, services);

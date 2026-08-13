@@ -31,6 +31,7 @@ export interface TransactionFailureDetail {
   readonly reasonCode:
     | "guard.outside_allow"
     | "runtime.internal_failure"
+    | "runtime.lease_conflict"
     | "runtime.recovery_required"
     | "runtime.revision_conflict"
     | "runtime.state_corrupt"
