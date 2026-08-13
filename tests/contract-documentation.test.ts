@@ -13,6 +13,8 @@ let fixtureIndex: string;
 let resultContract: string;
 let projectDiscovery: string;
 let runtimeBoundaries: string;
+let concurrencyLocks: string;
+let reasonCatalog: string;
 
 beforeAll(async () => {
   [
@@ -23,6 +25,8 @@ beforeAll(async () => {
     resultContract,
     projectDiscovery,
     runtimeBoundaries,
+    concurrencyLocks,
+    reasonCatalog,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -41,6 +45,17 @@ beforeAll(async () => {
     ),
     readFile(
       join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/concurrency-locks.md"),
+      "utf8",
+    ),
+    readFile(
+      join(
+        repositoryRoot,
+        "packages/contracts/catalogs/reason-codes.v1.3.json",
+      ),
       "utf8",
     ),
   ]);
@@ -99,6 +114,21 @@ describe("contract versioning documentation", () => {
     expect(guide).toContain("runtime.node_unsupported");
     expect(resultContract).toContain("reason-codes.v1.3.json");
     expect(resultContract).toContain("runtime.orientation_ok");
+  });
+
+  it("keeps the lock contract inside the published reason catalog", () => {
+    // Every reason the lock guide promises has to be one the result contract
+    // publishes. A document naming a code nothing can emit teaches operators
+    // to look for output they will never see.
+    for (const token of [
+      "runtime.lease_conflict",
+      "runtime.recovery_required",
+      "runtime.state_corrupt",
+      "guard.outside_allow",
+    ]) {
+      expect(concurrencyLocks).toContain(token);
+      expect(reasonCatalog).toContain(`"${token}"`);
+    }
   });
 
   it("keeps README status honest while publishing contract infrastructure", () => {
