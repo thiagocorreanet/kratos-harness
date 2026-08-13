@@ -521,13 +521,20 @@ async function assertDeclaredEventStorePreconditions(
     throw new TransactionFailure("runtime.revision_conflict", evidence);
 }
 
-/** Reconcile safe orphans and reject every transaction requiring recovery. */
+/**
+ * Reconcile safe orphans and reject every transaction requiring recovery.
+ *
+ * `reconcile: false` asks the same question without tidying anything, which is
+ * what a preview needs: a read-only operation that cleared residue on its way
+ * through would be neither read-only nor a preview of what happens next.
+ */
 export async function preflightManagedTransactions(
   options: { readonly rootMode: "existing" | "initialize" },
   services: TransactionServices,
+  reconcile = true,
 ): Promise<void> {
   try {
-    await reconcileUnmarkedTransactions(services);
+    if (reconcile) await reconcileUnmarkedTransactions(services);
     await assertPreflightRoot(options.rootMode, services);
     await rejectIncompleteTransactions(services);
   } catch (error) {
