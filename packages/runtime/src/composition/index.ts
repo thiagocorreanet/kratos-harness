@@ -25,7 +25,6 @@ import {
   nodeFileSystem,
   nodeGitRunner,
   nodeIds,
-  nodeLocks,
   nodeOutput,
   sha256Digests,
 } from "../infra/node/index.js";
@@ -116,15 +115,24 @@ export function createRuntimeAt(
   root: string,
   overrides: Partial<RuntimePorts> = {},
 ): RuntimePorts {
+  const clock = nodeClock();
+  const ids = nodeIds();
   const digests = sha256Digests();
+  const durableFileSystem = nodeDurableFileSystem(root);
   return {
-    clock: nodeClock(),
-    ids: nodeIds(),
+    clock,
+    ids,
     digests,
-    durableFileSystem: nodeDurableFileSystem(root),
+    durableFileSystem,
     fileSystem: nodeFileSystem(root),
     git: composeGit(nodeGitRunner(root), digests),
-    locks: nodeLocks(root),
+    locks: createLocks({
+      clock,
+      ids,
+      digests,
+      durableFileSystem,
+      schemaRegistry: createSchemaRegistry(),
+    }),
     environment: nodeEnvironment(),
     output: nodeOutput(),
     ...overrides,

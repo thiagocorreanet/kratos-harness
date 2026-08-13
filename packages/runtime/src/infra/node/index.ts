@@ -17,13 +17,8 @@ import type {
   FileStat,
   FileSystem,
   Ids,
-  Locks,
   Output,
 } from "../../ports/index.js";
-import { createLocks } from "../../composition/locks.js";
-import { createSchemaRegistry } from "../../composition/schema.js";
-import { sha256Digests } from "../digests.js";
-import { nodeDurableFileSystem } from "./transactions.js";
 
 export { nodeWorkspace } from "./workspace.js";
 export { nodeGitRunner, type GitRunnerOptions } from "./git.js";
@@ -150,16 +145,6 @@ export function nodeFileSystem(root: string): FileSystem {
       }
     },
   };
-}
-
-export function nodeLocks(root: string): Locks {
-  return createLocks({
-    clock: nodeClock(),
-    ids: nodeIds(),
-    digests: sha256Digests(),
-    durableFileSystem: nodeDurableFileSystem(root),
-    schemaRegistry: createSchemaRegistry(),
-  });
 }
 
 export function nodeEnvironment(): Environment {

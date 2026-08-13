@@ -11,13 +11,9 @@ import type {
   FileStat,
   FileSystem,
   Ids,
-  Locks,
   Output,
   Workspace,
 } from "../../ports/index.js";
-import { createLocks } from "../../composition/locks.js";
-import { createSchemaRegistry } from "../../composition/schema.js";
-import { memoryTransactionStorage } from "./transactions.js";
 
 export { stubGit } from "./git.js";
 export {
@@ -201,19 +197,6 @@ export function memoryFileSystem(
         return null;
       }),
   };
-}
-
-export function memoryLocks(
-  clock: Clock = fixedClock("2026-08-07T00:00:00.000Z"),
-): Locks {
-  const storage = memoryTransactionStorage();
-  return createLocks({
-    clock,
-    ids: sequentialIds("memory-lock"),
-    digests: storage.digests,
-    durableFileSystem: storage.durableFileSystem,
-    schemaRegistry: createSchemaRegistry(),
-  });
 }
 
 export function fixedEnvironment(
