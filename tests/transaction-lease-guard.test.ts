@@ -232,7 +232,7 @@ describe("protected transaction lease guard", () => {
     ["a number guard", { guard: 1 }],
     ["a null guard", { guard: null }],
     ["a proxied guard", { guard: new Proxy({}, {}) }],
-    ["a prototype-less guard", { guard: Object.create(null) as object }],
+    ["a prototype-less guard", { guard: bareObject() }],
     ["a non-string lease text", { leaseText: 1 }],
     ["a non-string events text", { eventsText: null }],
     ["a truncated expected pair", { expected: [] }],
@@ -264,6 +264,11 @@ describe("protected transaction lease guard", () => {
 
 const FINGERPRINT = { kind: "missing" } as const;
 
+/** An object with no prototype, which the shape validator must refuse. */
+function bareObject(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
 /** Every rejected binding must be refused before a single durable call. */
 async function expectRefusedBinding(
   value: unknown,
@@ -281,7 +286,7 @@ async function expectRefusedBinding(
       callerPlan(subject.storage),
       {
         rootMode: "existing",
-        leaseGuard: value as unknown as LeaseGuardBinding,
+        leaseGuard: value as LeaseGuardBinding,
       },
       subject.services,
     ),
