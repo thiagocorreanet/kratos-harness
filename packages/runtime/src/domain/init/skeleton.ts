@@ -6,18 +6,11 @@ import {
 
 import type { Effect } from "../effects.js";
 
+import {
+  MANAGED_SECTION_BEGIN,
+  MANAGED_SECTION_END,
+} from "./managed-section.js";
 import type { StackProfile } from "./stack.js";
-
-/**
- * The delimiters around everything initialization owns inside a file a person
- * may already have written.
- *
- * They are content, not formatting: an update replaces what sits between them
- * and nothing else, so a file without them cannot be updated safely.
- */
-export const MANAGED_SECTION_BEGIN =
-  "<!-- BEGIN MESTRE YODA MANAGED SECTION -->";
-export const MANAGED_SECTION_END = "<!-- END MESTRE YODA MANAGED SECTION -->";
 
 type Answers = Required<InitAnswersV1>;
 type Host = Answers["hosts"][number];
