@@ -101,19 +101,31 @@ between these classes has to be acknowledged rather than passing unnoticed.
 
 ## Known boundary
 
-Multi-process contention is not proven here. Writing that suite exposed two
-defects the single-threaded fake could not reach, both fixed in
-`fix: stop reading concurrent cleanup as corruption`: `createDirectory` losing
-an `EEXIST` race, and candidate validation reading a vanished entry as
-corruption.
+Multi-process contention is now exercised by `tests/lock-process-contention`
+over eight real processes. `RUN-07a` closed the misclassification half of the
+gap: no contender is told that a sibling's in-flight candidate is corrupt
+state, and the fault campaign moved two crash boundaries out of `repair` and
+into `unchanged` because the residue they left was a concurrent removal rather
+than uninterpretable bytes.
 
-What remains is that real OS-level interleaving can still misclassify a worker
-that loses the admission election, reporting `runtime.internal_failure` instead
-of a conflict. Mutual exclusion is not affected — exactly one contender
-acquires in every observed round — but the losers' classification is.
-Issue [#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) owns
-finishing that work, and the worker and harness it will build on are preserved
-on the `spike/multi-process-lock-harness` branch.
+Two behaviours remain open on
+[#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) and are carried
+into [#106](https://github.com/thiagocorreanet/mestre-yoda/issues/106), both
+recorded by that suite rather than assumed away:
+
+- A contender that loses the admission election is reported instead of
+  re-elected. Rounds therefore exist in which no worker acquires and no lease
+  is published, while the losers still receive a conflict. Mutual exclusion is
+  unaffected — no observed round admitted two writers, and the winner always
+  opens fencing token 1.
+- `.brain/locks/.admission` serializes administration project-wide, so two
+  processes acquiring independent runs concurrently do not both succeed, which
+  the scope rules require.
+
+A retry at the admission layer was tried and rejected: `lost` legitimately
+means both "a sibling is administering" and "this operation faulted", so
+re-electing on it masked injected storage faults and weakened the crash-safety
+the campaign proves.
 
 Seven concurrency branches in `composition/locks.ts` carry coverage directives
 rather than tests. An entry whose name a listing just returned always still

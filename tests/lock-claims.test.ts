@@ -4838,7 +4838,10 @@ describe("durable lock claims", () => {
     },
   );
 
-  it("rejects an overlapping but otherwise valid legacy admission layout on inspection", async () => {
+  it("accepts a legacy admission record beside its own tombstone on inspection", async () => {
+    // Retirement links the tombstone before removing the record it retires, so
+    // an observer between the two publications sees both. That pair is a
+    // retirement in flight rather than a namespace nothing can interpret.
     const stale: LockClaimRecord = {
       ...observedRecord,
       claimId: "legacy-inspection-overlap",
@@ -4850,6 +4853,29 @@ describe("durable lock claims", () => {
         [lockPaths("project").admissionRecord]: canonicalizeJson(stale),
         [`${lockPaths("project").admissionClaim}/.retired-${digest}.json`]:
           canonicalizeJson(stale),
+      },
+    });
+    await expect(
+      inspectLease("project", services(storage)),
+    ).resolves.toMatchObject({ kind: "empty" });
+  });
+
+  it("rejects a legacy admission record beside a tombstone for another claim", async () => {
+    const holder: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "legacy-inspection-holder",
+      resource: "admission",
+    };
+    const other: LockClaimRecord = {
+      ...holder,
+      claimId: "legacy-inspection-other",
+    };
+    const digest = sha256Digests().sha256(canonicalizeJson(other));
+    const storage = lockStorage({
+      files: {
+        [lockPaths("project").admissionRecord]: canonicalizeJson(holder),
+        [`${lockPaths("project").admissionClaim}/.retired-${digest}.json`]:
+          canonicalizeJson(other),
       },
     });
     await expect(
@@ -7005,5 +7031,684 @@ describe("durable lock claims", () => {
       acquireClaim(projectClaim, services(storage)),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.snapshot()).toEqual(before);
+  });
+
+  it("keeps acquiring when the admission parent retires while its children are listed", async () => {
+    const parent = lockPaths("project").admissionClaim;
+    const storage = lockStorage({ directories: [parent] });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== parent || ++listings !== 1) return baseList(path);
+            await baseRemoveDirectory(parent);
+            throw new Error("parent retired mid-listing");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+  });
+
+  it("locates no admission when its parent retires between the inspection and the listing", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-parent-listing",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const generation = parentDirectory(record);
+    const parent = lockPaths("project").admissionClaim;
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== parent || ++listings !== 2) return baseList(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            await baseRemoveDirectory(parent);
+            throw new Error("admission retired mid-listing");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("locates no admission generation a stale parent listing still names", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-generation-stale",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const generation = parentDirectory(record);
+    const parent = lockPaths("project").admissionClaim;
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== parent || ++listings !== 2) return baseList(path);
+            const names = await baseList(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            return names;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("validates no children of an admission generation its own retirement removed", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-generation-children",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const generation = parentDirectory(record);
+    const parent = lockPaths("project").admissionClaim;
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== parent || ++listings !== 1) return baseList(path);
+            const names = await baseList(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            return names;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("locates no admission generation that vanishes as it is inspected", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-generation-inspect",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const generation = parentDirectory(record);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== generation || ++inspections !== 1)
+              return baseInspect(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            throw new Error("generation retired mid-inspection");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reads no admission record retired before its inspection", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-record-inspect",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== record || ++inspections !== 1)
+              return baseInspect(path);
+            await baseRemove(record);
+            throw new Error("record retired mid-inspection");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reads no admission record retired between its inspection and its read", async () => {
+    const held: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-record-read",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const record = publishedAdmissionRecord(held);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(held) },
+    });
+    const baseReadText = storage.durableFileSystem.readText;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          readText: async (path) => {
+            if (path !== record) return baseReadText(path);
+            await baseRemove(record);
+            throw new Error("record retired mid-read");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reads no admission candidate record published away before its inspection", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "candidate-record-inspect",
+      resource: "admission",
+    };
+    const record = candidateAdmissionRecord(stale);
+    const root = parentDirectory(parentDirectory(record));
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== record || ++inspections !== 1)
+              return baseInspect(path);
+            await baseRemove(record);
+            throw new Error("candidate published mid-inspection");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).not.toContain(root);
+  });
+
+  it("reads no admission candidate record published away before its read", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "candidate-record-read",
+      resource: "admission",
+    };
+    const record = candidateAdmissionRecord(stale);
+    const root = parentDirectory(parentDirectory(record));
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseReadText = storage.durableFileSystem.readText;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          readText: async (path) => {
+            if (path !== record) return baseReadText(path);
+            await baseRemove(record);
+            throw new Error("candidate published mid-read");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).not.toContain(root);
+  });
+
+  it("drops an admission candidate whose generation vanished mid-validation", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "candidate-generation-vanished",
+      resource: "admission",
+    };
+    const record = candidateAdmissionRecord(stale);
+    const generation = parentDirectory(record);
+    const root = parentDirectory(generation);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== generation || ++inspections !== 3)
+              return baseInspect(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            throw new Error("candidate generation published mid-validation");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).toContain(root);
+  });
+
+  it("drops an admission candidate whose record vanished mid-validation", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "candidate-record-vanished",
+      resource: "admission",
+    };
+    const record = candidateAdmissionRecord(stale);
+    const generation = parentDirectory(record);
+    const root = parentDirectory(generation);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== generation || ++listings !== 3) return baseList(path);
+            await baseRemove(record);
+            throw new Error("candidate record published mid-validation");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).toContain(root);
+  });
+
+  it("drops a scope candidate whose generation vanished mid-validation", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "scope-candidate-generation-vanished",
+    };
+    const record = candidateScopeRecord(stale);
+    const generation = parentDirectory(record);
+    const root = parentDirectory(generation);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    const baseRename = storage.durableFileSystem.renameDirectoryExclusive;
+    let admitted = false;
+    let raced = false;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          renameDirectoryExclusive: async (source, target) => {
+            await baseRename(source, target);
+            if (target === lockPaths("project").admissionClaim) admitted = true;
+          },
+          inspect: async (path) => {
+            if (path !== generation || !admitted || raced)
+              return baseInspect(path);
+            raced = true;
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            throw new Error("scope generation published mid-validation");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).toContain(root);
+  });
+
+  it("drops a scope candidate whose record vanished mid-validation", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "scope-candidate-record-vanished",
+    };
+    const record = candidateScopeRecord(stale);
+    const root = parentDirectory(parentDirectory(record));
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseReadText = storage.durableFileSystem.readText;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRename = storage.durableFileSystem.renameDirectoryExclusive;
+    let admitted = false;
+    let raced = false;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          renameDirectoryExclusive: async (source, target) => {
+            await baseRename(source, target);
+            if (target === lockPaths("project").admissionClaim) admitted = true;
+          },
+          readText: async (path) => {
+            if (path !== record || !admitted || raced)
+              return baseReadText(path);
+            raced = true;
+            await baseRemove(record);
+            throw new Error("scope record published mid-validation");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).toContain(root);
+  });
+
+  it("reports no cleanup marker after a concurrent cleanup removed the one just listed", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-marker-vanished",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const marker = admissionCleanupMarker(stale);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== marker || ++inspections !== 6)
+              return baseInspect(path);
+            await baseRemoveDirectory(marker);
+            throw new Error("marker cleaned mid-lookup");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("normalizes a cleanup marker lookup fault its own marker survives", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-marker-lookup-fault",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const marker = admissionCleanupMarker(stale);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+      directories: [marker],
+    });
+    const baseInspect = storage.durableFileSystem.inspect;
+    let inspections = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          inspect: async (path) => {
+            if (path !== marker || ++inspections !== 6)
+              return baseInspect(path);
+            throw new Error("marker lookup fault");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.internal_failure" });
+    expect(storage.snapshot().directories).toContain(marker);
+    expect(storage.snapshot().files[record]).toBe(canonicalizeJson(stale));
+  });
+
+  it("reads no tombstone from a generation retired before the tombstone listing", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "tombstone-generation-retired",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const generation = parentDirectory(record);
+    const storage = lockStorage({
+      files: { [record]: canonicalizeJson(stale) },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== generation || ++listings !== 4) return baseList(path);
+            await baseRemove(record);
+            await baseRemoveDirectory(generation);
+            throw new Error("generation retired mid-listing");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reads no tombstone a concurrent cleanup removed after listing it", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "tombstone-listed-then-removed",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const generation = parentDirectory(record);
+    const tombstone = admissionTombstone(stale);
+    const storage = lockStorage({
+      files: {
+        [record]: canonicalizeJson(stale),
+        [tombstone]: canonicalizeJson(stale),
+      },
+    });
+    const baseList = storage.durableFileSystem.list;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    let listings = 0;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          list: async (path) => {
+            if (path !== generation || ++listings !== 4) return baseList(path);
+            const names = await baseList(path);
+            await baseRemove(tombstone);
+            return names;
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reads no tombstone whose file vanishes during the read", async () => {
+    const stale: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "tombstone-read-vanished",
+      resource: "admission",
+    };
+    const record = publishedAdmissionRecord(stale);
+    const tombstone = admissionTombstone(stale);
+    const storage = lockStorage({
+      files: {
+        [record]: canonicalizeJson(stale),
+        [tombstone]: canonicalizeJson(stale),
+      },
+    });
+    const baseReadText = storage.durableFileSystem.readText;
+    const baseRemove = storage.durableFileSystem.removeFile;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          readText: async (path) => {
+            if (path !== tombstone) return baseReadText(path);
+            await baseRemove(tombstone);
+            throw new Error("tombstone cleaned mid-read");
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().files[record]).toBeUndefined();
+  });
+
+  it("reports a lost admission clear when a contender publishes into the parent", async () => {
+    const contender: LockClaimRecord = {
+      ...observedRecord,
+      claimId: "admission-parent-contender",
+      resource: "admission",
+      expiresAt: "2026-08-11T00:05:00.000Z",
+    };
+    const parent = lockPaths("project").admissionClaim;
+    const published = parentDirectory(publishedAdmissionRecord(contender));
+    const storage = lockStorage({ directories: [parent] });
+    const baseRemoveDirectory = storage.durableFileSystem.removeEmptyDirectory;
+    const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          removeEmptyDirectory: async (path) => {
+            if (path !== parent) return baseRemoveDirectory(path);
+            await baseCreate(published);
+            throw new Error("parent claimed mid-clear");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      reasonCode: "runtime.recovery_required",
+      evidence: [{ kind: "artifact", ref: ".brain/locks/.admission" }],
+    });
+  });
+
+  it("retires an admission through a cleanup marker another worker already elected", async () => {
+    const admission: LockClaimRecord = {
+      claimId: "claim-1",
+      resource: "admission",
+      owner: "codex:session-01",
+      leaseId: null,
+      fencingToken: null,
+      acquiredAt: "2026-08-11T00:01:00.000Z",
+      expiresAt: "2026-08-11T00:01:30.000Z",
+    };
+    const marker = admissionCleanupMarker(admission);
+    const storage = lockStorage();
+    const baseWrite = storage.durableFileSystem.writeSynced;
+    const baseCreate = storage.durableFileSystem.createDirectoryExclusive;
+    await expect(
+      acquireClaim(
+        projectClaim,
+        withDurable(storage, {
+          writeSynced: async (path, content) => {
+            await baseWrite(path, content);
+            if (isScopeRecordPath(path)) await baseCreate(marker);
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      resource: "project",
+      owner: "codex:session-01",
+    });
+    expect(storage.snapshot().directories).not.toContain(
+      lockPaths("project").admissionClaim,
+    );
   });
 });
