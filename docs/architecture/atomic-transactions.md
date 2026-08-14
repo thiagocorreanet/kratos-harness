@@ -7,7 +7,7 @@ It does not add a public state command or complete the SDD trail. The staged CLI
 still supports only `help`, `version`, and `handshake`.
 
 The boundary turns one normalized, ordered managed mutation plan into a durable
-transaction below `.brain/`. That normalized plan is currently an internal
+transaction inside the managed surface. That normalized plan is currently an internal
 input to execution. This issue adds no public dry-run wiring; a future command
 can render the same plan without creating transaction metadata. A plan whose
 results are already present is a no-op and also creates no transaction.
@@ -15,9 +15,27 @@ results are already present is a no-op and also creates no transaction.
 ## Managed scope and layout
 
 Caller-owned operations may create directories, write files, or delete regular
-files below `.brain/`. The transaction manager exclusively owns
-`.brain/transactions/**`; a caller cannot target that namespace, even through a
-case variant.
+files inside the managed surface:
+
+| Destination | Accepted | Why |
+| --- | --- | --- |
+| `.brain/**` | yes | Managed state |
+| `.brain/transactions/**` | no | The transaction manager owns the namespace exclusively, even through a case variant |
+| `.claude/**`, `.codex/**` | yes | The host surfaces `init` generates |
+| `CLAUDE.md`, `AGENTS.md` | yes | The two instruction files, by exact spelling |
+| Any other root file | no | A pattern over the project root would accept files this runtime has no business writing |
+| `.brain` itself | no | The manager creates it before any plan runs; two owners for one directory is one too many |
+| `.claude`, `.codex` themselves | as directories only | A host root has no bootstrap, so the plan that writes inside one creates it |
+
+One module states this rule and every layer reads it: the domain normalizer,
+the transaction manager, and the Node adapter. The adapter answers a
+deliberately wider question than a plan may ask, because the manager writes its
+own reserved namespace through that same adapter.
+
+A destination at the project root has the root as its parent. `inspect` and
+`syncDirectory` accept the exact `.` sentinel for that reason, and no other
+operation does: the project root is not a file to read, a directory to create,
+or an entry to remove.
 
 An active or retained transaction uses this bounded layout:
 
@@ -149,7 +167,7 @@ capability actually observed.
 | Incomplete transaction or terminal cleanup residue | `runtime.recovery_required` |
 | Destination drift before publication | `runtime.revision_conflict` |
 | Invalid marker, bound manifest, progress, payload, layout, or ambiguous destination | `runtime.state_corrupt` |
-| Destination outside `.brain/` or inside the reserved namespace | `guard.outside_allow` |
+| Destination outside the managed surface or inside the reserved namespace | `guard.outside_allow` |
 | Unexpected failure before a durable marker exists | `runtime.internal_failure` |
 
 Universal results use catalog text and relative evidence only. They never
@@ -160,10 +178,10 @@ transaction terminal first.
 
 ## Path and cleanup safety
 
-Every destination must be one canonical project-relative spelling below
-`.brain/`. Absolute, drive-qualified, backslash-bearing, control-character,
-traversing, empty, reserved, overlapping, contradictory, and case-colliding
-paths are rejected before mutation.
+Every destination must be one canonical project-relative spelling inside the
+managed surface. Absolute, drive-qualified, backslash-bearing,
+control-character, traversing, empty, reserved, overlapping, contradictory, and
+case-colliding paths are rejected before mutation.
 
 The Node adapter anchors operations to the original canonical project root and
 revalidates that root plus every existing path component without following
