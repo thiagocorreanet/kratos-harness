@@ -3,7 +3,13 @@ import { builtinModules } from "node:module";
 import { posix } from "node:path";
 
 export type Layer =
-  "domain" | "ports" | "infra" | "composition" | "entry" | "contracts";
+  | "domain"
+  | "ports"
+  | "infra"
+  | "composition"
+  | "entry"
+  | "contracts"
+  | "adapters";
 
 export interface SourceModule {
   readonly path: string;
@@ -69,6 +75,7 @@ export async function collectImports(file: string): Promise<readonly string[]> {
 
 export function classifyLayer(path: string): Layer {
   if (path.startsWith("packages/contracts/")) return "contracts";
+  if (path.startsWith("packages/adapters/")) return "adapters";
   if (path.includes("/src/domain/")) return "domain";
   if (path.includes("/src/ports/")) return "ports";
   if (path.includes("/src/infra/")) return "infra";
@@ -98,6 +105,7 @@ function targetLayer(specifier: string): Target | null {
     return "schemas";
   }
   if (specifier.startsWith("@mestre-yoda/contracts")) return "contracts";
+  if (specifier.startsWith("@mestre-yoda/adapters")) return "adapters";
   if (specifier.includes("/domain/") || specifier.endsWith("/domain")) {
     return "domain";
   }
@@ -144,7 +152,15 @@ const rules: {
 }[] = [
   {
     from: "domain",
-    forbidden: ["node", "infra", "composition", "entry", "ajv", "schemas"],
+    forbidden: [
+      "node",
+      "infra",
+      "composition",
+      "entry",
+      "ajv",
+      "schemas",
+      "adapters",
+    ],
     reason: (target) =>
       target === "node"
         ? "domain must not import Node.js builtins"
@@ -156,7 +172,15 @@ const rules: {
   },
   {
     from: "ports",
-    forbidden: ["node", "infra", "composition", "entry", "ajv", "schemas"],
+    forbidden: [
+      "node",
+      "infra",
+      "composition",
+      "entry",
+      "ajv",
+      "schemas",
+      "adapters",
+    ],
     reason: (target) =>
       target === "node"
         ? "ports must not import Node.js builtins"
@@ -173,8 +197,30 @@ const rules: {
   },
   {
     from: "contracts",
-    forbidden: ["domain", "ports", "infra", "composition", "entry"],
+    forbidden: ["domain", "ports", "infra", "composition", "entry", "adapters"],
     reason: (target) => `contracts must not import ${target}`,
+  },
+  {
+    // An adapter translates and relays. Denying it the runtime's own layers is
+    // what makes "adapters never own transition policy" structural rather than
+    // a rule each adapter is trusted to have followed.
+    from: "adapters",
+    forbidden: [
+      "node",
+      "domain",
+      "ports",
+      "infra",
+      "composition",
+      "entry",
+      "ajv",
+      "schemas",
+    ],
+    reason: (target) =>
+      target === "node"
+        ? "adapters must not import Node.js builtins"
+        : target === "ajv" || target === "schemas"
+          ? "adapters must not import schema infrastructure"
+          : `adapters must not import ${target}`,
   },
 ];
 

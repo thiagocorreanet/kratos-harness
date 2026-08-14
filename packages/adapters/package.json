@@ -3,5 +3,8 @@
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@mestre-yoda/contracts": "0.0.0-development"
+  }
 }

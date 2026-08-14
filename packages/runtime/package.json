@@ -15,6 +15,7 @@
     "./domain/cli": "./src/domain/cli/index.ts",
     "./domain/effects": "./src/domain/effects.ts",
     "./domain/events": "./src/domain/events/index.ts",
+    "./domain/host": "./src/domain/host/index.ts",
     "./domain/init": "./src/domain/init/index.ts",
     "./domain/locks": "./src/domain/locks/index.ts",
     "./domain/objective": "./src/domain/objective/index.ts",
