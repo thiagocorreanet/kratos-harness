@@ -252,16 +252,23 @@ describe("lock fault campaign", () => {
       }
 
       // Pinned so that a protocol change moving boundaries between these
-      // classes has to be acknowledged rather than passing unnoticed. Twelve of
+      // classes has to be acknowledged rather than passing unnoticed. Ten of
       // the 328 crashes need a person: eight ask for the explicit recovery this
-      // subsystem already offers, and four leave claim bytes no protocol can
-      // interpret, which is the repair `OBS-02` exists to build.
+      // subsystem already offers, and two leave claim bytes no protocol can
+      // interpret, which is the repair `OBS-02` exists to build. Those two are
+      // `write_file:before:2` and `remove_empty_directory:before:8`.
+      //
+      // `RUN-07a` moved two boundaries out of `repair` and into `unchanged`:
+      // both stranded state that a concurrent publisher had already removed,
+      // which the protocol used to read as uninterpretable claim bytes and now
+      // recovers from. Nothing moved the other way, and neither `published` nor
+      // `explicit_recovery` changed.
       expect(tally).toEqual({
         inert: 2,
         published: 74,
-        unchanged: 240,
+        unchanged: 242,
         explicit_recovery: 8,
-        repair: 4,
+        repair: 2,
       });
     },
     campaignTimeoutMilliseconds,

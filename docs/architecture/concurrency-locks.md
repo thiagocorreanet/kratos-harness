@@ -164,10 +164,26 @@ machine. It is not an authentication mechanism. Anything that can write to
 `.brain/locks/**` outside the protocol can forge a lease, and the durable
 integrity checks make that visible rather than impossible.
 
-Concurrent observers are a live boundary. The protocol was hardened where a
-lost race was reported as corruption, but real multi-process contention can
-still misclassify a worker that loses the admission election. Issue
-[#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) owns finishing
-that work; until it lands, treat a `runtime.state_corrupt` naming an entry
-under `.brain/locks/.admission` as possible contention rather than as proof of
-damage.
+Concurrent observers are a live boundary, and `tests/lock-process-contention`
+holds it with eight real processes rather than one simulated one.
+
+Every read below `.brain/locks` races a publisher. The rule the readers apply
+is that a path which is *gone* was published or reclaimed by whoever owned it,
+while a path which *exists* and holds something no protocol can interpret is
+damage. The distinction matters at the ancestor too: a retirement removes a
+generation directory out from under a read that never reaches its target, so
+the readers walk the chain up to the namespace before deciding. A record beside
+its own tombstone is likewise a retirement in flight — the tombstone is linked
+before the record it retires is removed — and only a tombstone naming a
+different claim is uninterpretable.
+
+Two gaps remain, tracked by
+[#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) and owned by
+[#106](https://github.com/thiagocorreanet/mestre-yoda/issues/106). A contender
+that loses the admission election is still reported rather
+than re-elected, so a round can end with no winner at all even though no lease
+was published. And because `.brain/locks/.admission` serializes administration
+for the whole project, a contender for one run can be refused on account of a
+worker administering a different one, which the scope rules above say must
+never conflict. Until that lands, treat a conflict naming `admission` as a
+report about the administration rather than about the resource.

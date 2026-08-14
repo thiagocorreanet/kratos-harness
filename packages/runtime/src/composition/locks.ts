@@ -370,6 +370,10 @@ async function admissionRecoveryMarkers(
         continue;
       }
       const entry = await services.durableFileSystem.inspect(marker.path);
+      // A recovery that completed between the listing above and this
+      // inspection removed its own marker.
+      /* v8 ignore next -- only a concurrent recovery removes a marker a listing just reported */
+      if (entry.kind === "missing") continue;
       if (entry.kind !== "directory") throw corrupt(marker.path);
       if ((await services.durableFileSystem.list(marker.path)).length !== 0)
         throw corrupt(marker.path);
@@ -425,6 +429,8 @@ async function assertAdmissionClaimChildren(
     }
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // An admission retired mid-listing has no children left to validate.
+    if (await vanishedUnderLocks(admissionClaim, services)) return;
     throw internal();
   }
 }
@@ -492,7 +498,11 @@ async function inspectLockNamespace(
     }
     const holder = await readAdmissionClaim(services);
     const retired = await readAdmissionTombstone(services);
-    if (holder !== null && retired !== null) throw corrupt(admissionClaim);
+    // A retirement links the tombstone before removing the record it retires,
+    // so an observer between the two publications legitimately sees both. Only
+    // a tombstone that retires a different claim is uninterpretable, which is
+    // the rule every other admission reader already applies.
+    assertCompatibleAdmissionRecords(holder, retired);
     await validateAdmissionRecoveryMarkers(holder, retired, services);
   }
   const runs = await inspect(`${locksRoot}/runs`);
@@ -840,9 +850,15 @@ async function assertScopeCandidate(
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     // A listing or read can fail because the entry went away mid-inspection,
-    // which the explicit checks above cannot observe on their own.
+    // which the explicit checks above cannot observe on their own. The
+    // generation and the record disappear ahead of the candidate that holds
+    // them, so a check confined to the candidate would miss the common shape.
     /* v8 ignore next -- only a concurrent cleanup makes a just-listed entry unreadable */
-    if (await vanished(candidate.path, services)) return false;
+    if (await vanishedUnderLocks(candidate.path, services)) return false;
+    if (await vanishedUnderLocks(candidate.location.directory, services))
+      return false;
+    if (await vanishedUnderLocks(candidate.location.recordPath, services))
+      return false;
     throw internal();
   }
 }
@@ -1048,6 +1064,7 @@ async function readAdmissionClaim(
     entry = await services.durableFileSystem.inspect(location.recordPath);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(location.recordPath, services)) return null;
     throw internal();
   }
   if (entry.kind === "missing") return null;
@@ -1057,6 +1074,7 @@ async function readAdmissionClaim(
     text = await services.durableFileSystem.readText(location.recordPath);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(location.recordPath, services)) return null;
     throw internal();
   }
   try {
@@ -1098,6 +1116,9 @@ async function locateAdmission(
     names = await services.durableFileSystem.list(admissionClaim);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A published admission that its own holder retired between the
+    // inspection and the listing is gone, and nothing locates it.
+    if (await vanishedUnderLocks(admissionClaim, services)) return null;
     throw internal();
   }
   const generations = names
@@ -1114,10 +1135,14 @@ async function locateAdmission(
   const location = generations[0]!;
   try {
     const entry = await services.durableFileSystem.inspect(location.directory);
+    // A generation retired between the listing above and this inspection is
+    // gone, and nothing locates an admission that is no longer published.
+    if (entry.kind === "missing") return null;
     if (entry.kind !== "directory") throw corrupt(location.directory);
     await assertAdmissionGenerationChildren(location, services);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(location.directory, services)) return null;
     throw internal();
   }
   return location;
@@ -1135,9 +1160,16 @@ async function assertAdmissionGenerationChildren(
   if (generation === null) throw corrupt(location.directory);
   const [, generationSha256] = generation as unknown as [string, string];
   const markers: AdmissionCleanupMarker[] = [];
-  for (const name of await services.durableFileSystem.list(
-    location.directory,
-  )) {
+  let names: readonly string[];
+  try {
+    names = await services.durableFileSystem.list(location.directory);
+  } catch (error) {
+    if (error instanceof LockFailure) throw error;
+    // A generation its own retirement removed has no children left to check.
+    if (await vanishedUnderLocks(location.directory, services)) return;
+    throw internal();
+  }
+  for (const name of names) {
     const marker = parseAdmissionCleanupMarker(location, name);
     if (marker !== null) {
       markers.push(marker);
@@ -1154,9 +1186,23 @@ async function assertAdmissionGenerationChildren(
   for (const marker of markers) {
     if (marker.claimSha256 !== generationSha256) throw corrupt(marker.path);
     const entry = await services.durableFileSystem.inspect(marker.path);
+    // The cleanup this marker elects takes the marker with it when it
+    // finishes, so a listing can name one that no longer exists.
+    /* v8 ignore next -- only a concurrent cleanup removes a marker a listing just reported */
+    if (entry.kind === "missing") continue;
     if (entry.kind !== "directory") throw corrupt(marker.path);
-    if ((await services.durableFileSystem.list(marker.path)).length !== 0)
-      throw corrupt(marker.path);
+    let children: readonly string[];
+    try {
+      children = await services.durableFileSystem.list(marker.path);
+    } catch (error) {
+      /* v8 ignore next -- the listing above rejects raw port errors only */
+      if (error instanceof LockFailure) throw error;
+      /* v8 ignore next -- only a concurrent cleanup unlists a just-inspected marker */
+      if (await vanishedUnderLocks(marker.path, services)) continue;
+      /* v8 ignore next -- storage that fails a listing it just inspected */
+      throw internal();
+    }
+    if (children.length !== 0) throw corrupt(marker.path);
   }
 }
 
@@ -1171,6 +1217,8 @@ async function readAdmissionCandidate(
     );
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(candidate.location.recordPath, services))
+      return null;
     throw internal();
   }
   if (entry.kind === "missing") return null;
@@ -1199,6 +1247,12 @@ async function readAdmissionCandidate(
     });
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // The record can go away between the inspection above and this read: its
+    // owner publishes the candidate or reclaims it. A path that is gone was
+    // never damaged, and reading it as corruption blames a sibling for
+    // finishing.
+    if (await vanishedUnderLocks(candidate.location.recordPath, services))
+      return null;
     throw corrupt(candidate.location.recordPath);
   }
 }
@@ -1223,6 +1277,31 @@ async function vanished(
     return false;
   }
   /* v8 ignore stop */
+}
+
+/**
+ * Whether a lock path lost itself or an ancestor to a concurrent publisher.
+ *
+ * A read below `.brain/locks` fails in two shapes when a sibling retires an
+ * admission or a claim: the path itself disappears, or a directory above it
+ * does and the port rejects before ever reaching the path. Both mean the state
+ * is gone rather than damaged, and only a walk up the chain observes the
+ * second. The walk stops at the lock namespace, which the protocol creates and
+ * never removes.
+ */
+async function vanishedUnderLocks(
+  path: string,
+  services: LockServices,
+): Promise<boolean> {
+  let current = path;
+  while (current.length > locksRoot.length && current.startsWith(locksRoot)) {
+    if (await vanished(current, services)) return true;
+    const cut = current.lastIndexOf("/");
+    /* v8 ignore next -- every lock path below the namespace has a separator */
+    if (cut < 0) return false;
+    current = current.slice(0, cut);
+  }
+  return false;
 }
 
 /** Validate one candidate, or report that it is no longer there to validate. */
@@ -1260,9 +1339,15 @@ async function assertAdmissionCandidate(
   } catch (error) {
     if (error instanceof LockFailure) throw error;
     // A listing or read can fail because the entry went away mid-inspection,
-    // which the explicit checks above cannot observe on their own.
+    // which the explicit checks above cannot observe on their own. The
+    // generation and the record disappear ahead of the candidate that holds
+    // them, so a check confined to the candidate would miss the common shape.
     /* v8 ignore next -- only a concurrent cleanup makes a just-listed entry unreadable */
-    if (await vanished(candidate.path, services)) return false;
+    if (await vanishedUnderLocks(candidate.path, services)) return false;
+    if (await vanishedUnderLocks(candidate.location.directory, services))
+      return false;
+    if (await vanishedUnderLocks(candidate.location.recordPath, services))
+      return false;
     throw internal();
   }
 }
@@ -1326,6 +1411,7 @@ async function admissionCleanupMarker(
   location: AdmissionLocation,
   services: LockServices,
 ): Promise<AdmissionCleanupMarker | null> {
+  let markerPath: string | null = null;
   try {
     const markers = (await services.durableFileSystem.list(location.directory))
       .map((name) => parseAdmissionCleanupMarker(location, name))
@@ -1336,7 +1422,12 @@ async function admissionCleanupMarker(
     // Cardinality was established immediately above.
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const marker = markers[0]!;
+    markerPath = marker.path;
     const entry = await services.durableFileSystem.inspect(marker.path);
+    // A cleanup that completed while this lookup ran took its own marker with
+    // it, which leaves nothing to report rather than something to repair.
+    /* v8 ignore next -- only a concurrent cleanup removes a marker a listing just reported */
+    if (entry.kind === "missing") return null;
     /* v8 ignore next -- generation validation already closed this exact nested marker */
     if (entry.kind !== "directory") throw corrupt(marker.path);
     /* v8 ignore next -- generation validation already proved this marker empty */
@@ -1346,7 +1437,9 @@ async function admissionCleanupMarker(
   } catch (error) {
     /* v8 ignore next -- typed propagation is exercised at the enclosing generation validator */
     if (error instanceof LockFailure) throw error;
-    /* v8 ignore next -- raw normalization is exercised at the enclosing generation validator */
+    if (await vanishedUnderLocks(location.directory, services)) return null;
+    if (markerPath !== null && (await vanishedUnderLocks(markerPath, services)))
+      return null;
     throw internal();
   }
 }
@@ -1410,6 +1503,7 @@ async function readAdmissionTombstone(
     names = await services.durableFileSystem.list(location.directory);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(location.directory, services)) return null;
     throw internal();
   }
   const tombstones = names
@@ -1424,10 +1518,14 @@ async function readAdmissionTombstone(
   let text: string;
   try {
     entry = await services.durableFileSystem.inspect(tombstone.path);
+    // A tombstone its own cleanup removed between the listing above and this
+    // inspection is gone, not damaged.
+    if (entry.kind === "missing") return null;
     if (entry.kind !== "file") throw corrupt(tombstone.path);
     text = await services.durableFileSystem.readText(tombstone.path);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    if (await vanishedUnderLocks(tombstone.path, services)) return null;
     throw internal();
   }
   try {
@@ -2231,6 +2329,12 @@ async function resolveAdmissionRecovery(
       const current = await services.durableFileSystem.inspect(admissionClaim);
       if (current.kind === "missing") return { kind: "clear" };
       if (current.kind !== "directory") throw corrupt(admissionClaim);
+      // An empty-directory removal only fails on a directory that stopped
+      // being empty, which happens when another contender published into it
+      // mid-clear. One that is still empty refused for a reason no sibling
+      // explains, and that is a fault rather than contention.
+      if ((await services.durableFileSystem.list(admissionClaim)).length > 0)
+        return { kind: "lost" };
       throw internal();
     }
   }
@@ -2341,6 +2445,9 @@ async function helpAdmissionCleanup(
       : "lost";
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // Another contender finished this cleanup while we were performing it. A
+    // marker that is gone is the election resolving, not storage failing.
+    if (await vanishedUnderLocks(marker.path, services)) return "lost";
     throw internal();
   }
 }
@@ -2351,10 +2458,16 @@ async function retireAdmissionRecord(
 ): Promise<void> {
   const marker = admissionCleanupMarkerFor(admission, services);
   try {
-    await services.durableFileSystem.createDirectoryExclusive(marker.path);
-    await services.durableFileSystem.syncDirectory(
-      admission.location.directory,
-    );
+    // The marker is content-addressed from this same record, so one standing
+    // at that path is this retirement's own marker, elected by whichever
+    // worker got there first. Creating it again would only race a helper.
+    const elected = await services.durableFileSystem.inspect(marker.path);
+    if (elected.kind === "missing") {
+      await services.durableFileSystem.createDirectoryExclusive(marker.path);
+      await services.durableFileSystem.syncDirectory(
+        admission.location.directory,
+      );
+    }
     const outcome = await helpAdmissionCleanup(admission, marker, services);
     if (outcome !== "cleared")
       throw new LockFailure("runtime.recovery_required", [
@@ -2369,6 +2482,15 @@ async function retireAdmissionRecord(
     ]);
   }
 }
+
+/**
+ * How many times an observer re-reads a lease that its trail says is coming.
+ *
+ * The two publications are consecutive durable writes, so an observer that
+ * yields between reads sees the second one land. The bound turns a publisher
+ * that never finishes into a recovery report rather than a spin.
+ */
+const MAX_LEASE_OBSERVATIONS = 16;
 
 async function withAdmission<T>(
   owner: string,
@@ -2786,17 +2908,36 @@ async function inspectLeaseHeld(
   const paths = lockPaths(resource);
   let leaseEntry: DurableEntry;
   let eventsEntry: DurableEntry;
-  try {
-    [leaseEntry, eventsEntry] = await Promise.all([
-      services.durableFileSystem.inspect(paths.lease),
-      services.durableFileSystem.inspect(paths.events),
-    ]);
-  } catch (error) {
-    if (error instanceof LockFailure) throw error;
-    throw internal();
-  }
+  // A guarded transaction publishes the trail before the lease it seals, so an
+  // observer between the two publications sees a trail with no lease. That
+  // pair is a publication in flight, not damage, and re-observing lets the
+  // publisher finish rather than blaming it. The bound keeps a genuinely
+  // stalled publication from spinning here.
+  let observation = 0;
+  do {
+    try {
+      [leaseEntry, eventsEntry] = await Promise.all([
+        services.durableFileSystem.inspect(paths.lease),
+        services.durableFileSystem.inspect(paths.events),
+      ]);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      throw internal();
+    }
+    observation += 1;
+  } while (
+    leaseEntry.kind === "missing" &&
+    eventsEntry.kind === "file" &&
+    observation < MAX_LEASE_OBSERVATIONS
+  );
   if (leaseEntry.kind === "missing" && eventsEntry.kind === "missing")
     return { kind: "empty", lease: null, guard: null, claim };
+  // A trail that still has no lease after the bound is stalled mid-publication,
+  // which is recoverable rather than uninterpretable.
+  if (leaseEntry.kind === "missing" && eventsEntry.kind === "file")
+    throw new LockFailure("runtime.recovery_required", [
+      { kind: "artifact", ref: paths.lease },
+    ]);
   if (leaseEntry.kind !== "file") throw corrupt(paths.lease);
   if (eventsEntry.kind !== "file") throw corrupt(paths.events);
   let eventsText: string;
