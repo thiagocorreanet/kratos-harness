@@ -4,6 +4,7 @@ import { planOf } from "../effects.js";
 import { buildHandshakeResponse } from "../handshake.js";
 import { resultFor } from "../result/index.js";
 import { renderHelp } from "./help.js";
+import { initCommand } from "./init.js";
 import type {
   CommandRegistry,
   CommandSpec,
@@ -68,5 +69,6 @@ const handshakeCommand: CommandSpec = {
 export const DEFAULT_REGISTRY: CommandRegistry = [
   handshakeCommand,
   helpCommand,
+  initCommand,
   versionCommand,
 ];

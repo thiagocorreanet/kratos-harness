@@ -48,11 +48,13 @@ afterAll(async () => {
 });
 
 describe("standalone runtime bundle", () => {
-  it("keeps the command surface unchanged while discovery remains internal", () => {
+  it("publishes only the commands that work, discovery still internal", () => {
     const result = execute("--help");
 
+    // Discovery is a boundary rather than a command, and still has no name a
+    // caller can type. `init` does now, so the bundle has to carry it.
     expect(result.stdout).not.toContain("discover");
-    expect(result.stdout).not.toContain("init");
+    expect(result.stdout).toContain("init");
   });
 
   it("prints help outside the repository", () => {

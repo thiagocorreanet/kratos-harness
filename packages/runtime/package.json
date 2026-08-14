@@ -9,6 +9,7 @@
     "./composition/cli": "./src/composition/cli.ts",
     "./composition/discovery": "./src/composition/discovery.ts",
     "./composition/events": "./src/composition/events.ts",
+    "./composition/init": "./src/composition/init.ts",
     "./composition/schema": "./src/composition/schema.ts",
     "./domain/cli": "./src/domain/cli/index.ts",
     "./domain/effects": "./src/domain/effects.ts",

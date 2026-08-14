@@ -42,11 +42,13 @@ function invocationWith(observation: Invocation["observation"]): Invocation {
 describe("commands that observe before deciding", () => {
   it("declares what it needs rather than reaching for it", () => {
     expect(probe.prerequisite).toBe("initialization");
-    // The registry that ships today needs nothing observed, which is why it
-    // could dispatch a pure handler with no facts at all.
-    for (const command of DEFAULT_REGISTRY) {
-      expect(command.prerequisite).toBe("none");
-    }
+    // Every other registered command needs nothing observed, which is why the
+    // registry could dispatch a pure handler with no facts at all before this.
+    const observing = DEFAULT_REGISTRY.filter(
+      (command) => command.prerequisite !== "none",
+    ).map((command) => command.path.join(" "));
+
+    expect(observing).toEqual(["init"]);
   });
 
   it("hands the parsed invocation an empty observation", () => {
@@ -54,9 +56,9 @@ describe("commands that observe before deciding", () => {
     // prerequisite. The composition root fills this in before dispatch.
     const parsed = parseInvocation(["version"], DEFAULT_REGISTRY);
 
-    expect(parsed.kind === "invocation" && parsed.invocation.observation).toEqual(
-      { kind: "none" },
-    );
+    expect(
+      parsed.kind === "invocation" && parsed.invocation.observation,
+    ).toEqual({ kind: "none" });
   });
 
   it("gives the handler the observation the composition collected", () => {
@@ -64,8 +66,11 @@ describe("commands that observe before deciding", () => {
       invocationWith({
         kind: "initialization",
         rootEntries: ["package.json", "README.md"],
-        answers: { hosts: ["claude"] },
-        instructions: [],
+        answers: {
+          kind: "invalid",
+          reasonCode: "contract.host_version_invalid",
+        },
+        destinations: [],
         resolution: null,
       }),
     );

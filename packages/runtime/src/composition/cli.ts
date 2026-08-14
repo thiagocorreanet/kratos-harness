@@ -22,6 +22,7 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan } from "./index.js";
+import { observeInitialization } from "./init.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 
@@ -84,7 +85,19 @@ export async function runCommandLine(
     if (parsed.kind === "result") {
       return publish(parsed.result, parsed.json, ports);
     }
-    const decision = dispatch(parsed.invocation);
+    let invocation = parsed.invocation;
+    if (invocation.command.prerequisite !== "none") {
+      const observed = await observeInitialization(
+        invocation,
+        ports,
+        schemaRegistry,
+      );
+      if (observed.kind === "failure") {
+        return publish(observed.result, json, ports);
+      }
+      invocation = { ...invocation, observation: observed.observation };
+    }
+    const decision = dispatch(invocation);
     validateResult(decision.result);
     validatePlan(decision.result, decision.plan);
     if (decision.result.exitCode !== 0) {
@@ -92,7 +105,7 @@ export async function runCommandLine(
     }
 
     let preparedOutput: string | undefined;
-    if (parsed.invocation.command.jsonContract === "adapter-message@1.0.0") {
+    if (invocation.command.jsonContract === "adapter-message@1.0.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
@@ -101,7 +114,9 @@ export async function runCommandLine(
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);
     }
-    const outcome = await applyPlan(decision.plan, ports);
+    const outcome = await applyPlan(decision.plan, ports, {
+      rootMode: decision.rootMode ?? "existing",
+    });
     const result =
       outcome.kind === "noop" && decision.result.stateChanged
         ? { ...decision.result, stateChanged: false }

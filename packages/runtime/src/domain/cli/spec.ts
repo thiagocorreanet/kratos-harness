@@ -1,5 +1,8 @@
 import type { EffectPlan } from "../effects.js";
-import type { ManagedFileObservation } from "../init/index.js";
+import type {
+  ManagedFileObservation,
+  ResolvedInitAnswers,
+} from "../init/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 
@@ -17,6 +20,15 @@ export interface Decision {
   readonly plan: EffectPlan;
   readonly humanStdout: string | null;
   readonly payload: unknown;
+  /**
+   * Whether this plan may bootstrap the managed state root.
+   *
+   * Absent means `existing`, which every command that reads or updates state
+   * needs. Only a command whose whole purpose is to create that state says
+   * otherwise, and saying it is what keeps every other command from creating
+   * `.brain` by accident.
+   */
+  readonly rootMode?: "existing" | "initialize";
 }
 
 export interface Globals {
@@ -38,12 +50,24 @@ export type CommandObservation =
       readonly kind: "initialization";
       /** How discovery classified the target, or null when there is none. */
       readonly resolution: ProjectResolution | null;
-      /** The answers document as supplied, before validation. */
-      readonly answers: unknown;
+      /**
+       * The answers document, already validated.
+       *
+       * Validation needs the schema registry, which is infrastructure, so it
+       * happens where the observation is collected rather than in a handler
+       * that must stay pure.
+       */
+      readonly answers: ResolvedInitAnswers;
       /** Entry names at the project root, for stack profiling. */
       readonly rootEntries: readonly string[];
-      /** Each managed instruction file as it was found. */
-      readonly instructions: readonly (readonly [
+      /**
+       * Every destination the answers imply, as it was found.
+       *
+       * All of them rather than only the two a user may own, because that is
+       * what lets one mechanism report each destination as created, updated,
+       * or preserved instead of two that can disagree.
+       */
+      readonly destinations: readonly (readonly [
         string,
         ManagedFileObservation,
       ])[];

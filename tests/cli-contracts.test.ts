@@ -15,6 +15,7 @@ import { transactionFailureResult } from "@mestre-yoda/runtime/domain/result";
 import { canonicalizeJson } from "@mestre-yoda/runtime/domain/schema";
 import {
   memoryFileSystem,
+  pipedInput,
   recordingOutput,
 } from "@mestre-yoda/runtime/infra/fake";
 
@@ -45,7 +46,13 @@ beforeAll(async () => {
 
 async function run(argv: readonly string[]) {
   const output = recordingOutput();
-  const exitCode = await runCommandLine(argv, createRuntime({ output }));
+  // No document is piped in. Reading the real standard input here would block
+  // on a stream nobody is going to close, which is what a caller who typed the
+  // command with no pipe would also experience.
+  const exitCode = await runCommandLine(
+    argv,
+    createRuntime({ output, standardInput: pipedInput(null) }),
+  );
   return {
     exitCode,
     stdout: output.structured_.join(""),

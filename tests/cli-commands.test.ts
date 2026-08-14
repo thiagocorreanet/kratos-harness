@@ -20,6 +20,7 @@ describe("implemented commands", () => {
     expect(DEFAULT_REGISTRY.map((spec) => spec.path.join(" ")).sort()).toEqual([
       "handshake",
       "help",
+      "init",
       "version",
     ]);
   });
