@@ -21,6 +21,7 @@ describe("implemented commands", () => {
       "handshake",
       "help",
       "init",
+      "objective",
       "version",
     ]);
   });

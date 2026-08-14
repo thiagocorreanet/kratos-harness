@@ -23,6 +23,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan } from "./index.js";
 import { observeInitialization } from "./init.js";
+import { observeObjective } from "./objective.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 
@@ -88,17 +89,18 @@ export async function runCommandLine(
     let invocation = parsed.invocation;
     let applyPorts = ports;
     if (invocation.command.prerequisite !== "none") {
-      const observed = await observeInitialization(
-        invocation,
-        ports,
-        schemaRegistry,
-      );
+      // One shape, one failure path. Each observer collects what its command
+      // declared and returns the ports the plan must be committed through,
+      // because a command may target a directory other than the one this
+      // process started in.
+      const observed =
+        invocation.command.prerequisite === "initialization"
+          ? await observeInitialization(invocation, ports, schemaRegistry)
+          : await observeObjective(invocation, ports, schemaRegistry);
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }
       invocation = { ...invocation, observation: observed.observation };
-      // The command may target a directory other than the one this process
-      // started in, and its plan has to be committed where it was decided.
       applyPorts = observed.ports;
     }
     const decision = dispatch(invocation);

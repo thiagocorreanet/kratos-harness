@@ -296,6 +296,7 @@ describe("runtime boundary documentation", () => {
   let concurrencyLocksGuide = "";
   let dryRunGuide = "";
   let initializationGuide = "";
+  let objectiveGuide = "";
 
   beforeAll(async () => {
     [
@@ -305,6 +306,7 @@ describe("runtime boundary documentation", () => {
       concurrencyLocksGuide,
       dryRunGuide,
       initializationGuide,
+      objectiveGuide,
     ] = await Promise.all([
       readFile(
         join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
@@ -328,6 +330,10 @@ describe("runtime boundary documentation", () => {
       ),
       readFile(
         join(repositoryRoot, "docs/architecture/project-initialization.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/objective-lifecycle.md"),
         "utf8",
       ),
     ]);
@@ -425,6 +431,23 @@ describe("runtime boundary documentation", () => {
     "in_progress",
   ])("publishes the initialization boundary: %s", (required) => {
     expect(initializationGuide).toContain(required);
+  });
+
+  it.each([
+    "trail.objetivo_divergente",
+    "--replace",
+    "objective-history.jsonl",
+    "idempotent",
+    "0 / 400 (0.00%)",
+    "CMP-05",
+  ])("publishes the objective boundary: %s", (required) => {
+    expect(objectiveGuide).toContain(required);
+  });
+
+  it("states that completion has no command yet", () => {
+    // A reader who finds a completed status will look for the command that
+    // sets it. The document has to say where that lives.
+    expect(objectiveGuide).toMatch(/SDD-06/u);
   });
 
   it("states what initialization refuses to claim", () => {
