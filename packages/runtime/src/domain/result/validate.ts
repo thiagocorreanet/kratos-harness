@@ -54,10 +54,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/**
+ * Whether text carries a code point a terminal may act on rather than print.
+ *
+ * C0 and DEL are the obvious ones. C1 is here because a terminal reading UTF-8
+ * treats U+009B as a control sequence introducer exactly as it treats
+ * `ESC [`, so refusing the seven-bit spelling while publishing the eight-bit
+ * one would leave the same door open under a different name.
+ */
 function hasControlCharacter(value: string): boolean {
   for (const character of value) {
-    const code = character.codePointAt(0);
-    if (code !== undefined && (code <= 31 || code === 127)) return true;
+    // A character yielded by a string iterator is never empty, so index zero
+    // always exists and the optional result would be an unreachable branch.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const code = character.codePointAt(0)!;
+    if (code <= 31 || code === 127 || (code >= 128 && code <= 159)) return true;
   }
   return false;
 }
