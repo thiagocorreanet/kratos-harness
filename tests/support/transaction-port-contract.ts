@@ -243,6 +243,29 @@ export function describeDurableFileSystemContract(
       });
     });
 
+    it("publishes a file whose parent is the project root", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+        await fileSystem.writeSynced(".brain/staged", "# managed\n");
+
+        // `CLAUDE.md` has no parent directory inside the project, and the
+        // operations that publish it have to name the root rather than an
+        // empty path -- which is refused as escaping the project.
+        await fileSystem.replaceFile(".brain/staged", "CLAUDE.md");
+
+        expect(await fileSystem.inspect("CLAUDE.md")).toMatchObject({
+          kind: "file",
+        });
+        await fileSystem.writeSynced(".brain/linked", "# agents\n");
+        await fileSystem.linkFileExclusive(".brain/linked", "AGENTS.md");
+        expect(await fileSystem.readText("AGENTS.md")).toBe("# agents\n");
+        await fileSystem.removeFile("CLAUDE.md");
+        expect(await fileSystem.inspect("CLAUDE.md")).toEqual({
+          kind: "missing",
+        });
+      });
+    });
+
     it("classifies directory synchronization without hiding path errors", async () => {
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);

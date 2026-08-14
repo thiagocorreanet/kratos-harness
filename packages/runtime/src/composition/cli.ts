@@ -22,6 +22,7 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan } from "./index.js";
+import { observeInitialization } from "./init.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 
@@ -84,7 +85,23 @@ export async function runCommandLine(
     if (parsed.kind === "result") {
       return publish(parsed.result, parsed.json, ports);
     }
-    const decision = dispatch(parsed.invocation);
+    let invocation = parsed.invocation;
+    let applyPorts = ports;
+    if (invocation.command.prerequisite !== "none") {
+      const observed = await observeInitialization(
+        invocation,
+        ports,
+        schemaRegistry,
+      );
+      if (observed.kind === "failure") {
+        return publish(observed.result, json, ports);
+      }
+      invocation = { ...invocation, observation: observed.observation };
+      // The command may target a directory other than the one this process
+      // started in, and its plan has to be committed where it was decided.
+      applyPorts = observed.ports;
+    }
+    const decision = dispatch(invocation);
     validateResult(decision.result);
     validatePlan(decision.result, decision.plan);
     if (decision.result.exitCode !== 0) {
@@ -92,7 +109,7 @@ export async function runCommandLine(
     }
 
     let preparedOutput: string | undefined;
-    if (parsed.invocation.command.jsonContract === "adapter-message@1.0.0") {
+    if (invocation.command.jsonContract === "adapter-message@1.0.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
@@ -101,7 +118,9 @@ export async function runCommandLine(
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);
     }
-    const outcome = await applyPlan(decision.plan, ports);
+    const outcome = await applyPlan(decision.plan, applyPorts, {
+      rootMode: decision.rootMode ?? "existing",
+    });
     const result =
       outcome.kind === "noop" && decision.result.stateChanged
         ? { ...decision.result, stateChanged: false }

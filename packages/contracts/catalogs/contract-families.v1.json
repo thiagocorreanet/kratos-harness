@@ -22,6 +22,14 @@
       "typeName": "AdapterMessageV1"
     },
     {
+      "id": "host.init-answers",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/init-answers.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "InitAnswersV1"
+    },
+    {
       "id": "state.approval",
       "family": "state",
       "version": "1.0.0",

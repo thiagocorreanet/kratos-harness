@@ -184,12 +184,24 @@ describe("Go v3 parity inventory catalog", () => {
         ["unit", "differential", "integration", "e2e"].sort(),
       );
       for (const evidence of Object.values(row.verification)) {
-        expect(evidence.status, evidence.id).toBe("planned");
-        expect(evidence.path, evidence.id).toBeNull();
+        // Evidence is registered as work lands, so the shape is what stays
+        // fixed: planned carries no path, passed carries one, and no other
+        // status exists. Asserting that every case is still planned would make
+        // this test fail on progress rather than on a defect.
+        expect(["planned", "passed"], evidence.id).toContain(evidence.status);
+        expect(
+          evidence.status === "planned"
+            ? evidence.path === null
+            : evidence.path,
+          evidence.id,
+        ).toBeTruthy();
         expect(verificationIds.has(evidence.id), evidence.id).toBe(false);
         verificationIds.add(evidence.id);
       }
-      expect(row.status, row.id).toBe("not_started");
+      expect(["not_started", "in_progress"], row.id).toContain(row.status);
+      // No row claims parity yet: that needs all four cases against a captured
+      // predecessor, which no command has.
+      expect(row.status, row.id).not.toBe("parity");
       expect(row.intentional_difference, row.id).toBeNull();
     }
   });

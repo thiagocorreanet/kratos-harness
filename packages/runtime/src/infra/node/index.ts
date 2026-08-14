@@ -9,6 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
+import type { Readable } from "node:stream";
 
 import { normalizeProjectPath } from "../fake/index.js";
 import type {
@@ -18,6 +19,7 @@ import type {
   FileSystem,
   Ids,
   Output,
+  StandardInput,
 } from "../../ports/index.js";
 
 export { nodeWorkspace } from "./workspace.js";
@@ -151,6 +153,33 @@ export function nodeEnvironment(): Environment {
   return {
     get: (name) => process.env[name],
     workingDirectory: () => process.cwd(),
+  };
+}
+
+/**
+ * Standard input, read once and only when it is not a terminal.
+ *
+ * Reading a TTY would hang the process waiting on a person who was never asked
+ * for anything. A stream may be supplied so a test does not need one.
+ */
+export function nodeStandardInput(
+  stream: Readable & { isTTY?: boolean } = process.stdin,
+): StandardInput {
+  let read = false;
+  return {
+    read: async () => {
+      if (read || stream.isTTY === true) return null;
+      read = true;
+      // Decoding in the stream keeps the chunk type honest and spares this
+      // function a branch for the two shapes a chunk can arrive in.
+      stream.setEncoding("utf8");
+      let document = "";
+      for await (const chunk of stream as AsyncIterable<string>) {
+        document += chunk;
+      }
+      // Zero bytes is a caller who supplied no document, not an empty one.
+      return document.length === 0 ? null : document;
+    },
   };
 }
 

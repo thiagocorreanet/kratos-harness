@@ -194,7 +194,12 @@ function durableNonFileEntry(details: Stats | null): DurableEntry {
 }
 
 function parentPath(path: NormalizedPath): string {
-  return path.segments.slice(0, -1).join("/");
+  const segments = path.segments.slice(0, -1);
+  // A managed file at the project root has the root as its parent, named by
+  // the sentinel the durable port already answers to. An empty string would be
+  // refused as a path that escapes the project, which is how a root
+  // destination failed to publish at all.
+  return segments.length === 0 ? "." : segments.join("/");
 }
 
 /**
@@ -300,6 +305,14 @@ export function nodeDurableFileSystem(
     ) {
       throw new Error("Runtime durable path has no declared parent directory");
     }
+  }
+
+  async function requireProjectDirectory(path: string): Promise<void> {
+    if (path === ".") {
+      await validatedRoot();
+      return;
+    }
+    await requireDirectory(path);
   }
 
   async function requireDirectory(path: string): Promise<ScannedPath> {
@@ -429,8 +442,8 @@ export function nodeDurableFileSystem(
         if (target.details !== null && !target.details.isFile()) {
           throw new Error("Runtime durable path is not a regular file");
         }
-        await requireDirectory(parentPath(staged.normalized));
-        await requireDirectory(parentPath(target.normalized));
+        await requireProjectDirectory(parentPath(staged.normalized));
+        await requireProjectDirectory(parentPath(target.normalized));
         await rename(staged.absolute, target.absolute);
       }),
     linkFileExclusive: (sourcePath, targetPath) =>
@@ -441,8 +454,8 @@ export function nodeDurableFileSystem(
         requireDeclaredParent(target);
         if (target.details !== null)
           throw new Error("Runtime durable path already has an entry");
-        await requireDirectory(parentPath(source.normalized));
-        await requireDirectory(parentPath(target.normalized));
+        await requireProjectDirectory(parentPath(source.normalized));
+        await requireProjectDirectory(parentPath(target.normalized));
         await link(source.absolute, target.absolute);
       }),
     renameDirectoryExclusive: (sourcePath, targetPath) =>
@@ -453,8 +466,8 @@ export function nodeDurableFileSystem(
         requireDeclaredParent(target);
         if (target.details !== null)
           throw new Error("Runtime durable path already has an entry");
-        await requireDirectory(parentPath(source.normalized));
-        await requireDirectory(parentPath(target.normalized));
+        await requireProjectDirectory(parentPath(source.normalized));
+        await requireProjectDirectory(parentPath(target.normalized));
         await rename(source.absolute, target.absolute);
       }),
     removeFile: (path) =>

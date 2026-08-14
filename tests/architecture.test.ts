@@ -295,6 +295,7 @@ describe("runtime boundary documentation", () => {
   let atomicTransactionsGuide = "";
   let concurrencyLocksGuide = "";
   let dryRunGuide = "";
+  let initializationGuide = "";
 
   beforeAll(async () => {
     [
@@ -303,6 +304,7 @@ describe("runtime boundary documentation", () => {
       atomicTransactionsGuide,
       concurrencyLocksGuide,
       dryRunGuide,
+      initializationGuide,
     ] = await Promise.all([
       readFile(
         join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
@@ -322,6 +324,10 @@ describe("runtime boundary documentation", () => {
       ),
       readFile(
         join(repositoryRoot, "docs/architecture/dry-run-plans.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/project-initialization.md"),
         "utf8",
       ),
     ]);
@@ -406,6 +412,26 @@ describe("runtime boundary documentation", () => {
     "does not add a public command",
   ])("publishes the preview boundary: %s", (required) => {
     expect(dryRunGuide).toContain(required);
+  });
+
+  it.each([
+    "BEGIN MESTRE YODA MANAGED SECTION",
+    "guard.outside_allow",
+    "runtime.state_corrupt",
+    "--worktree-local",
+    "created",
+    "preserved",
+    "0 / 400 (0.00%)",
+    "in_progress",
+  ])("publishes the initialization boundary: %s", (required) => {
+    expect(initializationGuide).toContain(required);
+  });
+
+  it("states what initialization refuses to claim", () => {
+    // A reader who sees seven implemented flags will assume the parity number
+    // moved. It did not, and the document has to say why.
+    expect(initializationGuide).toMatch(/CMP-05/u);
+    expect(initializationGuide).toMatch(/hash-only provenance/u);
   });
 
   it("states why the dry-run flag is absent rather than omitting it", () => {

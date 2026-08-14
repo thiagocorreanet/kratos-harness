@@ -9,6 +9,7 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const schemaRoot = join(repositoryRoot, "schemas");
 const fixtureRoot = join(repositoryRoot, "fixtures/contracts/v1");
 const artifacts = [
+  ["host/init-answers.v1.schema.json", "init-answers.json", "host"],
   ["state/project-config.v1.schema.json", "project-config.json", "state"],
   ["state/snapshot.v1.schema.json", "snapshot.json", "state"],
   ["state/event.v1.schema.json", "event.json", "state"],
@@ -389,7 +390,7 @@ describe("versioned state and host schemas", () => {
     }
   });
 
-  it("ships ten payload fixtures plus the version-case table", async () => {
+  it("ships eleven payload fixtures plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [
         ...artifacts.map(([, fixtureName]) => fixtureName),

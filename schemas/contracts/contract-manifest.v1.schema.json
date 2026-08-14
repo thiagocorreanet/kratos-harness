@@ -15,18 +15,32 @@
     "legacyProfiles"
   ],
   "properties": {
-    "contractVersion": { "const": "1.0.0" },
-    "pluginVersion": { "const": "0.0.0-development" },
-    "resultContract": { "const": "1.0.0" },
-    "reasonCatalog": { "const": "1.3.0" },
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "pluginVersion": {
+      "const": "0.0.0-development"
+    },
+    "resultContract": {
+      "const": "1.0.0"
+    },
+    "reasonCatalog": {
+      "const": "1.3.0"
+    },
     "stateContract": {
       "type": "object",
       "additionalProperties": false,
       "required": ["current", "readable", "migrationOnly"],
       "properties": {
-        "current": { "const": "1.0.0" },
-        "readable": { "const": ["1.0.0"] },
-        "migrationOnly": { "const": ["0.9.0", "go-v3@0.6.5"] }
+        "current": {
+          "const": "1.0.0"
+        },
+        "readable": {
+          "const": ["1.0.0"]
+        },
+        "migrationOnly": {
+          "const": ["0.9.0", "go-v3@0.6.5"]
+        }
       }
     },
     "hostContract": {
@@ -34,23 +48,31 @@
       "additionalProperties": false,
       "required": ["current", "accepted"],
       "properties": {
-        "current": { "const": "1.0.0" },
-        "accepted": { "const": ["1.0.0"] }
+        "current": {
+          "const": "1.0.0"
+        },
+        "accepted": {
+          "const": ["1.0.0"]
+        }
       }
     },
     "schemas": {
       "type": "array",
-      "minItems": 10,
-      "maxItems": 10,
+      "minItems": 11,
+      "maxItems": 11,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/schemaEntry" }
+      "items": {
+        "$ref": "#/$defs/schemaEntry"
+      }
     },
     "legacyProfiles": {
       "type": "array",
       "minItems": 14,
       "maxItems": 14,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/legacyProfile" }
+      "items": {
+        "$ref": "#/$defs/legacyProfile"
+      }
     }
   },
   "$defs": {
@@ -63,39 +85,72 @@
           "type": "string",
           "pattern": "^(?:state|host)\\.[a-z][a-z-]*$"
         },
-        "family": { "enum": ["state", "host"] },
-        "version": { "const": "1.0.0" },
+        "family": {
+          "enum": ["state", "host"]
+        },
+        "version": {
+          "const": "1.0.0"
+        },
         "path": {
           "type": "string",
           "pattern": "^schemas/(?:state|host)/[a-z-]+\\.v1\\.schema\\.json$"
         },
-        "boundary": { "enum": ["persisted", "cross-process"] },
-        "typeName": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*V1$" }
+        "boundary": {
+          "enum": ["persisted", "cross-process"]
+        },
+        "typeName": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*V1$"
+        }
       },
       "allOf": [
         {
           "if": {
-            "properties": { "family": { "const": "state" } },
+            "properties": {
+              "family": {
+                "const": "state"
+              }
+            },
             "required": ["family"]
           },
           "then": {
             "properties": {
-              "id": { "type": "string", "pattern": "^state\\." },
-              "path": { "type": "string", "pattern": "^schemas/state/" },
-              "boundary": { "const": "persisted" }
+              "id": {
+                "type": "string",
+                "pattern": "^state\\."
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^schemas/state/"
+              },
+              "boundary": {
+                "const": "persisted"
+              }
             }
           }
         },
         {
           "if": {
-            "properties": { "family": { "const": "host" } },
+            "properties": {
+              "family": {
+                "const": "host"
+              }
+            },
             "required": ["family"]
           },
           "then": {
             "properties": {
-              "id": { "type": "string", "pattern": "^host\\." },
-              "path": { "type": "string", "pattern": "^schemas/host/" },
-              "boundary": { "const": "cross-process" }
+              "id": {
+                "type": "string",
+                "pattern": "^host\\."
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^schemas/host/"
+              },
+              "boundary": {
+                "const": "cross-process"
+              }
             }
           }
         }
@@ -117,40 +172,68 @@
           "type": "string",
           "pattern": "^[a-z][a-z-]+\\.schema\\.json$"
         },
-        "oracleId": { "const": "go-v3-v0.6.5" },
+        "oracleId": {
+          "const": "go-v3-v0.6.5"
+        },
         "payloadContract": {
           "type": "string",
           "pattern": "^go-v3\\.[a-z][a-z-]+@1$"
         },
-        "schemaVersion": { "const": 1 },
-        "compatibility": { "const": "migration-only" },
+        "schemaVersion": {
+          "const": 1
+        },
+        "compatibility": {
+          "const": "migration-only"
+        },
         "parityRow": {
           "oneOf": [
-            { "type": "string", "pattern": "^SCHEMA-[A-Z-]+-JSON$" },
-            { "type": "null" }
+            {
+              "type": "string",
+              "pattern": "^SCHEMA-[A-Z-]+-JSON$"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       },
       "allOf": [
         {
           "if": {
-            "properties": { "name": { "const": "prd-output.schema.json" } },
+            "properties": {
+              "name": {
+                "const": "prd-output.schema.json"
+              }
+            },
             "required": ["name"]
           },
           "then": {
             "required": ["sha256"],
             "properties": {
-              "payloadContract": { "const": "go-v3.prd-output@1" },
-              "parityRow": { "type": "null" },
+              "payloadContract": {
+                "const": "go-v3.prd-output@1"
+              },
+              "parityRow": {
+                "type": "null"
+              },
               "sha256": {
                 "const": "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e"
               }
             }
           },
           "else": {
-            "not": { "required": ["sha256"] },
-            "properties": { "parityRow": { "type": "string" } }
+            "not": {
+              "required": ["sha256"]
+            },
+            "properties": {
+              "parityRow": {
+                "type": "string"
+              }
+            }
           }
         }
       ]

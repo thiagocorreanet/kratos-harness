@@ -29,7 +29,8 @@ The state family contains:
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 
 The host family contains
-[`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json), and the
+[`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and
+[`init-answers.v1.schema.json`](host/init-answers.v1.schema.json), and the
 registry format is
 [`contract-manifest.v1.schema.json`](contracts/contract-manifest.v1.schema.json).
 

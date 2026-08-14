@@ -15,6 +15,7 @@ export type { ReasonPolicy } from "./reasons.js";
 export type {
   AdapterMessageV1,
   ApprovalV1,
+  InitAnswersV1,
   EventV1,
   EvidenceV1,
   LockLeaseV1,

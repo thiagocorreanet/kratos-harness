@@ -1,6 +1,7 @@
 // Generated from registered JSON Schemas. Do not edit.
 // dependency: https://mestre-yoda.dev/schemas/result/v1 sha256:9cef7d89f7783a87c172e79cd024bc46195e12e73f53ad8fb9418ff99adecfd3
 // source: https://mestre-yoda.dev/schemas/host/adapter-message/v1 sha256:58e71d3742ef50904aa6b1b8d848e7455ad0305d70e9e809e1ddf901fc6c4cb2
+// source: https://mestre-yoda.dev/schemas/host/init-answers/v1 sha256:f915ed3928b6d7d0b6106f7cad8eeaf5b896ff7a13e9f600d77b35cb7d070ab8
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:841fd2dd3ba3abf8ff4bfda6571b2be4ddbcf544e3551c55677fbf4243dba13b
 // source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:e803d6e14b50675a6bbd3f7b39df0a50b6d6fd1f90017d6a9f74a6b6848ca878
 // source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:ac5147a7fb442720e288f1c1a0bfcb76c75e02f4af9a0dd6e8c0a3922a7587d3
@@ -103,6 +104,20 @@ export namespace AdapterMessageV1Contract {
   }
 }
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
+export namespace InitAnswersV1Contract {
+  export interface InitAnswersV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    /**
+     * @minItems 1
+     */
+    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    language?: "en" | "pt-BR";
+    policyMode?: "standard" | "strict";
+    snapshots?: boolean;
+  }
+}
+export type InitAnswersV1 = InitAnswersV1Contract.InitAnswersV1;
 export namespace ApprovalV1Contract {
   export type Id = string;
   export type Sha256 = string;

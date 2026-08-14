@@ -28,6 +28,7 @@ function spec(overrides: Partial<CommandSpec>): CommandSpec {
     ],
     positionals: { min: 0, max: 1 },
     jsonContract: "result@1.0.0",
+    prerequisite: "none",
     handler: () => ({
       result: resultFor("runtime.orientation_ok"),
       plan: planOf(),

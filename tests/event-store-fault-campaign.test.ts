@@ -24,6 +24,16 @@ import {
 } from "@mestre-yoda/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
 
+/**
+ * Enough room for the same campaign under coverage instrumentation.
+ *
+ * The uninstrumented run finishes in well under a minute; v8 coverage adds
+ * enough overhead to cross a 60-second limit on a slower machine, and a
+ * campaign that fails on the timer rather than on a boundary reports a defect
+ * nobody introduced.
+ */
+const campaignTimeoutMilliseconds = 180_000;
+
 const eventsPath = ".brain/runs/run-01/events.jsonl";
 const snapshotPath = ".brain/runs/run-01/state.json";
 const progressPath = ".brain/transactions/campaign-1/progress.json";
@@ -377,6 +387,7 @@ function isObservedCampaignPhase(
 }
 
 describe("event-store recovery fault campaign", () => {
+  // prettier-ignore
   it("recovers every selected execution boundary to its phase-determined exact pair", async () => {
     const old = await oldSeed();
     const oldPair: Pair = {
@@ -466,8 +477,9 @@ describe("event-store recovery fault campaign", () => {
     }
     expect(Object.fromEntries(phases)).toEqual(executionPhaseCounts);
     expect(directReceipts).toEqual(expectedDirectExecutionReceipts);
-  }, 60_000);
+  }, campaignTimeoutMilliseconds);
 
+  // prettier-ignore
   it("recovers every selected durable boundary from prepared and publishing crash representatives", async () => {
     const old = await oldSeed();
     const oldPair: Pair = {
@@ -599,5 +611,5 @@ describe("event-store recovery fault campaign", () => {
     expect(totalBoundaries).toBe(352);
     expect(348 + totalBoundaries).toBe(700);
     expect(directTerminalReceipts).toEqual(expectedDirectTerminalReceipts);
-  }, 60_000);
+  }, campaignTimeoutMilliseconds);
 });

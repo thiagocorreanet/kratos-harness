@@ -75,6 +75,7 @@ that imports it, which is what the layering exists to prevent.
 | `Locks` | acquire and release a fenced lease | concurrency timing |
 | `Environment` | environment variables and working directory | ambient process state |
 | `Output` | structured and human output | stream side effects |
+| `StandardInput` | the document a caller piped in, read once | terminal state |
 | `Workspace` | canonical paths, read-only project markers, and Git worktree topology | ambient discovery state |
 
 `Workspace` is deliberately separate from `RuntimePorts`. Project discovery

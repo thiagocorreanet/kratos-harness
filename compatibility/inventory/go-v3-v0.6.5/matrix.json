@@ -961,7 +961,7 @@
       "title": "command: handoff",
       "legacy_refs": ["cmd/yoda/help.go", "cmd/yoda/main.go"],
       "covers": ["commands.handoff"],
-      "expected_behavior": "Normal: Observable contract: `yoda handoff` renders the active trail handoff—objective, current step/gate, blockers, and next host action—in stable stdout text without changing state. Failure: unreadable project context is diagnosed on stderr with the matching reason. Edge: no active run, blocked runs, and completed steps retain deterministic orientation output.",
+      "expected_behavior": "Normal: Observable contract: `yoda handoff` renders the active trail handoff\u2014objective, current step/gate, blockers, and next host action\u2014in stable stdout text without changing state. Failure: unreadable project context is diagnosed on stderr with the matching reason. Edge: no active run, blocked runs, and completed steps retain deterministic orientation output.",
       "priority": "P1",
       "typescript_owner": "@mestre-yoda/runtime",
       "verification": {
@@ -1069,8 +1069,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-INIT",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-INIT",
@@ -1088,7 +1088,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4731,8 +4731,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-ANSWERS",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-ANSWERS",
@@ -4750,7 +4750,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4765,8 +4765,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-DETECT-ROOT",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-DETECT-ROOT",
@@ -4784,7 +4784,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4799,8 +4799,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-FORCE",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-FORCE",
@@ -4818,7 +4818,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4833,8 +4833,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-HOST",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-HOST",
@@ -4852,7 +4852,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4867,8 +4867,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-MERGE",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-MERGE",
@@ -4886,7 +4886,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4901,8 +4901,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-ROOT",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-ROOT",
@@ -4920,7 +4920,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -4935,8 +4935,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-INIT-WORKTREE-LOCAL",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/init-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-INIT-WORKTREE-LOCAL",
@@ -4954,7 +4954,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -6057,8 +6057,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-IO-STDIN-INIT-ANSWERS",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/standard-input-port.test.ts"
         },
         "differential": {
           "id": "DIFF-IO-STDIN-INIT-ANSWERS",
@@ -6076,7 +6076,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {

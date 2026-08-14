@@ -141,6 +141,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok", {
             summary: 'A "quoted" summary.',
@@ -212,6 +213,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => {
           throw new Error("/home/someone/secret-token");
         },
@@ -240,6 +242,7 @@ describe("composed command line", () => {
           flags: [],
           positionals: { min: 0, max: 0 },
           jsonContract: "result@1.0.0" as const,
+          prerequisite: "none" as const,
           handler: () => {
             const failure = new TransactionFailure(reasonCode, evidence);
             failure.message =
@@ -304,6 +307,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => {
           const error = new Error("Managed transaction failed");
           error.name = "TransactionFailure";
@@ -334,6 +338,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("trail.ok", {
             evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
@@ -396,6 +401,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("trail.uso"),
           plan: planOf({
@@ -431,6 +437,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: usageFailure(USAGE_WHY.arity),
           plan: planOf({
@@ -465,6 +472,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: usageFailure(USAGE_WHY.arity),
           plan: planOf(),
@@ -494,6 +502,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok"),
           plan: planOf({
@@ -529,6 +538,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok"),
           plan: planOf({
@@ -564,6 +574,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok"),
           plan: planOf(),
@@ -592,6 +603,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "result@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok", {
             summary: "Summary fallback.",
@@ -627,6 +639,7 @@ describe("composed command line", () => {
           flags: [],
           positionals: { min: 0, max: 0 },
           jsonContract: "result@1.0.0" as const,
+          prerequisite: "none" as const,
           handler: () => ({
             result: resultFor("trail.ok", {
               summary: "State outcome recorded.",
@@ -720,6 +733,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("trail.ok", {
             evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
@@ -769,6 +783,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("trail.ok", {
             evidence: [{ kind: "event" as const, ref: ".brain/events.jsonl" }],
@@ -829,6 +844,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("trail.ok", {
             evidence: [{ kind: "event", ref: ".brain/events.jsonl" }],
@@ -865,6 +881,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok"),
           plan: planOf(),
@@ -895,6 +912,7 @@ describe("composed command line", () => {
         flags: [],
         positionals: { min: 0, max: 0 },
         jsonContract: "adapter-message@1.0.0" as const,
+        prerequisite: "none" as const,
         handler: () => ({
           result: resultFor("runtime.orientation_ok"),
           plan: planOf(),
