@@ -16,4 +16,9 @@ export {
   normalizeManagedMutationPlan,
 } from "./normalize.js";
 export { decideRecovery } from "./recovery.js";
+export {
+  hasControlCharacter,
+  isManagedDestination,
+  isManagedPathShape,
+} from "./surface.js";
 export { assertPhaseTransition } from "./transition.js";

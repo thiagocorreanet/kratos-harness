@@ -1,4 +1,5 @@
 import type { Effect, EffectPlan } from "../effects.js";
+import { isManagedDestination } from "./surface.js";
 import {
   TransactionPolicyError,
   type ManagedMutationPlan,
@@ -34,7 +35,6 @@ type DraftOperation =
 
 const missing = { kind: "missing" } as const;
 const directory = { kind: "directory" } as const;
-const driveQualified = /^[A-Za-z]:/u;
 const utf8 = new TextEncoder();
 
 export function normalizeManagedMutationPlan(
@@ -95,27 +95,7 @@ function selectManagedEffects(effectPlan: EffectPlan): ManagedEffect[] {
 }
 
 function assertManagedPath(path: string): void {
-  if (
-    path === "" ||
-    path.includes("\\") ||
-    hasControlCharacter(path) ||
-    driveQualified.test(path)
-  ) {
-    throw outsideAllowlist();
-  }
-
-  const segments = path.split("/");
-  if (
-    segments.length < 2 ||
-    segments[0] !== ".brain" ||
-    segments.some(
-      (segment) => segment === "" || segment === "." || segment === "..",
-    ) ||
-    segments.join("/") !== path ||
-    segments[1]?.toLowerCase() === "transactions"
-  ) {
-    throw outsideAllowlist();
-  }
+  if (!isManagedDestination(path)) throw outsideAllowlist();
 }
 
 function validateRelationships(effects: readonly ManagedEffect[]): void {
@@ -272,16 +252,6 @@ function collisionKey(path: string): string {
 export function managedPathCollisionKey(path: string): string {
   assertManagedPath(path);
   return collisionKey(path);
-}
-
-function hasControlCharacter(path: string): boolean {
-  for (const character of path) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function isParent(parent: string, child: string): boolean {

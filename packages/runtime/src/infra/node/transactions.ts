@@ -14,6 +14,7 @@ import {
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
+import { isManagedPathShape } from "../../domain/transactions/index.js";
 import type { DurableEntry, DurableFileSystem } from "../../ports/index.js";
 
 export type DurableOperation =
@@ -117,34 +118,16 @@ function pathRefusal(): never {
   throw new Error("Runtime path escapes the project");
 }
 
+/**
+ * Refuse anything outside the managed surface before a syscall happens.
+ *
+ * The shape rule rather than the destination rule: the transaction manager
+ * writes `.brain/transactions/**` through this adapter, and that namespace is
+ * closed to callers by the planner, not by the filesystem.
+ */
 function normalizeManagedPath(path: string): NormalizedPath {
-  let hasControlCharacter = false;
-  for (const character of path) {
-    const code = character.charCodeAt(0);
-    if (code < 0x20 || code === 0x7f) hasControlCharacter = true;
-  }
-  if (
-    path.length === 0 ||
-    path.startsWith("/") ||
-    /^[A-Za-z]:[\\/]/u.test(path) ||
-    path.includes("\\") ||
-    hasControlCharacter
-  ) {
-    return pathRefusal();
-  }
-
-  const segments = path.split("/");
-  if (
-    segments.length === 0 ||
-    segments[0] !== ".brain" ||
-    segments.some(
-      (segment) => segment === "" || segment === "." || segment === "..",
-    ) ||
-    segments.join("/") !== path
-  ) {
-    return pathRefusal();
-  }
-  return { path, segments };
+  if (path.startsWith("/") || !isManagedPathShape(path)) return pathRefusal();
+  return { path, segments: path.split("/") };
 }
 
 function missing(error: unknown): boolean {

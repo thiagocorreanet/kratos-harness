@@ -14,6 +14,7 @@ import {
 import {
   assertPhaseTransition,
   decideRecovery,
+  isManagedDestination,
   toPersistedManagedOperation,
   type ManagedMutationPlan,
   type ManagedOperation,
@@ -1693,33 +1694,6 @@ function assertManifestSemantics(
   if (manifest.planDigest !== planDigest) {
     throw corrupt(`${root}/manifest.json`);
   }
-}
-
-function isManagedDestination(path: string): boolean {
-  const segments = path.split("/");
-  return (
-    path !== "" &&
-    !path.includes("\\") &&
-    !/^[A-Za-z]:/u.test(path) &&
-    !hasControlCharacter(path) &&
-    segments.length >= 2 &&
-    segments[0] === ".brain" &&
-    segments[1]?.toLowerCase() !== "transactions" &&
-    segments.every(
-      (segment) => segment !== "" && segment !== "." && segment !== "..",
-    ) &&
-    segments.join("/") === path
-  );
-}
-
-function hasControlCharacter(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 async function observeTransaction(

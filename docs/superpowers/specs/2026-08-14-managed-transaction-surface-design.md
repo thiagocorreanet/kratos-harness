@@ -40,16 +40,29 @@ creates.
 - Changing what a transaction guarantees. The commit, recovery, and failure
   contracts are untouched; only the set of destinations they accept moves.
 
-## One rule, three consumers
+## One rule, two questions, three consumers
 
-The rule moves to `domain/transactions/surface.ts` as a total predicate over a
+The rule moves to `domain/transactions/surface.ts` as total predicates over a
 project-relative path. The domain normalizer keeps throwing
 `guard.outside_allow`, the composition manager keeps its boolean question, and
 the Node adapter keeps refusing before it touches a syscall -- but all three
-ask the same function.
+read the same module.
 
-`infra` may import `domain`, so the adapter consumes the rule directly rather
-than restating it. That is what makes "the three layers agree" a property of
+There are two questions, because the transaction manager is itself a caller of
+the adapter and needs more than a plan does:
+
+| Question | Asked by | Accepts |
+| --- | --- | --- |
+| `isManagedPathShape` | the Node adapter | one canonical spelling inside the managed surface, including the roots themselves and `.brain/transactions/**` |
+| `isManagedDestination` | the normalizer and the transaction manager | the same surface minus the reserved namespace and minus the roots themselves |
+
+The manager creates `.brain`, inspects it, and writes its own namespace through
+that adapter. A plan may do neither. Naming the difference is what keeps it
+from being rediscovered as a bug later; collapsing the two questions into one
+would either close the namespace to its owner or open it to everybody.
+
+`infra` may import `domain`, so the adapter consumes the shape rule directly
+rather than restating it. That is what makes "the layers agree" a property of
 the code instead of a claim a test has to re-establish for every path anybody
 thinks to try.
 
@@ -62,7 +75,7 @@ thinks to try.
 | `.claude/**`, `.codex/**` | yes | Host surfaces the frozen `init` inventory generates |
 | `CLAUDE.md`, `AGENTS.md` | yes | The two instruction files, by exact name |
 | Any other root file | no | `state.json` at the root is still outside |
-| A managed root itself | no | `.brain`, `.claude`, and `.codex` are not destinations |
+| A managed root itself | no | `.brain`, `.claude`, and `.codex` are places a plan writes inside, not destinations |
 
 Root files are accepted by exact spelling rather than by pattern. A pattern
 over the project root -- any `*.md`, say -- would accept a file this runtime
@@ -101,9 +114,12 @@ The failure mapping does not move. A destination outside the surface is still
 
 ## Testing strategy
 
-**One rule.** A property test asserts the three layers accept and refuse the
-same paths, over the accept table, the refuse table, and generated
-near-misses -- because the point of the change is that they cannot disagree.
+**One rule.** A property test walks the accept table, the refuse table, and a
+list of near-misses, and asserts that the adapter answers the shape question
+and the planner answers the destination question for every one of them. The
+point of the change is that the two cannot drift apart, so the test compares
+each layer's real behavior against the shared rule rather than against a list
+somebody maintained by hand.
 
 **Widened accept table.** `.claude/settings.json`, `.codex/agents/x.toml`,
 `CLAUDE.md`, and `AGENTS.md` normalize into operations; `.claude` alone,
