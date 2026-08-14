@@ -3,8 +3,9 @@
 Every implemented command enters one pipeline. A command does not parse its own
 flags, write a stream, apply an effect, or choose a private failure shape.
 
-The registry currently contains `help`, `version`, and `handshake`. Workflow
-commands remain absent until their owning issues implement them.
+The registry currently contains `handshake`, `help`, `init`, `objective`, and
+`version`, plus the eight retired phase names below. Workflow commands remain
+absent until their owning issues implement them.
 
 ## Pipeline
 
@@ -49,6 +50,33 @@ not possible.
 
 Only implemented commands are registered. Reserving workflow names with empty
 handlers would publish a capability the runtime does not have.
+
+## Retired phase commands
+
+`auto`, `code`, `eval`, `next`, `prd`, `review`, `run`, and `spec` once selected
+a phase directly. Mestre Yoda v3 drives one agent trail and the runtime selects
+each phase from persisted state, so none of them selects anything now.
+
+They are registered anyway. A script, a habit, or an agent still spells them,
+and answering "not registered in this runtime" tells that caller nothing about
+where the capability went. Refusing under the name that was asked for does.
+
+Each one refuses with `trail.uso` and exit 2, names itself, and states that
+phases are not chosen by invoking a command. It plans no effect and reports no
+state change, so a retired name cannot become the manual phase control it
+exists to refuse. The refusal declares no prerequisite: it does not depend on
+where the caller stands, so it is the same answer inside a project and outside
+one.
+
+Help publishes them under a separate `Retired commands:` heading. Listing them
+beside the working commands would advertise the phase control they refuse;
+omitting them entirely would leave the caller back at the generic answer.
+
+This is not a parity claim about the legacy text. The frozen inventory records
+the eight names and nothing else about them -- no flags, no message, no exit
+code -- so a name that once took flags now fails on an unknown flag before the
+refusal is reached, with the same `trail.uso` reason and a different cause. What
+the legacy runtime printed needs a differential capture, which is `CMP-05`.
 
 ## Global flags and aliases
 
@@ -114,7 +142,11 @@ and generated cause/evidence permutations.
 
 ## Compatibility
 
-The generated help lists only the three commands implemented today, so it does
-not yet satisfy the frozen Go v3 `CLI-HELP` surface. No inventory row moves.
-Parity remains `0 / 400 (0.00%)` until executable differential, integration, and
+The generated help lists only the commands implemented today, so it does not yet
+satisfy the frozen Go v3 `CLI-HELP` surface.
+
+The eight `CLI-RETIRED-*` rows move to `in_progress` with unit evidence. None
+moves to `parity`: the inventory establishes that these names exist and are
+retired, not what the legacy runtime answered when one was invoked. Parity
+remains `0 / 400 (0.00%)` until executable differential, integration, and
 end-to-end evidence proves a complete predecessor surface.

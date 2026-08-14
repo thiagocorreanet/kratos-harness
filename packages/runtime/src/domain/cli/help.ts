@@ -35,14 +35,14 @@ function pad(text: string, width: number): string {
 
 /** Generate complete deterministic usage text from the command registry. */
 export function renderHelp(registry: CommandRegistry): string {
-  const commands = sortedCommands(registry);
+  const all = sortedCommands(registry);
+  const commands = all.filter((spec) => spec.retired !== true);
+  const retired = all.filter((spec) => spec.retired === true);
   const width = Math.max(
     12,
-    ...commands.map((spec) => spec.path.join(" ").length + 2),
+    ...all.map((spec) => spec.path.join(" ").length + 2),
     ...GLOBAL_FLAGS.map((flag) => label(flag).length + 2),
-    ...commands.flatMap((spec) =>
-      spec.flags.map((flag) => label(flag).length + 6),
-    ),
+    ...all.flatMap((spec) => spec.flags.map((flag) => label(flag).length + 6)),
   );
   const lines = [
     "Usage: yoda [--expect <version>] [--json] <command>",
@@ -53,6 +53,15 @@ export function renderHelp(registry: CommandRegistry): string {
     lines.push(`  ${pad(spec.path.join(" "), width)}${spec.summary}`);
     for (const flag of sortedFlags(spec.flags)) {
       lines.push(`      ${pad(label(flag), width - 4)}${flag.summary}`);
+    }
+  }
+  if (retired.length !== 0) {
+    // Published apart from the working commands: a caller who spells one of
+    // these learns it is recognized and refused, without the list suggesting
+    // that a phase can be selected by naming it.
+    lines.push("", "Retired commands:");
+    for (const spec of retired) {
+      lines.push(`  ${pad(spec.path.join(" "), width)}${spec.summary}`);
     }
   }
   lines.push("", "Global flags:");

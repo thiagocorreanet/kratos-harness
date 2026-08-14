@@ -1239,8 +1239,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-AUTO",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-AUTO",
@@ -1258,7 +1258,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1273,8 +1273,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-CODE",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-CODE",
@@ -1292,7 +1292,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1307,8 +1307,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-EVAL",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-EVAL",
@@ -1326,7 +1326,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1341,8 +1341,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-NEXT",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-NEXT",
@@ -1360,7 +1360,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1375,8 +1375,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-PRD",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-PRD",
@@ -1394,7 +1394,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1409,8 +1409,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-REVIEW",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-REVIEW",
@@ -1428,7 +1428,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1443,8 +1443,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-RUN",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-RUN",
@@ -1462,7 +1462,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -1477,8 +1477,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-RETIRED-SPEC",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/cli-retired.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-RETIRED-SPEC",
@@ -1496,7 +1496,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
