@@ -119,6 +119,7 @@ describe("composition root", () => {
       "locks",
       "output",
       "standardInput",
+      "workspace",
     ]);
   });
 });

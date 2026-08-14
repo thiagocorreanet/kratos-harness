@@ -108,5 +108,7 @@ export function readOnlyPorts(ports: RuntimePorts): RuntimePorts {
     // Reading a piped document changes nothing, and a preview that could not
     // read its own input would describe a decision made without it.
     standardInput: ports.standardInput,
+    // Every workspace method is an observation already.
+    workspace: ports.workspace,
   });
 }

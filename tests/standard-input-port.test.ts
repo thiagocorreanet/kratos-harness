@@ -12,6 +12,7 @@ function stream(
   return Object.assign(Readable.from(chunks), { isTTY });
 }
 
+/** Parity evidence for `IO-STDIN-INIT-ANSWERS`, the frozen stdin contract. */
 describe("the standard input port", () => {
   it("reads a piped document", async () => {
     const input = nodeStandardInput(stream(['{ "hosts": ', '["claude"] }']));

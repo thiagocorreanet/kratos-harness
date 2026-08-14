@@ -41,6 +41,11 @@ export const initCommand: CommandSpec = observingCommand(
         summary: "Read the answers document from a file instead of stdin.",
       },
       {
+        name: "--detect-root",
+        kind: "boolean",
+        summary: "Search ancestors for the project root instead of using here.",
+      },
+      {
         name: "--force",
         kind: "boolean",
         summary: "Replace an instruction file that carries no managed section.",
@@ -55,6 +60,17 @@ export const initCommand: CommandSpec = observingCommand(
         name: "--merge",
         kind: "boolean",
         summary: "Append the managed section to an unmarked instruction file.",
+      },
+      {
+        name: "--root",
+        kind: "value",
+        valueLabel: "<path>",
+        summary: "Initialize exactly this directory, searching no ancestor.",
+      },
+      {
+        name: "--worktree-local",
+        kind: "boolean",
+        summary: "In a linked worktree, ignore the principal checkout.",
       },
     ],
     positionals: { min: 0, max: 0 },

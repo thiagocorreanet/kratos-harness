@@ -86,6 +86,7 @@ export async function runCommandLine(
       return publish(parsed.result, parsed.json, ports);
     }
     let invocation = parsed.invocation;
+    let applyPorts = ports;
     if (invocation.command.prerequisite !== "none") {
       const observed = await observeInitialization(
         invocation,
@@ -96,6 +97,9 @@ export async function runCommandLine(
         return publish(observed.result, json, ports);
       }
       invocation = { ...invocation, observation: observed.observation };
+      // The command may target a directory other than the one this process
+      // started in, and its plan has to be committed where it was decided.
+      applyPorts = observed.ports;
     }
     const decision = dispatch(invocation);
     validateResult(decision.result);
@@ -114,7 +118,7 @@ export async function runCommandLine(
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);
     }
-    const outcome = await applyPlan(decision.plan, ports, {
+    const outcome = await applyPlan(decision.plan, applyPorts, {
       rootMode: decision.rootMode ?? "existing",
     });
     const result =

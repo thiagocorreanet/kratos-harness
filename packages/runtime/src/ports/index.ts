@@ -108,4 +108,12 @@ export interface RuntimePorts {
   readonly environment: Environment;
   readonly output: Output;
   readonly standardInput: StandardInput;
+  /**
+   * Read-only facts about where the project is.
+   *
+   * Composed with the rest because a command that resolves its own root needs
+   * it at dispatch time, and reaching for a second set of ports mid-command is
+   * how a runtime ends up with two answers about which project it is in.
+   */
+  readonly workspace: Workspace;
 }

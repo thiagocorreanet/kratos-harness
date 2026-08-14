@@ -1,3 +1,8 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { createRuntime } from "@mestre-yoda/runtime/composition";
 import { runCommandLine } from "@mestre-yoda/runtime/composition/cli";
 import {
   destinationsOf,
@@ -35,8 +40,13 @@ function subject(
   answers: string | null = ANSWERS,
   seed: Readonly<Record<string, string>> = {},
   projectFiles: Readonly<Record<string, string>> = {},
+  workspaceDirectories: readonly string[] = [],
+  seedDirectories: readonly string[] = [],
 ): Subject {
-  const storage = memoryTransactionStorage({ files: seed });
+  const storage = memoryTransactionStorage({
+    files: seed,
+    directories: seedDirectories,
+  });
   const output = recordingOutput();
   return {
     storage,
@@ -52,11 +62,24 @@ function subject(
       environment: fixedEnvironment({}, ROOT),
       output,
       standardInput: pipedInput(answers),
-      workspace: memoryWorkspace({ directories: [ROOT] }),
-    } as unknown as RuntimePorts,
+      workspace: memoryWorkspace({
+        directories: [ROOT, ...workspaceDirectories],
+      }),
+    },
   };
 }
 
+/**
+ * Parity evidence for the initialization rows this suite exercises:
+ * `CLI-INIT`, `FLAG-INIT-ANSWERS`, `FLAG-INIT-DETECT-ROOT`, `FLAG-INIT-FORCE`,
+ * `FLAG-INIT-HOST`, `FLAG-INIT-MERGE`, `FLAG-INIT-ROOT`, and
+ * `FLAG-INIT-WORKTREE-LOCAL`.
+ *
+ * The inventory establishes that the command exists, accepts those flag names,
+ * and generates those paths. What each flag means is this runtime's contract,
+ * so the rows stay `in_progress` until a differential capture exists to
+ * compare behavior against.
+ */
 describe("the init command", () => {
   it("establishes the frozen surface from a piped answers document", async () => {
     const run = subject();
@@ -218,10 +241,119 @@ describe("the init command", () => {
     const run = subject(ANSWERS, {});
     // A directory where `CLAUDE.md` belongs is not a file to replace, and
     // removing it is not initialization's decision to make.
-    run.storage.durableFileSystem.createDirectory(".claude");
     await run.storage.durableFileSystem.createDirectory("CLAUDE.md");
 
     expect(await runCommandLine(["init", "--force"], run.ports)).not.toBe(0);
+  });
+
+  it("refuses a named root and a search for one at the same time", async () => {
+    const run = subject();
+
+    // One names a directory and the other asks for a search. Honouring both
+    // means picking one silently.
+    expect(
+      await runCommandLine(
+        ["init", "--root", "/elsewhere", "--detect-root"],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(run.storage.snapshot().files).toEqual({});
+  });
+
+  it("initializes the root that detection finds", async () => {
+    const run = subject(ANSWERS, {}, {}, [`${ROOT}/.brain`]);
+
+    expect(
+      await runCommandLine(
+        ["init", "--detect-root", "--worktree-local"],
+        run.ports,
+      ),
+    ).toBe(0);
+    expect(Object.keys(run.storage.snapshot().files)).toContain(
+      ".brain/config.json",
+    );
+  });
+
+  it("refuses detection that finds no project", async () => {
+    const run = subject();
+
+    // Falling back to the current directory would initialize somewhere the
+    // caller never named.
+    expect(await runCommandLine(["init", "--detect-root"], run.ports)).not.toBe(
+      0,
+    );
+  });
+
+  it("initializes the directory --root names", async () => {
+    const target = await mkdtemp(join(tmpdir(), "yoda-init-root-"));
+    try {
+      const output = recordingOutput();
+      const ports = createRuntime({
+        output,
+        standardInput: pipedInput(ANSWERS),
+      });
+
+      // Ports are composed where the process started; the run has to write
+      // where it was told instead.
+      expect(await runCommandLine(["init", "--root", target], ports)).toBe(0);
+
+      expect(
+        await readFile(join(target, ".brain/config.json"), "utf8"),
+      ).toContain('"language": "en"');
+      expect(await readFile(join(target, "CLAUDE.md"), "utf8")).toContain(
+        "BEGIN MESTRE YODA MANAGED SECTION",
+      );
+    } finally {
+      await rm(target, { force: true, recursive: true });
+    }
+  });
+
+  it("completes a partially initialized project without rewriting the rest", async () => {
+    const first = subject();
+    await runCommandLine(["init"], first.ports);
+    const settled = first.storage.snapshot().files;
+
+    // Half a project: the state root survived, the host surface did not.
+    const partial = Object.fromEntries(
+      Object.entries(settled).filter(
+        ([path]) =>
+          path.startsWith(".brain/") &&
+          !path.startsWith(".brain/transactions/"),
+      ),
+    );
+    const run = subject(
+      ANSWERS,
+      partial,
+      {},
+      [],
+      [".brain", ".brain/transactions"],
+    );
+
+    expect(await runCommandLine(["--json", "init"], run.ports)).toBe(0);
+
+    const result: unknown = JSON.parse(run.output.structured_.join(""));
+    expect(result).toMatchObject({
+      summary: expect.stringContaining("preserved 18") as unknown,
+    });
+    expect(Object.keys(run.storage.snapshot().files)).toContain("CLAUDE.md");
+  });
+
+  it("initializes a project whose stack it does not recognize", async () => {
+    const run = subject(ANSWERS, {}, {});
+    const bare = {
+      ...run,
+      ports: {
+        ...run.ports,
+        fileSystem: memoryFileSystem({ "notes.txt": "" }),
+      },
+    };
+
+    expect(await runCommandLine(["init"], bare.ports)).toBe(0);
+
+    // A project this tool does not recognize is still a project it initializes.
+    expect(
+      run.storage.snapshot().files[".brain/01-architecture/stack-profile.md"],
+    ).toContain("No known stack matched");
   });
 
   it("refuses both an answers file and a piped document", async () => {
