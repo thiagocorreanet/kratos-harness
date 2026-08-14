@@ -59,11 +59,27 @@ describe("initialization answers", () => {
     ["a repeated host", answers({ hosts: ["claude", "claude"] })],
     ["an unsupported host", answers({ hosts: ["cursor"] })],
     ["an unsupported language", answers({ language: "fr" })],
-    ["a missing contract version", { hostContract: "1.0.0", hosts: ["claude"] }],
+    [
+      "a missing contract version",
+      { hostContract: "1.0.0", hosts: ["claude"] },
+    ],
   ])("refuses %s", (_label, document) => {
     // A misspelled key that is quietly dropped is how somebody believes they
     // configured something they did not.
     expect(resolveInitAnswers(document, registry).kind).toBe("invalid");
+  });
+
+  it.each([
+    ["a bare string", "init"],
+    ["nothing at all", null],
+  ])("refuses %s as an answers document", (_label, document) => {
+    // Standard input delivers whatever the caller piped. A value that is not
+    // an object has no contract version to read, so the refusal names the
+    // contract rather than a field the document never had.
+    expect(resolveInitAnswers(document, registry)).toMatchObject({
+      kind: "invalid",
+      reasonCode: "contract.host_version_invalid",
+    });
   });
 
   it("names the reason a document was refused", () => {
