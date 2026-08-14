@@ -62,6 +62,20 @@ function isManagedRoot(segment: string): boolean {
 }
 
 /**
+ * Whether a plan may create this directory.
+ *
+ * Everything a plan may write to, plus the host roots themselves. A host root
+ * has no bootstrap: the plan that writes inside `.claude` is the reason
+ * `.claude` exists. `.brain` is deliberately not here -- the transaction
+ * manager creates it before any plan runs, and a plan proposing to create it
+ * too would be two owners for one directory.
+ */
+export function isManagedDirectoryDestination(path: string): boolean {
+  if (isManagedDestination(path)) return true;
+  return isManagedRoot(path) && path !== ".brain";
+}
+
+/**
  * Whether a plan may target a path.
  *
  * The managed surface minus the namespace the transaction manager owns. One

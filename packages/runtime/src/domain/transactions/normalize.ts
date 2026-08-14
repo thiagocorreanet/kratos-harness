@@ -1,5 +1,8 @@
 import type { Effect, EffectPlan } from "../effects.js";
-import { isManagedDestination } from "./surface.js";
+import {
+  isManagedDestination,
+  isManagedDirectoryDestination,
+} from "./surface.js";
 import {
   TransactionPolicyError,
   type ManagedMutationPlan,
@@ -84,6 +87,9 @@ function selectManagedEffects(effectPlan: EffectPlan): ManagedEffect[] {
       case "append_event":
         throw invalidState();
       case "create_directory":
+        assertManagedDirectory(effect.path);
+        effects.push(effect);
+        break;
       case "delete_file":
       case "write_file":
         assertManagedPath(effect.path);
@@ -96,6 +102,11 @@ function selectManagedEffects(effectPlan: EffectPlan): ManagedEffect[] {
 
 function assertManagedPath(path: string): void {
   if (!isManagedDestination(path)) throw outsideAllowlist();
+}
+
+/** A plan may create a host root; it may not write a file at one. */
+function assertManagedDirectory(path: string): void {
+  if (!isManagedDirectoryDestination(path)) throw outsideAllowlist();
 }
 
 function validateRelationships(effects: readonly ManagedEffect[]): void {
@@ -129,10 +140,21 @@ function validateRelationships(effects: readonly ManagedEffect[]): void {
 function managedPathPrefixes(path: string): string[] {
   const segments = path.split("/");
   const prefixes: string[] = [];
-  for (let length = 2; length <= segments.length; length += 1) {
+  for (let length = 1; length <= segments.length; length += 1) {
     prefixes.push(segments.slice(0, length).join("/"));
   }
   return prefixes;
+}
+
+/**
+ * The first path component a plan is responsible for creating.
+ *
+ * `.brain` is bootstrapped by the transaction manager before any plan runs, so
+ * a plan must not also propose creating it. A host root has no bootstrap: a
+ * plan that writes inside `.claude` is the reason `.claude` exists.
+ */
+function firstOwnedDepth(path: string): number {
+  return path.startsWith(".brain/") ? 2 : 1;
 }
 
 function synthesizeMissingParents(
@@ -141,7 +163,11 @@ function synthesizeMissingParents(
   drafts: DraftOperation[],
 ): void {
   const segments = path.split("/");
-  for (let length = 2; length < segments.length; length += 1) {
+  for (
+    let length = firstOwnedDepth(path);
+    length < segments.length;
+    length += 1
+  ) {
     const parent = segments.slice(0, length).join("/");
     const expected = observedState.get(parent) ?? missing;
     if (expected.kind === "file") throw invalidState();

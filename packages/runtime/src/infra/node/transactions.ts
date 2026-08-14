@@ -331,6 +331,12 @@ export function nodeDurableFileSystem(
   return {
     inspect: (path) =>
       boundary("inspect", async () => {
+        // The project root is the parent of a managed root file, and it is
+        // reached through the same validated anchor every other operation uses.
+        if (path === ".") {
+          await validatedRoot();
+          return { kind: "directory" } as const;
+        }
         const observation = await scan(path);
         if (observation.details?.isFile() !== true) {
           return durableNonFileEntry(observation.details);

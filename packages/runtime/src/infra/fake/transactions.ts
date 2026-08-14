@@ -5,6 +5,7 @@ import type {
   FileStat,
   FileSystem,
 } from "../../ports/index.js";
+import { isManagedPathShape } from "../../domain/transactions/index.js";
 import { sha256Digests } from "../digests.js";
 
 export type DurableOperation =
@@ -80,17 +81,9 @@ function normalizePath(path: string): string {
 
 function normalizeDurablePath(path: string): string {
   const normalized = normalizePath(path);
-  const segments = path.split("/");
-  if (
-    segments[0] !== ".brain" ||
-    segments.some(
-      (segment) => segment === "" || segment === "." || segment === "..",
-    ) ||
-    segments.join("/") !== path ||
-    normalized !== path
-  ) {
-    rejectPath();
-  }
+  // The same surface rule the Node adapter enforces, so a test that passes
+  // against the fake is not passing against a friendlier filesystem.
+  if (!isManagedPathShape(path) || normalized !== path) rejectPath();
   return normalized;
 }
 
@@ -293,6 +286,11 @@ export function memoryTransactionStorage(
   const durableFileSystem: DurableFileSystem = {
     inspect: (path) =>
       deferred(() => {
+        if (path === ".") {
+          return boundary("inspect", (): DurableEntry => ({
+            kind: "directory",
+          }));
+        }
         const normalized = normalizeDurablePath(path);
         return boundary("inspect", (): DurableEntry => {
           const content = files.get(normalized);

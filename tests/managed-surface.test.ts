@@ -95,7 +95,6 @@ const NEAR_MISSES: readonly string[] = [
   ".brain/transactions",
   ".brain/transactionsx/file.json",
   "..",
-  ".",
 ];
 
 describe("every layer answers alike", () => {
@@ -145,5 +144,13 @@ describe("every layer answers alike", () => {
     // other refuses.
     expect(adapterAccepts).toBe(isManagedPathShape(path));
     expect(plannerAccepts).toBe(isManagedDestination(path));
+  });
+
+  it("treats the project root as a sentinel rather than as a path", () => {
+    // `.` is not a managed path and never becomes one. It is the name two
+    // adapter methods answer to so a root file has a parent, and the planner
+    // never emits it as a destination.
+    expect(isManagedPathShape(".")).toBe(false);
+    expect(isManagedDestination(".")).toBe(false);
   });
 });
