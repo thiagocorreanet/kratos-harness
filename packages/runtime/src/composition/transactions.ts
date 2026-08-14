@@ -14,6 +14,8 @@ import {
 import {
   assertPhaseTransition,
   decideRecovery,
+  isManagedDestination,
+  isManagedDirectoryDestination,
   toPersistedManagedOperation,
   type ManagedMutationPlan,
   type ManagedOperation,
@@ -588,7 +590,7 @@ function freezeManagedOperation(
   if (value.operationId !== operationId || typeof value.path !== "string") {
     throw invalidPlan();
   }
-  assertCallerManagedDestination(value.path);
+  assertCallerManagedDestination(value.path, value.kind);
   const expected = freezeFingerprint(value.expected);
   const result = freezeFingerprint(value.result);
   if (sameFingerprint(expected, result)) throw invalidPlan();
@@ -757,15 +759,24 @@ function validateManagedRelationships(
 
 function managedPathPrefixes(path: string): readonly string[] {
   const segments = path.split("/");
-  return segments
-    .slice(1)
-    .map((_segment, index) => segments.slice(0, index + 2).join("/"));
+  return segments.map((_segment, index) =>
+    segments.slice(0, index + 1).join("/"),
+  );
 }
 
-function assertCallerManagedDestination(path: string): void {
-  if (!isManagedDestination(path)) {
-    throw new TransactionFailure("guard.outside_allow", []);
-  }
+/**
+ * Refuse a destination the caller may not target, by what it does to it.
+ *
+ * A plan may create a host root and may not write a file at one, so the
+ * question depends on the operation. An unknown kind fails the shape check
+ * below this call, which is where a malformed plan belongs.
+ */
+function assertCallerManagedDestination(path: string, kind: unknown): void {
+  const allowed =
+    kind === "create_directory"
+      ? isManagedDirectoryDestination(path)
+      : isManagedDestination(path);
+  if (!allowed) throw new TransactionFailure("guard.outside_allow", []);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1646,7 +1657,7 @@ function assertManifestSemantics(
     const operationId = `operation-${String(index + 1).padStart(4, "0")}`;
     if (
       operation.operationId !== operationId ||
-      !isManagedDestination(operation.path)
+      !isManagedDirectoryDestination(operation.path)
     ) {
       throw corrupt(`${root}/manifest.json`);
     }
@@ -1693,33 +1704,6 @@ function assertManifestSemantics(
   if (manifest.planDigest !== planDigest) {
     throw corrupt(`${root}/manifest.json`);
   }
-}
-
-function isManagedDestination(path: string): boolean {
-  const segments = path.split("/");
-  return (
-    path !== "" &&
-    !path.includes("\\") &&
-    !/^[A-Za-z]:/u.test(path) &&
-    !hasControlCharacter(path) &&
-    segments.length >= 2 &&
-    segments[0] === ".brain" &&
-    segments[1]?.toLowerCase() !== "transactions" &&
-    segments.every(
-      (segment) => segment !== "" && segment !== "." && segment !== "..",
-    ) &&
-    segments.join("/") === path
-  );
-}
-
-function hasControlCharacter(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 async function observeTransaction(
@@ -2285,9 +2269,14 @@ function sameFingerprint(
   return left.size === right.size && left.sha256 === right.sha256;
 }
 
+/**
+ * The directory a destination sits in.
+ *
+ * A managed root file has no separator, and its parent is the project root --
+ * the sentinel `inspect` and `syncDirectory` both answer to.
+ */
 function parentOf(path: string): string {
   const separator = path.lastIndexOf("/");
-  /* v8 ignore next -- every managed destination begins with .brain/ */
   return separator === -1 ? "." : path.slice(0, separator);
 }
 

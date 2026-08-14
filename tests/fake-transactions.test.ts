@@ -448,10 +448,17 @@ describe("memory transaction storage", () => {
     expect(storage.snapshot()).toEqual(before);
   });
 
-  it("rejects the project root as a durable entry path", async () => {
-    await expect(
-      memoryTransactionStorage().durableFileSystem.inspect("."),
-    ).rejects.toThrow("escapes the project");
+  it("reports the project root without materializing it", async () => {
+    const storage = memoryTransactionStorage();
+
+    // A managed file at the project root has the root as its parent, and
+    // publishing it asserts that parent is a directory. Answering the question
+    // does not make the root an entry the fake stores.
+    await expect(storage.durableFileSystem.inspect(".")).resolves.toEqual({
+      kind: "directory",
+    });
+
+    expect(storage.snapshot()).toEqual(empty);
   });
 
   it("synchronizes the implicit project root without materializing it", async () => {

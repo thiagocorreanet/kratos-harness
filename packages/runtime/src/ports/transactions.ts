@@ -8,7 +8,15 @@ export type DurableEntry =
       readonly sha256: string;
     };
 
-/** Narrow durable filesystem primitives driven one boundary at a time. */
+/**
+ * Narrow durable filesystem primitives driven one boundary at a time.
+ *
+ * `inspect` and `syncDirectory` accept the exact `.` project-root sentinel,
+ * because a managed file at the project root has the root as its parent and a
+ * publication asserts its parent is a directory. No other method does: the
+ * project root is not a file to read, a directory to create, or an entry to
+ * remove.
+ */
 export interface DurableFileSystem {
   inspect(path: string): Promise<DurableEntry>;
   list(path: string): Promise<readonly string[]>;
@@ -24,7 +32,6 @@ export interface DurableFileSystem {
   ): Promise<void>;
   removeFile(path: string): Promise<void>;
   removeEmptyDirectory(path: string): Promise<void>;
-  /** This method alone accepts the exact `.` project-root sentinel. */
   syncDirectory(path: string): Promise<"supported" | "unsupported">;
 }
 

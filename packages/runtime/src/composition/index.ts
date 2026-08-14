@@ -13,6 +13,7 @@ import {
   type JsonState,
 } from "../domain/events/index.js";
 import {
+  isManagedDirectoryDestination,
   managedPathCollisionKey,
   normalizeManagedMutationPlan,
   toPersistedManagedOperation,
@@ -873,7 +874,7 @@ function managedObservationPaths(plan: EffectPlan): readonly string[] {
     if (
       effect.kind === "emit" ||
       effect.kind === "append_event" ||
-      !isObservationCandidate(effect.path)
+      !isManagedDirectoryDestination(effect.path)
     ) {
       continue;
     }
@@ -882,32 +883,14 @@ function managedObservationPaths(plan: EffectPlan): readonly string[] {
     // normalization below remains the authoritative managed-path policy.
     paths.add(".brain");
     const segments = effect.path.split("/");
-    for (let length = 2; length <= segments.length; length += 1) {
+    // From the first component: a host root and a root file are both
+    // destinations now, and an unobserved destination is one a second run
+    // rewrites instead of recognizing as already right.
+    for (let length = 1; length <= segments.length; length += 1) {
       paths.add(segments.slice(0, length).join("/"));
     }
   }
   return [...paths];
-}
-
-function isObservationCandidate(path: string): boolean {
-  if (path === "" || path.includes("\\") || /^[A-Za-z]:/u.test(path)) {
-    return false;
-  }
-  for (const character of path) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
-      return false;
-    }
-  }
-  const segments = path.split("/");
-  return (
-    segments.length >= 2 &&
-    segments[0] === ".brain" &&
-    !segments.some(
-      (segment) => segment === "" || segment === "." || segment === "..",
-    ) &&
-    segments[1]?.toLowerCase() !== "transactions"
-  );
 }
 
 function durableEntryFingerprint(

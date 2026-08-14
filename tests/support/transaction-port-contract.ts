@@ -231,6 +231,18 @@ export function describeDurableFileSystemContract(
       });
     });
 
+    it("reports the project root through the sentinel it already synchronizes", async () => {
+      await withFileSystem(async (fileSystem) => {
+        await createBrain(fileSystem);
+
+        // A destination at the project root -- `CLAUDE.md` -- has the root as
+        // its parent, and publishing it asserts that parent is a directory the
+        // way every other operation does. One sentinel on two methods beats a
+        // second kind of path that every future operation has to reason about.
+        expect(await fileSystem.inspect(".")).toEqual({ kind: "directory" });
+      });
+    });
+
     it("classifies directory synchronization without hiding path errors", async () => {
       await withFileSystem(async (fileSystem) => {
         await createBrain(fileSystem);
@@ -296,9 +308,14 @@ export function describeDurableFileSystemContract(
       ],
     ];
 
-    it.each(durableEntryPathOperations)(
+    it.each(
+      durableEntryPathOperations.filter(([label]) => label !== "inspect"),
+    )(
       "%s refuses the project root sentinel as a managed entry",
       async (_operation, run) => {
+        // `inspect` and `syncDirectory` accept the sentinel because a root
+        // file's parent is the root. Nothing else does: the project root is
+        // not a file to read, a directory to create, or an entry to remove.
         await withFileSystem(async (fileSystem) => {
           await expect(run(fileSystem, ".")).rejects.toThrow(
             "escapes the project",
