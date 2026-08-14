@@ -6,6 +6,7 @@ import {
   readOnlyPorts,
   ReadOnlyViolation,
 } from "@mestre-yoda/runtime/composition";
+import { pipedInput } from "@mestre-yoda/runtime/infra/fake";
 import {
   nodeClock,
   nodeDurableFileSystem,
@@ -32,6 +33,7 @@ async function temporaryProject<T>(
       durableFileSystem: nodeDurableFileSystem(root),
       fileSystem: nodeFileSystem(root),
       git: { observe: () => Promise.reject(new Error("unused")) },
+      standardInput: pipedInput("unused"),
       locks: {
         inspect: () => Promise.reject(new Error("unused")),
         acquire: () => Promise.reject(new Error("unused")),

@@ -12,6 +12,7 @@ import type {
   FileSystem,
   Ids,
   Output,
+  StandardInput,
   Workspace,
 } from "../../ports/index.js";
 
@@ -206,6 +207,18 @@ export function fixedEnvironment(
   return {
     get: (name) => values[name],
     workingDirectory: () => cwd,
+  };
+}
+
+/** Standard input as data, so an initialization test needs no terminal. */
+export function pipedInput(text: string | null): StandardInput {
+  let remaining = text;
+  return {
+    read: () => {
+      const document = remaining;
+      remaining = null;
+      return Promise.resolve(document);
+    },
   };
 }
 

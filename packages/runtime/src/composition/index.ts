@@ -32,6 +32,7 @@ import {
   nodeGitRunner,
   nodeIds,
   nodeOutput,
+  nodeStandardInput,
   sha256Digests,
 } from "../infra/node/index.js";
 import type { DurableEntry, RuntimePorts } from "../ports/index.js";
@@ -150,6 +151,7 @@ export function createRuntimeAt(
     }),
     environment: nodeEnvironment(),
     output: nodeOutput(),
+    standardInput: nodeStandardInput(),
     ...overrides,
   };
 }

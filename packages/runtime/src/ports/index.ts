@@ -69,6 +69,19 @@ export interface Environment {
   workingDirectory(): string;
 }
 
+/**
+ * Whatever the caller piped in, read once.
+ *
+ * `null` is the absence of a document, which is the ordinary case of a caller
+ * who used a flag instead. A document that is present but blank is a
+ * validation failure with a reason, and the two must not be confused: one is
+ * somebody choosing another input, the other is somebody sending nothing when
+ * they meant to send something.
+ */
+export interface StandardInput {
+  read(): Promise<string | null>;
+}
+
 /** Output streams, so rendering is observable rather than a side effect. */
 export interface Output {
   structured(text: string): void;
@@ -94,4 +107,5 @@ export interface RuntimePorts {
   readonly locks: Locks;
   readonly environment: Environment;
   readonly output: Output;
+  readonly standardInput: StandardInput;
 }

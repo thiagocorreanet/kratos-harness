@@ -105,5 +105,8 @@ export function readOnlyPorts(ports: RuntimePorts): RuntimePorts {
     locks: readOnlyLocks(ports.locks),
     environment: ports.environment,
     output: ports.output,
+    // Reading a piped document changes nothing, and a preview that could not
+    // read its own input would describe a decision made without it.
+    standardInput: ports.standardInput,
   });
 }
