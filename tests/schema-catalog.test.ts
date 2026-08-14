@@ -20,6 +20,20 @@ function entryAt(
   return entry;
 }
 
+/**
+ * Where `state.approval` sits, found by identity rather than by position.
+ *
+ * These assertions mutate the state family's version constraint, which only
+ * that entry carries. Pinning it to an index means a contract added ahead of it
+ * retargets them at a schema shaped differently, and the failure that follows
+ * names a fixture rather than the rule under test.
+ */
+function approvalIndex(entries: readonly EmbeddedSchemaEntry[]): number {
+  const index = entries.findIndex(({ id }) => id === "state.approval");
+  if (index < 0) throw new Error("catalog fixture unavailable");
+  return index;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("catalog fixture unavailable");
@@ -90,8 +104,9 @@ describe("embedded schema catalog", () => {
     "rejects wrong %s metadata without changing catalog length",
     (field, value) => {
       const entries = mutableEntries();
-      const approval = entryAt(entries, 1);
-      entries[1] = { ...approval, [field]: value };
+      const index = approvalIndex(entries);
+      const approval = entryAt(entries, index);
+      entries[index] = { ...approval, [field]: value };
 
       expectInconsistent(entries);
     },
@@ -99,7 +114,9 @@ describe("embedded schema catalog", () => {
 
   it("rejects a wrong family-version declaration without changing catalog length", () => {
     const entries = mutableEntries();
-    const approval = objectRecord(entryAt(entries, 1).schema);
+    const approval = objectRecord(
+      entryAt(entries, approvalIndex(entries)).schema,
+    );
     const properties = objectRecord(approval.properties);
     const stateContract = objectRecord(properties.stateContract);
     stateContract.const = "9.9.9";
@@ -109,7 +126,9 @@ describe("embedded schema catalog", () => {
 
   it("rejects a non-object family-version constraint", () => {
     const entries = mutableEntries();
-    const approval = objectRecord(entryAt(entries, 1).schema);
+    const approval = objectRecord(
+      entryAt(entries, approvalIndex(entries)).schema,
+    );
     const properties = objectRecord(approval.properties);
     properties.stateContract = null;
 
@@ -118,7 +137,9 @@ describe("embedded schema catalog", () => {
 
   it("accepts an enum-backed current family version", () => {
     const entries = mutableEntries();
-    const approval = objectRecord(entryAt(entries, 1).schema);
+    const approval = objectRecord(
+      entryAt(entries, approvalIndex(entries)).schema,
+    );
     const properties = objectRecord(approval.properties);
     const stateContract = objectRecord(properties.stateContract);
     delete stateContract.const;
