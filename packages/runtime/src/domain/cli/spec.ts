@@ -3,6 +3,7 @@ import type {
   ManagedFileObservation,
   ResolvedInitAnswers,
 } from "../init/index.js";
+import type { ObjectiveObservation } from "../objective/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 
@@ -71,6 +72,15 @@ export type CommandObservation =
         string,
         ManagedFileObservation,
       ])[];
+    }
+  | {
+      readonly kind: "objective";
+      /** The recorded objective, or its absence. */
+      readonly objective: ObjectiveObservation;
+      /** Everything the history already holds, so appending stays pure. */
+      readonly history: string;
+      /** The instant this run observed, supplied rather than read. */
+      readonly now: string;
     };
 
 export type CommandPrerequisite = CommandObservation["kind"];

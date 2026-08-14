@@ -30,6 +30,7 @@ const HOSTS: readonly Host[] = ["claude", "codex"];
  * which the transaction normalizer then collapses.
  */
 export const initCommand: CommandSpec = observingCommand(
+  "initialization",
   {
     path: ["init"],
     summary: "Establish the managed project surface.",

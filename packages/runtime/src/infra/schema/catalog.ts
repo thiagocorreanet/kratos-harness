@@ -4,6 +4,7 @@ import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schem
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
+import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
@@ -65,6 +66,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: evidenceSchema,
     },
     {
+      id: "state.feature",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/feature.v1.schema.json",
+      schema: featureSchema,
+    },
+    {
       id: "state.lock",
       family: "state",
       version: "1.0.0",
@@ -119,6 +127,7 @@ const EXPECTED_SCHEMA_IDS = {
   "state.approval": "https://mestre-yoda.dev/schemas/state/approval/v1",
   "state.event": "https://mestre-yoda.dev/schemas/state/event/v1",
   "state.evidence": "https://mestre-yoda.dev/schemas/state/evidence/v1",
+  "state.feature": "https://mestre-yoda.dev/schemas/state/feature/v1",
   "state.lock": "https://mestre-yoda.dev/schemas/state/lock/v1",
   "state.migration": "https://mestre-yoda.dev/schemas/state/migration/v1",
   "state.project-config":
