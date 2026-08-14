@@ -330,6 +330,37 @@ describe("managed mutation plan normalization", () => {
     ).toThrow(expect.objectContaining({ reasonCode: "guard.outside_allow" }));
   });
 
+  it.each([
+    ["an unmanaged directory", "src"],
+    ["the managed state root the manager owns", ".brain"],
+    ["a traversal dressed as a directory", ".claude/.."],
+  ])("rejects creating %s", (_name, path) => {
+    // A plan creates the host root it is about to write inside, so
+    // `create_directory` asks a wider question than `write_file` does. Wider
+    // is not open: `.brain` belongs to the transaction manager, and two owners
+    // for one directory is one too many.
+    expect(() =>
+      normalizeManagedMutationPlan(
+        planOf({ kind: "create_directory", path }),
+        new Map(),
+        sha256,
+      ),
+    ).toThrow(expect.objectContaining({ reasonCode: "guard.outside_allow" }));
+  });
+
+  it("creates a host root a plan is about to write inside", () => {
+    const normalized = normalizeManagedMutationPlan(
+      planOf({ kind: "create_directory", path: ".claude" }),
+      new Map(),
+      sha256,
+    );
+
+    expect(normalized).toMatchObject({
+      kind: "ready",
+      plan: { operations: [{ kind: "create_directory", path: ".claude" }] },
+    });
+  });
+
   it("rejects an unexpanded append effect", () => {
     expect(() =>
       normalizeManagedMutationPlan(
