@@ -6,6 +6,7 @@ import { resultFor } from "../result/index.js";
 import { renderHelp } from "./help.js";
 import { initCommand } from "./init.js";
 import { objectiveCommand } from "./objective.js";
+import { RETIRED_COMMAND_SPECS } from "./retired.js";
 import type {
   CommandRegistry,
   CommandSpec,
@@ -73,4 +74,5 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   initCommand,
   objectiveCommand,
   versionCommand,
+  ...RETIRED_COMMAND_SPECS,
 ];

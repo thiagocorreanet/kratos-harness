@@ -104,6 +104,15 @@ export interface CommandSpec {
   readonly jsonContract: JsonContractId;
   /** What the composition root must observe before dispatch. */
   readonly prerequisite: CommandPrerequisite;
+  /**
+   * Whether this name exists only to refuse.
+   *
+   * A retired phase command stays recognizable so a caller learns where the
+   * capability went, and help publishes it apart from the workflow it is no
+   * longer part of. Listing it beside the working commands would advertise
+   * exactly the manual phase control it refuses.
+   */
+  readonly retired?: true;
   readonly handler: CommandHandler;
 }
 

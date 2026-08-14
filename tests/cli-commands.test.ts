@@ -17,13 +17,19 @@ function invoke(argv: readonly string[]) {
 
 describe("implemented commands", () => {
   it("registers exactly the commands that work today", () => {
-    expect(DEFAULT_REGISTRY.map((spec) => spec.path.join(" ")).sort()).toEqual([
-      "handshake",
-      "help",
-      "init",
-      "objective",
-      "version",
-    ]);
+    expect(
+      DEFAULT_REGISTRY.filter((spec) => spec.retired !== true)
+        .map((spec) => spec.path.join(" "))
+        .sort(),
+    ).toEqual(["handshake", "help", "init", "objective", "version"]);
+  });
+
+  it("registers every retired phase name apart from those", () => {
+    expect(
+      DEFAULT_REGISTRY.filter((spec) => spec.retired === true)
+        .map((spec) => spec.path.join(" "))
+        .sort(),
+    ).toEqual(["auto", "code", "eval", "next", "prd", "review", "run", "spec"]);
   });
 
   it("prints usage for an empty argument vector", () => {

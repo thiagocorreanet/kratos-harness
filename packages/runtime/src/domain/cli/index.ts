@@ -5,6 +5,13 @@ export { initCommand } from "./init.js";
 export { objectiveCommand } from "./objective.js";
 export { observingCommand } from "./observed.js";
 export {
+  RETIRED_COMMANDS,
+  RETIRED_COMMAND_SPECS,
+  retiredCommand,
+  retiredWhy,
+} from "./retired.js";
+export type { RetiredCommandName } from "./retired.js";
+export {
   parseArguments,
   parseGlobals,
   parseInvocation,
