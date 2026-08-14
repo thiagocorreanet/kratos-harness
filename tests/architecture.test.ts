@@ -108,8 +108,12 @@ describe("import extraction", () => {
       "../domain/effects.js",
       "../domain/events/index.js",
       "../domain/transactions/index.js",
+      "../domain/schema/index.js",
+      "../domain/result/index.js",
       "../infra/node/index.js",
       "../ports/index.js",
+      "./read-only.js",
+      "./preview-result.js",
       "./git.js",
       "./schema.js",
       "./events.js",
@@ -290,27 +294,37 @@ describe("runtime boundary documentation", () => {
   let eventStoreGuide = "";
   let atomicTransactionsGuide = "";
   let concurrencyLocksGuide = "";
+  let dryRunGuide = "";
 
   beforeAll(async () => {
-    [guide, eventStoreGuide, atomicTransactionsGuide, concurrencyLocksGuide] =
-      await Promise.all([
-        readFile(
-          join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
-          "utf8",
-        ),
-        readFile(
-          join(repositoryRoot, "docs/architecture/event-store.md"),
-          "utf8",
-        ),
-        readFile(
-          join(repositoryRoot, "docs/architecture/atomic-transactions.md"),
-          "utf8",
-        ),
-        readFile(
-          join(repositoryRoot, "docs/architecture/concurrency-locks.md"),
-          "utf8",
-        ),
-      ]);
+    [
+      guide,
+      eventStoreGuide,
+      atomicTransactionsGuide,
+      concurrencyLocksGuide,
+      dryRunGuide,
+    ] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "docs/architecture/runtime-boundaries.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/event-store.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/atomic-transactions.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/concurrency-locks.md"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "docs/architecture/dry-run-plans.md"),
+        "utf8",
+      ),
+    ]);
   });
 
   it.each([
@@ -379,6 +393,26 @@ describe("runtime boundary documentation", () => {
     "read-only",
   ])("publishes the lock boundary: %s", (required) => {
     expect(concurrencyLocksGuide).toContain(required);
+  });
+
+  it.each([
+    "One code path, two exits",
+    "readOnlyPorts",
+    "planDigest",
+    "expectPreview",
+    "runtime.revision_conflict",
+    "runtime.recovery_required",
+    "stateChanged: false",
+    "does not add a public command",
+  ])("publishes the preview boundary: %s", (required) => {
+    expect(dryRunGuide).toContain(required);
+  });
+
+  it("states why the dry-run flag is absent rather than omitting it", () => {
+    // A reader who finds no mention of the flag will assume it was forgotten.
+    expect(dryRunGuide).toContain("--dry-run");
+    expect(dryRunGuide).toContain("--require-contract");
+    expect(dryRunGuide).toContain("0 / 400");
   });
 
   it("states what the lock contract refuses to promise", () => {

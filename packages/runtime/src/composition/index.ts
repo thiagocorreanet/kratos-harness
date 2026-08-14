@@ -15,9 +15,14 @@ import {
 import {
   managedPathCollisionKey,
   normalizeManagedMutationPlan,
+  toPersistedManagedOperation,
   TransactionPolicyError,
+  type ManagedMutationPlan,
+  type ManagedOperation,
   type PathFingerprint,
 } from "../domain/transactions/index.js";
+import { canonicalizeJson } from "../domain/schema/index.js";
+import type { EvidenceRef } from "../domain/result/index.js";
 import {
   nodeClock,
   nodeDurableFileSystem,
@@ -29,6 +34,8 @@ import {
   sha256Digests,
 } from "../infra/node/index.js";
 import type { DurableEntry, RuntimePorts } from "../ports/index.js";
+import { readOnlyPorts, ReadOnlyViolation } from "./read-only.js";
+import { previewResult } from "./preview-result.js";
 
 import { composeGit } from "./git.js";
 import { configurationValidator, createSchemaRegistry } from "./schema.js";
@@ -71,6 +78,9 @@ import {
 export {
   configurationValidator,
   createSchemaRegistry,
+  previewResult,
+  readOnlyPorts,
+  ReadOnlyViolation,
   executeManagedMutation,
   inspectManagedTransactions,
   preflightManagedTransactions,
@@ -149,6 +159,16 @@ export type ApplyPlanOutcome =
 export interface ApplyPlanOptions<State = JsonState> {
   readonly rootMode: "existing" | "initialize";
   readonly eventReducers?: EventReducerRegistry<State>;
+  /**
+   * A preview this apply must still agree with.
+   *
+   * An apply re-decides from current state rather than replaying a plan, which
+   * is what keeps it correct. But it also means a caller who previewed, showed
+   * the preview to a person, and then applied could commit something the
+   * person never saw. Passing the preview back turns that silent substitution
+   * into `runtime.revision_conflict`.
+   */
+  readonly expectPreview?: MutationPreview;
 }
 
 class MissingReducerRegistry extends Error {}
@@ -166,72 +186,9 @@ export async function applyPlan<State = JsonState>(
     rootMode: "existing",
   },
 ): Promise<ApplyPlanOutcome> {
-  const input = snapshotApplyInput(plan, options);
-  const frozenPlan = input.plan;
-  const frozenOptions = { rootMode: input.rootMode };
-  const emits = selectEmitEffects(frozenPlan);
-
-  const services: TransactionServices = {
-    clock: ports.clock,
-    ids: ports.ids,
-    digests: ports.digests,
-    durableFileSystem: ports.durableFileSystem,
-    schemaRegistry: createSchemaRegistry(),
-  };
-  const append = selectAppendEffect(frozenPlan);
-  if (append !== undefined)
-    assertAppendDestinationsExclusive(frozenPlan, append);
-
-  let prepared: PreparedEventAppend | undefined;
-  if (append !== undefined) {
-    const eventReducers = snapshotAppendReducers(
-      input.options,
-      append,
-      services.schemaRegistry,
-    );
-    await preflightManagedTransactions(frozenOptions, services);
-    prepared = await prepareEventAppend(
-      { runId: append.runId, event: append.event },
-      {
-        durableFileSystem: ports.durableFileSystem,
-        digests: ports.digests,
-        reducers: eventReducers,
-        schemaRegistry: services.schemaRegistry,
-      },
-    );
-  } else if (hasManagedEffects(frozenPlan)) {
-    await preflightManagedTransactions(frozenOptions, services);
-  }
-  const expandedPlan =
-    prepared === undefined
-      ? frozenPlan
-      : expandAppendEffect(frozenPlan, prepared);
-  const observations = await observeManagedPaths(
-    expandedPlan,
-    ports,
-    prepared?.expected,
-  );
-  let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
-  try {
-    normalized = normalizeManagedMutationPlan(
-      expandedPlan,
-      observations,
-      (text) => ports.digests.sha256(text),
-    );
-  } catch (error) {
-    if (error instanceof TransactionPolicyError) {
-      throw new TransactionFailure(
-        error.reasonCode,
-        error.reasonCode === "runtime.state_corrupt"
-          ? [{ kind: "artifact", ref: ".brain" }]
-          : [],
-      );
-    }
-    throw new TransactionFailure("runtime.internal_failure", []);
-  }
-
-  if (prepared !== undefined)
-    await assertPreparedAppendIsFresh(prepared, ports);
+  const decided = await decideMutation(plan, ports, options, "commit");
+  const { frozenOptions, services, prepared, normalized, emits } = decided;
+  assertPreviewStillHolds(options.expectPreview, normalized, ports);
 
   let outcome: ApplyPlanOutcome;
   if (normalized.kind === "noop") {
@@ -278,6 +235,264 @@ export async function applyPlan<State = JsonState>(
     else ports.output.human(effect.text);
   }
   return outcome;
+}
+
+type DecisionMode = "commit" | "preview";
+
+interface DecidedMutation {
+  readonly frozenOptions: { readonly rootMode: "existing" | "initialize" };
+  readonly services: TransactionServices;
+  readonly prepared: PreparedEventAppend | undefined;
+  readonly normalized: ReturnType<typeof normalizeManagedMutationPlan>;
+  readonly emits: readonly Extract<Effect, { readonly kind: "emit" }>[];
+}
+
+/**
+ * Work out what a plan would do, without doing any of it.
+ *
+ * `applyPlan` and `previewPlan` share this, which is the whole point. A
+ * preview produced by separate code agrees with the commit on the day it is
+ * written and diverges quietly afterwards -- and people trust a preview, so
+ * that is worse than having none. This is not a description of the decision.
+ * It is the decision; the caller chooses whether to publish it.
+ */
+async function decideMutation<State = JsonState>(
+  plan: EffectPlan,
+  ports: RuntimePorts,
+  options: ApplyPlanOptions<State>,
+  mode: DecisionMode,
+): Promise<DecidedMutation> {
+  const input = snapshotApplyInput(plan, options);
+  const frozenPlan = input.plan;
+  const frozenOptions = { rootMode: input.rootMode };
+  const emits = selectEmitEffects(frozenPlan);
+  const reconcile = mode === "commit";
+
+  const services: TransactionServices = {
+    clock: ports.clock,
+    ids: ports.ids,
+    digests: ports.digests,
+    durableFileSystem: ports.durableFileSystem,
+    schemaRegistry: createSchemaRegistry(),
+  };
+  const append = selectAppendEffect(frozenPlan);
+  if (append !== undefined)
+    assertAppendDestinationsExclusive(frozenPlan, append);
+
+  let prepared: PreparedEventAppend | undefined;
+  if (append !== undefined) {
+    const eventReducers = snapshotAppendReducers(
+      input.options,
+      append,
+      services.schemaRegistry,
+    );
+    await preflightManagedTransactions(frozenOptions, services, reconcile);
+    prepared = await prepareEventAppend(
+      { runId: append.runId, event: append.event },
+      {
+        durableFileSystem: ports.durableFileSystem,
+        digests: ports.digests,
+        reducers: eventReducers,
+        schemaRegistry: services.schemaRegistry,
+      },
+    );
+  } else if (hasManagedEffects(frozenPlan)) {
+    await preflightManagedTransactions(frozenOptions, services, reconcile);
+  }
+  const expandedPlan =
+    prepared === undefined
+      ? frozenPlan
+      : expandAppendEffect(frozenPlan, prepared);
+  const observations = await observeManagedPaths(
+    expandedPlan,
+    ports,
+    prepared?.expected,
+  );
+  let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
+  try {
+    normalized = normalizeManagedMutationPlan(
+      expandedPlan,
+      observations,
+      (text) => ports.digests.sha256(text),
+    );
+  } catch (error) {
+    if (error instanceof TransactionPolicyError) {
+      throw new TransactionFailure(
+        error.reasonCode,
+        error.reasonCode === "runtime.state_corrupt"
+          ? [{ kind: "artifact", ref: ".brain" }]
+          : [],
+      );
+    }
+    throw new TransactionFailure("runtime.internal_failure", []);
+  }
+
+  if (prepared !== undefined)
+    await assertPreparedAppendIsFresh(prepared, ports);
+
+  return { frozenOptions, services, prepared, normalized, emits };
+}
+
+/**
+ * Refuse to commit something other than what the caller was shown.
+ *
+ * The apply recomputes rather than replaying, so the decision it reaches may
+ * differ from the one a person approved. Comparing digests is enough: they are
+ * derived from the same canonical operations the manifest records, so any
+ * difference in destination, order, or content changes them.
+ */
+function assertPreviewStillHolds(
+  expected: MutationPreview | undefined,
+  normalized: ReturnType<typeof normalizeManagedMutationPlan>,
+  ports: RuntimePorts,
+): void {
+  if (expected === undefined) return;
+  const decided: MutationPreview =
+    normalized.kind === "noop"
+      ? { kind: "noop" }
+      : {
+          kind: "ready",
+          operations: previewOperations(normalized.plan),
+          planDigest: planDigestOf(normalized.plan, ports),
+        };
+  if (
+    expected.kind === decided.kind &&
+    (expected.kind !== "ready" ||
+      (decided.kind === "ready" && expected.planDigest === decided.planDigest))
+  ) {
+    return;
+  }
+  throw new TransactionFailure(
+    "runtime.revision_conflict",
+    firstDivergence(expected, decided),
+  );
+}
+
+/** Name the destination a person can look at to see what moved. */
+function firstDivergence(
+  expected: MutationPreview,
+  decided: MutationPreview,
+): readonly EvidenceRef[] {
+  const before = expected.kind === "ready" ? expected.operations : [];
+  const after = decided.kind === "ready" ? decided.operations : [];
+  for (const [index, operation] of before.entries()) {
+    const current = after[index];
+    // The precondition matters as much as the outcome here: a destination
+    // someone else rewrote still ends at the same bytes, and the only trace of
+    // their write is the state the decision started from.
+    if (current === undefined || !sameOperation(current, operation)) {
+      return [{ kind: "artifact", ref: operation.path }];
+    }
+  }
+  const extra = after[before.length];
+  /* v8 ignore next -- the two previews differ, so either an index diverged in
+   * the loop above or the decision holds an operation the preview did not; a
+   * shorter decision is already caught by the undefined check up there. */
+  return [{ kind: "artifact", ref: extra?.path ?? ".brain" }];
+}
+
+function sameOperation(
+  left: PreviewOperation,
+  right: PreviewOperation,
+): boolean {
+  // The identifier is positional, so two operations compared at the same index
+  // always share it. Checking it would look like a comparison and never be one.
+  return (
+    left.kind === right.kind &&
+    left.path === right.path &&
+    sameFingerprint(left.expected, right.expected) &&
+    sameFingerprint(left.result, right.result)
+  );
+}
+
+/** One decided destination, carrying what it depends on and never its bytes. */
+export interface PreviewOperation {
+  readonly operationId: string;
+  readonly kind: ManagedOperation["kind"];
+  readonly path: string;
+  readonly expected: PathFingerprint;
+  readonly result: PathFingerprint;
+}
+
+export type MutationPreview =
+  | { readonly kind: "noop" }
+  | {
+      readonly kind: "ready";
+      readonly operations: readonly PreviewOperation[];
+      readonly planDigest: string;
+    }
+  | {
+      readonly kind: "blocked";
+      readonly reasonCode: TransactionFailure["reasonCode"];
+      readonly evidence: readonly EvidenceRef[];
+    };
+
+/**
+ * Compute the decision a plan would commit, and change nothing computing it.
+ *
+ * Pass `readOnlyPorts(ports)` to have that guarantee enforced rather than
+ * promised. A blocked project is reported, not thrown: a preview a caller
+ * cannot render is a preview that helps nobody at the moment it matters most.
+ */
+export async function previewPlan<State = JsonState>(
+  plan: EffectPlan,
+  ports: RuntimePorts,
+  options: ApplyPlanOptions<State> = { rootMode: "existing" },
+): Promise<MutationPreview> {
+  let decided: DecidedMutation;
+  try {
+    decided = await decideMutation(plan, ports, options, "preview");
+  } catch (error) {
+    /* v8 ignore start -- the decision boundary sanitizes every failure it can
+     * raise into a typed one, so this guard only carries a fault from outside
+     * it that no test can inject through the ports. */
+    if (!(error instanceof TransactionFailure)) throw error;
+    /* v8 ignore stop */
+    return Object.freeze({
+      kind: "blocked" as const,
+      reasonCode: error.reasonCode,
+      evidence: error.evidence,
+    });
+  }
+  if (decided.normalized.kind === "noop")
+    return Object.freeze({ kind: "noop" });
+  return Object.freeze({
+    kind: "ready" as const,
+    operations: previewOperations(decided.normalized.plan),
+    planDigest: planDigestOf(decided.normalized.plan, ports),
+  });
+}
+
+/**
+ * Project the committed plan into what a person may safely be shown.
+ *
+ * The content a write would persist never leaves this boundary. The size and
+ * digest do, which answers "what changes, and to what" without handing over a
+ * secret the command was about to store.
+ */
+function previewOperations(
+  plan: ManagedMutationPlan,
+): readonly PreviewOperation[] {
+  return Object.freeze(
+    plan.operations.map((operation) =>
+      Object.freeze({
+        operationId: operation.operationId,
+        kind: operation.kind,
+        path: operation.path,
+        expected: operation.expected,
+        result: operation.result,
+      }),
+    ),
+  );
+}
+
+/** The digest the manifest will record, computed the same way it computes it. */
+function planDigestOf(plan: ManagedMutationPlan, ports: RuntimePorts): string {
+  return ports.digests.sha256(
+    canonicalizeJson({
+      operations: plan.operations.map(toPersistedManagedOperation),
+    }),
+  );
 }
 
 function preparedFingerprint(

@@ -194,10 +194,10 @@ The domain does not call ports. It returns an ordered `EffectPlan` describing
 what should happen, and the caller applies it.
 
 That separation keeps the decision previewable without creating a second
-decision path. The normalized managed plan is currently internal to execution;
-public dry-run wiring is outside these foundation issues. A future dry-run
-surface must render that same normalized plan instead of deriving a parallel
-plan that can drift from the applied one.
+decision path. `previewPlan` computes the same normalized plan `applyPlan`
+commits, from the same function, so the two cannot drift. See the
+[dry-run plan contract](dry-run-plans.md) for the preview shape, how zero
+mutation is proven at the port, and why no `--dry-run` flag ships with it.
 
 `applyPlan` snapshots the effect plan before its first asynchronous boundary.
 It normalizes managed create, write, and delete effects into one exact ordered
