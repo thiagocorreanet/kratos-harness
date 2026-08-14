@@ -18,7 +18,8 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `migration.json`;
 - `transaction-manifest.json`;
 - `transaction-progress.json`;
-- `adapter-message.json`.
+- `adapter-message.json`;
+- `init-answers.json`.
 
 Its `version-cases.json` table covers current, previous, future, malformed,
 untrimmed, non-string, and missing family identities. These fixtures are

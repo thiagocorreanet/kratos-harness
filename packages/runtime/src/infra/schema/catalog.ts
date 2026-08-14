@@ -1,5 +1,6 @@
 import manifest from "../../../../contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
+import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
@@ -34,6 +35,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/adapter-message.v1.schema.json",
       schema: adapterMessageSchema,
+    },
+    {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/init-answers.v1.schema.json",
+      schema: initAnswersSchema,
     },
     {
       id: "state.approval",
@@ -107,6 +115,7 @@ export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
 const EXPECTED_SCHEMA_IDS = {
   "host.adapter-message":
     "https://mestre-yoda.dev/schemas/host/adapter-message/v1",
+  "host.init-answers": "https://mestre-yoda.dev/schemas/host/init-answers/v1",
   "state.approval": "https://mestre-yoda.dev/schemas/state/approval/v1",
   "state.event": "https://mestre-yoda.dev/schemas/state/event/v1",
   "state.evidence": "https://mestre-yoda.dev/schemas/state/evidence/v1",

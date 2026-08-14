@@ -1,6 +1,7 @@
 import manifest from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import versionCases from "../fixtures/contracts/v1/version-cases.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
@@ -38,6 +39,16 @@ const fixtures = [
     requiredField: "messageId",
     structuralReasonCode: "trail.output_invalido",
     fixture: adapterMessage,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.init-answers",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswers,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -257,7 +268,15 @@ describe("compiled schema registry fixtures", () => {
   it.each(registryVersionCases)(
     "classifies the published $name case through the registry",
     (versionCase) => {
-      const fixture = versionCase.family === "host" ? fixtures[0] : fixtures[1];
+      // Selected by family rather than by position: indexing assumed exactly
+      // one host fixture, and adding a second silently pointed the state cases
+      // at a host contract.
+      const fixture = fixtures.find(({ versionField }) =>
+        versionCase.family === "host"
+          ? versionField === "hostContract"
+          : versionField === "stateContract",
+      );
+      if (fixture === undefined) throw new Error("No fixture for the family");
       const result = registry.validate({
         id: fixture.id,
         version: versionCase.value,

@@ -1,6 +1,7 @@
 import type {
   AdapterMessageV1,
   ApprovalV1,
+  InitAnswersV1,
   EventV1,
   EvidenceV1,
   LockLeaseV1,
@@ -13,6 +14,7 @@ import type {
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1;
+  readonly "host.init-answers": InitAnswersV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
