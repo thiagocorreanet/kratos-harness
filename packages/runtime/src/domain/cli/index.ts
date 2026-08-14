@@ -1,6 +1,7 @@
 export { renderHelp, usageLine } from "./help.js";
 export { DEFAULT_REGISTRY } from "./commands.js";
 export { dispatch } from "./dispatch.js";
+export { observingCommand } from "./observed.js";
 export {
   parseArguments,
   parseGlobals,
@@ -16,6 +17,8 @@ export type {
 export { GLOBAL_FLAGS } from "./spec.js";
 export type {
   CommandHandler,
+  CommandObservation,
+  CommandPrerequisite,
   CommandRegistry,
   CommandSpec,
   Decision,

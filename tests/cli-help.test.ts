@@ -23,6 +23,7 @@ const stub: CommandSpec = {
   ],
   positionals: { min: 0, max: 0 },
   jsonContract: "result@1.0.0",
+  prerequisite: "none",
   handler: () => ({
     result: resultFor("runtime.orientation_ok"),
     plan: planOf(),

@@ -192,6 +192,9 @@ export function parseInvocation(
       flags: args.flags,
       positionals: args.positionals,
       registry,
+      // Parsing reads no filesystem, so it cannot satisfy a prerequisite. The
+      // composition root replaces this before dispatch when one is declared.
+      observation: { kind: "none" },
     },
   };
 }

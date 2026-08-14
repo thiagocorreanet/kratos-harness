@@ -118,6 +118,7 @@ describe("composition root", () => {
       "ids",
       "locks",
       "output",
+      "standardInput",
     ]);
   });
 });

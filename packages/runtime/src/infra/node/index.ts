@@ -163,19 +163,22 @@ export function nodeEnvironment(): Environment {
  * for anything. A stream may be supplied so a test does not need one.
  */
 export function nodeStandardInput(
-  stream: (Readable & { isTTY?: boolean }) | undefined = process.stdin,
+  stream: Readable & { isTTY?: boolean } = process.stdin,
 ): StandardInput {
   let read = false;
   return {
     read: async () => {
-      if (read || stream === undefined || stream.isTTY === true) return null;
+      if (read || stream.isTTY === true) return null;
       read = true;
-      const chunks: Buffer[] = [];
-      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      // Decoding in the stream keeps the chunk type honest and spares this
+      // function a branch for the two shapes a chunk can arrive in.
+      stream.setEncoding("utf8");
+      let document = "";
+      for await (const chunk of stream as AsyncIterable<string>) {
+        document += chunk;
+      }
       // Zero bytes is a caller who supplied no document, not an empty one.
-      return chunks.length === 0
-        ? null
-        : Buffer.concat(chunks).toString("utf8");
+      return document.length === 0 ? null : document;
     },
   };
 }
