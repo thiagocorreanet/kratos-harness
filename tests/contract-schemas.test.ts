@@ -15,6 +15,7 @@ const artifacts = [
   ["state/event.v1.schema.json", "event.json", "state"],
   ["state/approval.v1.schema.json", "approval.json", "state"],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
+  ["state/feature.v1.schema.json", "feature.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
   ["state/migration.v1.schema.json", "migration.json", "state"],
   [
@@ -390,7 +391,7 @@ describe("versioned state and host schemas", () => {
     }
   });
 
-  it("ships eleven payload fixtures plus the version-case table", async () => {
+  it("ships one payload fixture per schema plus the version-case table", async () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [
         ...artifacts.map(([, fixtureName]) => fixtureName),

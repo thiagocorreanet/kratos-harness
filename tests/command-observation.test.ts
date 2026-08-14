@@ -11,6 +11,7 @@ import { resultFor } from "@mestre-yoda/runtime/domain/result";
 import { describe, expect, it } from "vitest";
 
 const probe: CommandSpec = observingCommand(
+  "initialization",
   {
     path: ["probe"],
     summary: "Report what the runtime observed.",
@@ -48,7 +49,7 @@ describe("commands that observe before deciding", () => {
       (command) => command.prerequisite !== "none",
     ).map((command) => command.path.join(" "));
 
-    expect(observing).toEqual(["init"]);
+    expect(observing).toEqual(["init", "objective"]);
   });
 
   it("hands the parsed invocation an empty observation", () => {

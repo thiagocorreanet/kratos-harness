@@ -18,6 +18,7 @@ export type {
   InitAnswersV1,
   EventV1,
   EvidenceV1,
+  FeatureStateV1,
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,

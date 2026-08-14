@@ -2,6 +2,7 @@ export { renderHelp, usageLine } from "./help.js";
 export { DEFAULT_REGISTRY } from "./commands.js";
 export { dispatch } from "./dispatch.js";
 export { initCommand } from "./init.js";
+export { objectiveCommand } from "./objective.js";
 export { observingCommand } from "./observed.js";
 export {
   parseArguments,

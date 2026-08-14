@@ -5,6 +5,7 @@ import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
+import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
@@ -79,6 +80,16 @@ const fixtures = [
     requiredField: "evidenceId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: evidence,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.feature",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "feature",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: feature,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

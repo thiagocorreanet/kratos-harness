@@ -5,6 +5,7 @@ import { buildHandshakeResponse } from "../handshake.js";
 import { resultFor } from "../result/index.js";
 import { renderHelp } from "./help.js";
 import { initCommand } from "./init.js";
+import { objectiveCommand } from "./objective.js";
 import type {
   CommandRegistry,
   CommandSpec,
@@ -70,5 +71,6 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   handshakeCommand,
   helpCommand,
   initCommand,
+  objectiveCommand,
   versionCommand,
 ];
