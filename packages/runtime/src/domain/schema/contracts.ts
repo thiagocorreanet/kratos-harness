@@ -4,6 +4,7 @@ import type {
   InitAnswersV1,
   EventV1,
   EvidenceV1,
+  FeatureStateV1,
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
@@ -18,6 +19,7 @@ export interface ContractValues {
   readonly "state.approval": ApprovalV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
+  readonly "state.feature": FeatureStateV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1;
   readonly "state.project-config": ProjectConfigV1;

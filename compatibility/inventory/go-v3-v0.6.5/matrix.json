@@ -1171,8 +1171,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-CLI-OBJECTIVE",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/objective-command.test.ts"
         },
         "differential": {
           "id": "DIFF-CLI-OBJECTIVE",
@@ -1190,7 +1190,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -2397,8 +2397,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FILE-BRAIN-02-FEATURES-FEATURE-OBJECTIVE-HISTORY-JSONL",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/objective-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FILE-BRAIN-02-FEATURES-FEATURE-OBJECTIVE-HISTORY-JSONL",
@@ -2416,7 +2416,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -2431,8 +2431,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FILE-BRAIN-02-FEATURES-FEATURE-OBJECTIVE-MD",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/objective-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FILE-BRAIN-02-FEATURES-FEATURE-OBJECTIVE-MD",
@@ -2450,7 +2450,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -5173,8 +5173,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-OBJECTIVE-REPLACE",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/objective-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-OBJECTIVE-REPLACE",
@@ -5192,7 +5192,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {
@@ -5207,8 +5207,8 @@
       "verification": {
         "unit": {
           "id": "UNIT-FLAG-OBJECTIVE-ROOT",
-          "status": "planned",
-          "path": null
+          "status": "passed",
+          "path": "tests/objective-command.test.ts"
         },
         "differential": {
           "id": "DIFF-FLAG-OBJECTIVE-ROOT",
@@ -5226,7 +5226,7 @@
           "path": null
         }
       },
-      "status": "not_started",
+      "status": "in_progress",
       "intentional_difference": null
     },
     {

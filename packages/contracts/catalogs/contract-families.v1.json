@@ -54,6 +54,14 @@
       "typeName": "EvidenceV1"
     },
     {
+      "id": "state.feature",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/feature.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "FeatureStateV1"
+    },
+    {
       "id": "state.lock",
       "family": "state",
       "version": "1.0.0",

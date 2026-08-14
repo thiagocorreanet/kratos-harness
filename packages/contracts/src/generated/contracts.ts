@@ -5,6 +5,7 @@
 // source: https://mestre-yoda.dev/schemas/state/approval/v1 sha256:841fd2dd3ba3abf8ff4bfda6571b2be4ddbcf544e3551c55677fbf4243dba13b
 // source: https://mestre-yoda.dev/schemas/state/event/v1 sha256:e803d6e14b50675a6bbd3f7b39df0a50b6d6fd1f90017d6a9f74a6b6848ca878
 // source: https://mestre-yoda.dev/schemas/state/evidence/v1 sha256:ac5147a7fb442720e288f1c1a0bfcb76c75e02f4af9a0dd6e8c0a3922a7587d3
+// source: https://mestre-yoda.dev/schemas/state/feature/v1 sha256:bdf305e36f42c6ac7a310ac966ac4e641a8e9fc4bc99be214910d2193dc434e2
 // source: https://mestre-yoda.dev/schemas/state/lock/v1 sha256:488d2e7f8269ef8803dd7f7803bddca2110759afc1cc42bbc8ca1498ffeb601b
 // source: https://mestre-yoda.dev/schemas/state/migration/v1 sha256:5b1082202fcc83a9a3c2af6c4894eb3d3774ed1b2e6d43871a98bda1c9c409ef
 // source: https://mestre-yoda.dev/schemas/state/project-config/v1 sha256:78fc5822e1cbf79b0185ceb8d40b64394acfcbb2fc2050526c702c3dc62efebb
@@ -189,6 +190,24 @@ export namespace EvidenceV1Contract {
   }
 }
 export type EvidenceV1 = EvidenceV1Contract.EvidenceV1;
+export namespace FeatureStateV1Contract {
+  export interface FeatureStateV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    feature: string;
+    objective: {
+      text: string;
+      status: "active" | "completed";
+      createdAt: string;
+      updatedAt: string;
+      revision: number;
+      budget?: {
+        tokens: number;
+      };
+    };
+  }
+}
+export type FeatureStateV1 = FeatureStateV1Contract.FeatureStateV1;
 export namespace LockLeaseV1Contract {
   export type Id = string;
   export type Timestamp = string;
