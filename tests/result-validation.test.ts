@@ -104,6 +104,12 @@ describe("result validation", () => {
     ["an absolute path", "Failed reading /home/someone/project/file.json"],
     ["a URL", "See https://example.test/report for details"],
     ["a control character", "Broken\u0007summary"],
+    ["an escape character", "Broken\u001bsummary"],
+    // A terminal reading UTF-8 treats U+009B as a control sequence introducer
+    // exactly as it treats `ESC [`, so refusing only the seven-bit spelling
+    // would leave the same door open under a different name.
+    ["an eight-bit control sequence introducer", "Broken\u009b31msummary"],
+    ["a C1 control", "Broken\u0085summary"],
     ["a stack frame", "at handler (/app/index.js:10:5)"],
     ["a bearer token", "Authorization Bearer abcdefghijklmnopqrstuvwxyz"],
     ["a backslash", "C:\\Users\\someone"],

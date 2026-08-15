@@ -72,6 +72,27 @@ export function parseCommits(stdout) {
   return commits;
 }
 
+/**
+ * A commit subject as it is safe to put in a build log.
+ *
+ * The subject comes from a fork branch nobody reviewed, and this text lands in
+ * an Actions log. Control characters are replaced rather than printed so a
+ * contributor cannot move the cursor, clear the screen, or hide the rest of
+ * the report behind an escape sequence. The length bound keeps one commit from
+ * burying the remedy that follows it.
+ */
+export function safeSubject(subject) {
+  const printable = [...String(subject)]
+    .map((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      const control =
+        code <= 31 || code === 127 || (code >= 128 && code <= 159);
+      return control ? "�" : character;
+    })
+    .join("");
+  return printable.length <= 120 ? printable : `${printable.slice(0, 119)}…`;
+}
+
 /** The exact remedy, so a failing build does not send anyone hunting. */
 export function remedyFor(violations) {
   const lines = [
@@ -79,7 +100,9 @@ export function remedyFor(violations) {
     "",
   ];
   for (const violation of violations) {
-    lines.push(`  ${violation.hash.slice(0, 12)} ${violation.subject}`);
+    lines.push(
+      `  ${violation.hash.slice(0, 12)} ${safeSubject(violation.subject)}`,
+    );
   }
   lines.push(
     "",
