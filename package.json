@@ -36,11 +36,11 @@
     "ajv": "8.20.0",
     "cspell": "10.0.1",
     "esbuild": "0.28.2",
-    "eslint": "10.8.0",
+    "eslint": "10.8.1",
     "json-schema-to-typescript": "15.0.4",
     "prettier": "3.9.6",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.66.0",
+    "typescript-eslint": "8.67.0",
     "vitest": "4.1.10",
     "yaml": "2.9.0"
   },
