@@ -18,6 +18,7 @@
     "./domain/host": "./src/domain/host/index.ts",
     "./domain/init": "./src/domain/init/index.ts",
     "./domain/locks": "./src/domain/locks/index.ts",
+    "./domain/migration": "./src/domain/migration/index.ts",
     "./domain/objective": "./src/domain/objective/index.ts",
     "./domain/project": "./src/domain/project/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
