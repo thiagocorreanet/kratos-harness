@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@types/node": "24.13.3",
+    "@types/node": "26.2.0",
     "@vitest/coverage-v8": "4.1.10",
     "ajv": "8.20.0",
     "cspell": "10.0.1",
