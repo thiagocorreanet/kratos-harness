@@ -142,9 +142,30 @@ repository is pinned to a commit with its version in a trailing comment, and an
 Actions update rewrites both — which is the only supported way to move a pin
 without a person resolving a tag by hand.
 
-A Dependabot pull request is a contribution like any other. The DCO gate in
-`ci.yml` applies to it, so the range is signed with
-`git rebase --signoff <base>` before it merges.
+A Dependabot pull request is a contribution like any other, and the gates in
+`ci.yml` apply to it unchanged.
+
+**An update to a package that runs an install script does not carry itself.**
+`.npmrc` sets `strict-allow-scripts=true`, and `package.json` approves each
+install script at an exact version. A new release of such a package is new
+attacker-reachable code that runs on every `npm ci`, including one a fork pull
+request triggers, so it is approved again or not at all — the approval
+deliberately does not follow a version bump.
+
+The cost is that the bump and the approval have to travel together, and
+Dependabot can only write the first half.
+[#120](https://github.com/thiagocorreanet/mestre-yoda/pull/120) bumped
+`esbuild` from 0.28.1 to 0.28.2, merged with the approval still naming 0.28.1,
+and `npm ci` then refused on `main` for everyone. Re-approve in the same pull
+request as the bump:
+
+```text
+"allowScripts": { "esbuild@<new version>": true, ... }
+```
+
+`tests/supply-chain-contract.test.ts` holds the approved version against the
+declared one, so a bump that leaves the approval behind now fails a test
+instead of an install.
 
 ## Absent
 

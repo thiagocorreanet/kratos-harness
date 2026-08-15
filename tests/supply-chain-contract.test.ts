@@ -81,9 +81,31 @@ describe("the installer configuration", () => {
     // Exactly one package is allowed to run one; the other is recorded as
     // refused so a later install cannot quietly promote it.
     expect(manifest.allowScripts).toEqual({
-      "esbuild@0.28.1": true,
+      "esbuild@0.28.2": true,
       "fsevents@2.3.3": false,
     });
+  });
+
+  it("approves an install script only at the version that is installed", async () => {
+    const manifest = JSON.parse(await read("package.json")) as {
+      readonly allowScripts: Readonly<Record<string, boolean>>;
+      readonly devDependencies: Readonly<Record<string, string>>;
+    };
+    // The approval is keyed by version on purpose: a new release of a package
+    // that runs an install script is new attacker-reachable code, and it is
+    // approved again or not at all. That is also why a dependency update
+    // cannot carry itself — #120 bumped `esbuild` and left this key behind,
+    // and `npm ci` refused on `main` until a person re-approved it. Pinning
+    // the pair here is what turns that into a failing test rather than a
+    // failing install for everyone.
+    for (const key of Object.keys(manifest.allowScripts)) {
+      const separator = key.lastIndexOf("@");
+      const name = key.slice(0, separator);
+      const version = key.slice(separator + 1);
+      const declared = manifest.devDependencies[name];
+      if (declared === undefined) continue;
+      expect(version, name).toBe(declared);
+    }
   });
 });
 
