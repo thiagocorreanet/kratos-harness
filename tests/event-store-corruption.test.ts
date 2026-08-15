@@ -19,8 +19,8 @@ import {
 } from "@mestre-yoda/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
 
-const eventsPath = ".brain/runs/run-01/events.jsonl";
-const snapshotPath = ".brain/runs/run-01/state.json";
+const eventsPath = ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+const snapshotPath = ".brain/02-features/sample-feature/runs/run-01/state.json";
 const rejectedPersistedText = "PRIVATE_PERSISTED_CORRUPTION_93847";
 const mutationOperations: readonly DurableOperation[] = [
   "create_directory",
@@ -99,7 +99,12 @@ async function persistedThreeEvents(): Promise<
   const ports = runtime(storage);
   for (const index of [1, 2, 3]) {
     await applyPlan(
-      planOf({ kind: "append_event", runId: "run-01", event: draft(index) }),
+      planOf({
+        kind: "append_event",
+        feature: "sample-feature",
+        runId: "run-01",
+        event: draft(index),
+      }),
       ports,
       {
         rootMode: "existing",
@@ -248,6 +253,7 @@ describe("persisted event-store corruption", () => {
         await applyPlan(
           planOf({
             kind: "append_event",
+            feature: "sample-feature",
             runId: "run-01",
             event: draft(4),
           }),

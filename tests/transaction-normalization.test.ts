@@ -366,6 +366,7 @@ describe("managed mutation plan normalization", () => {
       normalizeManagedMutationPlan(
         planOf({
           kind: "append_event",
+          feature: "sample-feature",
           runId: "run-01",
           event: {} as never,
         }),

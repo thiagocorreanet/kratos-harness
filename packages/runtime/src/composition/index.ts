@@ -293,7 +293,7 @@ async function decideMutation<State = JsonState>(
     );
     await preflightManagedTransactions(frozenOptions, services, reconcile);
     prepared = await prepareEventAppend(
-      { runId: append.runId, event: append.event },
+      { feature: append.feature, runId: append.runId, event: append.event },
       {
         durableFileSystem: ports.durableFileSystem,
         digests: ports.digests,
@@ -620,26 +620,37 @@ function snapshotAppendEffect(
 ): AppendEventEffect {
   const keys = Reflect.ownKeys(value);
   if (
-    keys.length !== 3 ||
+    keys.length !== 4 ||
     keys.some(
       (key) =>
-        typeof key !== "string" || !["kind", "runId", "event"].includes(key),
+        typeof key !== "string" ||
+        !["kind", "feature", "runId", "event"].includes(key),
     )
   )
     throw invalidApplyInput();
   const kind = ownData(value, "kind");
+  const feature = ownData(value, "feature");
   const runId = ownData(value, "runId");
   const event = ownData(value, "event");
-  if (kind !== "append_event" || typeof runId !== "string")
+  if (
+    kind !== "append_event" ||
+    typeof feature !== "string" ||
+    typeof runId !== "string"
+  )
     throw invalidApplyInput();
   let paths: ReturnType<typeof eventStorePaths> | undefined;
   try {
-    paths = eventStorePaths(runId);
+    paths = eventStorePaths({ feature, runId });
   } catch {
     throw invalidApplyInput();
   }
   try {
-    return { kind, runId, event: snapshotEventDraft(event, types.isProxy) };
+    return {
+      kind,
+      feature,
+      runId,
+      event: snapshotEventDraft(event, types.isProxy),
+    };
   } catch {
     throw new TransactionFailure("runtime.state_corrupt", eventEvidence(paths));
   }
@@ -708,7 +719,7 @@ function assertAppendDestinationsExclusive(
 ): void {
   let paths: ReturnType<typeof eventStorePaths> | undefined;
   try {
-    paths = eventStorePaths(append.runId);
+    paths = eventStorePaths(append);
     const owned = [
       managedPathCollisionKey(paths.events),
       managedPathCollisionKey(paths.snapshot),
@@ -731,7 +742,7 @@ function snapshotAppendReducers<State>(
   append: AppendEventEffect,
   schemaRegistry: TransactionServices["schemaRegistry"],
 ): EventReducerRegistry<State> {
-  const paths = eventStorePaths(append.runId);
+  const paths = eventStorePaths(append);
   const dependencyState = { proxyDetectorFailed: false };
   try {
     let registry: unknown;

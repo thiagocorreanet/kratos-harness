@@ -107,10 +107,13 @@ async function firstFiles(): Promise<{
   readonly snapshot: string;
 }> {
   const storage = memoryTransactionStorage({
-    directories: [".brain/transactions", ".brain/runs/run-01"],
+    directories: [
+      ".brain/transactions",
+      ".brain/02-features/sample-feature/runs/run-01",
+    ],
   });
   const prepared = await prepareEventAppend(
-    { runId: "run-01", event: draft(1) },
+    { feature: "sample-feature", runId: "run-01", event: draft(1) },
     services(storage),
   );
   const [events, snapshot] = prepared.effects;
@@ -122,10 +125,15 @@ function persistedStorage(files: {
   readonly snapshot: string;
 }) {
   return memoryTransactionStorage({
-    directories: [".brain/transactions", ".brain/runs/run-01"],
+    directories: [
+      ".brain/transactions",
+      ".brain/02-features/sample-feature/runs/run-01",
+    ],
     files: {
-      ".brain/runs/run-01/events.jsonl": files.events,
-      ".brain/runs/run-01/state.json": files.snapshot,
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl":
+        files.events,
+      ".brain/02-features/sample-feature/runs/run-01/state.json":
+        files.snapshot,
     },
   });
 }
@@ -142,9 +150,11 @@ async function failureCode(run: () => Promise<unknown>): Promise<string> {
 
 describe("event-store append preparation", () => {
   it("derives only the two canonical paths for a valid run ID", () => {
-    expect(eventStorePaths("run-01")).toEqual({
-      events: ".brain/runs/run-01/events.jsonl",
-      snapshot: ".brain/runs/run-01/state.json",
+    expect(
+      eventStorePaths({ feature: "sample-feature", runId: "run-01" }),
+    ).toEqual({
+      events: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      snapshot: ".brain/02-features/sample-feature/runs/run-01/state.json",
     });
   });
 
@@ -154,8 +164,14 @@ describe("event-store append preparation", () => {
   ] as const)("publishes %s without forbidden evidence", (reasonCode) => {
     const result = transactionFailureResult(
       new TransactionFailure(reasonCode, [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ]),
     );
 
@@ -165,16 +181,19 @@ describe("event-store append preparation", () => {
 
   it("prepares a first append and exact-prefix successor without writes", async () => {
     const initial = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const first = await prepareEventAppend(
-      { runId: "run-01", event: draft(1) },
+      { feature: "sample-feature", runId: "run-01", event: draft(1) },
       services(initial),
     );
 
     expect(first.paths).toEqual({
-      events: ".brain/runs/run-01/events.jsonl",
-      snapshot: ".brain/runs/run-01/state.json",
+      events: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      snapshot: ".brain/02-features/sample-feature/runs/run-01/state.json",
     });
     expect(first.effects.map(({ path }) => path)).toEqual([
       first.paths.events,
@@ -185,14 +204,17 @@ describe("event-store append preparation", () => {
 
     const [eventEffect, snapshotEffect] = first.effects;
     const successor = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
       files: {
         [first.paths.events]: eventEffect.content,
         [first.paths.snapshot]: snapshotEffect.content,
       },
     });
     const second = await prepareEventAppend(
-      { runId: "run-01", event: draft(2) },
+      { feature: "sample-feature", runId: "run-01", event: draft(2) },
       services(successor),
     );
     const secondEvents = second.effects[0].content;
@@ -210,7 +232,10 @@ describe("event-store append preparation", () => {
 
   it("refuses a first append whose replayed snapshot belongs to another run", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const mismatched: EventReducerRegistry<State> = {
       ...reducers,
@@ -219,7 +244,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         { ...services(storage), reducers: mismatched },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -241,7 +266,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), reducers: mismatched },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -250,10 +275,13 @@ describe("event-store append preparation", () => {
 
   it("returns an immutable map view for prepared fingerprints", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const prepared = await prepareEventAppend(
-      { runId: "run-01", event: draft(1) },
+      { feature: "sample-feature", runId: "run-01", event: draft(1) },
       services(storage),
     );
 
@@ -281,12 +309,20 @@ describe("event-store append preparation", () => {
     "refuses unsafe run identifier %j before storage access",
     async (runId) => {
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
       });
 
-      expect(() => eventStorePaths(runId)).toThrow(EventIntegrityError);
+      expect(() =>
+        eventStorePaths({ feature: "sample-feature", runId }),
+      ).toThrow(EventIntegrityError);
       await expect(
-        prepareEventAppend({ runId, event: draft(1) }, services(storage)),
+        prepareEventAppend(
+          { feature: "sample-feature", runId, event: draft(1) },
+          services(storage),
+        ),
       ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
       expect(storage.calls()).toEqual([]);
     },
@@ -331,7 +367,10 @@ describe("event-store append preparation", () => {
     "sanitizes a rejected cross-realm Promise from %s without an unhandled rejection",
     async (_label, override) => {
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
       });
       const unhandled: unknown[] = [];
       const observe = (reason: unknown) => unhandled.push(reason);
@@ -339,7 +378,7 @@ describe("event-store append preparation", () => {
       try {
         await expect(
           prepareEventAppend(
-            { runId: "run-01", event: draft(1) },
+            { feature: "sample-feature", runId: "run-01", event: draft(1) },
             override(
               services(storage),
             ) as unknown as EventAppendServices<State>,
@@ -359,12 +398,15 @@ describe("event-store append preparation", () => {
 
   it("refuses a non-string run ID before storage access", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
 
     await expect(
       prepareEventAppend(
-        { runId: 1 as never, event: draft(1) },
+        { feature: "sample-feature", runId: 1 as never, event: draft(1) },
         services(storage),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -373,7 +415,10 @@ describe("event-store append preparation", () => {
 
   it("uses the production proxy detector when none is supplied", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const prepared = services(storage);
     const withoutDetector: EventAppendServices<State> = {
@@ -384,19 +429,27 @@ describe("event-store append preparation", () => {
     };
 
     await expect(
-      prepareEventAppend({ runId: "run-01", event: draft(1) }, withoutDetector),
-    ).resolves.toMatchObject({ paths: eventStorePaths("run-01") });
+      prepareEventAppend(
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
+        withoutDetector,
+      ),
+    ).resolves.toMatchObject({
+      paths: eventStorePaths({ feature: "sample-feature", runId: "run-01" }),
+    });
   });
 
   it("sanitizes a detector that fails after the request precheck", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     let calls = 0;
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         {
           ...services(storage),
           isProxy: () => {
@@ -414,14 +467,17 @@ describe("event-store append preparation", () => {
 
   it("sanitizes an unexpected event-domain value without exposing it", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const circular: Record<string, unknown> = {};
     circular.self = circular;
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         {
           ...services(storage),
           schemaRegistry: {
@@ -443,16 +499,20 @@ describe("event-store append preparation", () => {
     async (_name, snapshot, reasonCode) => {
       const files = await firstFiles();
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
         files: {
-          ".brain/runs/run-01/events.jsonl": files.events,
-          ".brain/runs/run-01/state.json": snapshot,
+          ".brain/02-features/sample-feature/runs/run-01/events.jsonl":
+            files.events,
+          ".brain/02-features/sample-feature/runs/run-01/state.json": snapshot,
         },
       });
 
       await expect(
         prepareEventAppend(
-          { runId: "run-01", event: draft(2) },
+          { feature: "sample-feature", runId: "run-01", event: draft(2) },
           services(storage),
         ),
       ).rejects.toMatchObject({ reasonCode });
@@ -467,7 +527,10 @@ describe("event-store append preparation", () => {
 
   it("refuses an inspected file with an invalid fingerprint shape", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
@@ -479,7 +542,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -489,23 +552,33 @@ describe("event-store append preparation", () => {
     const files = await firstFiles();
     const snapshot = JSON.parse(files.snapshot) as SnapshotV1;
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
       files: {
-        ".brain/runs/run-01/events.jsonl": files.events,
-        ".brain/runs/run-01/state.json": `${canonicalizeJson({ ...snapshot, status: "private" })}\n`,
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl":
+          files.events,
+        ".brain/02-features/sample-feature/runs/run-01/state.json": `${canonicalizeJson({ ...snapshot, status: "private" })}\n`,
       },
     });
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         services(storage),
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
       evidence: [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ],
     });
   });
@@ -523,12 +596,17 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.revision_conflict",
-      evidence: [{ kind: "artifact", ref: ".brain/runs/run-01/state.json" }],
+      evidence: [
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
+      ],
     });
   });
 
@@ -560,7 +638,10 @@ describe("event-store append preparation", () => {
     "sanitizes a rejected native Promise from %s without an unhandled rejection",
     async (_label, override) => {
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
       });
       const unhandled: unknown[] = [];
       const observe = (reason: unknown) => unhandled.push(reason);
@@ -568,7 +649,7 @@ describe("event-store append preparation", () => {
       try {
         await expect(
           prepareEventAppend(
-            { runId: "run-01", event: draft(1) },
+            { feature: "sample-feature", runId: "run-01", event: draft(1) },
             override(
               services(storage),
             ) as unknown as EventAppendServices<State>,
@@ -589,13 +670,19 @@ describe("event-store append preparation", () => {
   it("rejects a missing stream/snapshot pair without reading or writing", async () => {
     const files = await firstFiles();
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
-      files: { ".brain/runs/run-01/events.jsonl": files.events },
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
+      files: {
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl":
+          files.events,
+      },
     });
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         services(storage),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -605,20 +692,32 @@ describe("event-store append preparation", () => {
   it("rejects a missing snapshot when the event stream is absent", async () => {
     const files = await firstFiles();
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
-      files: { ".brain/runs/run-01/state.json": files.snapshot },
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
+      files: {
+        ".brain/02-features/sample-feature/runs/run-01/state.json":
+          files.snapshot,
+      },
     });
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         services(storage),
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
       evidence: [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ],
     });
     expect(storage.calls()).toEqual(["inspect", "inspect"]);
@@ -629,15 +728,18 @@ describe("event-store append preparation", () => {
     const storage = memoryTransactionStorage({
       directories: [
         ".brain/transactions",
-        ".brain/runs/run-01",
-        ".brain/runs/run-01/events.jsonl",
+        ".brain/02-features/sample-feature/runs/run-01",
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
       ],
-      files: { ".brain/runs/run-01/state.json": files.snapshot },
+      files: {
+        ".brain/02-features/sample-feature/runs/run-01/state.json":
+          files.snapshot,
+      },
     });
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         services(storage),
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -659,14 +761,20 @@ describe("event-store append preparation", () => {
 
       await expect(
         prepareEventAppend(
-          { runId: "run-01", event: draft(2) },
+          { feature: "sample-feature", runId: "run-01", event: draft(2) },
           { ...services(storage), durableFileSystem },
         ),
       ).rejects.toMatchObject({
         reasonCode: "runtime.state_corrupt",
         evidence: [
-          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+          {
+            kind: "event",
+            ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+          },
+          {
+            kind: "artifact",
+            ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+          },
         ],
       });
     },
@@ -685,14 +793,20 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.state_corrupt",
       evidence: [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ],
     });
   });
@@ -711,7 +825,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
@@ -739,14 +853,14 @@ describe("event-store append preparation", () => {
     expect(
       await failureCode(() =>
         prepareEventAppend(
-          { runId: "run-01", event: draft(2) },
+          { feature: "sample-feature", runId: "run-01", event: draft(2) },
           services(storage),
         ),
       ),
     ).toBe("runtime.state_corrupt");
     expect(storage.snapshot().files).toEqual({
-      ".brain/runs/run-01/events.jsonl": events,
-      ".brain/runs/run-01/state.json": snapshot,
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl": events,
+      ".brain/02-features/sample-feature/runs/run-01/state.json": snapshot,
     });
   });
 
@@ -766,7 +880,7 @@ describe("event-store append preparation", () => {
       expect(
         await failureCode(() =>
           prepareEventAppend(
-            { runId: "run-01", event: draft(2) },
+            { feature: "sample-feature", runId: "run-01", event: draft(2) },
             services(storage),
           ),
         ),
@@ -784,7 +898,7 @@ describe("event-store append preparation", () => {
     let failure: TransactionFailure | undefined;
     try {
       await prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         services(storage),
       );
     } catch (error: unknown) {
@@ -815,7 +929,7 @@ describe("event-store append preparation", () => {
       },
     };
     const pending = prepareEventAppend(
-      { runId: "run-01", event: mutable },
+      { feature: "sample-feature", runId: "run-01", event: mutable },
       { ...services(storage), durableFileSystem },
     );
     mutable.operation = "attacker-change";
@@ -827,7 +941,10 @@ describe("event-store append preparation", () => {
 
   it("snapshots reducers before the first durable await", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const mutable: EventReducerRegistry<State> & {
       seed: State & { runId: string };
@@ -854,7 +971,7 @@ describe("event-store append preparation", () => {
     };
 
     const prepared = await prepareEventAppend(
-      { runId: "run-01", event: draft(1) },
+      { feature: "sample-feature", runId: "run-01", event: draft(1) },
       { ...services(storage), durableFileSystem, reducers: mutable },
     );
 
@@ -867,7 +984,10 @@ describe("event-store append preparation", () => {
 
   it("refuses throwing input accessors without storage access", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const input = Object.defineProperty({ runId: "run-01" }, "event", {
       enumerable: true,
@@ -895,7 +1015,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.revision_conflict" });
@@ -915,18 +1035,26 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(2) },
+        { feature: "sample-feature", runId: "run-01", event: draft(2) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({
       reasonCode: "runtime.revision_conflict",
-      evidence: [{ kind: "event", ref: ".brain/runs/run-01/events.jsonl" }],
+      evidence: [
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+      ],
     });
   });
 
   it("classifies forged storage failures as sanitized internal failures", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
@@ -940,7 +1068,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         { ...services(storage), durableFileSystem },
       ),
     ).rejects.toMatchObject({
@@ -991,12 +1119,15 @@ describe("event-store append preparation", () => {
     "sanitizes a forged %s capability error",
     async (_label, override) => {
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
       });
 
       await expect(
         prepareEventAppend(
-          { runId: "run-01", event: draft(1) },
+          { feature: "sample-feature", runId: "run-01", event: draft(1) },
           override(services(storage)),
         ),
       ).rejects.toMatchObject({
@@ -1009,7 +1140,10 @@ describe("event-store append preparation", () => {
 
   it("rejects root and draft proxies after proxy detection without traps", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     let traps = 0;
     const handler = {
@@ -1018,7 +1152,10 @@ describe("event-store append preparation", () => {
         throw new Error("proxy trap must not run");
       },
     };
-    const root = new Proxy({ runId: "run-01", event: draft(1) }, handler);
+    const root = new Proxy(
+      { feature: "sample-feature", runId: "run-01", event: draft(1) },
+      handler,
+    );
     const event = new Proxy(draft(1), handler);
 
     for (const input of [root, { runId: "run-01", event }]) {
@@ -1032,7 +1169,10 @@ describe("event-store append preparation", () => {
 
   it("rejects a hostile registry before storage without running its traps", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     let traps = 0;
     const registryProxy = new Proxy(reducers, {
@@ -1044,7 +1184,7 @@ describe("event-store append preparation", () => {
 
     await expect(
       prepareEventAppend(
-        { runId: "run-01", event: draft(1) },
+        { feature: "sample-feature", runId: "run-01", event: draft(1) },
         { ...services(storage), reducers: registryProxy },
       ),
     ).rejects.toMatchObject({
@@ -1059,7 +1199,10 @@ describe("event-store append preparation", () => {
     "sanitizes a rejected native Promise from a %s as state corruption",
     async (kind) => {
       const storage = memoryTransactionStorage({
-        directories: [".brain/transactions", ".brain/runs/run-01"],
+        directories: [
+          ".brain/transactions",
+          ".brain/02-features/sample-feature/runs/run-01",
+        ],
       });
       const asyncRegistry =
         kind === "reducer"
@@ -1074,7 +1217,7 @@ describe("event-store append preparation", () => {
 
       await expect(
         prepareEventAppend(
-          { runId: "run-01", event: draft(1) },
+          { feature: "sample-feature", runId: "run-01", event: draft(1) },
           {
             ...services(storage),
             reducers: asyncRegistry as unknown as EventReducerRegistry<State>,
@@ -1083,8 +1226,14 @@ describe("event-store append preparation", () => {
       ).rejects.toMatchObject({
         reasonCode: "runtime.state_corrupt",
         evidence: [
-          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+          {
+            kind: "event",
+            ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+          },
+          {
+            kind: "artifact",
+            ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+          },
         ],
       });
       await Promise.resolve();
@@ -1093,10 +1242,13 @@ describe("event-store append preparation", () => {
 
   it("does not permit runtime mutation of prepared effects or fingerprints", async () => {
     const storage = memoryTransactionStorage({
-      directories: [".brain/transactions", ".brain/runs/run-01"],
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
     });
     const prepared = await prepareEventAppend(
-      { runId: "run-01", event: draft(1) },
+      { feature: "sample-feature", runId: "run-01", event: draft(1) },
       services(storage),
     );
     const events = prepared.effects[0].content;

@@ -72,7 +72,7 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "missing" },
           },
           { path: ".brain/outside.json", expected: { kind: "missing" } },
@@ -84,11 +84,11 @@ describe("managed transaction execution", () => {
       {
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "missing" },
           },
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -188,7 +188,7 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "missing" },
             extra: true,
           },
@@ -203,7 +203,7 @@ describe("managed transaction execution", () => {
         eventStorePreconditions: [
           { path: 7, expected: { kind: "missing" } },
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -215,7 +215,7 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: new Proxy({ kind: "missing" }, {}),
           },
           {},
@@ -230,7 +230,10 @@ describe("managed transaction execution", () => {
         return {
           rootMode: "existing",
           eventStorePreconditions: [
-            { path: ".brain/runs/run-01/events.jsonl", expected },
+            {
+              path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+              expected,
+            },
             {},
           ],
         };
@@ -242,11 +245,11 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "directory" },
           },
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -258,11 +261,11 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "missing" },
           },
         ],
@@ -274,11 +277,11 @@ describe("managed transaction execution", () => {
         rootMode: "existing",
         eventStorePreconditions: [
           {
-            path: ".brain/runs/run-01/events.jsonl",
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
             expected: { kind: "missing" },
           },
           {
-            path: ".brain/runs/run-02/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-02/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -294,7 +297,7 @@ describe("managed transaction execution", () => {
             expected: { kind: "missing" },
           },
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -320,8 +323,10 @@ describe("managed transaction execution", () => {
       const storage = memoryTransactionStorage({
         directories: [".brain", ".brain/transactions"],
       });
-      const eventPath = ".brain/runs/run-01/events.jsonl";
-      const snapshotPath = ".brain/runs/run-01/state.json";
+      const eventPath =
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+      const snapshotPath =
+        ".brain/02-features/sample-feature/runs/run-01/state.json";
       const durableFileSystem: DurableFileSystem = {
         ...storage.durableFileSystem,
         inspect(path) {
@@ -359,8 +364,10 @@ describe("managed transaction execution", () => {
     const storage = memoryTransactionStorage({
       directories: [".brain", ".brain/transactions"],
     });
-    const eventPath = ".brain/runs/run-01/events.jsonl";
-    const snapshotPath = ".brain/runs/run-01/state.json";
+    const eventPath =
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+    const snapshotPath =
+      ".brain/02-features/sample-feature/runs/run-01/state.json";
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
       inspect(path) {
@@ -394,8 +401,10 @@ describe("managed transaction execution", () => {
     const storage = memoryTransactionStorage({
       directories: [".brain", ".brain/transactions"],
     });
-    const eventPath = ".brain/runs/run-01/events.jsonl";
-    const snapshotPath = ".brain/runs/run-01/state.json";
+    const eventPath =
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+    const snapshotPath =
+      ".brain/02-features/sample-feature/runs/run-01/state.json";
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
       inspect(path) {
@@ -431,8 +440,10 @@ describe("managed transaction execution", () => {
   });
 
   it("accepts matching file event-store preconditions before execution", async () => {
-    const eventPath = ".brain/runs/run-01/events.jsonl";
-    const snapshotPath = ".brain/runs/run-01/state.json";
+    const eventPath =
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+    const snapshotPath =
+      ".brain/02-features/sample-feature/runs/run-01/state.json";
     const storage = memoryTransactionStorage({
       directories: [
         ".brain",
@@ -504,8 +515,10 @@ describe("managed transaction execution", () => {
     const storage = memoryTransactionStorage({
       directories: [".brain", ".brain/transactions"],
     });
-    const eventPath = ".brain/runs/run-01/events.jsonl";
-    const snapshotPath = ".brain/runs/run-01/state.json";
+    const eventPath =
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+    const snapshotPath =
+      ".brain/02-features/sample-feature/runs/run-01/state.json";
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
       inspect(path) {

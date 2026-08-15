@@ -345,6 +345,7 @@ describe("composed command line", () => {
           }),
           plan: planOf({
             kind: "append_event" as const,
+            feature: "sample-feature",
             runId: "run-01",
             event: {
               contractVersion: "1.0.0",
@@ -382,8 +383,14 @@ describe("composed command line", () => {
       exitCode: 4,
       reasonCode: "runtime.state_corrupt",
       evidence: [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ],
       stateChanged: false,
       retryable: true,

@@ -39,10 +39,10 @@ export type GuardedFixture = ReturnType<typeof guardedFixture>;
  * durable filesystem, because fencing only means anything when the guard and
  * the mutation land on the same storage.
  */
-export function guardedFixture() {
-  const storage = memoryTransactionStorage({
-    directories: [".brain/runs/run-01"],
-  });
+export function guardedFixture(
+  directories: readonly string[] = [".brain/runs/run-01"],
+) {
+  const storage = memoryTransactionStorage({ directories: [...directories] });
   let now = new Date("2026-08-11T00:00:00.000Z").getTime();
   const services: TransactionServices = {
     clock: { now: () => new Date(now) },

@@ -166,16 +166,19 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
       EventStorePrecondition,
       EventStorePrecondition,
     ] = [freezePrecondition(first), freezePrecondition(second)];
+    // A run lives under the feature that opened it, so the pair this
+    // transaction may fence is identified by both names, not by the run alone.
     const match =
-      /^\.brain\/runs\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/(events\.jsonl|state\.json)$/u;
+      /^\.brain\/02-features\/([a-z0-9][a-z0-9-]{0,63})\/runs\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/(events\.jsonl|state\.json)$/u;
     const firstPrecondition = preconditions[0];
     const secondPrecondition = preconditions[1];
     const left = match.exec(firstPrecondition.path);
     const right = match.exec(secondPrecondition.path);
     if (
-      left?.[2] !== "events.jsonl" ||
-      right?.[2] !== "state.json" ||
-      left[1] !== right[1]
+      left?.[3] !== "events.jsonl" ||
+      right?.[3] !== "state.json" ||
+      left[1] !== right[1] ||
+      left[2] !== right[2]
     )
       throw new Error();
     return leaseGuard === undefined
@@ -253,6 +256,13 @@ function freezeLeaseGuard(
     expected: Object.freeze(pair),
   }) as unknown as LeaseGuardBinding;
 }
+
+/**
+ * The one path under a run whose drift is trail evidence rather than an
+ * ordinary artifact. A run lives under the feature that opened it.
+ */
+const EVENT_STREAM_PATH =
+  /^\.brain\/02-features\/[a-z0-9][a-z0-9-]{0,63}\/runs\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\/events\.jsonl$/u;
 
 function reservedGuardPath(path: string, name: string): boolean {
   return lockScope.test(path) && path.endsWith(`/${name}`);
@@ -510,12 +520,7 @@ async function assertDeclaredEventStorePreconditions(
       throw new TransactionFailure("runtime.internal_failure", []);
     }
     if (!sameFingerprint(observed, entry.expected)) {
-      const kind =
-        /^\.brain\/runs\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\/events\.jsonl$/u.test(
-          entry.path,
-        )
-          ? "event"
-          : "artifact";
+      const kind = EVENT_STREAM_PATH.test(entry.path) ? "event" : "artifact";
       evidence.push({ kind, ref: entry.path });
     }
   }

@@ -52,7 +52,7 @@ This is why the five objective rows move to `in_progress` rather than `parity`,
 and why parity stays `0 / 400 (0.00%)`.
 
 **Events in the canonical event store.** The issue asks for canonical events.
-The event store from `RUN-06` writes `.brain/runs/<run-id>/events.jsonl`, and
+The event store writes `.brain/02-features/<feature>/runs/<run>/events.jsonl`, and
 runs are `SDD-03` work -- an objective has no run yet. The append-only
 `objective-history.jsonl` is the frozen inventory's record for this lifecycle
 and carries every transition with its lineage; wiring the same transitions into

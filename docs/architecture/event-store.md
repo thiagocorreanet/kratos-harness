@@ -7,18 +7,33 @@ runtime. It does not add a public command: the staged bundle still exposes only
 
 ## Run ownership and layout
 
-Each validated run owns exactly two event-store destinations:
+A run belongs to the feature that opened it, and owns exactly two event-store
+destinations beneath it:
 
 ```text
-.brain/runs/<run-id>/events.jsonl
-.brain/runs/<run-id>/state.json
+.brain/02-features/<feature>/runs/<run-id>/events.jsonl
+.brain/02-features/<feature>/runs/<run-id>/state.json
 ```
 
-The event-store composition derives both paths from the validated run ID.
+The event-store composition derives both paths from a validated run location —
+the feature and the run identifier together. It cannot derive them from the run
+identifier alone, which is why a caller names both.
+
+Issue [#108](https://github.com/thiagocorreanet/mestre-yoda/issues/108)
+(`RUN-06a`) moved them here. `RUN-06` shipped `.brain/runs/<run-id>/`, a path
+that appears nowhere in the frozen discovery snapshot and that no parity row
+covers, while eleven frozen rows place every run artifact under its feature.
+Two layouts for one run would have meant the trail's history living somewhere
+the frozen contract never names.
+
 Callers never supply event-store destinations, and no caller effect may write
 or delete either selected path. `events.jsonl` is the accepted history;
 `state.json` is its replayed, validated snapshot. Transaction staging and
 progress remain owned by the separate `.brain/transactions/` boundary.
+
+A run identifier keeps its own grammar. The feature is constrained to the
+grammar `state.feature` declares, so a location the store accepts is one the
+feature contract could have produced.
 
 ## Canonical history
 
