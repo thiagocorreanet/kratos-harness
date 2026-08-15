@@ -20,6 +20,7 @@ A plugin install contains exactly these files:
 | `runtime/yoda.mjs` | Canonical entry point: the interpreter gate |
 | `runtime/yoda.core.mjs` | The self-contained bundle |
 | `runtime/manifest.json` | Versions and digests of what actually shipped |
+| `runtime/THIRD-PARTY-NOTICES.txt` | License text of the packages the bundle carries |
 
 Schemas, skills, agents, providers, and templates are owned by later issues.
 This contract freezes the layout that will hold them.
@@ -121,6 +122,7 @@ two lists rather than one variation of the same list.
 fails the build:
 
 ```text
+runtime/THIRD-PARTY-NOTICES.txt
 runtime/manifest.json
 runtime/yoda.core.mjs
 runtime/yoda.mjs
@@ -144,6 +146,14 @@ Source maps are excluded deliberately. A source map reconstructs the TypeScript
 sources, and the denylist exists precisely to keep sources out of what ships.
 Debugging metadata becomes a considered release artifact rather than a file that
 rides along unnoticed.
+
+`runtime/THIRD-PARTY-NOTICES.txt` is in the allowlist for the opposite reason.
+The bundle inlines third-party code and is minified with
+`legalComments: "none"`, so the notice that MIT and BSD-3-Clause require is
+rebuilt from the installed packages and staged beside the runtime. Package
+verification re-derives the bundled set from the build metadata and refuses a
+staged plugin that attributes the wrong packages. Which licenses may appear
+there at all is [the dependency policy](../security/dependency-policy.md).
 
 ## Distribution manifest
 

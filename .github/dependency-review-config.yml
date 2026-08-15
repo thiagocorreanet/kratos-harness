@@ -1,0 +1,43 @@
+# The machine-readable half of `docs/security/dependency-policy.md`.
+#
+# `.npmrc` sets `audit=false`, so this is the only gate that sees a new
+# advisory before it is merged. It refuses at the lowest severity the API
+# reports: a threshold above `low` would mean the repository decided, in
+# advance and without a reader, that some known vulnerable dependency is
+# acceptable.
+fail-on-severity: low
+
+# Every scope. A build-time dependency runs attacker-reachable code on the
+# machine that produces the release, which is not a smaller problem than one
+# the release carries.
+fail-on-scopes:
+  - development
+  - runtime
+  - unknown
+
+# The development allowlist from the policy document. The redistributed subset
+# is narrower and is enforced separately, against the packages the bundle
+# actually carries, by `tests/dependency-policy.test.ts`.
+allow-licenses:
+  - 0BSD
+  - Apache-2.0
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - BlueOak-1.0.0
+  - CC-BY-SA-4.0
+  - ISC
+  - MIT
+  - MPL-2.0
+  - Python-2.0
+  - Unlicense
+
+license-check: true
+vulnerability-check: true
+
+# A summary comment would need `pull-requests: write`. The job logs and the job
+# summary carry the same report without granting a workflow authority to write
+# to the pull request it is reviewing.
+comment-summary-in-pr: never
+
+# A finding is remediated or recorded, never downgraded to a passing run.
+warn-only: false

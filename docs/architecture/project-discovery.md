@@ -86,8 +86,8 @@ ambient state.
 
 The source workspace exposes the discovery contract at
 `@mestre-yoda/runtime/composition/discovery`. The standalone bundle still
-supports only `help`, `version`, and `handshake`, and its three-file inventory
-is unchanged. No discovery command is published by this issue.
+supports only `help`, `version`, and `handshake`, and no discovery command
+changed its published inventory. No discovery command is published by this issue.
 
 Parity remains `0 / 400 (0.00%)`. This work provides internal unit, property,
 and filesystem evidence, but no completed differential or end-to-end parity row.

@@ -213,10 +213,30 @@ test, so deleting `.npmrc` changed nothing that CI would notice.
 `tests/package-verifier.test.ts` and `tests/go-v3-oracle-verifier.test.ts` cover
 the rest.
 
-**Absent.** No CodeQL, no dependency review, no Dependabot configuration, no
-audit in CI (`audit=false` is set deliberately, so the check has to come from
-somewhere else), no provenance or signature verification, and no documented
-license policy. Those are the remaining `QAL-04` deliverables.
+[The dependency policy](dependency-policy.md) states which licenses either
+dependency set may carry and what happens when one of them turns out to be
+vulnerable. `dependency-review.yml` enforces it on every pull request at
+severity `low`, `codeql.yml` scans the sources on each protected-branch push
+and weekly, and `dependabot.yml` proposes the updates exact pinning otherwise
+prevents. `tests/dependency-policy.test.ts` holds the allowlists against the
+installed tree and against the four packages the bundle actually carries;
+`tests/supply-chain-contract.test.ts` holds every workflow to commit-pinned
+actions, fork-safe triggers, and read-only authority everywhere except the one
+job that uploads an analysis.
+
+The bundler is configured with `legalComments: "none"`, so the notices that
+MIT and BSD-3-Clause require were being stripped out of the artifact users
+run. `scripts/build.mjs` now rebuilds them into
+`runtime/THIRD-PARTY-NOTICES.txt`, and `scripts/verify-package.mjs` re-derives
+the bundled set independently and refuses a staged plugin that attributes the
+wrong packages.
+
+**Absent.** No provenance or signature verification: the lockfile proves the
+bytes did not change after publication, not who published them. CodeQL runs on
+the push a merge produces rather than on the pull request, because a fork
+cannot upload an analysis. Nothing scans the released bundle itself, and no
+SBOM is published yet — that is `BET-02` (#59). Each of these is stated at
+greater length in the dependency policy.
 
 ## What this document is not
 

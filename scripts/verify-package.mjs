@@ -23,6 +23,7 @@ const artifact = join(pluginDirectory, "runtime/yoda.mjs");
 const core = join(pluginDirectory, "runtime/yoda.core.mjs");
 // The exact set of files a plugin install contains. Anything else fails.
 const expectedInventory = [
+  "runtime/THIRD-PARTY-NOTICES.txt",
   "runtime/manifest.json",
   "runtime/yoda.core.mjs",
   "runtime/yoda.mjs",
@@ -130,6 +131,60 @@ function executeIsolated(
   return result.stdout;
 }
 
+/**
+ * Every third-party package directory the build metadata says was bundled.
+ *
+ * Directories rather than names: a nested copy is a different version than a
+ * hoisted one, and a notice naming the wrong version attributes nothing.
+ */
+function bundledPackageDirectories(metadata) {
+  const output = metadata.outputs["dist/plugin/runtime/yoda.core.mjs"];
+  if (output === undefined) {
+    fail("build metadata records no bundle output");
+  }
+  const marker = "node_modules/";
+  const directories = new Set();
+  for (const input of Object.keys(output.inputs)) {
+    const at = input.lastIndexOf(marker);
+    if (at === -1) continue;
+    const segments = input.slice(at + marker.length).split("/");
+    const depth = segments[0].startsWith("@") ? 2 : 1;
+    directories.add(
+      input.slice(0, at + marker.length) + segments.slice(0, depth).join("/"),
+    );
+  }
+  return [...directories].sort();
+}
+
+/**
+ * Each heading the notices file carries, mapped to the text under it.
+ *
+ * Sections are found by their rule lines rather than by scanning for anything
+ * heading-shaped, so a line inside a license cannot be read as the start of
+ * another package's notice.
+ */
+function attributions(notices) {
+  const heading = /^\S+ \S+ \([^)]+\)$/u;
+  const rule = "=".repeat(78);
+  const lines = notices.split("\n");
+  const found = new Map();
+  for (let index = 0; index + 2 < lines.length; index += 1) {
+    if (lines[index] !== rule || lines[index + 2] !== rule) continue;
+    if (!heading.test(lines[index + 1])) continue;
+    let end = index + 3;
+    while (end < lines.length && lines[end] !== rule) end += 1;
+    found.set(
+      lines[index + 1],
+      lines
+        .slice(index + 3, end)
+        .join("\n")
+        .trim(),
+    );
+    index = end - 1;
+  }
+  return found;
+}
+
 function acceptsHelp(output) {
   return (
     output.split("\n")[0] === expectedHelpFirstLine &&
@@ -177,18 +232,29 @@ if (distributionManifest.runtime.coreSha256 !== recordedDigest) {
   fail("runtime/manifest.json does not record the built core digest");
 }
 
+const noticesSource = await readFile(
+  join(pluginDirectory, "runtime/THIRD-PARTY-NOTICES.txt"),
+  "utf8",
+);
+
 const forbiddenReferences = [
   "node_modules",
   "/packages/",
   "\\packages\\",
   repositoryRoot,
 ];
+// The notices are read from paths under `node_modules` on the machine that
+// built them, so they are held to the same rule as the two files they ship
+// beside rather than trusted for being only license text.
 for (const reference of forbiddenReferences) {
-  if (bundle.includes(reference)) {
-    fail(`runtime/yoda.core.mjs contains forbidden reference: ${reference}`);
-  }
-  if (entrySource.includes(reference)) {
-    fail(`runtime/yoda.mjs contains forbidden reference: ${reference}`);
+  for (const [name, staged] of [
+    ["runtime/yoda.core.mjs", bundle],
+    ["runtime/yoda.mjs", entrySource],
+    ["runtime/THIRD-PARTY-NOTICES.txt", noticesSource],
+  ]) {
+    if (staged.includes(reference)) {
+      fail(`${name} contains forbidden reference: ${reference}`);
+    }
   }
 }
 
@@ -200,6 +266,39 @@ for (const output of Object.values(metadata.outputs)) {
     if (imported.external === true && !allowedBuiltins.has(imported.path)) {
       fail(`bundle has invalid external import: ${imported.path}`);
     }
+  }
+}
+
+// Re-derived here rather than taken from the builder. A notices file the build
+// wrote from its own idea of what it bundled would prove only that the build
+// agrees with itself; this reads the same metadata independently and checks
+// the staged file against it.
+const attributed = attributions(noticesSource);
+const expectedHeadings = [];
+for (const packageDirectory of bundledPackageDirectories(metadata)) {
+  const declared = JSON.parse(
+    await readFile(
+      join(repositoryRoot, packageDirectory, "package.json"),
+      "utf8",
+    ),
+  );
+  const heading = `${declared.name} ${declared.version} (${declared.license})`;
+  expectedHeadings.push(heading);
+  const notice = attributed.get(heading);
+  if (notice === undefined) {
+    fail(`runtime/THIRD-PARTY-NOTICES.txt does not attribute ${heading}`);
+  }
+  // A heading with nothing under it attributes nothing. The shortest license
+  // in the bundled set is over 400 characters.
+  if (notice.length < 200) {
+    fail(
+      `runtime/THIRD-PARTY-NOTICES.txt carries no license text for ${heading}`,
+    );
+  }
+}
+for (const heading of attributed.keys()) {
+  if (!expectedHeadings.includes(heading)) {
+    fail(`runtime/THIRD-PARTY-NOTICES.txt attributes unbundled ${heading}`);
   }
 }
 
