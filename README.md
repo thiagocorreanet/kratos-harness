@@ -1,4 +1,6 @@
-# Kratos
+# Kratos HARNESS
+
+<img width="1008" height="502" alt="384534721-af617c49-717d-4aef-92cf-7adb3d973728" src="https://github.com/user-attachments/assets/1cd68305-31b4-4d00-a0aa-02a58617671e" />
 
 > A deterministic, observable Spec-Driven Development harness for AI coding agents.
 
