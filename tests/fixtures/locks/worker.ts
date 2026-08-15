@@ -251,11 +251,11 @@ async function main(): Promise<void> {
 
 void main().then(
   () => {
-    process.disconnect();
+    process.disconnect?.();
   },
   async () => {
     await send({ kind: "error" }).catch(() => undefined);
-    process.disconnect();
+    process.disconnect?.();
     process.exitCode = 1;
   },
 );
