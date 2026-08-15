@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "oracle_id": "go-v3-v0.6.5",
+  "version": "0.6.5",
+  "source": {
+    "repository_slug": "betaup-sistemas/mestre-yoda",
+    "visibility": "private",
+    "tag": "v0.6.5",
+    "tag_object": "720f0a35074451208a0673324d223803add249e0",
+    "commit": "632f1e9bb283cf83412ef3e9e0b642daefdb0784",
+    "commit_timestamp": "2026-08-05T14:20:22Z",
+    "go_version": "1.23.4",
+    "file_count": 1157,
+    "archive_sha256": "637a0b0acd89666c2a8cac5f9a0af8e1b5a56b9eeca8a145af3a0c0f66badfc4",
+    "provenance_id": "private-go-v3-hash-only"
+  },
+  "distribution": {
+    "repository_slug": "betaup-sistemas/mestre-yoda-dist",
+    "visibility": "private",
+    "tag": "v0.6.5",
+    "commit": "e6e6803c9329a53d362217a8f829a2801c83609d",
+    "file_count": 59,
+    "archive_sha256": "18d2d9d679e100baa42b1d439538d0810833a1e7a1e6ca03874a640aa6466ccc",
+    "provenance_id": "private-go-v3-hash-only"
+  },
+  "surfaces": [
+    {
+      "id": "source",
+      "file_count": 1157,
+      "sha256": "637a0b0acd89666c2a8cac5f9a0af8e1b5a56b9eeca8a145af3a0c0f66badfc4",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "schemas",
+      "file_count": 16,
+      "sha256": "13994d61e989d72ee74a640243738c45f6ee1d32545e396ce9b049670455a503",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "skills",
+      "file_count": 3,
+      "sha256": "7aafdb22f482184f407b030859cb97dedd20e62e3d3264325068b5595558c507",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "agents",
+      "file_count": 7,
+      "sha256": "390d56fa01d3af732ad0207c23734cf5735c1fa64b1ddfd7f00857615653d37e",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "hooks",
+      "file_count": 2,
+      "sha256": "9f357297871a157d2aeb07f5604e389abd613d7d2d03ecf54ea6e8c919e5f46f",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "init-templates",
+      "file_count": 24,
+      "sha256": "c0bc812195f1ac714152a652eb052edf7bcd4e5d345529f6955fe18d4e36f730",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "migration",
+      "file_count": 40,
+      "sha256": "c96b561e1b289cc4619675ff1597a234937071a0f4c177c241dabbf60055e2ce",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "benchmarks",
+      "file_count": 57,
+      "sha256": "11b79efdc0e08211a2810cab7ad4c1df7637b638ef1b1e7550bab80115b17dfd",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "prd-contract",
+      "file_count": 17,
+      "sha256": "f213095d91c8da81faff4d8ef0ec3bd1c10097f1ddb513d19a91793740775974",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "release-contract",
+      "file_count": 17,
+      "sha256": "029673cb911a3469deb30d770d5b263239b4f3fba3ca5095f6a1f834760100e1",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "go-inputs",
+      "file_count": 2,
+      "sha256": "7182371e0e5a23bb1ae1f24b51e156b3de87396163f856788cdf75a2a121d9ad",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "plugin-manifests",
+      "file_count": 3,
+      "sha256": "f491b25a0ab48f97e544935afb707a7a9188f3d55fe4189af2638648c1d6ac76",
+      "provenance_id": "private-go-v3-hash-only"
+    }
+  ],
+  "prd_anchors": [
+    {
+      "id": "prd-researcher",
+      "source_path": "agents/prd-researcher.md",
+      "bytes": 6876,
+      "sha256": "b032604100e7f54f6a78259d3e3df6e907f651eee62a85f39b7f8cb3569009dc",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "prd-output-schema",
+      "source_path": "schemas/prd-output.schema.json",
+      "bytes": 4855,
+      "sha256": "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "problem-discovery",
+      "source_path": "references/problem-discovery.md",
+      "bytes": 5670,
+      "sha256": "360c231c9156d39872f82de6fe65fd2c454e5abbbd8c5ff52cf6a0d2570d7e96",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "prd-template",
+      "source_path": "templates/brain/02-features/_template/00-prd.md",
+      "bytes": 2578,
+      "sha256": "75485f0049e38644cdb9c00db976a4d1c730a03bbf81d4e949a3bd58449453c3",
+      "provenance_id": "private-go-v3-hash-only"
+    }
+  ],
+  "command_outputs": [
+    {
+      "id": "version-output",
+      "arguments": ["version"],
+      "exit_code": 0,
+      "stdout_bytes": 6,
+      "stderr_empty": true,
+      "sha256": "34bf52562bae401de106933a7565c9d3a5c8dc83c04b0b29492dd3f6f3983b7a",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "help-output",
+      "arguments": ["--help"],
+      "exit_code": 0,
+      "stdout_bytes": 1058,
+      "stderr_empty": true,
+      "sha256": "8fe918223dc75b5fc644f2769fa38456077c1b0467e5bc2394597a77431414b6",
+      "provenance_id": "private-go-v3-hash-only"
+    }
+  ],
+  "release_binaries": [
+    {
+      "id": "linux-amd64",
+      "asset": "yoda-linux-amd64",
+      "goos": "linux",
+      "goarch": "amd64",
+      "bytes": 5443736,
+      "sha256": "da4ec4a2394ae90a94722f633bcb9157ddc5ee0133f46540b7c2c700abe378b8",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "windows-amd64",
+      "asset": "yoda-windows-amd64.exe",
+      "goos": "windows",
+      "goarch": "amd64",
+      "bytes": 5774848,
+      "sha256": "14ba51351606cb2706729027258ed5408a5d0bf592ccf78dc20360fb127fe645",
+      "provenance_id": "private-go-v3-hash-only"
+    },
+    {
+      "id": "darwin-arm64",
+      "asset": "yoda-darwin-arm64",
+      "goos": "darwin",
+      "goarch": "arm64",
+      "bytes": 5215602,
+      "sha256": "bf6a721aec8de8076330ce1e72308a60f3a351e216b307201a0987d48f1ff88d",
+      "provenance_id": "private-go-v3-hash-only"
+    }
+  ],
+  "plugin_projection": {
+    "id": "codex-cache-dist-projection",
+    "file_count": 59,
+    "sha256": "0ac3c54c2f0932eb2c60f13e4522cfcca8f4218000fe2d68a589dcf3fa0b0dc3",
+    "provenance_id": "private-go-v3-hash-only"
+  },
+  "provenance": {
+    "private-go-v3-hash-only": {
+      "owner": "BetaUp Sistemas",
+      "source_visibility": "private",
+      "license_status": "no-mit-publication-grant-established",
+      "classification": "behavioral-oracle-metadata",
+      "public_representation": "hash-and-metadata-only",
+      "content_publication": "denied"
+    }
+  },
+  "verification": {
+    "status": "passed",
+    "verified_at": "2026-08-07",
+    "host": "linux-amd64",
+    "source_rebuilds": 2,
+    "binary_rebuilds": 2,
+    "source_archives_identical": true,
+    "release_binaries_identical": true,
+    "installed_linux_binary_identical": true,
+    "go": {
+      "version": "1.23.4",
+      "module_verification": "passed",
+      "build": "passed",
+      "race_suite": "passed",
+      "coverage_gate": "passed",
+      "total_coverage_percent": 81.97
+    },
+    "cross_builds": {
+      "windows_amd64": "passed",
+      "darwin_arm64": "passed"
+    },
+    "python": {
+      "version": "3.12.3",
+      "gap_bench_tests": 10,
+      "spec_v2_tests": 75
+    },
+    "skill_cap": {
+      "limit": 150,
+      "observed_lines": 119,
+      "status": "passed"
+    },
+    "tmpdir_outside_checkout": true,
+    "native_windows_execution": "not-claimed",
+    "native_darwin_execution": "not-claimed"
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/operation-message/v1",
+  "title": "Kratos host operation message v1",
+  "oneOf": [
+    { "$ref": "#/$defs/approvalMessage" },
+    { "$ref": "#/$defs/hookMessage" },
+    { "$ref": "#/$defs/timeoutMessage" },
+    { "$ref": "#/$defs/cancellationMessage" },
+    { "$ref": "#/$defs/errorMessage" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "safeLine": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "transactionRef"],
+      "properties": {
+        "state": {
+          "enum": ["none", "prepared", "publishing", "committed"]
+        },
+        "transactionRef": {
+          "oneOf": [{ "$ref": "#/$defs/reference" }, { "type": "null" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": { "enum": ["prepared", "publishing"] }
+            },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "transactionRef": { "$ref": "#/$defs/reference" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "const": "none" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "transactionRef": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "approvalMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "sequence",
+        "occurredAt",
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "kind": { "const": "approval" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approvalId",
+            "decision",
+            "scope",
+            "artifact",
+            "challenge",
+            "approver",
+            "expiresAt"
+          ],
+          "properties": {
+            "approvalId": { "$ref": "#/$defs/id" },
+            "decision": { "enum": ["approved", "rejected"] },
+            "scope": { "$ref": "#/$defs/id" },
+            "artifact": { "$ref": "#/$defs/artifact" },
+            "challenge": { "$ref": "#/$defs/sha256" },
+            "approver": { "$ref": "#/$defs/id" },
+            "expiresAt": {
+              "oneOf": [
+                { "type": "string", "format": "date-time" },
+                { "type": "null" }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "hookMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "sequence",
+        "occurredAt",
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "kind": { "const": "hook" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "hook", "phase", "artifact"],
+          "properties": {
+            "host": { "enum": ["claude-code", "codex"] },
+            "hook": { "$ref": "#/$defs/id" },
+            "phase": { "enum": ["before", "after"] },
+            "artifact": { "$ref": "#/$defs/artifact" }
+          }
+        }
+      }
+    },
+    "timeoutMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "sequence",
+        "occurredAt",
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "kind": { "const": "timeout" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deadline", "elapsedMs", "mutation"],
+          "properties": {
+            "deadline": { "type": "string", "format": "date-time" },
+            "elapsedMs": { "type": "integer", "minimum": 0 },
+            "mutation": { "$ref": "#/$defs/mutation" }
+          }
+        }
+      }
+    },
+    "cancellationMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "sequence",
+        "occurredAt",
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "kind": { "const": "cancellation" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requestedBy", "reason", "mutation"],
+          "properties": {
+            "requestedBy": { "$ref": "#/$defs/id" },
+            "reason": { "$ref": "#/$defs/safeLine" },
+            "mutation": { "$ref": "#/$defs/mutation" }
+          }
+        }
+      }
+    },
+    "errorMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "sequence",
+        "occurredAt",
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "kind": { "const": "error" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reasonCode", "retryable", "recovery", "mutation"],
+          "properties": {
+            "reasonCode": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]*(?:\\.[a-z][a-z0-9_-]*)+$"
+            },
+            "retryable": { "type": "boolean" },
+            "recovery": { "$ref": "#/$defs/safeLine" },
+            "mutation": { "$ref": "#/$defs/mutation" }
+          }
+        }
+      }
+    }
+  }
+}

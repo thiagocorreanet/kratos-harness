@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "kratos",
+  "displayName": "Kratos",
+  "version": "0.0.0-development",
+  "description": "Deterministic SDD workflow backed by the embedded Kratos runtime.",
+  "license": "MIT",
+  "keywords": ["sdd", "workflow", "evidence", "development"]
+}

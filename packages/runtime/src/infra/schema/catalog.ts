@@ -1,0 +1,234 @@
+import manifest from "../../../../contracts/catalogs/contract-families.v1.json" with { type: "json" };
+import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
+import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
+import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
+import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
+import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
+import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
+import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
+import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
+import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
+import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
+import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
+import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json" with { type: "json" };
+import transactionManifestSchema from "../../../../../schemas/state/transaction-manifest.v1.schema.json" with { type: "json" };
+import transactionProgressSchema from "../../../../../schemas/state/transaction-progress.v1.schema.json" with { type: "json" };
+
+import type { EmbeddedSchemaEntry } from "./types.js";
+
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  const nested: readonly unknown[] = Array.isArray(value)
+    ? (value as readonly unknown[])
+    : Object.values(value as Record<string, unknown>);
+  for (const child of nested) deepFreeze(child, seen);
+  Object.freeze(value);
+  return value;
+}
+
+export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
+  deepFreeze([
+    {
+      id: "host.adapter-message",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/adapter-message.v1.schema.json",
+      schema: adapterMessageSchema,
+    },
+    {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/init-answers.v1.schema.json",
+      schema: initAnswersSchema,
+    },
+    {
+      id: "host.operation-message",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/operation-message.v1.schema.json",
+      schema: operationMessageSchema,
+    },
+    {
+      id: "state.approval",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/approval.v1.schema.json",
+      schema: approvalSchema,
+    },
+    {
+      id: "state.event",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/event.v1.schema.json",
+      schema: eventSchema,
+    },
+    {
+      id: "state.evidence",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/evidence.v1.schema.json",
+      schema: evidenceSchema,
+    },
+    {
+      id: "state.feature",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/feature.v1.schema.json",
+      schema: featureSchema,
+    },
+    {
+      id: "state.lock",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/lock.v1.schema.json",
+      schema: lockSchema,
+    },
+    {
+      id: "state.migration",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/migration.v1.schema.json",
+      schema: migrationSchema,
+    },
+    {
+      id: "state.project-config",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/project-config.v1.schema.json",
+      schema: projectConfigSchema,
+    },
+    {
+      id: "state.snapshot",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/snapshot.v1.schema.json",
+      schema: snapshotSchema,
+    },
+    {
+      id: "state.transaction-manifest",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/transaction-manifest.v1.schema.json",
+      schema: transactionManifestSchema,
+    },
+    {
+      id: "state.transaction-progress",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/transaction-progress.v1.schema.json",
+      schema: transactionProgressSchema,
+    },
+  ] as const satisfies readonly EmbeddedSchemaEntry[]);
+
+export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
+  resultSchema,
+] as const satisfies readonly object[]);
+
+const EXPECTED_SCHEMA_IDS = {
+  "host.adapter-message":
+    "https://kratos.dev/schemas/host/adapter-message/v1",
+  "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
+  "host.operation-message":
+    "https://kratos.dev/schemas/host/operation-message/v1",
+  "state.approval": "https://kratos.dev/schemas/state/approval/v1",
+  "state.event": "https://kratos.dev/schemas/state/event/v1",
+  "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
+  "state.feature": "https://kratos.dev/schemas/state/feature/v1",
+  "state.lock": "https://kratos.dev/schemas/state/lock/v1",
+  "state.migration": "https://kratos.dev/schemas/state/migration/v1",
+  "state.project-config":
+    "https://kratos.dev/schemas/state/project-config/v1",
+  "state.snapshot": "https://kratos.dev/schemas/state/snapshot/v1",
+  "state.transaction-manifest":
+    "https://kratos.dev/schemas/state/transaction-manifest/v1",
+  "state.transaction-progress":
+    "https://kratos.dev/schemas/state/transaction-progress/v1",
+} as const satisfies Readonly<Record<EmbeddedSchemaEntry["id"], string>>;
+
+function failCatalogIntegrity(): never {
+  throw new Error("Embedded schema catalog is inconsistent");
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function schemaId(schema: object): string | undefined {
+  const id = record(schema)?.$id;
+  return typeof id === "string" && id.length > 0 ? id : undefined;
+}
+
+function declaresVersion(entry: EmbeddedSchemaEntry): boolean {
+  const propertyName =
+    entry.family === "state" ? "stateContract" : "hostContract";
+  const pending: unknown[] = [entry.schema];
+  const seen = new WeakSet<object>();
+  let found = false;
+
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (Array.isArray(value)) {
+      pending.push(...(value as unknown[]));
+      continue;
+    }
+    const node = record(value);
+    if (node === undefined || seen.has(node)) continue;
+    seen.add(node);
+
+    const properties = record(node.properties);
+    if (properties !== undefined && propertyName in properties) {
+      found = true;
+      const constraint = record(properties[propertyName]);
+      if (
+        constraint === undefined ||
+        (constraint.const !== entry.version &&
+          (!Array.isArray(constraint.enum) ||
+            !constraint.enum.includes(entry.version)))
+      ) {
+        return false;
+      }
+    }
+    pending.push(...Object.values(node));
+  }
+
+  return found;
+}
+
+export function assertSchemaCatalog(
+  entries: readonly EmbeddedSchemaEntry[],
+): void {
+  if (entries.length !== manifest.schemas.length) failCatalogIntegrity();
+
+  const keys = new Set<string>();
+  const schemaIds = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    const expected = manifest.schemas[index];
+    if (expected === undefined) failCatalogIntegrity();
+    const key = `${entry.id}\u0000${entry.version}`;
+    const id = schemaId(entry.schema);
+    if (keys.has(key) || id === undefined || schemaIds.has(id)) {
+      failCatalogIntegrity();
+    }
+    if (
+      entry.id !== expected.id ||
+      entry.family !== expected.family ||
+      entry.version !== expected.version ||
+      entry.path !== expected.path ||
+      id !== EXPECTED_SCHEMA_IDS[entry.id] ||
+      !declaresVersion(entry)
+    ) {
+      failCatalogIntegrity();
+    }
+    keys.add(key);
+    schemaIds.add(id);
+  }
+}
+
+assertSchemaCatalog(EMBEDDED_SCHEMA_CATALOG);

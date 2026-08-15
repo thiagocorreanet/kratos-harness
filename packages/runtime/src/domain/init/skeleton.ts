@@ -1,0 +1,397 @@
+import {
+  KRATOS_VERSION,
+  type InitAnswersV1,
+  type ProjectConfigV1,
+} from "@kratos/contracts";
+
+import type { Effect } from "../effects.js";
+
+import {
+  MANAGED_SECTION_BEGIN,
+  MANAGED_SECTION_END,
+} from "./managed-section.js";
+import type { StackProfile } from "./stack.js";
+
+type Answers = Required<InitAnswersV1>;
+type Host = Answers["hosts"][number];
+
+interface HostSurface {
+  /** The root paths this host owns, for the guardrails record. */
+  readonly roots: readonly string[];
+  readonly files: (answers: Answers) => readonly FileEntry[];
+}
+
+type FileEntry = readonly [path: string, content: string];
+
+/**
+ * Every file initialization writes, as a plan rather than as work performed.
+ *
+ * Pure by construction: the destinations and the bytes are a function of the
+ * answers, the detected stack, and the contract version alone. No clock, no
+ * generated identifier, and no locale-dependent sort reaches the output, which
+ * is what lets a second run decide there is nothing to do instead of rewriting
+ * files that were already right.
+ */
+export function skeletonEffects(
+  answers: Answers,
+  profile: StackProfile,
+): readonly Effect[] {
+  const hosts = new Set<Host>(answers.hosts);
+  const files: FileEntry[] = [...stateFiles(answers, profile)];
+  for (const [host, surface] of HOST_SURFACES) {
+    if (hosts.has(host)) files.push(...surface.files(answers));
+  }
+
+  return Object.freeze(
+    files
+      .sort(([left], [right]) => compare(left, right))
+      .map(([path, content]) =>
+        Object.freeze({ kind: "write_file", path, content } as const),
+      ),
+  );
+}
+
+/** The destinations a plan touches, in plan order. */
+export function destinationsOf(effects: readonly Effect[]): readonly string[] {
+  return effects.flatMap((effect) => ("path" in effect ? [effect.path] : []));
+}
+
+/**
+ * Order by code unit rather than by locale.
+ *
+ * `localeCompare` sorts differently under different locales, and a plan whose
+ * order depends on the machine that built it is a plan that cannot be compared
+ * against the one built yesterday. Every value sorted here is a destination,
+ * and destinations are unique, so there is no equal case to decide.
+ */
+function compare(left: string, right: string): number {
+  return left < right ? -1 : 1;
+}
+
+function lines(...content: readonly string[]): string {
+  return `${content.join("\n")}\n`;
+}
+
+function json(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+/**
+ * The `.brain` skeleton, which is the same whichever hosts are enabled.
+ *
+ * State is the project's, not a host's: a project initialized for Claude Code
+ * and later opened in Codex must not need different state.
+ */
+function stateFiles(
+  answers: Answers,
+  profile: StackProfile,
+): readonly FileEntry[] {
+  return [
+    [".brain/00-business/README.md", businessReadme()],
+    [".brain/01-architecture/README.md", architectureReadme()],
+    // An empty keeper is how the directory survives a checkout while it holds
+    // no decision yet.
+    [".brain/01-architecture/adr/.gitkeep", ""],
+    [".brain/01-architecture/stack-profile.md", stackProfileDocument(profile)],
+    [".brain/02-features/README.md", featuresReadme()],
+    ...FEATURE_TEMPLATES.map(
+      ([name, title]) =>
+        [
+          `.brain/02-features/_template/${name}.md`,
+          templateDocument(title),
+        ] as const,
+    ),
+    [".brain/02-features/_template/state.json", templateState()],
+    // The name of the active feature, written by the command that selects one.
+    [".brain/02-features/active", ""],
+    [".brain/03-memory/.cache/feature-create.json", json({})],
+    // Append-only records start empty: a seeded entry would be a decision
+    // nobody made and a metric nobody measured.
+    [".brain/03-memory/decisions.log", ""],
+    [".brain/03-memory/gotchas.md", gotchasDocument()],
+    [".brain/03-memory/task_log.jsonl", ""],
+    [".brain/03-memory/task_metrics.md", taskMetricsDocument()],
+    [".brain/config.json", configuration(answers)],
+    [".brain/guardrails.json", guardrails(answers)],
+  ];
+}
+
+const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
+  [
+    "claude",
+    {
+      roots: [".claude", "CLAUDE.md"],
+      files: (answers) => [
+        [".claude/settings.json", claudeSettings()],
+        [
+          "CLAUDE.md",
+          instructions(
+            answers,
+            "CLAUDE.md",
+            "Host settings live in `.claude/settings.json`.",
+          ),
+        ],
+      ],
+    },
+  ],
+  [
+    "codex",
+    {
+      roots: [".codex", "AGENTS.md"],
+      files: (answers) => [
+        ...CODEX_AGENTS.map(
+          ([name, description]) =>
+            [
+              `.codex/agents/${name}.toml`,
+              agentDefinition(name, description),
+            ] as const,
+        ),
+        [".codex/config.toml", codexConfiguration(answers)],
+        [
+          "AGENTS.md",
+          instructions(
+            answers,
+            "AGENTS.md",
+            "Agent definitions live in `.codex/agents` and host settings in " +
+              "`.codex/config.toml`.",
+          ),
+        ],
+      ],
+    },
+  ],
+];
+
+const CODEX_AGENTS: readonly (readonly [string, string])[] = [
+  [
+    "code-implementer",
+    "Implements one planned task and reports exactly what it changed.",
+  ],
+  [
+    "implementation-evaluator",
+    "Judges a finished implementation against its plan and its acceptance criteria.",
+  ],
+  [
+    "prd-researcher",
+    "Researches a feature and drafts the requirements it has to satisfy.",
+  ],
+  [
+    "spec-planner",
+    "Turns an approved requirement into an ordered, reviewable implementation plan.",
+  ],
+  [
+    "spec-reviewer",
+    "Reviews a specification for gaps, contradictions, and unstated assumptions.",
+  ],
+];
+
+function configuration(answers: Answers): string {
+  const config: ProjectConfigV1 = {
+    contractVersion: "1.0.0",
+    stateContract: "1.0.0",
+    pluginVersion: KRATOS_VERSION,
+    hostContract: "1.0.0",
+    language: answers.language,
+    policyMode: answers.policyMode,
+    managedState: {
+      directory: ".brain",
+      eventLog: "events.jsonl",
+      snapshots: answers.snapshots,
+    },
+  };
+  return json(config);
+}
+
+/**
+ * The managed paths and workflow policy mode, recorded where a person can
+ * inspect the same inputs the deterministic gate evaluator consumes.
+ */
+function guardrails(answers: Answers): string {
+  const hosts = new Set<Host>(answers.hosts);
+  const roots = [".brain"];
+  for (const [host, surface] of HOST_SURFACES) {
+    if (hosts.has(host)) roots.push(...surface.roots);
+  }
+  return json({
+    contractVersion: "1.0.0",
+    policyMode: answers.policyMode,
+    snapshots: answers.snapshots,
+    managedPaths: roots.sort(compare),
+  });
+}
+
+function stackProfileDocument(profile: StackProfile): string {
+  const preamble = [
+    "# Stack profile",
+    "",
+    "Written by Kratos from the names of the entries at the project root.",
+    "Detection is offline: it runs no package manager and parses no manifest,",
+    "because a wrong parse names a stack confidently and names it wrong.",
+    "",
+  ];
+  if (profile.unrecognized) {
+    return lines(
+      ...preamble,
+      "No known stack matched this project root. That is an answer rather than",
+      "a failure: a project this tool does not recognize is still a project it",
+      "initializes and tracks.",
+    );
+  }
+  return lines(
+    ...preamble,
+    "| Stack | Evidence |",
+    "| --- | --- |",
+    ...profile.stacks.map(({ id, evidence }) => `| ${id} | \`${evidence}\` |`),
+  );
+}
+
+function businessReadme(): string {
+  return lines(
+    "# Business context",
+    "",
+    "Why this project exists, who it is for, and what it refuses to do. Write",
+    "the constraints a reader could not recover from the code, and leave the",
+    "rest to the code.",
+  );
+}
+
+function architectureReadme(): string {
+  return lines(
+    "# Architecture",
+    "",
+    "How this project is put together. One decision per file under `adr`,",
+    "recorded when it is made rather than reconstructed later.",
+    "",
+    "`stack-profile.md` is generated from the project root and is overwritten",
+    "on the next initialization.",
+  );
+}
+
+function featuresReadme(): string {
+  return lines(
+    "# Features",
+    "",
+    "One directory per feature, created from `_template`. `active` names the",
+    "feature currently being worked on, and is empty when none is.",
+  );
+}
+
+/** The four stages of a feature, in the order they are worked. */
+const FEATURE_TEMPLATES: readonly (readonly [string, string])[] = [
+  ["00-prd", "Requirements"],
+  ["01-design", "Design"],
+  ["02-tasks", "Tasks"],
+  ["03-summa", "Summary"],
+];
+
+function templateDocument(title: string): string {
+  return lines(
+    `# ${title}`,
+    "",
+    "Copied into a feature directory when the feature is created. Replace this",
+    "line; an untouched template is how a feature ships without a decision",
+    "behind it.",
+  );
+}
+
+/**
+ * The contract header every piece of state carries.
+ *
+ * The lifecycle fields belong to the command that owns the feature lifecycle,
+ * `SDD-02`. A template that guessed them would freeze a shape nothing reads.
+ */
+function templateState(): string {
+  return json({ contractVersion: "1.0.0", stateContract: "1.0.0" });
+}
+
+function gotchasDocument(): string {
+  return lines(
+    "# Gotchas",
+    "",
+    "The traps this project sets for the next person: the surprising default,",
+    "the dependency that lies about its version, the test that only fails on",
+    "a cold cache. One entry per trap, with what it cost to find.",
+  );
+}
+
+function taskMetricsDocument(): string {
+  return lines(
+    "# Task metrics",
+    "",
+    "Measurements taken from real runs. A number without the run it came from",
+    "is a claim, not a measurement.",
+  );
+}
+
+/**
+ * Claude Code settings, granting nothing.
+ *
+ * Initialization establishes the file; deciding what a host may do is the
+ * adapter's work in `ADP-02`, and an allowance invented here would be a
+ * permission nobody granted.
+ */
+function claudeSettings(): string {
+  return json({ permissions: { allow: [], deny: [] } });
+}
+
+function codexConfiguration(answers: Answers): string {
+  return lines(
+    `# Managed by Kratos ${KRATOS_VERSION}.`,
+    "",
+    'contract_version = "1.0.0"',
+    'host_contract = "1.0.0"',
+    `language = "${answers.language}"`,
+    `policy_mode = "${answers.policyMode}"`,
+    "",
+    "[state]",
+    'directory = ".brain"',
+    'event_log = "events.jsonl"',
+    `snapshots = ${String(answers.snapshots)}`,
+  );
+}
+
+function agentDefinition(name: string, description: string): string {
+  return lines(
+    `# Managed by Kratos ${KRATOS_VERSION}.`,
+    "",
+    `name = "${name}"`,
+    `description = "${description}"`,
+    'state = ".brain"',
+  );
+}
+
+/**
+ * The instructions a host reads, wrapped in the managed markers.
+ *
+ * The managed content stays in English whatever the answers say. `language` is
+ * the language the host converses in, not a second copy of this document to
+ * keep in step with the first.
+ */
+function instructions(answers: Answers, file: string, note: string): string {
+  return lines(
+    MANAGED_SECTION_BEGIN,
+    "# Kratos",
+    "",
+    `Kratos ${KRATOS_VERSION} manages this section of ${file}. Anything`,
+    "outside the markers belongs to this project and is preserved exactly as",
+    "it was written.",
+    "",
+    "## This project",
+    "",
+    `- Conversation language: ${answers.language}`,
+    `- Policy mode: ${answers.policyMode}`,
+    `- Snapshots: ${answers.snapshots ? "enabled" : "disabled"}`,
+    "- Managed state: `.brain`, described by `.brain/config.json`",
+    "",
+    "## Working here",
+    "",
+    "- Feature work lives under `.brain/02-features`, started from the files",
+    "  in `_template`.",
+    "- Decisions belong in `.brain/03-memory/decisions.log` and the traps you",
+    "  hit belong in `.brain/03-memory/gotchas.md`.",
+    "- Architecture records live in `.brain/01-architecture`, one decision per",
+    "  file under `adr`.",
+    `- ${note}`,
+    "",
+    MANAGED_SECTION_END,
+  );
+}

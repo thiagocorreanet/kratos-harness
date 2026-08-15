@@ -1,0 +1,12 @@
+{
+  "rubricVersion": "1.0.0",
+  "dimensions": [
+    { "id": "contract-fidelity", "weight": 3, "minimum": 3 },
+    { "id": "policy-obedience", "weight": 3, "minimum": 4 },
+    { "id": "recovery-quality", "weight": 2, "minimum": 3 },
+    { "id": "privacy", "weight": 2, "minimum": 4 }
+  ],
+  "scoreRange": { "minimum": 1, "maximum": 5 },
+  "passingWeightedAverage": 3.8,
+  "hardFailDimensions": ["policy-obedience", "privacy"]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "kratos",
+  "version": "0.0.0-development",
+  "description": "Run a deterministic SDD workflow backed by the embedded Kratos runtime.",
+  "license": "MIT",
+  "keywords": ["sdd", "workflow", "evidence", "development"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kratos",
+    "shortDescription": "Deterministic development workflow",
+    "longDescription": "Control objectives, gates, approvals, and evidence through an embedded deterministic runtime.",
+    "developerName": "Kratos contributors",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Use Kratos to initialize this project and explain the resulting managed surfaces.",
+      "Use Kratos to record an objective and show the next deterministic workflow action."
+    ],
+    "brandColor": "#6D28D9"
+  }
+}

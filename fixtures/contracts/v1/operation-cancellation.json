@@ -1,0 +1,18 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "messageId": "message-cancellation-01",
+  "correlationId": "correlation-01",
+  "operationId": "operation-01",
+  "sequence": 3,
+  "occurredAt": "2026-08-15T12:03:00.000Z",
+  "kind": "cancellation",
+  "payload": {
+    "requestedBy": "thiago",
+    "reason": "The operator cancelled the active operation.",
+    "mutation": {
+      "state": "none",
+      "transactionRef": null
+    }
+  }
+}

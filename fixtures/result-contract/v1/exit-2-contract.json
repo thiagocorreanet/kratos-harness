@@ -1,0 +1,12 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "failure",
+  "exitCode": 2,
+  "reasonCode": "runtime.internal_failure",
+  "summary": "The operation stopped after an unexpected internal failure.",
+  "why": ["A sanitized runtime boundary caught an unexpected condition."],
+  "evidence": [],
+  "stateChanged": false,
+  "retryable": false,
+  "recovery": "Capture an authorized redacted diagnostic bundle and report the stable reason without blindly retrying."
+}

@@ -1,0 +1,8 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "hosts": ["claude", "codex"],
+  "language": "en",
+  "policyMode": "standard",
+  "snapshots": true
+}

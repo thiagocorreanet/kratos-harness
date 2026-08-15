@@ -1,0 +1,22 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "migrationId": "migration-01",
+  "sourceContract": "go-v3@0.6.5",
+  "destinationContract": "1.0.0",
+  "planDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "authorizationRef": ".brain/approvals/migration-01.json",
+  "backupDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "status": "planned",
+  "conversions": [
+    {
+      "payloadContract": "go-v3.prd-output@1",
+      "sourceDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "destinationDigest": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "verificationRefs": [".brain/evidence/migration-01.json"],
+  "rollbackRef": ".brain/backups/migration-01",
+  "createdAt": "2026-08-07T00:06:00Z",
+  "updatedAt": "2026-08-07T00:06:00Z"
+}

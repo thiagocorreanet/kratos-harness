@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/compatibility/differential-observation.v1.schema.json",
+  "title": "Kratos differential observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["process", "filesystem", "structured", "git"],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/process"
+    },
+    "filesystem": {
+      "$ref": "#/$defs/filesystem"
+    },
+    "structured": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/structured"
+      }
+    },
+    "git": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/git"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?![a-zA-Z][a-zA-Z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\u0000-\\u001f\\u007f]).+(?<!/)$"
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "sha256"],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "exitCode", "signal", "stdout", "stderr"],
+      "properties": {
+        "outcome": {
+          "enum": ["exit", "signal", "timeout", "output_limit", "spawn_error"]
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signal": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^SIG[A-Z0-9]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stdout": {
+          "$ref": "#/$defs/stream"
+        },
+        "stderr": {
+          "$ref": "#/$defs/stream"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type", "mode", "size"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safePath"
+        },
+        "type": {
+          "enum": ["directory", "file", "symlink"]
+        },
+        "mode": {
+          "enum": ["directory", "file", "executable", "symlink"]
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "target": {
+          "$ref": "#/$defs/safePath"
+        }
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safePath"
+        },
+        "kind": {
+          "enum": ["added", "modified", "deleted"]
+        }
+      }
+    },
+    "filesystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after", "mutations"],
+      "properties": {
+        "before": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/manifest"
+          }
+        },
+        "after": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/manifest"
+          }
+        },
+        "mutations": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/mutation"
+          }
+        }
+      }
+    },
+    "structured": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "state"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "path": {
+              "$ref": "#/$defs/safePath"
+            },
+            "state": {
+              "const": "absent"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "state"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "path": {
+              "$ref": "#/$defs/safePath"
+            },
+            "state": {
+              "const": "unreadable"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "state", "bytes", "sha256"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "path": {
+              "$ref": "#/$defs/safePath"
+            },
+            "state": {
+              "const": "invalid"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "state", "value"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "path": {
+              "$ref": "#/$defs/safePath"
+            },
+            "state": {
+              "const": "valid"
+            },
+            "value": true
+          }
+        }
+      ]
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "object"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "object": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "status", "worktreeDiff", "indexDiff", "refs"],
+      "properties": {
+        "head": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/stream"
+        },
+        "worktreeDiff": {
+          "$ref": "#/$defs/stream"
+        },
+        "indexDiff": {
+          "$ref": "#/$defs/stream"
+        },
+        "refs": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    }
+  }
+}

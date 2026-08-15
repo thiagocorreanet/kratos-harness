@@ -1,0 +1,117 @@
+import { KRATOS_VERSION } from "@kratos/contracts";
+
+import { planOf } from "../effects.js";
+import { buildHandshakeResponse } from "../handshake.js";
+import { resultFor } from "../result/index.js";
+import { renderHelp } from "./help.js";
+import { initCommand } from "./init.js";
+import { hookCommand } from "./hook.js";
+import { objectiveCommand } from "./objective.js";
+import { continueCommand, doneCommand, startCommand } from "./workflow.js";
+import {
+  budgetsCommand,
+  doctorCommand,
+  explainCommand,
+  handoffCommand,
+  statsCommand,
+  statusCommand,
+} from "./diagnostics.js";
+import { RETIRED_COMMAND_SPECS } from "./retired.js";
+import { adaptersCommand } from "./adapters.js";
+import { approveCommand } from "./approval.js";
+import { evidenceRecordCommand } from "./evidence.js";
+import { migrateBrainCommand, migrateRollbackCommand } from "./migration.js";
+import {
+  auditCommand,
+  dashboardCommand,
+  evidenceBundleCommand,
+  repairCommand,
+} from "./observability.js";
+import type {
+  CommandRegistry,
+  CommandSpec,
+  Decision,
+  Invocation,
+} from "./spec.js";
+
+function orientation(summary: string, humanStdout: string): Decision {
+  return {
+    result: resultFor("runtime.orientation_ok", { summary }),
+    plan: planOf(),
+    humanStdout,
+    payload: null,
+  };
+}
+
+const helpCommand: CommandSpec = {
+  path: ["help"],
+  summary: "Print the command usage text.",
+  flags: [],
+  positionals: { min: 0, max: 0 },
+  jsonContract: "result@1.0.0",
+  prerequisite: "none",
+  handler: (invocation: Invocation): Decision =>
+    orientation(
+      "The runtime published its command usage text.",
+      renderHelp(invocation.registry),
+    ),
+};
+
+const versionCommand: CommandSpec = {
+  path: ["version"],
+  summary: "Print the runtime version.",
+  flags: [],
+  positionals: { min: 0, max: 0 },
+  jsonContract: "result@1.0.0",
+  prerequisite: "none",
+  handler: (): Decision =>
+    orientation(`Runtime version ${KRATOS_VERSION}.`, `${KRATOS_VERSION}\n`),
+};
+
+const handshakeCommand: CommandSpec = {
+  path: ["handshake"],
+  summary: "Report the contract versions this runtime carries.",
+  flags: [],
+  positionals: { min: 0, max: 0 },
+  jsonContract: "adapter-message@1.0.0",
+  prerequisite: "none",
+  handler: (): Decision => {
+    const message = buildHandshakeResponse("cli");
+    return {
+      result: resultFor("runtime.orientation_ok", {
+        summary: "The runtime reported the contract versions it carries.",
+      }),
+      plan: planOf(),
+      humanStdout: `${JSON.stringify(message)}\n`,
+      payload: message,
+    };
+  },
+};
+
+export const DEFAULT_REGISTRY: CommandRegistry = [
+  adaptersCommand,
+  approveCommand,
+  auditCommand,
+  budgetsCommand,
+  continueCommand,
+  dashboardCommand,
+  doctorCommand,
+  doneCommand,
+  evidenceBundleCommand,
+  evidenceRecordCommand,
+  explainCommand,
+  handoffCommand,
+  handshakeCommand,
+  helpCommand,
+  initCommand,
+  hookCommand,
+  migrateBrainCommand,
+  migrateRollbackCommand,
+  objectiveCommand,
+  repairCommand,
+  startCommand,
+  statsCommand,
+  statusCommand,
+  versionCommand,
+  ...RETIRED_COMMAND_SPECS,
+];

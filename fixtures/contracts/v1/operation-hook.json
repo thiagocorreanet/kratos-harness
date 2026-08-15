@@ -1,0 +1,19 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "messageId": "message-hook-01",
+  "correlationId": "correlation-01",
+  "operationId": "operation-01",
+  "sequence": 1,
+  "occurredAt": "2026-08-15T12:01:00.000Z",
+  "kind": "hook",
+  "payload": {
+    "host": "codex",
+    "hook": "tool.completed",
+    "phase": "after",
+    "artifact": {
+      "ref": ".brain/02-features/login/runs/run-01/hook.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  }
+}

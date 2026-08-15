@@ -1,0 +1,22 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "messageId": "message-approval-01",
+  "correlationId": "correlation-01",
+  "operationId": "operation-01",
+  "sequence": 0,
+  "occurredAt": "2026-08-15T12:00:00.000Z",
+  "kind": "approval",
+  "payload": {
+    "approvalId": "approval-01",
+    "decision": "approved",
+    "scope": "gate:spec",
+    "artifact": {
+      "ref": ".brain/02-features/login/spec.md",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "challenge": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "approver": "thiago",
+    "expiresAt": "2026-08-15T13:00:00.000Z"
+  }
+}

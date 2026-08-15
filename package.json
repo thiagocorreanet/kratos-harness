@@ -1,0 +1,59 @@
+{
+  "name": "kratos-harness",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "npm": "11.16.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "format:check": "prettier --check .",
+    "spellcheck": "cspell --gitignore-root . --no-progress --show-suggestions \"**/*.md\"",
+    "english:check": "node scripts/check-english.mjs",
+    "performance:check": "node scripts/check-performance.mjs",
+    "benchmark": "node scripts/run-benchmarks.mjs",
+    "eval:calibrate": "node scripts/calibrate-model-evals.mjs",
+    "mutation:check": "node scripts/run-mutation.mjs",
+    "plugin:install": "node scripts/install-plugin.mjs",
+    "rulesets:verify": "node scripts/verify-github-rulesets.mjs",
+    "templates:validate": "node scripts/validate-github-templates.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc6 --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "oracle:verify": "node scripts/verify-go-v3-oracle.mjs",
+    "parity:check": "node scripts/check-parity-inventory.mjs",
+    "result:check": "node scripts/check-result-contract.mjs",
+    "contracts:generate": "node scripts/generate-contract-types.mjs",
+    "contracts:check": "node scripts/check-contracts.mjs",
+    "differential:check": "node scripts/run-differential.mjs",
+    "build": "node scripts/build.mjs",
+    "kratos": "node scripts/run-built.mjs",
+    "package:verify": "node scripts/verify-package.mjs",
+    "verify": "npm run format:check && npm run spellcheck && npm run english:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run mutation:check && npm run performance:check && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify && npm run benchmark"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "ajv": "8.20.0",
+    "cspell": "10.0.1",
+    "esbuild": "0.28.2",
+    "eslint": "10.8.1",
+    "json-schema-to-typescript": "15.0.4",
+    "prettier": "3.9.6",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.10",
+    "yaml": "2.9.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": false
+  }
+}

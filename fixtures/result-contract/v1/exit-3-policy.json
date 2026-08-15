@@ -1,0 +1,20 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "blocked",
+  "exitCode": 3,
+  "reasonCode": "trail.gate_divergente",
+  "summary": "The supplied gate did not match the active pending gate.",
+  "why": [
+    "The approval targeted a gate other than the currently pending gate."
+  ],
+  "evidence": [
+    {
+      "kind": "approval",
+      "ref": ".brain/runs/0001-login/approvals.jsonl",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "stateChanged": false,
+  "retryable": true,
+  "recovery": "Reload the active pending gate and submit the decision for that exact gate."
+}

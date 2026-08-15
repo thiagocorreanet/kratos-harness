@@ -1,0 +1,18 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "messageId": "message-timeout-01",
+  "correlationId": "correlation-01",
+  "operationId": "operation-01",
+  "sequence": 2,
+  "occurredAt": "2026-08-15T12:02:00.000Z",
+  "kind": "timeout",
+  "payload": {
+    "deadline": "2026-08-15T12:02:00.000Z",
+    "elapsedMs": 120000,
+    "mutation": {
+      "state": "prepared",
+      "transactionRef": ".brain/transactions/transaction-01/manifest.json"
+    }
+  }
+}

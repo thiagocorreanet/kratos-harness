@@ -1,0 +1,236 @@
+{
+  "contractVersion": "1.0.0",
+  "pluginVersion": "0.0.0-development",
+  "resultContract": "1.0.0",
+  "reasonCatalog": "1.3.0",
+  "stateContract": {
+    "current": "1.0.0",
+    "readable": ["1.0.0"],
+    "migrationOnly": ["0.9.0", "go-v3@0.6.5"]
+  },
+  "hostContract": {
+    "current": "1.0.0",
+    "accepted": ["1.0.0"]
+  },
+  "schemas": [
+    {
+      "id": "host.adapter-message",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/adapter-message.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "AdapterMessageV1"
+    },
+    {
+      "id": "host.init-answers",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/init-answers.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "InitAnswersV1"
+    },
+    {
+      "id": "host.operation-message",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/operation-message.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "HostOperationMessageV1"
+    },
+    {
+      "id": "state.approval",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/approval.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "ApprovalV1"
+    },
+    {
+      "id": "state.event",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/event.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "EventV1"
+    },
+    {
+      "id": "state.evidence",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/evidence.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "EvidenceV1"
+    },
+    {
+      "id": "state.feature",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/feature.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "FeatureStateV1"
+    },
+    {
+      "id": "state.lock",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/lock.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "LockLeaseV1"
+    },
+    {
+      "id": "state.migration",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/migration.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "MigrationV1"
+    },
+    {
+      "id": "state.project-config",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/project-config.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "ProjectConfigV1"
+    },
+    {
+      "id": "state.snapshot",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/snapshot.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "SnapshotV1"
+    },
+    {
+      "id": "state.transaction-manifest",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/transaction-manifest.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "TransactionManifestV1"
+    },
+    {
+      "id": "state.transaction-progress",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/transaction-progress.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "TransactionProgressV1"
+    }
+  ],
+  "legacyProfiles": [
+    {
+      "name": "code-output.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.code-output@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-CODE-OUTPUT-SCHEMA-JSON"
+    },
+    {
+      "name": "config.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.config@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-CONFIG-SCHEMA-JSON"
+    },
+    {
+      "name": "dashboard.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.dashboard@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-DASHBOARD-SCHEMA-JSON"
+    },
+    {
+      "name": "eval-output.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.eval-output@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-EVAL-OUTPUT-SCHEMA-JSON"
+    },
+    {
+      "name": "feature-state.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.feature-state@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-FEATURE-STATE-SCHEMA-JSON"
+    },
+    {
+      "name": "guardrails.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.guardrails@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-GUARDRAILS-SCHEMA-JSON"
+    },
+    {
+      "name": "partition-proposal.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.partition-proposal@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-PARTITION-PROPOSAL-SCHEMA-JSON"
+    },
+    {
+      "name": "prd-output.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.prd-output@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": null,
+      "sha256": "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e"
+    },
+    {
+      "name": "review-output.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.review-output@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-REVIEW-OUTPUT-SCHEMA-JSON"
+    },
+    {
+      "name": "run-gaps.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.run-gaps@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-RUN-GAPS-SCHEMA-JSON"
+    },
+    {
+      "name": "run-plan.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.run-plan@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-RUN-PLAN-SCHEMA-JSON"
+    },
+    {
+      "name": "run-state.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.run-state@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-RUN-STATE-SCHEMA-JSON"
+    },
+    {
+      "name": "scope.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.scope@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-SCOPE-SCHEMA-JSON"
+    },
+    {
+      "name": "spec-output.schema.json",
+      "oracleId": "go-v3-v0.6.5",
+      "payloadContract": "go-v3.spec-output@1",
+      "schemaVersion": 1,
+      "compatibility": "migration-only",
+      "parityRow": "SCHEMA-SPEC-OUTPUT-SCHEMA-JSON"
+    }
+  ]
+}

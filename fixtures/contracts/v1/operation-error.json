@@ -1,0 +1,19 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "messageId": "message-error-01",
+  "correlationId": "correlation-01",
+  "operationId": "operation-01",
+  "sequence": 4,
+  "occurredAt": "2026-08-15T12:04:00.000Z",
+  "kind": "error",
+  "payload": {
+    "reasonCode": "runtime.recovery_required",
+    "retryable": true,
+    "recovery": "Recover the reported transaction before retrying the operation.",
+    "mutation": {
+      "state": "publishing",
+      "transactionRef": ".brain/transactions/transaction-01/manifest.json"
+    }
+  }
+}

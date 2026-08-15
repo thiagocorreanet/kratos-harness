@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/adapter-message/v1",
+  "title": "Kratos host adapter message v1",
+  "oneOf": [
+    { "$ref": "#/$defs/requestMessage" },
+    { "$ref": "#/$defs/responseMessage" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+(?:[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+    },
+    "payloadContract": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:@-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "requestPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "observedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapterVersion", "model"],
+      "properties": {
+        "adapterVersion": { "$ref": "#/$defs/semver" },
+        "model": {
+          "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
+        }
+      }
+    },
+    "requestMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "messageType",
+        "host",
+        "operation",
+        "capabilities",
+        "observedIdentity",
+        "payloadContract",
+        "payload",
+        "correlationId"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "messageType": { "const": "request" },
+        "host": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+        "payloadContract": { "$ref": "#/$defs/payloadContract" },
+        "payload": { "$ref": "#/$defs/requestPayload" },
+        "correlationId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "responseMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "messageType",
+        "host",
+        "operation",
+        "capabilities",
+        "observedIdentity",
+        "payloadContract",
+        "payload",
+        "correlationId"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "hostContract": { "const": "1.0.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "messageType": { "const": "response" },
+        "host": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+        "payloadContract": { "$ref": "#/$defs/payloadContract" },
+        "payload": {
+          "$ref": "https://kratos.dev/schemas/result/v1"
+        },
+        "correlationId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}
