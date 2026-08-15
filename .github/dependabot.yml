@@ -29,18 +29,32 @@ updates:
     # moves together — the linter and its plugin, the test runner and its
     # coverage provider — is reviewed once, against one CI run, instead of
     # arriving as four pull requests that each invalidate the others.
+    #
+    # A group carries compatible moves only. A major release is a breaking
+    # change the publisher has said is breaking, so it leaves the group and
+    # arrives as its own pull request, where the work it requires is visible
+    # against one package instead of hidden among three that need nothing.
     groups:
       lint:
+        update-types:
+          - minor
+          - patch
         patterns:
           - "@eslint/*"
           - eslint
           - eslint-*
           - typescript-eslint
       test:
+        update-types:
+          - minor
+          - patch
         patterns:
           - "@vitest/*"
           - vitest
       types:
+        update-types:
+          - minor
+          - patch
         patterns:
           - "@types/*"
 
@@ -61,7 +75,14 @@ updates:
     # Every action is pinned to a commit, so an update here is a pin change
     # with the version comment rewritten beside it — the only supported way to
     # move a pin without a person resolving a tag by hand.
+    #
+    # The same rule as the npm groups: a major release of an action changes
+    # inputs or runtime and arrives alone, because reviewing it means reading
+    # its release notes rather than the diff.
     groups:
       actions:
+        update-types:
+          - minor
+          - patch
         patterns:
           - "*"

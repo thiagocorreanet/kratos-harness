@@ -167,6 +167,16 @@ request as the bump:
 declared one, so a bump that leaves the approval behind now fails a test
 instead of an install.
 
+**A group carries compatible moves only.** Every group restricts itself to
+`minor` and `patch`, so a major release leaves the group and arrives as its own
+pull request. Grouping exists to spare a reviewer three pull requests that need
+nothing from them; a major needs the opposite, and a group hides it.
+[#119](https://github.com/thiagocorreanet/mestre-yoda/pull/119) bumped
+`@types/node` from 24 to 26 inside the `types` group, and the breaking change it
+carried surfaced as four `TS2722` errors in the worker fixtures rather than as
+anything the pull request said. The restriction does not refuse a major — it
+refuses to review one as routine.
+
 ## Absent
 
 Stated here rather than left for someone to discover:

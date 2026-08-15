@@ -401,4 +401,29 @@ describe("the dependency-update configuration", () => {
       expect(["chore", "ci"]).toContain(update["commit-message"].prefix);
     }
   });
+
+  it("keeps a breaking release out of every group", async () => {
+    const configuration = parse(await read(".github/dependabot.yml")) as {
+      readonly updates: readonly {
+        readonly groups: Readonly<
+          Record<string, { readonly "update-types"?: readonly string[] }>
+        >;
+      }[];
+    };
+    const groups = configuration.updates.flatMap((update) =>
+      Object.entries(update.groups),
+    );
+    expect(groups.map(([name]) => name).sort()).toEqual([
+      "actions",
+      "lint",
+      "test",
+      "types",
+    ]);
+    // A group with no restriction carries a major silently, which is how
+    // #119 arrived: `@types/node` 24 to 26, breaking, inside a routine
+    // grouped bump. A major leaves the group and is reviewed on its own.
+    for (const [name, group] of groups) {
+      expect(group["update-types"], name).toEqual(["minor", "patch"]);
+    }
+  });
 });
