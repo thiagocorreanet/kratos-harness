@@ -181,8 +181,12 @@ describe("runtime distribution", () => {
     }
   });
 
-  it("stages exactly the manifest, core, and entry point", async () => {
+  it("stages exactly the manifest, core, entry point, and notices", async () => {
     expect((await readdir(join(plugin, "runtime"))).sort()).toEqual([
+      // The bundle inlines four third-party packages and is minified with
+      // `legalComments: "none"`, so the notices their licenses require
+      // travel as a file rather than as comments that no longer survive.
+      "THIRD-PARTY-NOTICES.txt",
       "manifest.json",
       "yoda.core.mjs",
       "yoda.mjs",

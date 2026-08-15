@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parse } from "yaml";
@@ -8,6 +8,47 @@ const repositoryRoot = join(import.meta.dirname, "..");
 
 async function read(relative: string): Promise<string> {
   return await readFile(join(repositoryRoot, relative), "utf8");
+}
+
+interface Workflow {
+  readonly on?: unknown;
+  readonly permissions?: unknown;
+  readonly concurrency?: unknown;
+  readonly jobs: Readonly<
+    Record<
+      string,
+      {
+        readonly name?: unknown;
+        readonly permissions?: unknown;
+        readonly "runs-on"?: unknown;
+        readonly "timeout-minutes"?: unknown;
+        readonly steps: readonly {
+          readonly name?: unknown;
+          readonly uses?: string;
+          readonly with?: unknown;
+        }[];
+      }
+    >
+  >;
+}
+
+async function workflow(name: string): Promise<Workflow> {
+  return parse(await read(`.github/workflows/${name}`)) as Workflow;
+}
+
+async function workflowNames(): Promise<readonly string[]> {
+  return (await readdir(join(repositoryRoot, ".github/workflows"))).sort();
+}
+
+async function job(
+  workflowName: string,
+  jobName: string,
+): Promise<Workflow["jobs"][string]> {
+  const found = (await workflow(workflowName)).jobs[jobName];
+  if (found === undefined) {
+    throw new Error(`${workflowName} declares no job named ${jobName}`);
+  }
+  return found;
 }
 
 describe("the installer configuration", () => {
@@ -151,5 +192,191 @@ describe("the documentation workflow", () => {
     };
     const checkout = Object.values(workflow.jobs)[0]?.steps[0];
     expect(checkout?.with).toEqual({ "persist-credentials": false });
+  });
+});
+
+describe("every workflow", () => {
+  // Pinning, fork safety, and read-only authority were asserted per file,
+  // which meant a new workflow inherited none of them. Asserting them over the
+  // directory is what makes the next one arrive under the same rules.
+  it("is one of the four this repository publishes", async () => {
+    expect(await workflowNames()).toEqual([
+      "ci.yml",
+      "codeql.yml",
+      "dependency-review.yml",
+      "docs.yml",
+    ]);
+  });
+
+  it("pins every action to a commit rather than a moving tag", async () => {
+    for (const name of await workflowNames()) {
+      const uses = Object.values((await workflow(name)).jobs)
+        .flatMap((job) => job.steps)
+        .map((step) => step.uses)
+        .filter((value): value is string => value !== undefined);
+      expect(uses.length, name).toBeGreaterThan(0);
+      for (const value of uses) {
+        expect(value.split("@")[1], `${name}: ${value}`).toMatch(
+          /^[0-9a-f]{40}$/u,
+        );
+      }
+    }
+  });
+
+  it("never runs a fork's code with the base repository's authority", async () => {
+    for (const name of await workflowNames()) {
+      const raw = await read(`.github/workflows/${name}`);
+      expect(raw, name).not.toContain("pull_request_target");
+      expect(raw, name).not.toMatch(/\bsecrets\b/iu);
+      expect((await workflow(name)).permissions, name).toEqual({
+        contents: "read",
+      });
+    }
+  });
+
+  it("grants authority above read in exactly one place", async () => {
+    const elevated: string[] = [];
+    for (const name of await workflowNames()) {
+      for (const [jobName, job] of Object.entries(
+        (await workflow(name)).jobs,
+      )) {
+        if (job.permissions !== undefined) elevated.push(`${name}:${jobName}`);
+      }
+    }
+    // Uploading an analysis is the only thing this repository's automation
+    // does that a read-only token cannot. Anything else appearing here is a
+    // workflow that acquired write authority without being noticed.
+    expect(elevated).toEqual(["codeql.yml:analyze"]);
+  });
+
+  it("bounds every job in time", async () => {
+    for (const name of await workflowNames()) {
+      for (const [jobName, job] of Object.entries(
+        (await workflow(name)).jobs,
+      )) {
+        expect(job["timeout-minutes"], `${name}:${jobName}`).toEqual(
+          expect.any(Number),
+        );
+        expect(job["runs-on"], `${name}:${jobName}`).toBe("ubuntu-latest");
+      }
+    }
+  });
+});
+
+describe("the code-scanning workflow", () => {
+  it("scans the protected branches and a schedule, not pull requests", async () => {
+    const triggers = (await workflow("codeql.yml")).on as Readonly<
+      Record<string, unknown>
+    >;
+    // A fork pull request carries a read-only token and cannot upload an
+    // analysis. Every change still reaches a protected branch through a push
+    // this scans, and the schedule catches what a newer query pack finds in
+    // code that has not changed.
+    expect(Object.keys(triggers).sort()).toEqual([
+      "push",
+      "schedule",
+      "workflow_dispatch",
+    ]);
+    expect((triggers.push as { branches: string[] }).branches).toEqual([
+      "developer",
+      "main",
+    ]);
+    expect(triggers.schedule).toEqual([{ cron: "17 5 * * 1" }]);
+  });
+
+  it("asks for the one permission it needs and no other", async () => {
+    const analyze = await job("codeql.yml", "analyze");
+    expect(analyze.permissions).toEqual({
+      contents: "read",
+      "security-events": "write",
+    });
+    expect(analyze["timeout-minutes"]).toBe(30);
+  });
+
+  it("never cancels a scan in favour of a newer one", async () => {
+    // A cancelled scan leaves the branch showing the previous analysis, so
+    // cancelling would quietly age the results rather than refresh them.
+    expect((await workflow("codeql.yml")).concurrency).toEqual({
+      group: "codeql-${{ github.workflow }}-${{ github.ref }}",
+      "cancel-in-progress": false,
+    });
+  });
+
+  it("analyses the sources rather than the build output", async () => {
+    const { steps } = await job("codeql.yml", "analyze");
+    expect(steps.map((step) => step.name)).toEqual([
+      "Checkout",
+      "Initialize CodeQL",
+      "Analyze",
+    ]);
+    expect(steps[0]?.with).toEqual({ "persist-credentials": false });
+    expect(steps[1]?.with).toEqual({
+      languages: "javascript-typescript",
+      "build-mode": "none",
+      queries: "security-extended",
+      config: "paths-ignore:\n  - coverage\n  - dist\n  - node_modules\n",
+    });
+    expect(steps[2]?.with).toEqual({
+      category: "/language:javascript-typescript",
+      // Defaults to true, which would publish a queryable database of the
+      // sources as a side effect of asking for findings.
+      "upload-database": false,
+    });
+  });
+});
+
+describe("the dependency-review workflow", () => {
+  it("answers on the only event that has two revisions to diff", async () => {
+    const triggers = (await workflow("dependency-review.yml")).on as Readonly<
+      Record<string, unknown>
+    >;
+    expect(Object.keys(triggers)).toEqual(["pull_request"]);
+    expect((triggers.pull_request as { branches: string[] }).branches).toEqual([
+      "developer",
+      "main",
+    ]);
+  });
+
+  it("reads its thresholds from the file the policy document names", async () => {
+    const { steps } = await job("dependency-review.yml", "review");
+    expect(steps.map((step) => step.name)).toEqual([
+      "Checkout",
+      "Review dependency changes",
+    ]);
+    expect(steps[1]?.with).toEqual({
+      "config-file": "./.github/dependency-review-config.yml",
+    });
+  });
+});
+
+describe("the dependency-update configuration", () => {
+  it("proposes the updates exact pinning otherwise prevents", async () => {
+    const configuration = parse(await read(".github/dependabot.yml")) as {
+      readonly version: number;
+      readonly updates: readonly {
+        readonly "package-ecosystem": string;
+        readonly schedule: { readonly interval: string };
+        readonly labels: readonly string[];
+        readonly "commit-message": { readonly prefix: string };
+        readonly "open-pull-requests-limit": number;
+      }[];
+    };
+    expect(configuration.version).toBe(2);
+    expect(
+      configuration.updates.map((update) => update["package-ecosystem"]),
+    ).toEqual(["npm", "github-actions"]);
+    for (const update of configuration.updates) {
+      expect(update.schedule.interval).toBe("weekly");
+      expect(update["open-pull-requests-limit"]).toBe(5);
+      // Labels Dependabot cannot apply are labels the pull request arrives
+      // without, so these are asserted against the repository's own set.
+      for (const label of update.labels) {
+        expect(
+          ["area:quality", "type:ci", "type:maintenance"],
+          label,
+        ).toContain(label);
+      }
+      expect(["chore", "ci"]).toContain(update["commit-message"].prefix);
+    }
   });
 });

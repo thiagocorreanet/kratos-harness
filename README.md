@@ -349,7 +349,7 @@ npm run build
 npm run package:verify
 ```
 
-The build creates the three-file `dist/plugin/runtime/` staging directory;
+The build creates the four-file `dist/plugin/runtime/` staging directory;
 package verification and distribution tests copy it outside the checkout and
 collectively exercise help, version, and handshake. Passing these commands
 proves the repository foundation, not SDD product readiness.
