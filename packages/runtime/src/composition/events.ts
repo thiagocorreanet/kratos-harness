@@ -30,6 +30,9 @@ import type {
 import { TransactionFailure } from "./transactions.js";
 
 const runIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+// The same grammar `state.feature` declares, so a location the event store
+// accepts is one the feature contract could have produced.
+const featurePattern = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 const encoder = new TextEncoder();
 
 /** Private boundary sentinels prevent injected errors from gaining authority. */
@@ -113,9 +116,26 @@ export interface PreparedEventAppend {
   readonly expected: ReadonlyMap<string, PathFingerprint>;
 }
 
-export function eventStorePaths(runId: string): EventStorePaths {
-  if (!runIdPattern.test(runId)) throw new EventIntegrityError("invalid_event");
-  const root = `.brain/runs/${runId}`;
+/**
+ * Which run a stream belongs to.
+ *
+ * A run belongs to the feature that opened it, and the frozen layout says so:
+ * every run artifact lives under its feature. Naming both here is what keeps
+ * the store from inventing a second place for a run to live.
+ */
+export interface RunLocation {
+  readonly feature: string;
+  readonly runId: string;
+}
+
+export function eventStorePaths(location: RunLocation): EventStorePaths {
+  if (
+    !featurePattern.test(location.feature) ||
+    !runIdPattern.test(location.runId)
+  ) {
+    throw new EventIntegrityError("invalid_event");
+  }
+  const root = `.brain/02-features/${location.feature}/runs/${location.runId}`;
   return { events: `${root}/events.jsonl`, snapshot: `${root}/state.json` };
 }
 
@@ -124,7 +144,11 @@ export function eventStorePaths(runId: string): EventStorePaths {
  * required to append one sealed event. This function deliberately never writes.
  */
 export async function prepareEventAppend<State = JsonState>(
-  input: { readonly runId: string; readonly event: EventDraftV1 },
+  input: {
+    readonly feature: string;
+    readonly runId: string;
+    readonly event: EventDraftV1;
+  },
   services: EventAppendServices<State>,
 ): Promise<PreparedEventAppend> {
   let paths: EventStorePaths;
@@ -138,7 +162,7 @@ export async function prepareEventAppend<State = JsonState>(
     tracker = new DependencyTracker();
     const trusted = trustedServices(services, tracker);
     const request = snapshotRequest(input, trusted.events.isProxy, tracker);
-    paths = derivePaths(request.runId);
+    paths = derivePaths(request);
     runId = request.runId;
     draft = request.event;
     eventServices = trusted.events;
@@ -249,14 +273,22 @@ function snapshotRequest(
   input: unknown,
   isProxy: EventServices["isProxy"],
   tracker: DependencyTracker,
-): { readonly runId: string; readonly event: EventDraftV1 } {
+): {
+  readonly feature: string;
+  readonly runId: string;
+  readonly event: EventDraftV1;
+} {
   if (typeof input !== "object" || input === null || isProxy(input)) {
     throw new IntegrityFailure();
   }
+  const feature = ownData(input, "feature");
   const runId = ownData(input, "runId");
   const event = ownData(input, "event");
-  if (typeof runId !== "string") throw new IntegrityFailure();
+  if (typeof feature !== "string" || typeof runId !== "string") {
+    throw new IntegrityFailure();
+  }
   return {
+    feature,
     runId,
     event: eventDomain(tracker, () => snapshotEventDraft(event, isProxy)),
   };
@@ -303,9 +335,14 @@ function assertReplayRunId(
   if (snapshot.runId !== runId) throw new IntegrityFailure();
 }
 
-function derivePaths(runId: string): EventStorePaths {
-  if (!runIdPattern.test(runId)) throw new IntegrityFailure();
-  const root = `.brain/runs/${runId}`;
+function derivePaths(location: RunLocation): EventStorePaths {
+  if (
+    !featurePattern.test(location.feature) ||
+    !runIdPattern.test(location.runId)
+  ) {
+    throw new IntegrityFailure();
+  }
+  const root = `.brain/02-features/${location.feature}/runs/${location.runId}`;
   return { events: `${root}/events.jsonl`, snapshot: `${root}/state.json` };
 }
 

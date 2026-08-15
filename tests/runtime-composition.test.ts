@@ -547,11 +547,13 @@ describe("effect plan application", () => {
     const { storage, ports } = fakeRuntime();
     const invalidRunId = {
       kind: "append_event",
+      feature: "sample-feature",
       runId: "../run-01",
       event: eventDraft(1),
     };
     const nonStringRunId = {
       kind: "append_event",
+      feature: "sample-feature",
       runId: 7,
       event: eventDraft(1),
     };
@@ -607,13 +609,18 @@ describe("effect plan application", () => {
         ".brain",
         ".brain/transactions",
         ".brain/runs",
-        ".brain/runs/run-01",
+        ".brain/02-features/sample-feature/runs/run-01",
       ],
     });
 
     await expect(
       applyPlan(
-        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
+        planOf({
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: eventDraft(1),
+        }),
         ports,
         { rootMode: "existing", eventReducers },
       ),
@@ -623,12 +630,17 @@ describe("effect plan application", () => {
       snapshot.files[".brain/transactions/transaction-1/manifest.json"] ?? "",
     ) as { readonly operations: readonly { readonly path: string }[] };
     expect(manifest.operations.map(({ path }) => path)).toEqual([
-      ".brain/runs/run-01/events.jsonl",
-      ".brain/runs/run-01/state.json",
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      ".brain/02-features/sample-feature/runs/run-01/state.json",
     ]);
-    const events = snapshot.files[".brain/runs/run-01/events.jsonl"] ?? "";
+    const events =
+      snapshot.files[
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+      ] ?? "";
     const state = JSON.parse(
-      snapshot.files[".brain/runs/run-01/state.json"] ?? "",
+      snapshot.files[
+        ".brain/02-features/sample-feature/runs/run-01/state.json"
+      ] ?? "",
     ) as SnapshotV1;
     const sealed = JSON.parse(events) as { readonly eventHash: string };
     const schemaRegistry = createSchemaRegistry();
@@ -647,12 +659,16 @@ describe("effect plan application", () => {
     expect(state.eventHash).toBe(sealed.eventHash);
     expect(replayed.snapshot).toEqual(state);
     expect(events).toMatch(/\n$/u);
-    expect(snapshot.files[".brain/runs/run-01/state.json"]).toMatch(/\n$/u);
+    expect(
+      snapshot.files[
+        ".brain/02-features/sample-feature/runs/run-01/state.json"
+      ],
+    ).toMatch(/\n$/u);
   });
 
   it("rejects a special event-store entry observed after preparation", async () => {
     const { storage, ports } = fakeRuntime();
-    const events = ".brain/runs/run-01/events.jsonl";
+    const events = ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
     let reads = 0;
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
@@ -666,7 +682,12 @@ describe("effect plan application", () => {
 
     await expect(
       applyPlan(
-        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
+        planOf({
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: eventDraft(1),
+        }),
         { ...ports, durableFileSystem },
         { rootMode: "existing", eventReducers },
       ),
@@ -683,7 +704,12 @@ describe("effect plan application", () => {
 
     await expect(
       applyPlan(
-        planOf({ kind: "append_event", runId: "run-01", event: eventDraft(1) }),
+        planOf({
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: eventDraft(1),
+        }),
         ports,
         {
           rootMode: "existing",
@@ -692,8 +718,14 @@ describe("effect plan application", () => {
       ),
     ).rejects.toEqual(
       new TransactionFailure("runtime.state_corrupt", [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ]),
     );
     expect(storage.calls()).toEqual([]);

@@ -9,6 +9,13 @@ import type { EventDraftV1 } from "./events/index.js";
  */
 export interface AppendEventEffect {
   readonly kind: "append_event";
+  /**
+   * The feature that owns this run.
+   *
+   * A run lives under its feature, so the store cannot derive where to write
+   * from the run identifier alone.
+   */
+  readonly feature: string;
   readonly runId: string;
   readonly event: EventDraftV1;
 }

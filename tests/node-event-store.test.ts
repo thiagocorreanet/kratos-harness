@@ -33,8 +33,8 @@ import type { DurableFileSystem } from "@mestre-yoda/runtime/ports";
 import { describe, expect, it, type TestContext } from "vitest";
 
 const runId = "run-01";
-const eventsPath = `.brain/runs/${runId}/events.jsonl`;
-const snapshotPath = `.brain/runs/${runId}/state.json`;
+const eventsPath = `.brain/02-features/sample-feature/runs/${runId}/events.jsonl`;
+const snapshotPath = `.brain/02-features/sample-feature/runs/${runId}/state.json`;
 const execFileAsync = promisify(execFile);
 const readOnlyUnsupported =
   process.platform === "win32" || process.geteuid?.() === 0;
@@ -180,7 +180,12 @@ async function append(
   selectedRunId = runId,
 ) {
   return applyPlan(
-    planOf({ kind: "append_event", runId: selectedRunId, event: draft(index) }),
+    planOf({
+      kind: "append_event",
+      feature: "sample-feature",
+      runId: selectedRunId,
+      event: draft(index),
+    }),
     runtime(root, prefix),
     {
       rootMode: "existing",
@@ -214,7 +219,7 @@ async function assertEscapingSymlinkRefusal(
 ): Promise<void> {
   const symlinkResult = await temporaryProject(async (root, outside) => {
     await projectScaffold(root);
-    const run = join(root, ".brain/runs/run-01");
+    const run = join(root, ".brain/02-features/sample-feature/runs/run-01");
     const target = join(outside, name);
     await mkdir(run, { recursive: true });
     await writeFile(target, "outside sentinel", "utf8");
@@ -243,7 +248,12 @@ describe("node event store", () => {
       const firstRuntime = runtime(root, "first");
       for (const index of [1, 2]) {
         await applyPlan(
-          planOf({ kind: "append_event", runId, event: draft(index) }),
+          planOf({
+            kind: "append_event",
+            feature: "sample-feature",
+            runId,
+            event: draft(index),
+          }),
           firstRuntime,
           { rootMode: "existing", eventReducers: reducers },
         );
@@ -274,7 +284,9 @@ describe("node event store", () => {
   it("refuses a case-colliding run directory without creating the requested spelling", async () => {
     await temporaryProject(async (root) => {
       await projectScaffold(root);
-      await mkdir(join(root, ".brain/runs/RUN-01"), { recursive: true });
+      await mkdir(join(root, ".brain/02-features/sample-feature/runs/RUN-01"), {
+        recursive: true,
+      });
 
       await expectRefusal(append(root, "case", 1));
       await expect(readFile(join(root, eventsPath), "utf8")).rejects.toThrow();
@@ -288,7 +300,12 @@ describe("node event store", () => {
 
       await expectRefusal(
         applyPlan(
-          planOf({ kind: "append_event", runId: "run-é", event: draft(1) }),
+          planOf({
+            kind: "append_event",
+            feature: "sample-feature",
+            runId: "run-é",
+            event: draft(1),
+          }),
           runtime(root, "unicode", counted.durableFileSystem),
           { rootMode: "existing", eventReducers: reducers },
         ),
@@ -302,7 +319,7 @@ describe("node event store", () => {
     async () => {
       await temporaryProject(async (root) => {
         await projectScaffold(root);
-        const run = join(root, ".brain/runs/run-01");
+        const run = join(root, ".brain/02-features/sample-feature/runs/run-01");
         await mkdir(run, { recursive: true });
         await execFileAsync("mkfifo", [join(run, "events.jsonl")]);
 
@@ -316,7 +333,7 @@ describe("node event store", () => {
     async () => {
       await temporaryProject(async (root) => {
         await projectScaffold(root);
-        const run = join(root, ".brain/runs/run-01");
+        const run = join(root, ".brain/02-features/sample-feature/runs/run-01");
         await mkdir(run, { recursive: true });
         await chmod(run, 0o500);
         try {

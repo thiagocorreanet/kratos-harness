@@ -165,7 +165,9 @@ describe("protected transaction lease guard", () => {
   });
 
   it("carries declared event-store preconditions alongside the guard", async () => {
-    const subject = fixture();
+    // The event store writes under the feature that opened the run, so this
+    // test seeds that chain rather than the fixture's arbitrary caller path.
+    const subject = fixture([".brain/02-features/sample-feature/runs/run-01"]);
     const held = await subject.locks.acquire(acquireRequest());
     if (held.kind !== "acquired") throw new Error("Expected an acquired lease");
 
@@ -175,7 +177,7 @@ describe("protected transaction lease guard", () => {
     );
     // The run's own event store is the ordinary caller of a guarded mutation,
     // so both authorities have to hold for the same transaction to publish.
-    const events = ".brain/runs/run-01/events.jsonl";
+    const events = ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
     await executeManagedMutation(
       callerPlan(subject.storage, events, "{}\n"),
       {
@@ -183,7 +185,7 @@ describe("protected transaction lease guard", () => {
         eventStorePreconditions: [
           { path: events, expected: { kind: "missing" } },
           {
-            path: ".brain/runs/run-01/state.json",
+            path: ".brain/02-features/sample-feature/runs/run-01/state.json",
             expected: { kind: "missing" },
           },
         ],
@@ -240,7 +242,10 @@ describe("protected transaction lease guard", () => {
       "expected paths outside the lock namespace",
       {
         expected: [
-          { path: ".brain/runs/run-01/events.jsonl", expected: FINGERPRINT },
+          {
+            path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+            expected: FINGERPRINT,
+          },
           { path: ".brain/runs/run-01/lease.json", expected: FINGERPRINT },
         ],
       },

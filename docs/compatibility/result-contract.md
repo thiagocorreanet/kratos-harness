@@ -162,7 +162,7 @@ Successful state change:
   "evidence": [
     {
       "kind": "event",
-      "ref": ".brain/runs/0001-login/events.jsonl",
+      "ref": ".brain/02-features/login/runs/0001/events.jsonl",
       "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
     }
   ],
@@ -187,7 +187,7 @@ Blocked policy transition:
   "evidence": [
     {
       "kind": "approval",
-      "ref": ".brain/runs/0001-login/approvals.jsonl",
+      "ref": ".brain/02-features/login/runs/0001/approvals.jsonl",
       "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
     }
   ],

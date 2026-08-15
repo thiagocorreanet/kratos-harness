@@ -97,7 +97,12 @@ function fakeRuntime(
 }
 
 function eventPlan(index: number) {
-  return planOf({ kind: "append_event", runId: "run-01", event: draft(index) });
+  return planOf({
+    kind: "append_event",
+    feature: "sample-feature",
+    runId: "run-01",
+    event: draft(index),
+  });
 }
 
 function manifestPaths(storage: ReturnType<typeof memoryTransactionStorage>) {
@@ -119,13 +124,20 @@ describe("event-store transaction integration", () => {
     });
 
     expect(manifestPaths(storage)).toEqual([
-      ".brain/runs",
-      ".brain/runs/run-01",
-      ".brain/runs/run-01/events.jsonl",
-      ".brain/runs/run-01/state.json",
+      ".brain/02-features",
+      ".brain/02-features/sample-feature",
+      ".brain/02-features/sample-feature/runs",
+      ".brain/02-features/sample-feature/runs/run-01",
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      ".brain/02-features/sample-feature/runs/run-01/state.json",
     ]);
     expect(storage.snapshot().directories).toEqual(
-      expect.arrayContaining([".brain/runs", ".brain/runs/run-01"]),
+      expect.arrayContaining([
+        ".brain/02-features",
+        ".brain/02-features/sample-feature",
+        ".brain/02-features/sample-feature/runs",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ]),
     );
   });
 
@@ -144,12 +156,18 @@ describe("event-store transaction integration", () => {
 
     const second = storage.snapshot();
     expect(
-      second.files[".brain/runs/run-01/events.jsonl"]?.startsWith(
-        first.files[".brain/runs/run-01/events.jsonl"] ?? "",
+      second.files[
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+      ]?.startsWith(
+        first.files[
+          ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+        ] ?? "",
       ),
     ).toBe(true);
     const state = JSON.parse(
-      second.files[".brain/runs/run-01/state.json"] ?? "",
+      second.files[
+        ".brain/02-features/sample-feature/runs/run-01/state.json"
+      ] ?? "",
     ) as SnapshotV1;
     expect(state.eventCursor).toBe(2);
   });
@@ -160,8 +178,18 @@ describe("event-store transaction integration", () => {
     await expect(
       applyPlan(
         planOf(
-          { kind: "append_event", runId: "run-01", event: draft(1) },
-          { kind: "append_event", runId: "run-01", event: draft(2) },
+          {
+            kind: "append_event",
+            feature: "sample-feature",
+            runId: "run-01",
+            event: draft(1),
+          },
+          {
+            kind: "append_event",
+            feature: "sample-feature",
+            runId: "run-01",
+            event: draft(2),
+          },
         ),
         ports,
         { rootMode: "existing", eventReducers: reducers },
@@ -234,8 +262,14 @@ describe("event-store transaction integration", () => {
         }),
       ).rejects.toEqual(
         new TransactionFailure("runtime.state_corrupt", [
-          { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-          { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+          {
+            kind: "event",
+            ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+          },
+          {
+            kind: "artifact",
+            ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+          },
         ]),
       );
       expect(storage.calls()).toEqual([]);
@@ -369,9 +403,13 @@ describe("event-store transaction integration", () => {
     );
 
     const events =
-      storage.snapshot().files[".brain/runs/run-01/events.jsonl"] ?? "";
+      storage.snapshot().files[
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+      ] ?? "";
     const snapshot = JSON.parse(
-      storage.snapshot().files[".brain/runs/run-01/state.json"] ?? "",
+      storage.snapshot().files[
+        ".brain/02-features/sample-feature/runs/run-01/state.json"
+      ] ?? "",
     ) as SnapshotV1;
     expect(mutated).toBe(true);
     expect(events).toContain('"operation":"sdd.step-1"');
@@ -384,14 +422,25 @@ describe("event-store transaction integration", () => {
 
     await expect(
       applyPlan(
-        planOf({ kind: "append_event", runId: "run-01", event }),
+        planOf({
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event,
+        }),
         ports,
         { rootMode: "existing", eventReducers: reducers },
       ),
     ).rejects.toEqual(
       new TransactionFailure("runtime.state_corrupt", [
-        { kind: "event", ref: ".brain/runs/run-01/events.jsonl" },
-        { kind: "artifact", ref: ".brain/runs/run-01/state.json" },
+        {
+          kind: "event",
+          ref: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+        },
+        {
+          kind: "artifact",
+          ref: ".brain/02-features/sample-feature/runs/run-01/state.json",
+        },
       ]),
     );
     expect(storage.calls()).toEqual([]);
@@ -400,10 +449,13 @@ describe("event-store transaction integration", () => {
   it.each([
     {
       kind: "write_file" as const,
-      path: ".brain/runs/run-01/events.jsonl",
+      path: ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
       content: "forged",
     },
-    { kind: "delete_file" as const, path: ".brain/runs/run-01/state.json" },
+    {
+      kind: "delete_file" as const,
+      path: ".brain/02-features/sample-feature/runs/run-01/state.json",
+    },
   ])(
     "rejects direct $kind targeting the selected event-store paths before I/O",
     async (effect) => {
@@ -412,7 +464,12 @@ describe("event-store transaction integration", () => {
       await expect(
         applyPlan(
           planOf(
-            { kind: "append_event", runId: "run-01", event: draft(1) },
+            {
+              kind: "append_event",
+              feature: "sample-feature",
+              runId: "run-01",
+              event: draft(1),
+            },
             effect,
           ),
           ports,
@@ -423,7 +480,10 @@ describe("event-store transaction integration", () => {
     },
   );
 
-  it.each([".brain/runs/run-01/EVENTS.JSONL", ".brain/runs/RUN-01/state.json"])(
+  it.each([
+    ".brain/02-features/sample-feature/runs/run-01/EVENTS.JSONL",
+    ".brain/02-features/sample-feature/runs/RUN-01/state.json",
+  ])(
     "rejects a case-colliding direct destination %s before I/O",
     async (path) => {
       const { storage, ports } = fakeRuntime();
@@ -431,7 +491,12 @@ describe("event-store transaction integration", () => {
       await expect(
         applyPlan(
           planOf(
-            { kind: "append_event", runId: "run-01", event: draft(1) },
+            {
+              kind: "append_event",
+              feature: "sample-feature",
+              runId: "run-01",
+              event: draft(1),
+            },
             { kind: "write_file", path, content: "forged" },
           ),
           ports,
@@ -451,7 +516,12 @@ describe("event-store transaction integration", () => {
           path: ".brain/ordinary.json",
           content: "ordinary",
         },
-        { kind: "append_event", runId: "run-01", event: draft(1) },
+        {
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: draft(1),
+        },
       ),
       ports,
       { rootMode: "existing", eventReducers: reducers },
@@ -459,14 +529,19 @@ describe("event-store transaction integration", () => {
 
     expect(manifestPaths(storage)).toEqual([
       ".brain/ordinary.json",
-      ".brain/runs",
-      ".brain/runs/run-01",
-      ".brain/runs/run-01/events.jsonl",
-      ".brain/runs/run-01/state.json",
+      ".brain/02-features",
+      ".brain/02-features/sample-feature",
+      ".brain/02-features/sample-feature/runs",
+      ".brain/02-features/sample-feature/runs/run-01",
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      ".brain/02-features/sample-feature/runs/run-01/state.json",
     ]);
   });
 
-  it.each([".brain/runs/run-01/events.jsonl", ".brain/runs/run-01/state.json"])(
+  it.each([
+    ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+    ".brain/02-features/sample-feature/runs/run-01/state.json",
+  ])(
     "fails a stale %s observation before transaction creation",
     async (changedPath) => {
       const { storage, ports } = fakeRuntime();
@@ -503,7 +578,11 @@ describe("event-store transaction integration", () => {
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
       inspect(path): Promise<DurableEntry> {
-        if (path === ".brain/runs/run-01/events.jsonl" && ++reads === 2) {
+        if (
+          path ===
+            ".brain/02-features/sample-feature/runs/run-01/events.jsonl" &&
+          ++reads === 2
+        ) {
           return Promise.reject(new Error("/private/fresh-inspection"));
         }
         return storage.durableFileSystem.inspect(path);
@@ -522,8 +601,8 @@ describe("event-store transaction integration", () => {
 
   it("blocks a stream mutation at the declarative pre-marker gate", async () => {
     const { storage, ports } = fakeRuntime();
-    const events = ".brain/runs/run-01/events.jsonl";
-    const snapshot = ".brain/runs/run-01/state.json";
+    const events = ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+    const snapshot = ".brain/02-features/sample-feature/runs/run-01/state.json";
     let reads = 0;
     const durableFileSystem: DurableFileSystem = {
       ...storage.durableFileSystem,
@@ -572,7 +651,12 @@ describe("event-store transaction integration", () => {
 
     await applyPlan(
       planOf(
-        { kind: "append_event", runId: "run-01", event: draft(1) },
+        {
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: draft(1),
+        },
         { kind: "emit", channel: "structured", text: "committed\n" },
       ),
       { ...ports, output },

@@ -34,8 +34,8 @@ import { describe, expect, it } from "vitest";
  */
 const campaignTimeoutMilliseconds = 180_000;
 
-const eventsPath = ".brain/runs/run-01/events.jsonl";
-const snapshotPath = ".brain/runs/run-01/state.json";
+const eventsPath = ".brain/02-features/sample-feature/runs/run-01/events.jsonl";
+const snapshotPath = ".brain/02-features/sample-feature/runs/run-01/state.json";
 const progressPath = ".brain/transactions/campaign-1/progress.json";
 const selectedOperations = [
   "inspect",
@@ -103,8 +103,12 @@ const crashCases: readonly CrashCase[] = [
   },
 ];
 
+// `RUN-06a` moved a run under the feature that opened it, so its root sits two
+// directories deeper than `.brain/runs/<run>` did. The transaction inspects
+// each parent on the way down, which is exactly the two additional inspections
+// counted here; no other operation moved.
 const executionCounts: Readonly<Record<SelectedOperation, number>> = {
-  inspect: 119,
+  inspect: 121,
   read_text: 14,
   create_directory_exclusive: 1,
   write_file: 9,
@@ -114,8 +118,11 @@ const executionCounts: Readonly<Record<SelectedOperation, number>> = {
   remove_file: 0,
 };
 
+// The four additional boundaries all fall before the transaction has begun:
+// creating and synchronizing the two extra parent directories happens outside
+// any phase, so only the `none` tally moves.
 const executionPhaseCounts: Readonly<Record<ExecutionPhase, number>> = {
-  none: 229,
+  none: 233,
   begun: 38,
   prepared: 10,
   publishing: 58,
@@ -123,8 +130,10 @@ const executionPhaseCounts: Readonly<Record<ExecutionPhase, number>> = {
 };
 
 const expectedDirectExecutionReceipts = [
-  "inspect:before:119:committed",
-  "inspect:after:119:committed",
+  // The last inspection moved with the run's depth: two additional parents on
+  // the way to `.brain/02-features/<feature>/runs/<run>`.
+  "inspect:before:121:committed",
+  "inspect:after:121:committed",
   "sync_directory:before:14:committed",
   "sync_directory:after:14:committed",
 ] as const;
@@ -225,7 +234,12 @@ async function oldSeed(): Promise<StorageSnapshot> {
   const ports = runtime(initial, "seed");
   for (const index of [1, 2, 3]) {
     await applyPlan(
-      planOf({ kind: "append_event", runId: "run-01", event: draft(index) }),
+      planOf({
+        kind: "append_event",
+        feature: "sample-feature",
+        runId: "run-01",
+        event: draft(index),
+      }),
       ports,
       { rootMode: "existing", eventReducers: reducers },
     );
@@ -311,7 +325,12 @@ function executionPhase(
 async function executeFourth(storage: Storage): Promise<unknown> {
   try {
     await applyPlan(
-      planOf({ kind: "append_event", runId: "run-01", event: draft(4) }),
+      planOf({
+        kind: "append_event",
+        feature: "sample-feature",
+        runId: "run-01",
+        event: draft(4),
+      }),
       runtime(storage, "campaign"),
       { rootMode: "existing", eventReducers: reducers },
     );
@@ -403,7 +422,10 @@ describe("event-store recovery fault campaign", () => {
     const newPair = pair(baseline);
     expect(selectedCounts(executionTrace)).toEqual(executionCounts);
     const executionBoundaries = boundaries(executionTrace);
-    expect(executionBoundaries).toHaveLength(348);
+    // Two directories deeper than `.brain/runs/<run>`, so the campaign reaches
+    // four more mutating boundaries: the two additional parents are created and
+    // synchronized. Nothing else about the publication changed.
+    expect(executionBoundaries).toHaveLength(352);
     const phases = new Map<ExecutionPhase, number>();
     const directReceipts: string[] = [];
 
