@@ -2,8 +2,8 @@
 
 - Status: Approved
 - Decision date: 2026-08-06
-- Tracking issue: [#6](https://github.com/thiagocorreanet/mestre-yoda/issues/6)
-- Depends on: [#4](https://github.com/thiagocorreanet/mestre-yoda/issues/4)
+- Tracking issue: [#6](https://github.com/thiagocorreanet/kratos-harness/issues/6)
+- Depends on: [#4](https://github.com/thiagocorreanet/kratos-harness/issues/4)
 - Approval basis: Maintainer-authorized autonomous recommendation
 
 ## 1. Outcome

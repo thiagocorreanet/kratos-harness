@@ -2,7 +2,7 @@
 
 Implements the design in
 [`2026-08-13-dry-run-plans-and-explanation-design.md`](../specs/2026-08-13-dry-run-plans-and-explanation-design.md)
-for issue [#47](https://github.com/thiagocorreanet/mestre-yoda/issues/47)
+for issue [#47](https://github.com/thiagocorreanet/kratos-harness/issues/47)
 (`RUN-09`).
 
 ## Global constraints

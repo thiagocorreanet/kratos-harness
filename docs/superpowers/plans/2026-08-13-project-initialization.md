@@ -2,7 +2,7 @@
 
 Implements the design in
 [`2026-08-13-project-initialization-design.md`](../specs/2026-08-13-project-initialization-design.md)
-for issue [#25](https://github.com/thiagocorreanet/mestre-yoda/issues/25)
+for issue [#25](https://github.com/thiagocorreanet/kratos-harness/issues/25)
 (`SDD-01`).
 
 ## Global constraints

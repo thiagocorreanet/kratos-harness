@@ -1,6 +1,6 @@
 # Git Service and Repository-State Classification
 
-Issue [#23](https://github.com/thiagocorreanet/mestre-yoda/issues/23)
+Issue [#23](https://github.com/thiagocorreanet/kratos-harness/issues/23)
 (`RUN-08`) replaces the placeholder `Git` port with one atomic observation of a
 repository. It does not add a public command, and it defines no workflow
 policy: the staged bundle still exposes only `help`, `version`, and
@@ -294,7 +294,7 @@ locale dependence — proven on Linux by the real-repository scenario corpus and
 by property tests.
 
 The real operating-system matrix belongs to
-[#51](https://github.com/thiagocorreanet/mestre-yoda/issues/51) (`QAL-03`),
+[#51](https://github.com/thiagocorreanet/kratos-harness/issues/51) (`QAL-03`),
 "Build the real-Git and cross-platform integration matrix". This is recorded as
 an explicit scope decision: the acceptance criterion is not reported as proven
 by a matrix that does not exist.

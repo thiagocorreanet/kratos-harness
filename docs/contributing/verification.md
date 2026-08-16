@@ -2,7 +2,7 @@
 
 - Local verification date: 2026-08-06 (America/Sao_Paulo)
 - Platform verification date: 2026-08-07 (America/Sao_Paulo)
-- Tracking issue: [#6](https://github.com/thiagocorreanet/mestre-yoda/issues/6)
+- Tracking issue: [#6](https://github.com/thiagocorreanet/kratos-harness/issues/6)
 - Branch: `docs/issue-6-contribution-templates`
 - Reviewed implementation commit: `b9c5876`
 - Status: Complete through the platform gate; this evidence follow-up closes #6
@@ -97,27 +97,27 @@ review reported no Critical, Important, or Minor findings.
 
 ## GitHub platform discovery and rendering
 
-Implementation PR [#76](https://github.com/thiagocorreanet/mestre-yoda/pull/76)
+Implementation PR [#76](https://github.com/thiagocorreanet/kratos-harness/pull/76)
 merged as `7210222db48edb98309807aea0f6dde223bde63c`. Its Documentation check passed,
 and the merge commit passed again on `main` in
-[run 31144110180](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31144110180).
+run `31144110180`.
 
 The PR body avoided `Closes #6`, but the explanatory phrase `close #6` was also
 recognized by GitHub as a closing keyword. Issue #6 was immediately reopened
 before platform testing and remained open throughout the gate.
 
 An authenticated clean chooser inspection at
-[`issues/new/choose`](https://github.com/thiagocorreanet/mestre-yoda/issues/new/choose)
+[`issues/new/choose`](https://github.com/thiagocorreanet/kratos-harness/issues/new/choose)
 rendered exactly these five forms in source order, both configured contact links,
 GitHub's native private vulnerability entry, and `Blank issue — Maintainers only`:
 
 | Direct form | Rendered title | Visible first required evidence | Labels rendered |
 | --- | --- | --- | --- |
-| [`bug.yml`](https://github.com/thiagocorreanet/mestre-yoda/issues/new?template=bug.yml) | `[BUG]` | Affected version or commit | `bug`, `english-only` |
-| [`compatibility.yml`](https://github.com/thiagocorreanet/mestre-yoda/issues/new?template=compatibility.yml) | `[COMPATIBILITY]` | Oracle and compared build | `area:compatibility`, `english-only`, `type:research` |
-| [`documentation.yml`](https://github.com/thiagocorreanet/mestre-yoda/issues/new?template=documentation.yml) | `[DOCUMENTATION]` | Documentation location | `documentation`, `english-only`, `type:documentation` |
-| [`feature.yml`](https://github.com/thiagocorreanet/mestre-yoda/issues/new?template=feature.yml) | `[FEATURE]` | Problem and user impact | `english-only`, `enhancement`, `type:feature` |
-| [`security-safe.yml`](https://github.com/thiagocorreanet/mestre-yoda/issues/new?template=security-safe.yml) | `[SECURITY-SAFE]` | Public and non-sensitive scope | `area:security`, `english-only`, `type:security` |
+| [`bug.yml`](https://github.com/thiagocorreanet/kratos-harness/issues/new?template=bug.yml) | `[BUG]` | Affected version or commit | `bug`, `english-only` |
+| [`compatibility.yml`](https://github.com/thiagocorreanet/kratos-harness/issues/new?template=compatibility.yml) | `[COMPATIBILITY]` | Oracle and compared build | `area:compatibility`, `english-only`, `type:research` |
+| [`documentation.yml`](https://github.com/thiagocorreanet/kratos-harness/issues/new?template=documentation.yml) | `[DOCUMENTATION]` | Documentation location | `documentation`, `english-only`, `type:documentation` |
+| [`feature.yml`](https://github.com/thiagocorreanet/kratos-harness/issues/new?template=feature.yml) | `[FEATURE]` | Problem and user impact | `english-only`, `enhancement`, `type:feature` |
+| [`security-safe.yml`](https://github.com/thiagocorreanet/kratos-harness/issues/new?template=security-safe.yml) | `[SECURITY-SAFE]` | Public and non-sensitive scope | `area:security`, `english-only`, `type:security` |
 
 Every direct URL rendered a GitHub Issue Form with required-field asterisks and
 the expected descriptions/placeholders. No issue was submitted and no

@@ -1,13 +1,13 @@
 # Idempotent Project Initialization and Stack Profiling Design
 
-Issue [#25](https://github.com/thiagocorreanet/mestre-yoda/issues/25)
+Issue [#25](https://github.com/thiagocorreanet/kratos-harness/issues/25)
 (`SDD-01`). Epic
-[#24](https://github.com/thiagocorreanet/mestre-yoda/issues/24). Depends on
-[#17](https://github.com/thiagocorreanet/mestre-yoda/issues/17) (`RUN-02`),
-[#18](https://github.com/thiagocorreanet/mestre-yoda/issues/18) (`RUN-03`),
-[#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19) (`RUN-04`),
-[#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20) (`RUN-05`), and
-[#23](https://github.com/thiagocorreanet/mestre-yoda/issues/23) (`RUN-08`).
+[#24](https://github.com/thiagocorreanet/kratos-harness/issues/24). Depends on
+[#17](https://github.com/thiagocorreanet/kratos-harness/issues/17) (`RUN-02`),
+[#18](https://github.com/thiagocorreanet/kratos-harness/issues/18) (`RUN-03`),
+[#19](https://github.com/thiagocorreanet/kratos-harness/issues/19) (`RUN-04`),
+[#20](https://github.com/thiagocorreanet/kratos-harness/issues/20) (`RUN-05`), and
+[#23](https://github.com/thiagocorreanet/kratos-harness/issues/23) (`RUN-08`).
 
 ## Problem
 

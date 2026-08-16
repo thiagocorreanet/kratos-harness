@@ -2,7 +2,7 @@
 
 Implements the design in
 [`2026-08-14-managed-transaction-surface-design.md`](../specs/2026-08-14-managed-transaction-surface-design.md)
-for issue [#101](https://github.com/thiagocorreanet/mestre-yoda/issues/101)
+for issue [#101](https://github.com/thiagocorreanet/kratos-harness/issues/101)
 (`RUN-05a`).
 
 ## Global constraints

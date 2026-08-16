@@ -1,10 +1,10 @@
 # Schema Registry and Validation Boundary Design
 
-Issue [#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19)
+Issue [#19](https://github.com/thiagocorreanet/kratos-harness/issues/19)
 (`RUN-04`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12) (`CMP-04`) and
-[#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#12](https://github.com/thiagocorreanet/kratos-harness/issues/12) (`CMP-04`) and
+[#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`).
 
 ## Problem
 

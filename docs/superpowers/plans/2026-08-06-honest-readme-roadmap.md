@@ -124,7 +124,7 @@ Markdown and remains absent from the runtime bundle.
 - [x] **Step 1: Add the real workflow badge and current-state warning**
 
 Link the badge image
-`https://github.com/thiagocorreanet/mestre-yoda/actions/workflows/docs.yml/badge.svg?branch=main`
+`https://github.com/thiagocorreanet/kratos-harness/actions/workflows/docs.yml/badge.svg?branch=main`
 to the real workflow page. Near the top state no installation/production/usable
 SDD commands and smoke-only help/version.
 

@@ -10,7 +10,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-08-12-git-service-design.md`](../specs/2026-08-12-git-service-design.md)
 
-**Issue:** [#23](https://github.com/thiagocorreanet/mestre-yoda/issues/23) (`RUN-08`). Epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15).
+**Issue:** [#23](https://github.com/thiagocorreanet/kratos-harness/issues/23) (`RUN-08`). Epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15).
 
 ## Global Constraints
 

@@ -1,6 +1,6 @@
 # Append-Only Event Store Integrity
 
-Issue [#21](https://github.com/thiagocorreanet/mestre-yoda/issues/21)
+Issue [#21](https://github.com/thiagocorreanet/kratos-harness/issues/21)
 (`RUN-06`) provides an internal event-store boundary for the deterministic
 runtime. It does not add a public command: the staged bundle still exposes only
 `help`, `version`, and `handshake`.
@@ -19,7 +19,7 @@ The event-store composition derives both paths from a validated run location —
 the feature and the run identifier together. It cannot derive them from the run
 identifier alone, which is why a caller names both.
 
-Issue [#108](https://github.com/thiagocorreanet/mestre-yoda/issues/108)
+Issue [#108](https://github.com/thiagocorreanet/kratos-harness/issues/108)
 (`RUN-06a`) moved them here. `RUN-06` shipped `.brain/runs/<run-id>/`, a path
 that appears nowhere in the frozen discovery snapshot and that no parity row
 covers, while eleven frozen rows place every run artifact under its feature.

@@ -1,7 +1,7 @@
 # Issue 26 Objective Evidence
 
 Verification record for
-[#26](https://github.com/thiagocorreanet/mestre-yoda/issues/26) (`SDD-02`).
+[#26](https://github.com/thiagocorreanet/kratos-harness/issues/26) (`SDD-02`).
 
 ## Acceptance criteria
 

@@ -1,6 +1,6 @@
 # Project Discovery and `.brain` Configuration Resolution Implementation Plan
 
-> **Issue:** [#18](https://github.com/thiagocorreanet/mestre-yoda/issues/18) (`RUN-03`)
+> **Issue:** [#18](https://github.com/thiagocorreanet/kratos-harness/issues/18) (`RUN-03`)
 >
 > **Design:** `docs/superpowers/specs/2026-08-07-project-discovery-design.md`
 

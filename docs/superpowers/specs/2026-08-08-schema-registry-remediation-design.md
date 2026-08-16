@@ -1,8 +1,8 @@
 # Schema Registry Re-evaluation Remediation Design
 
-Issue [#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19)
+Issue [#19](https://github.com/thiagocorreanet/kratos-harness/issues/19)
 (`RUN-04`). Pull request
-[#91](https://github.com/thiagocorreanet/mestre-yoda/pull/91). This design
+[#91](https://github.com/thiagocorreanet/kratos-harness/pull/91). This design
 records the corrections required by the clean-checkout, adversarial-input, and
 coverage re-evaluation of head `994cc6e`.
 

@@ -1,7 +1,7 @@
 # Legacy Brain Migration Planning
 
-Issues [#41](https://github.com/thiagocorreanet/mestre-yoda/issues/41) and
-[#42](https://github.com/thiagocorreanet/mestre-yoda/issues/42) provide both
+Issues [#41](https://github.com/thiagocorreanet/kratos-harness/issues/41) and
+[#42](https://github.com/thiagocorreanet/kratos-harness/issues/42) provide both
 the deterministic plan and its transactional command surface. `migrate brain`
 previews by default and applies only after `--yes` authorizes the exact plan
 digest. `migrate rollback <migration-id>` removes only the files the completed

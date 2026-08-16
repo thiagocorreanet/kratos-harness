@@ -1,7 +1,7 @@
 # Issue 25 Initialization Evidence
 
 Verification record for
-[#25](https://github.com/thiagocorreanet/mestre-yoda/issues/25) (`SDD-01`).
+[#25](https://github.com/thiagocorreanet/kratos-harness/issues/25) (`SDD-01`).
 Every acceptance criterion maps to a named test, and what is not covered says
 so.
 

@@ -2,12 +2,12 @@
 
 ## Result
 
-Issue [#7](https://github.com/thiagocorreanet/mestre-yoda/issues/7) is
+Issue [#7](https://github.com/thiagocorreanet/kratos-harness/issues/7) is
 verified against the GitHub-hosted platform. Pull request
-[#78](https://github.com/thiagocorreanet/mestre-yoda/pull/78) merged the CI
+[#78](https://github.com/thiagocorreanet/kratos-harness/pull/78) merged the CI
 foundation as commit `1c3d4b6836c914c085ae0f97eddb0dfd90c61326` after both the
 CI and documentation workflows passed. Pull request
-[#79](https://github.com/thiagocorreanet/mestre-yoda/pull/79) was a disposable,
+[#79](https://github.com/thiagocorreanet/kratos-harness/pull/79) was a disposable,
 unmerged campaign that proved four blocking failures and a restored clean run.
 It was closed and its remote branch was deleted after the evidence was captured.
 
@@ -15,7 +15,7 @@ It was closed and its remote branch was deleted after the evidence was captured.
 
 The implementation pull request ran on the `pull_request` event using the
 standard `ubuntu-latest` GitHub-hosted runner. Its
-[CI run](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145549536)
+CI run (predecessor run `31145549536`)
 completed all named gates in 30 seconds:
 
 1. exact Node.js and npm toolchain;
@@ -50,17 +50,17 @@ and changed only the condition needed to reach the next expected failure.
 
 | Scenario | Probe commit | Blocking step | GitHub run | Artifact expiry |
 | --- | --- | --- | --- | --- |
-| Lint-invalid TypeScript | `707114ff533fa4ffcf9b7e3d56b4573d2c22b833` | `Lint` | [31145621210](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145621210) | 2026-08-10 03:52 UTC |
-| Lint-valid, type-invalid TypeScript | `d2b944af3cc8220d0feb8ab0fc78f97343ee1680` | `Type-check` | [31145671292](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145671292) | 2026-08-10 03:52 UTC |
-| Failing Vitest assertion | `7119115820e3ae2e7f1f1297ec85804ce0c35cc3` | `Run unit tests` | [31145708004](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145708004) | 2026-08-10 03:53 UTC |
-| Unexpected staged package file | `536c25ef80fede641d23aafa46c1f4533ef2b218` | `Verify package contents` | [31145768135](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145768135) | 2026-08-10 03:55 UTC |
+| Lint-invalid TypeScript | `707114ff533fa4ffcf9b7e3d56b4573d2c22b833` | `Lint` | 31145621210 (predecessor run `31145621210`) | 2026-08-10 03:52 UTC |
+| Lint-valid, type-invalid TypeScript | `d2b944af3cc8220d0feb8ab0fc78f97343ee1680` | `Type-check` | 31145671292 (predecessor run `31145671292`) | 2026-08-10 03:52 UTC |
+| Failing Vitest assertion | `7119115820e3ae2e7f1f1297ec85804ce0c35cc3` | `Run unit tests` | 31145708004 (predecessor run `31145708004`) | 2026-08-10 03:53 UTC |
+| Unexpected staged package file | `536c25ef80fede641d23aafa46c1f4533ef2b218` | `Verify package contents` | 31145768135 (predecessor run `31145768135`) | 2026-08-10 03:55 UTC |
 
 Each run concluded `failure`, skipped all later validation gates, and completed
 the failure-diagnostics upload. GitHub reported one artifact named
 `ci-failure-<run-id>-1` per run, with expiry exactly three days after creation.
 
 Commit `a04f81415d89c9f158a0d82a19189921f10af333` removed the final probe. The
-[restored run](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31145836247)
+restored run (predecessor run `31145836247`)
 then passed every gate in 35 seconds and skipped artifact upload. No campaign
 commit was merged.
 

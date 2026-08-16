@@ -1,8 +1,8 @@
 # Schema Registry and Validation Boundary
 
-Issue [#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19)
+Issue [#19](https://github.com/thiagocorreanet/kratos-harness/issues/19)
 (`RUN-04`) supplies the validation infrastructure for the deterministic runtime
-epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). It does not
+epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). It does not
 add a workflow or state command. The staged CLI still supports only `help`,
 `version`, and `handshake`.
 
