@@ -147,6 +147,17 @@ Community policies are available in the [Contribution guide](CONTRIBUTING.md),
 [Code of Conduct](CODE_OF_CONDUCT.md), [Governance](GOVERNANCE.md),
 [Support policy](SUPPORT.md), and [Security policy](SECURITY.md).
 
+## Contributors
+
+Thanks to everyone who has contributed to Kratos.
+
+<a href="https://github.com/thiagocorreanet/kratos-harness/graphs/contributors">
+  <img
+    src="https://contrib.rocks/image?repo=thiagocorreanet/kratos-harness"
+    alt="Kratos contributors"
+  />
+</a>
+
 ## License
 
 MIT. The original copyright and permission notice are preserved in
