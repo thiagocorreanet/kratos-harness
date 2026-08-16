@@ -13,11 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: release
-    # `runner` is not a context a workflow-level `env` may read, so declaring
-    # this above the jobs made the whole file invalid and the workflow never
-    # started. A job-level `env` is evaluated once a runner exists.
-    env:
-      KRATOS_BUILD_OUTPUT: ${{ runner.temp }}/kratos-plugin-build
     permissions:
       contents: write
       id-token: write
@@ -30,6 +25,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      # The build refuses to write inside the source tree, so it needs a
+      # directory outside it. `runner` is not a context any `env:` block may
+      # read — neither the workflow's nor the job's — and declaring it there is
+      # what made this file invalid, so the whole workflow never started. The
+      # equivalent environment variable is available to a step.
+      - name: Choose the build output directory
+        run: |
+          set -euo pipefail
+          printf 'KRATOS_BUILD_OUTPUT=%s\n' "$RUNNER_TEMP/kratos-plugin-build" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run verify
       - run: npm run benchmark
