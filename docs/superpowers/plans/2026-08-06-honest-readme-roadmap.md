@@ -42,7 +42,7 @@ boundaries:
 expect(readme).toContain("There is no supported installation method");
 expect(readme).toContain("supports only `--help` and `--version`");
 expect(readme).toContain("not runnable in the current bundle");
-expect(readme).toContain("[Objective maturity gates](ROADMAP.md)");
+expect(readme).toContain("[Objective maturity gates](../../../ROADMAP.md)");
 expect(readme).toContain("actions/workflows/docs.yml/badge.svg?branch=main");
 expect(readme).not.toMatch(/claude plugin install|codex plugin add|npm install -g/);
 ```
@@ -161,7 +161,7 @@ retirement. Separate stage entry from promotion evidence.
 Credit the predecessor as behavioral oracle subject to provenance, the agent
 hosts without endorsement implication, and Node/TypeScript/esbuild/ESLint/
 Prettier/Vitest/CSpell plus Contributor Covenant/DCO. Ensure FAQ repeats no
-installation and roadmap section links `[Objective maturity gates](ROADMAP.md)`.
+installation and roadmap section links `[Objective maturity gates](../../../ROADMAP.md)`.
 
 - [x] **Step 6: Confirm GREEN and commit**
 

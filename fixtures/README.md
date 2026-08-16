@@ -5,7 +5,7 @@ differential, contract, migration, and black-box tests.
 
 Fixture provenance and the Go-to-TypeScript compatibility policy are specified
 by the
-[Kratos Observable Architecture Specification](../docs/superpowers/specs/2026-08-06-kratos-observable-architecture-design.md).
+[Kratos Observable Architecture Specification](../docs/superpowers/specs/2026-08-06-yoda-observable-architecture-design.md).
 
 The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 

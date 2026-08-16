@@ -38,8 +38,8 @@ Use `readFile` from `node:fs/promises` and Vitest. Assert all required paths can
 be read, then assert:
 
 ```typescript
-expect(readme).toContain("[Contribution guide](CONTRIBUTING.md)");
-expect(readme).toContain("[Security policy](SECURITY.md)");
+expect(readme).toContain("[Contribution guide](../../../CONTRIBUTING.md)");
+expect(readme).toContain("[Security policy](../../../SECURITY.md)");
 expect(contributing).toContain("git commit -s");
 expect(contributing).toContain("Signed-off-by: Your Name <your.email@example.com>");
 expect(contributing).toContain("Intellectual-property provenance checklist");

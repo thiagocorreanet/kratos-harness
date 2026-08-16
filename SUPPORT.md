@@ -9,10 +9,10 @@ targets in [SECURITY.md](SECURITY.md).
 
 | Need | Channel |
 | --- | --- |
-| Reproducible public bug | Search, then open a [Kratos issue](https://github.com/thiagocorreanet/kratos/issues) |
+| Reproducible public bug | Search, then open a [Kratos issue](https://github.com/thiagocorreanet/kratos-harness/issues) |
 | Feature or design proposal | Search [the inherited backlog](KRATOS_BACKLOG.md) and open a focused Kratos issue |
 | Contribution workflow | Read [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Suspected vulnerability or exposed secret | Use the private [security report](https://github.com/thiagocorreanet/kratos/security/advisories/new) |
+| Suspected vulnerability or exposed secret | Use the private [security report](https://github.com/thiagocorreanet/kratos-harness/security/advisories/new) |
 | Code of Conduct incident | Follow the confidential route in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Proprietary BetaUp, MWTC, customer system, or private predecessor deployment | Contact that system's owner; it is outside this public project's support scope |
 

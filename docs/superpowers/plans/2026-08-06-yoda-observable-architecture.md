@@ -349,7 +349,7 @@ Add a `## 17. Architecture decision records` section linking ADRs 0001–0004 by
 In the README Architecture section, add links to:
 
 ```markdown
-The canonical [Yoda Observable Architecture Specification](docs/superpowers/specs/2026-08-06-yoda-observable-architecture-design.md) defines the runtime, state, security, migration, testing, and rollout contracts. Structural choices and their consequences are indexed in the [Architecture Decision Records](docs/adr/README.md), and the required end-to-end architecture trace is recorded in [verification evidence](docs/architecture/verification.md).
+The canonical [Yoda Observable Architecture Specification](../specs/2026-08-06-yoda-observable-architecture-design.md) defines the runtime, state, security, migration, testing, and rollout contracts. Structural choices and their consequences are indexed in the [Architecture Decision Records](../../adr/README.md), and the required end-to-end architecture trace is recorded in [verification evidence](../../architecture/verification.md).
 ```
 
 - [ ] **Step 5: Run the complete documentation verification**
