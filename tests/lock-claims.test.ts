@@ -11,10 +11,7 @@ import {
   type LockServices,
   type ObservedLockClaim,
 } from "@kratos/runtime/composition";
-import {
-  lockPaths,
-  type LeaseResource,
-} from "@kratos/runtime/domain/locks";
+import { lockPaths, type LeaseResource } from "@kratos/runtime/domain/locks";
 import {
   fixedClock,
   memoryTransactionStorage,
@@ -25,10 +22,7 @@ import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { prepareLeaseTransition } from "@kratos/runtime/domain/locks";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
 import { types } from "node:util";
-import {
-  LockFailure,
-  TransactionFailure,
-} from "@kratos/runtime/composition";
+import { LockFailure, TransactionFailure } from "@kratos/runtime/composition";
 import type { DurableFileSystem } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
@@ -7680,12 +7674,15 @@ describe("durable lock claims", () => {
   });
 
   it("retires an admission through a cleanup marker another worker already elected", async () => {
+    // The marker is content-addressed, so this must be the exact record this
+    // acquisition elects: an admission names the scope it administers in
+    // `leaseId` and carries a zero fencing token.
     const admission: LockClaimRecord = {
       claimId: "claim-1",
       resource: "admission",
       owner: "codex:session-01",
-      leaseId: null,
-      fencingToken: null,
+      leaseId: "project",
+      fencingToken: 0,
       acquiredAt: "2026-08-11T00:01:00.000Z",
       expiresAt: "2026-08-11T00:01:30.000Z",
     };
