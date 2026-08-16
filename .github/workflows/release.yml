@@ -76,7 +76,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # ROADMAP.md promotes this project by evidence, and every criterion
+          # for Preview is still open. A `0.x` tag is published as a
+          # pre-release so the stage the roadmap records is the stage GitHub
+          # shows. Drop the flag when the roadmap promotes the project, not
+          # before.
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag \
+            --prerelease \
             --title "Kratos $GITHUB_REF_NAME" \
             --generate-notes
