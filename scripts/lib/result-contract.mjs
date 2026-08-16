@@ -229,14 +229,11 @@ export function validateResultContract(input) {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
     const validateResult = ajv.compile(input.resultSchema);
     const validateCatalogSchema = ajv.compile(input.catalogSchema);
-    if (
-      input.resultSchema.$id !== "https://kratos.dev/schemas/result/v1"
-    ) {
+    if (input.resultSchema.$id !== "https://kratos.dev/schemas/result/v1") {
       throw validationFailure("result schema identity changed");
     }
     if (
-      input.catalogSchema.$id !==
-      "https://kratos.dev/schemas/reason-catalog/v1"
+      input.catalogSchema.$id !== "https://kratos.dev/schemas/reason-catalog/v1"
     ) {
       throw validationFailure("catalog schema identity changed");
     }

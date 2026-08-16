@@ -88,7 +88,9 @@ describe("implemented commands", () => {
   });
 
   it("refuses an unregistered command", () => {
-    expect(invoke(["missing"]).failure?.why).toEqual([USAGE_WHY.unknownCommand]);
+    expect(invoke(["missing"]).failure?.why).toEqual([
+      USAGE_WHY.unknownCommand,
+    ]);
   });
 
   it("checks a pinned version before resolving the command", () => {

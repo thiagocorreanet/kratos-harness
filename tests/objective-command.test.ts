@@ -5,10 +5,7 @@ import { join } from "node:path";
 import { createRuntime } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { observeObjective } from "@kratos/runtime/composition/objective";
-import {
-  DEFAULT_REGISTRY,
-  parseInvocation,
-} from "@kratos/runtime/domain/cli";
+import { DEFAULT_REGISTRY, parseInvocation } from "@kratos/runtime/domain/cli";
 import {
   fixedClock,
   fixedEnvironment,

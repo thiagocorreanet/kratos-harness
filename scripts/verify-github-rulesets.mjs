@@ -3,11 +3,17 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+const root = dirname(
+  fileURLToPath(new URL("../package.json", import.meta.url)),
+);
 const args = process.argv.slice(2);
 const repositoryIndex = args.indexOf("--repository");
 const repository = args[repositoryIndex + 1];
-if (repositoryIndex < 0 || repository === undefined || !repository.includes("/")) {
+if (
+  repositoryIndex < 0 ||
+  repository === undefined ||
+  !repository.includes("/")
+) {
   console.error("usage: verify-github-rulesets --repository OWNER/REPOSITORY");
   process.exitCode = 2;
 } else {
@@ -15,10 +21,14 @@ if (repositoryIndex < 0 || repository === undefined || !repository.includes("/")
     await readFile(join(root, "quality/github-rulesets.expected.json"), "utf8"),
   );
   const actual = JSON.parse(
-    execFileSync("gh", ["api", `repos/${repository}/rulesets?includes_parents=false`], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"],
-    }),
+    execFileSync(
+      "gh",
+      ["api", `repos/${repository}/rulesets?includes_parents=false`],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "inherit"],
+      },
+    ),
   );
   const serialized = JSON.stringify(actual);
   const missing = [];

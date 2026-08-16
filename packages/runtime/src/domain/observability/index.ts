@@ -48,7 +48,9 @@ export function auditSnapshot(
       eventCursor: persisted.eventCursor,
     };
   }
-  const fields = [...new Set([...Object.keys(persisted), ...Object.keys(replayed)])]
+  const fields = [
+    ...new Set([...Object.keys(persisted), ...Object.keys(replayed)]),
+  ]
     .sort()
     .flatMap((field) => {
       const left = persisted[field as keyof SnapshotV1];
@@ -129,12 +131,7 @@ export interface EvidenceBundle {
   readonly gates: GateDecision;
   readonly approvals: readonly Pick<
     ApprovalV1,
-    | "approvalId"
-    | "gate"
-    | "decision"
-    | "challenge"
-    | "decidedAt"
-    | "expiresAt"
+    "approvalId" | "gate" | "decision" | "challenge" | "decidedAt" | "expiresAt"
   >[];
   readonly lineage: readonly ArtifactLineage[];
   readonly budget: {
@@ -250,7 +247,7 @@ export function renderStaticDashboard(bundle: EvidenceBundle): string {
   return [
     "<!doctype html>",
     '<html lang="en"><meta charset="utf-8">',
-    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
+    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\">",
     `<title>Kratos run ${html(bundle.runId)}</title>`,
     "<style>body{font:14px system-ui;margin:2rem;max-width:80rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.5rem;text-align:left}code{word-break:break-all}</style>",
     `<h1>Run ${html(bundle.runId)}</h1>`,

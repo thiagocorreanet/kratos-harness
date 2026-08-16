@@ -129,8 +129,7 @@ export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
 ] as const satisfies readonly object[]);
 
 const EXPECTED_SCHEMA_IDS = {
-  "host.adapter-message":
-    "https://kratos.dev/schemas/host/adapter-message/v1",
+  "host.adapter-message": "https://kratos.dev/schemas/host/adapter-message/v1",
   "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
   "host.operation-message":
     "https://kratos.dev/schemas/host/operation-message/v1",
@@ -140,8 +139,7 @@ const EXPECTED_SCHEMA_IDS = {
   "state.feature": "https://kratos.dev/schemas/state/feature/v1",
   "state.lock": "https://kratos.dev/schemas/state/lock/v1",
   "state.migration": "https://kratos.dev/schemas/state/migration/v1",
-  "state.project-config":
-    "https://kratos.dev/schemas/state/project-config/v1",
+  "state.project-config": "https://kratos.dev/schemas/state/project-config/v1",
   "state.snapshot": "https://kratos.dev/schemas/state/snapshot/v1",
   "state.transaction-manifest":
     "https://kratos.dev/schemas/state/transaction-manifest/v1",

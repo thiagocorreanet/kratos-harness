@@ -5,10 +5,7 @@ import {
   type TransactionServices,
 } from "@kratos/runtime/composition";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
-import type {
-  LeaseGuard,
-  LeaseResource,
-} from "@kratos/runtime/domain/locks";
+import type { LeaseGuard, LeaseResource } from "@kratos/runtime/domain/locks";
 import {
   nodeDurableFileSystem,
   sha256Digests,

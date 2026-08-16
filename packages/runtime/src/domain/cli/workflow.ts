@@ -140,8 +140,10 @@ export const continueCommand: CommandSpec = observingCommand(
       selectedEvidence !== undefined &&
       !observation.invalidEvidenceIds.includes(selectedEvidence.evidenceId);
     const refs = {
-      artifactRefs: artifactReadable && typeof artifact === "string" ? [artifact] : [],
-      evidenceRefs: evidenceReadable && typeof evidence === "string" ? [evidence] : [],
+      artifactRefs:
+        artifactReadable && typeof artifact === "string" ? [artifact] : [],
+      evidenceRefs:
+        evidenceReadable && typeof evidence === "string" ? [evidence] : [],
     };
     const action =
       invocation.flags.get("--reject") === true
@@ -152,7 +154,9 @@ export const continueCommand: CommandSpec = observingCommand(
               ...refs,
               gateFailures: [
                 ...(observation.gateDecision.outcome === "block"
-                  ? observation.gateDecision.failures.map(({ gateId }) => gateId)
+                  ? observation.gateDecision.failures.map(
+                      ({ gateId }) => gateId,
+                    )
                   : []),
                 ...(typeof gate === "string" ? [gate] : []),
                 ...(typeof artifact === "string" && !artifactReadable
@@ -304,7 +308,9 @@ export const doneCommand: CommandSpec = observingCommand(
           evidenceRefs:
             evidenceReadable && typeof evidence === "string" ? [evidence] : [],
           gateFailures:
-            readiness.kind === "accepted" && artifactReadable && evidenceReadable
+            readiness.kind === "accepted" &&
+            artifactReadable &&
+            evidenceReadable
               ? []
               : ["gate.aceitacao_final"],
           allowFinalCompletion: true,
@@ -332,7 +338,9 @@ function workflowDecision(
           ];
     return {
       result: resultFor(workflow.reasonCode, {
-        why: ["The persisted run preconditions did not authorize this operation."],
+        why: [
+          "The persisted run preconditions did not authorize this operation.",
+        ],
         evidence,
       }),
       plan: planOf(),

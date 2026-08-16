@@ -16,8 +16,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 const digests = {
-  sha256: (value: string) =>
-    createHash("sha256").update(value).digest("hex"),
+  sha256: (value: string) => createHash("sha256").update(value).digest("hex"),
 };
 const digest = "a".repeat(64);
 const snapshot = {
@@ -69,11 +68,8 @@ describe("transactional migration lifecycle", () => {
     expect(completed?.status).toBe("completed");
     if (completed === null) return;
     expect(
-      rollBackMigration(
-        completed,
-        "b".repeat(64),
-        "2026-08-15T12:03:00.000Z",
-      )?.status,
+      rollBackMigration(completed, "b".repeat(64), "2026-08-15T12:03:00.000Z")
+        ?.status,
     ).toBe("rolled-back");
   });
 
@@ -92,7 +88,10 @@ describe("transactional migration lifecycle", () => {
 
 describe("audit, repair, and static dashboard", () => {
   it("produces a digest-bound repair preview for divergent snapshots", () => {
-    const persisted = { ...snapshot, currentStep: "review" } satisfies SnapshotV1;
+    const persisted = {
+      ...snapshot,
+      currentStep: "review",
+    } satisfies SnapshotV1;
     const audit = auditSnapshot(persisted, snapshot, digests);
     expect(audit).toMatchObject({
       kind: "divergent",

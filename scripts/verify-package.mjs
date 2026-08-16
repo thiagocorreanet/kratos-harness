@@ -1,12 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  lstat,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-} from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -106,7 +100,10 @@ async function verifyArtifact(root, host) {
       ? join(root, ".codex-plugin/plugin.json")
       : join(root, ".claude-plugin/plugin.json");
   const hostManifest = JSON.parse(await readFile(hostManifestPath, "utf8"));
-  if (hostManifest.name !== "kratos" || hostManifest.version !== manifest.pluginVersion) {
+  if (
+    hostManifest.name !== "kratos" ||
+    hostManifest.version !== manifest.pluginVersion
+  ) {
     fail(`${host} host manifest is not version coherent`);
   }
   if (host === "codex" && hostManifest.skills !== "./skills/") {
@@ -172,7 +169,8 @@ async function verifyProjectFlow(runtime, host, workRoot) {
       file.endsWith(".ts") ||
       file.endsWith(".map"),
   );
-  if (leaked.length > 0) fail(`project received engine files: ${leaked.join(", ")}`);
+  if (leaked.length > 0)
+    fail(`project received engine files: ${leaked.join(", ")}`);
   if (host === "codex" && !projectFiles.includes("AGENTS.md")) {
     fail("Codex project instructions are absent");
   }

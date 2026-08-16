@@ -1,7 +1,4 @@
-export {
-  decideContinueWorkflow,
-  decideStartWorkflow,
-} from "./decision.js";
+export { decideContinueWorkflow, decideStartWorkflow } from "./decision.js";
 export {
   reduceWorkflow,
   workflowReducerRegistry,

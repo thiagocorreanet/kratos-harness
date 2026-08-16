@@ -10,10 +10,7 @@ import {
   discoverProject,
   observeWorkspace,
 } from "@kratos/runtime/composition/discovery";
-import {
-  fixedEnvironment,
-  memoryWorkspace,
-} from "@kratos/runtime/infra/fake";
+import { fixedEnvironment, memoryWorkspace } from "@kratos/runtime/infra/fake";
 import type { Workspace } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 

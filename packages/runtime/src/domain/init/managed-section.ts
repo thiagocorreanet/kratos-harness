@@ -5,8 +5,7 @@
  * They are content, not formatting: an update replaces what sits between them
  * and nothing else, so a file without them cannot be updated safely.
  */
-export const MANAGED_SECTION_BEGIN =
-  "<!-- BEGIN KRATOS MANAGED SECTION -->";
+export const MANAGED_SECTION_BEGIN = "<!-- BEGIN KRATOS MANAGED SECTION -->";
 export const MANAGED_SECTION_END = "<!-- END KRATOS MANAGED SECTION -->";
 
 /** What was observed at a managed destination, without interpreting it. */

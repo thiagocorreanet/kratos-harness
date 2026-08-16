@@ -127,9 +127,7 @@ export type CommandObservation =
         readonly model: string | null;
       };
       readonly identityProvenance:
-        | "host-reported"
-        | "user-declared"
-        | "unknown";
+        "host-reported" | "user-declared" | "unknown";
       readonly approvals: readonly ApprovalV1[];
       readonly approvalChallenge: string | null;
       readonly approvalsReadable: boolean;

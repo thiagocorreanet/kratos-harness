@@ -64,9 +64,7 @@ export function evaluateGates(context: GateContext): GateDecision {
   }
   if (context.prdDigest === null) {
     failures.push(
-      failure("prd-present", "gate.prd_ausente", [
-        ".brain/02-features/active",
-      ]),
+      failure("prd-present", "gate.prd_ausente", [".brain/02-features/active"]),
     );
   }
   if (
@@ -74,9 +72,7 @@ export function evaluateGates(context: GateContext): GateDecision {
     !approved(context.approvals, "spec", context)
   ) {
     failures.push(
-      failure("spec-approved", "gate.aprovacao_spec", [
-        ".brain/approvals",
-      ]),
+      failure("spec-approved", "gate.aprovacao_spec", [".brain/approvals"]),
     );
   }
   if (context.openGaps > 0) {
@@ -95,9 +91,7 @@ export function evaluateGates(context: GateContext): GateDecision {
   }
   if (context.phase === "acceptance" && !context.finalAcceptance) {
     failures.push(
-      failure("final-acceptance", "gate.aceitacao_final", [
-        ".brain/approvals",
-      ]),
+      failure("final-acceptance", "gate.aceitacao_final", [".brain/approvals"]),
     );
   }
   failures.sort(

@@ -65,7 +65,8 @@ async function files(directory) {
   for (const entry of entries) {
     const path = join(entry.parentPath, entry.name);
     const details = await lstat(path);
-    if (details.isSymbolicLink()) fail("plugin packages cannot contain symlinks");
+    if (details.isSymbolicLink())
+      fail("plugin packages cannot contain symlinks");
     if (details.isFile()) result.push(path);
   }
   return result.sort();
@@ -106,7 +107,8 @@ async function verifySource(source, expectedHost) {
     manifest.runtime.core,
     "runtime/THIRD-PARTY-NOTICES.txt",
   ]) {
-    if (!(await exists(join(source, required)))) fail(`source is missing ${required}`);
+    if (!(await exists(join(source, required))))
+      fail(`source is missing ${required}`);
   }
   const packageFiles = await files(source);
   const forbidden = packageFiles
@@ -117,7 +119,8 @@ async function verifySource(source, expectedHost) {
         file.endsWith(".ts") ||
         file.endsWith(".map"),
     );
-  if (forbidden.length > 0) fail(`source contains forbidden files: ${forbidden.join(", ")}`);
+  if (forbidden.length > 0)
+    fail(`source contains forbidden files: ${forbidden.join(", ")}`);
   const hostFiles = packageFiles.filter(
     (file) => !relative(source, file).startsWith(`runtime${sep}`),
   );
@@ -129,9 +132,7 @@ async function verifySource(source, expectedHost) {
 
 function releaseVersion(value) {
   const match = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/u.exec(value ?? "");
-  return match === null
-    ? null
-    : match.slice(1, 4).map((part) => Number(part));
+  return match === null ? null : match.slice(1, 4).map((part) => Number(part));
 }
 
 function older(candidate, current) {
@@ -149,7 +150,10 @@ async function install(sourceRootValue, host, target) {
   const source = join(sourceRoot, host);
   const sourceManifest = await verifySource(source, host);
   const parent = dirname(target);
-  const staging = join(parent, `.${basename(target)}.staging-${String(process.pid)}`);
+  const staging = join(
+    parent,
+    `.${basename(target)}.staging-${String(process.pid)}`,
+  );
   const backup = `${target}.rollback`;
   if (await exists(staging)) fail("a staging directory already exists");
   if (await exists(backup)) {

@@ -2,7 +2,9 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+const root = dirname(
+  fileURLToPath(new URL("../package.json", import.meta.url)),
+);
 
 async function readJson(relativePath) {
   return JSON.parse(await readFile(join(root, relativePath), "utf8"));

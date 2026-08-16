@@ -4,7 +4,9 @@ import { arch, platform, release, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+const root = dirname(
+  fileURLToPath(new URL("../package.json", import.meta.url)),
+);
 const buildOutput =
   process.env.KRATOS_BUILD_OUTPUT ?? join(tmpdir(), "kratos-plugin-build");
 const runtime = join(buildOutput, "codex/runtime");
@@ -34,7 +36,9 @@ function elapsed(argument) {
 
 function percentile(values, ratio) {
   const ordered = [...values].sort((left, right) => left - right);
-  return ordered[Math.min(ordered.length - 1, Math.floor(ordered.length * ratio))];
+  return ordered[
+    Math.min(ordered.length - 1, Math.floor(ordered.length * ratio))
+  ];
 }
 
 async function directoryBytes(directory) {
@@ -43,7 +47,8 @@ async function directoryBytes(directory) {
     recursive: true,
     withFileTypes: true,
   })) {
-    if (entry.isFile()) total += (await stat(join(entry.parentPath, entry.name))).size;
+    if (entry.isFile())
+      total += (await stat(join(entry.parentPath, entry.name))).size;
   }
   return total;
 }

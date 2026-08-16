@@ -31,7 +31,8 @@ export const hookCommand: CommandSpec = observingCommand(
     positionals: { min: 0, max: 0 },
     jsonContract: "result@1.0.0",
   },
-  (invocation, observation) => decide(invocation.flags.get("--host"), observation),
+  (invocation, observation) =>
+    decide(invocation.flags.get("--host"), observation),
 );
 
 function decide(

@@ -14,8 +14,7 @@ import { evaluateGates } from "@kratos/runtime/domain/gates";
 import { describe, expect, it } from "vitest";
 
 const digests = {
-  sha256: (value: string) =>
-    createHash("sha256").update(value).digest("hex"),
+  sha256: (value: string) => createHash("sha256").update(value).digest("hex"),
 };
 const binding = {
   runId: "run-01",

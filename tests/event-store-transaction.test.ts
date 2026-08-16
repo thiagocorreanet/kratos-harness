@@ -17,10 +17,7 @@ import {
   recordingOutput,
   sequentialIds,
 } from "@kratos/runtime/infra/fake";
-import type {
-  DurableEntry,
-  DurableFileSystem,
-} from "@kratos/runtime/ports";
+import type { DurableEntry, DurableFileSystem } from "@kratos/runtime/ports";
 import { describe, expect, it, vi } from "vitest";
 
 function draft(index: number): EventDraftV1 {
