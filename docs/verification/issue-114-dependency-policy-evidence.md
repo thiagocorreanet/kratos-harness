@@ -2,7 +2,7 @@
 
 ## Result
 
-Issue [#114](https://github.com/thiagocorreanet/mestre-yoda/issues/114)
+Issue [#114](https://github.com/thiagocorreanet/kratos-harness/issues/114)
 (`QAL-04a`) adds the scanning half of `QAL-04` and the license and
 vulnerability policy the released dependency set is measured against. What
 follows is what was reproduced locally. The GitHub-hosted runs are on the pull

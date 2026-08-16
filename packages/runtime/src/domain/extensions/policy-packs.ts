@@ -53,9 +53,7 @@ export type ProfileSelection =
   | {
       readonly kind: "refused";
       readonly reason:
-        | "policy.untrusted"
-        | "policy.invalid"
-        | "policy.inheritance_cycle";
+        "policy.untrusted" | "policy.invalid" | "policy.inheritance_cycle";
     };
 
 export interface HistoricalRigorDecision {
@@ -94,10 +92,7 @@ function mergeRequirements(
     evidenceKinds: [
       ...new Set([...parent.evidenceKinds, ...own.evidenceKinds]),
     ].sort(),
-    minimumApprovals: Math.max(
-      parent.minimumApprovals,
-      own.minimumApprovals,
-    ),
+    minimumApprovals: Math.max(parent.minimumApprovals, own.minimumApprovals),
     independentJudges: Math.max(
       parent.independentJudges,
       own.independentJudges,
@@ -150,7 +145,7 @@ export function selectRigorProfile(
   const candidates = [
     floor,
     fallback,
-    ...matching.map(({ profileId }) => profiles.get(profileId) as RigorProfile),
+    ...matching.flatMap(({ profileId }) => profiles.get(profileId) ?? []),
   ];
   const selected = candidates.sort(
     (left, right) =>

@@ -1,7 +1,4 @@
 import {
-  authorizeControlTowerDataOperation,
-  classifyEvidenceTrust,
-  comparePolicyPackShadow,
   createHash,
   generateKeyPairSync,
   sign as nodeSign,
@@ -9,6 +6,9 @@ import {
 } from "node:crypto";
 
 import {
+  authorizeControlTowerDataOperation,
+  classifyEvidenceTrust,
+  comparePolicyPackShadow,
   createEvidenceAttestation,
   evaluateIndependentJudges,
   planControlTowerPublish,
@@ -108,6 +108,7 @@ describe("risk-adaptive policy packs", () => {
       comparePolicyPackShadow(
         {
           profileId: "standard",
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the fixture pack above always declares this profile
           requirements: pack.profiles[0]!.requirements,
         },
         selected,
@@ -290,6 +291,7 @@ describe("signed evidence attestations", () => {
       verifyEvidenceAttestation(
         attestation,
         {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the fixture always declares one trusted key
           trustedKeys: [{ ...trustedKeys[0]!, status: "revoked" }],
           now: "2026-08-15T13:00:00.000Z",
           seenNonces: new Set(),

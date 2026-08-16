@@ -1108,25 +1108,41 @@ async function readAdmissionClaim(
 async function locateAdmission(
   services: LockServices,
 ): Promise<AdmissionLocation | null> {
-  let names: readonly string[];
-  try {
-    const entry = await services.durableFileSystem.inspect(admissionClaim);
-    if (entry.kind === "missing") return null;
-    if (entry.kind !== "directory") throw corrupt(admissionClaim);
-    names = await services.durableFileSystem.list(admissionClaim);
-  } catch (error) {
-    if (error instanceof LockFailure) throw error;
-    // A published admission that its own holder retired between the
-    // inspection and the listing is gone, and nothing locates it.
-    if (await vanishedUnderLocks(admissionClaim, services)) return null;
-    throw internal();
+  let generations: readonly AdmissionLocation[] = [];
+  let legacy = false;
+  // A retirement removes a generation while a successor publishes another, so
+  // an observer landing between the two sees both. That pair is the protocol
+  // handing over, not damage, and re-observing lets the retirement finish —
+  // the same rule `inspectLeaseHeld` applies to a trail published before the
+  // lease that seals it. Only a pair that survives the bound is
+  // uninterpretable.
+  for (
+    let observation = 0;
+    observation < MAX_LEASE_OBSERVATIONS;
+    observation++
+  ) {
+    let names: readonly string[];
+    try {
+      const entry = await services.durableFileSystem.inspect(admissionClaim);
+      if (entry.kind === "missing") return null;
+      if (entry.kind !== "directory") throw corrupt(admissionClaim);
+      names = await services.durableFileSystem.list(admissionClaim);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      // A published admission that its own holder retired between the
+      // inspection and the listing is gone, and nothing locates it.
+      if (await vanishedUnderLocks(admissionClaim, services)) return null;
+      throw internal();
+    }
+    generations = names
+      .map(parseAdmissionGeneration)
+      .filter((value): value is AdmissionLocation => value !== null);
+    legacy = names.some(
+      (name) => name === "claim.json" || parseAdmissionTombstone(name) !== null,
+    );
+    if (generations.length <= 1 && !(generations.length !== 0 && legacy)) break;
+    await Promise.resolve();
   }
-  const generations = names
-    .map(parseAdmissionGeneration)
-    .filter((value): value is AdmissionLocation => value !== null);
-  const legacy = names.some(
-    (name) => name === "claim.json" || parseAdmissionTombstone(name) !== null,
-  );
   if (generations.length > 1 || (generations.length !== 0 && legacy))
     throw corrupt(admissionClaim);
   if (generations.length === 0) return legacy ? legacyAdmissionLocation : null;
@@ -1692,6 +1708,22 @@ function validateObservedClaim(
     !/^[a-f0-9]{64}$/u.test(observed.fingerprint.sha256)
   )
     throw internal();
+}
+
+/**
+ * Reports the admission holder that is blocking `resource`.
+ *
+ * Admission is an internal coordination namespace, so `conflict` refuses to
+ * surface a record whose resource is `"admission"`. Re-basing the holder onto
+ * the requested resource keeps that guard intact while still naming who is in
+ * the way: the alternative, a synthetic lease conflict, has no lease to read
+ * and ends up reporting the caller as their own blocker.
+ */
+function admissionConflict(
+  holder: LockClaimRecord,
+  resource: LeaseResource,
+): ClaimConflict {
+  return conflict({ ...holder, resource });
 }
 
 function conflict(record: LockClaimRecord): ClaimConflict {
@@ -2518,24 +2550,12 @@ async function withAdmission<T>(
     if (independentAdmissionScope(recovered.holder, resource)) {
       return operation();
     }
-    if (electionAttempt + 1 < MAX_ADMISSION_ELECTION_ATTEMPTS) {
-      await Promise.resolve();
-      return withAdmission(
-        resource,
-        owner,
-        services,
-        operation,
-        electionAttempt + 1,
-      );
-    }
-    const inspection = await inspectLeaseHeld(resource, services);
-    const held = leaseConflict(
-      inspection,
-      resource,
-      owner,
-      services.clock.now().toISOString(),
-    );
-    return held as T;
+    // A contender that finds admission held is reported rather than
+    // re-elected, which is the contract `docs/architecture/concurrency-locks.md`
+    // records. Re-electing here would spin without yielding: the recovery that
+    // produced this outcome already observed an unexpired holder, so nothing
+    // this attempt can do changes the answer before that holder expires.
+    return admissionConflict(recovered.holder, resource) as T;
   }
   if (recovered.kind === "lost")
     throw new LockFailure("runtime.recovery_required", [
@@ -2594,7 +2614,17 @@ async function withAdmission<T>(
         // The candidate is self-describing and will be reclaimed after expiry.
       }
     }
-    if (!electing) throw internal();
+    if (!electing) {
+      // A failure outside the exclusive publication is not contention, but
+      // the admission generation may still be occupied: by whoever won it
+      // meanwhile, or — when the publication itself succeeded and only its
+      // parent sync failed — by this very attempt, whose candidate was
+      // deliberately left in place above. Naming the observable holder is
+      // more useful than collapsing into an untyped internal failure.
+      const observed = await readAdmissionClaim(services);
+      if (observed !== null) return admissionConflict(observed, resource) as T;
+      throw internal();
+    }
     const recovery = await resolveAdmissionRecovery(services);
     if (recovery.kind === "blocked") {
       if (independentAdmissionScope(recovery.holder, resource)) {
@@ -2610,13 +2640,7 @@ async function withAdmission<T>(
           electionAttempt + 1,
         );
       }
-      const inspection = await inspectLeaseHeld(resource, services);
-      return leaseConflict(
-        inspection,
-        resource,
-        owner,
-        services.clock.now().toISOString(),
-      ) as T;
+      return admissionConflict(recovery.holder, resource) as T;
     }
     if (
       recovery.kind === "cleared" &&
@@ -2784,11 +2808,8 @@ export async function releaseClaim(
     throw internal();
   }
   await ensureLockNamespace(request.resource, services);
-  return withAdmission(
-    request.resource,
-    request.observed.owner,
-    services,
-    () => releaseClaimHeld(request, services),
+  return withAdmission(request.resource, request.observed.owner, services, () =>
+    releaseClaimHeld(request, services),
   );
 }
 

@@ -1,0 +1,88 @@
+name: Reproducible release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      # The build refuses to write inside the source tree, so it needs a
+      # directory outside it. `runner` is not a context any `env:` block may
+      # read — neither the workflow's nor the job's — and declaring it there is
+      # what made this file invalid, so the whole workflow never started. The
+      # equivalent environment variable is available to a step.
+      - name: Choose the build output directory
+        run: |
+          set -euo pipefail
+          printf 'KRATOS_BUILD_OUTPUT=%s\n' "$RUNNER_TEMP/kratos-plugin-build" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run benchmark
+      - name: Stage release, checksums, and SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-marketplace.tgz -C "$KRATOS_BUILD_OUTPUT" .
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-claude-code.tgz -C "$KRATOS_BUILD_OUTPUT/claude-code" .
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-codex.tgz -C "$KRATOS_BUILD_OUTPUT/codex" .
+          sha256sum release/*.tgz > release/SHA256SUMS
+          npm sbom --sbom-format cyclonedx > release/sbom.cdx.json
+      - name: Rebuild and prove archive reproducibility
+        run: |
+          set -euo pipefail
+          mkdir -p .reproducibility
+          cp release/kratos-marketplace.tgz .reproducibility/kratos-marketplace.first.tgz
+          cp release/kratos-claude-code.tgz .reproducibility/kratos-claude-code.first.tgz
+          cp release/kratos-codex.tgz .reproducibility/kratos-codex.first.tgz
+          npm run build
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-marketplace.second.tgz -C "$KRATOS_BUILD_OUTPUT" .
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-claude-code.second.tgz -C "$KRATOS_BUILD_OUTPUT/claude-code" .
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-codex.second.tgz -C "$KRATOS_BUILD_OUTPUT/codex" .
+          cmp .reproducibility/kratos-marketplace.first.tgz .reproducibility/kratos-marketplace.second.tgz
+          cmp .reproducibility/kratos-claude-code.first.tgz .reproducibility/kratos-claude-code.second.tgz
+          cmp .reproducibility/kratos-codex.first.tgz .reproducibility/kratos-codex.second.tgz
+      - name: Attest plugin archive
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v3.0.0
+        with:
+          subject-path: release/*.tgz
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kratos-${{ github.ref_name }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish immutable tagged release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # ROADMAP.md promotes this project by evidence, and every criterion
+          # for Preview is still open. A `0.x` tag is published as a
+          # pre-release so the stage the roadmap records is the stage GitHub
+          # shows. Drop the flag when the roadmap promotes the project, not
+          # before.
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --verify-tag \
+            --prerelease \
+            --title "Kratos $GITHUB_REF_NAME" \
+            --generate-notes

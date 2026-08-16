@@ -22,9 +22,7 @@ export type DeliveryDecision =
       readonly kind: "rejected";
       readonly stateChanged: false;
       readonly reason:
-        | "correlation_mismatch"
-        | "operation_mismatch"
-        | "out_of_order";
+        "correlation_mismatch" | "operation_mismatch" | "out_of_order";
       readonly cursor: DeliveryCursor | null;
     };
 
@@ -118,9 +116,7 @@ const CAPABILITY_BY_KIND = Object.freeze({
   error: "lifecycle.error",
 } as const satisfies Readonly<Record<HostOperationMessageV1["kind"], string>>);
 
-export function requiredCapability(
-  message: HostOperationMessageV1,
-): string {
+export function requiredCapability(message: HostOperationMessageV1): string {
   return CAPABILITY_BY_KIND[message.kind];
 }
 

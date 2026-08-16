@@ -4,8 +4,8 @@
 
 - Status: Approved
 - Decision date: 2026-08-07
-- Tracking issue: [#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11)
-- Parent epic: [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
+- Tracking issue: [#11](https://github.com/thiagocorreanet/kratos-harness/issues/11)
+- Parent epic: [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8)
 - Depends on: [Go v3 oracle](../../compatibility/go-v3-v0.6.5-baseline.md) and [parity inventory](../../compatibility/parity-inventory.md)
 - Approval basis: maintainer-authorized autonomous recommendation
 

@@ -1,10 +1,10 @@
 # Atomic Filesystem Transactions and Crash Recovery Design
 
-Issue [#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20)
+Issue [#20](https://github.com/thiagocorreanet/kratos-harness/issues/20)
 (`RUN-05`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#18](https://github.com/thiagocorreanet/mestre-yoda/issues/18) (`RUN-03`) and
-[#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19) (`RUN-04`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#18](https://github.com/thiagocorreanet/kratos-harness/issues/18) (`RUN-03`) and
+[#19](https://github.com/thiagocorreanet/kratos-harness/issues/19) (`RUN-04`).
 
 ## Problem
 

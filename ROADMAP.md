@@ -19,14 +19,14 @@ installation or production-use promise.
 
 The delivery sequence is visible through these public epics:
 
-- [Foundation](https://github.com/thiagocorreanet/mestre-yoda/issues/1)
-- [Compatibility Contract](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
-- [Deterministic Runtime](https://github.com/thiagocorreanet/mestre-yoda/issues/15)
-- [SDD Workflow Parity](https://github.com/thiagocorreanet/mestre-yoda/issues/24)
-- [Host Integrations](https://github.com/thiagocorreanet/mestre-yoda/issues/34)
-- [Migration and Observability](https://github.com/thiagocorreanet/mestre-yoda/issues/40)
-- [Quality Campaign](https://github.com/thiagocorreanet/mestre-yoda/issues/48)
-- [Public Beta](https://github.com/thiagocorreanet/mestre-yoda/issues/57)
+- [Foundation](https://github.com/thiagocorreanet/kratos-harness/issues/1)
+- [Compatibility Contract](https://github.com/thiagocorreanet/kratos-harness/issues/8)
+- [Deterministic Runtime](https://github.com/thiagocorreanet/kratos-harness/issues/15)
+- [SDD Workflow Parity](https://github.com/thiagocorreanet/kratos-harness/issues/24)
+- [Host Integrations](https://github.com/thiagocorreanet/kratos-harness/issues/34)
+- [Migration and Observability](https://github.com/thiagocorreanet/kratos-harness/issues/40)
+- [Quality Campaign](https://github.com/thiagocorreanet/kratos-harness/issues/48)
+- [Public Beta](https://github.com/thiagocorreanet/kratos-harness/issues/57)
 
 ### Promotion to Preview
 

@@ -22,7 +22,7 @@ matches the work:
   prove the correction.
 
 Blank public issues are disabled. Suspected vulnerabilities and exposed secrets
-use [private vulnerability reporting](https://github.com/thiagocorreanet/mestre-yoda/security/advisories/new),
+use [private vulnerability reporting](https://github.com/thiagocorreanet/kratos-harness/security/advisories/new),
 not an Issue Form. General routing follows [SUPPORT.md](../../SUPPORT.md).
 
 Maintainers triage duplicates, scope, dependencies, work ID, labels, milestone,
@@ -145,7 +145,7 @@ across roadmap exports, migrations, and repository history.
 
 ## Branch and release flow
 
-The proposed flow is not active until [issue #60](https://github.com/thiagocorreanet/mestre-yoda/issues/60)
+The proposed flow is not active until [issue #60](https://github.com/thiagocorreanet/kratos-harness/issues/60)
 creates/configures the branches and protections:
 
 ```text

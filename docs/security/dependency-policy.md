@@ -1,6 +1,6 @@
 # Dependency Policy
 
-Issue [#114](https://github.com/thiagocorreanet/mestre-yoda/issues/114)
+Issue [#114](https://github.com/thiagocorreanet/kratos-harness/issues/114)
 (`QAL-04a`) asks which dependencies this project may take and what happens when
 one of them turns out to be vulnerable. This document answers both, names the
 file or test that enforces each answer, and states plainly where enforcement is
@@ -136,7 +136,7 @@ deliberately does not follow a version bump.
 
 The cost is that the bump and the approval have to travel together, and
 Dependabot can only write the first half.
-[#120](https://github.com/thiagocorreanet/mestre-yoda/pull/120) bumped
+[#120](https://github.com/thiagocorreanet/kratos-harness/pull/120) bumped
 `esbuild` from 0.28.1 to 0.28.2, merged with the approval still naming 0.28.1,
 and `npm ci` then refused on `main` for everyone. Re-approve in the same pull
 request as the bump:
@@ -153,7 +153,7 @@ instead of an install.
 `minor` and `patch`, so a major release leaves the group and arrives as its own
 pull request. Grouping exists to spare a reviewer three pull requests that need
 nothing from them; a major needs the opposite, and a group hides it.
-[#119](https://github.com/thiagocorreanet/mestre-yoda/pull/119) bumped
+[#119](https://github.com/thiagocorreanet/kratos-harness/pull/119) bumped
 `@types/node` from 24 to 26 inside the `types` group, and the breaking change it
 carried surfaced as four `TS2722` errors in the worker fixtures rather than as
 anything the pull request said. The restriction does not refuse a major — it

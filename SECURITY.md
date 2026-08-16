@@ -23,7 +23,7 @@ legacy installation.
 ## Report a vulnerability
 
 Use GitHub's private
-[Report a vulnerability](https://github.com/thiagocorreanet/kratos/security/advisories/new)
+[Report a vulnerability](https://github.com/thiagocorreanet/kratos-harness/security/advisories/new)
 form. **Do not open a public issue**, pull request, discussion, or paste
 containing suspected vulnerability, secret, or exploit details before
 maintainers complete private triage and agree on coordinated disclosure.

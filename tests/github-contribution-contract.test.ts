@@ -342,9 +342,7 @@ describe("pull request and contribution workflow contract", () => {
 
 describe("local draft discovery", () => {
   it("renders and removes one complete temporary draft per form", async () => {
-    const draftRoot = await mkdtemp(
-      join(tmpdir(), "kratos-issue-drafts-"),
-    );
+    const draftRoot = await mkdtemp(join(tmpdir(), "kratos-issue-drafts-"));
     try {
       for (const filename of formFiles) {
         const form = await readForm(filename);

@@ -1,10 +1,10 @@
-import type {
-  CommandObservation,
-  Invocation,
-} from "../domain/cli/index.js";
+import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import { classifyHostContract } from "../domain/host/index.js";
 import { usageFailure, type Result } from "../domain/result/index.js";
-import { prepareContract, type SchemaRegistry } from "../domain/schema/index.js";
+import {
+  prepareContract,
+  type SchemaRegistry,
+} from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
@@ -20,7 +20,9 @@ export async function observeHostOperation(
   const anchored = anchorPorts(root.target, ports);
   const input = await anchored.standardInput.read();
   if (input === null || input.trim().length === 0) {
-    return failure("The hook command requires one JSON message on standard input.");
+    return failure(
+      "The hook command requires one JSON message on standard input.",
+    );
   }
 
   const document = parse(input);
@@ -53,6 +55,9 @@ function parse(text: string): unknown {
   }
 }
 
-function failure(why: string): { readonly kind: "failure"; readonly result: Result } {
+function failure(why: string): {
+  readonly kind: "failure";
+  readonly result: Result;
+} {
   return { kind: "failure", result: usageFailure(why) };
 }

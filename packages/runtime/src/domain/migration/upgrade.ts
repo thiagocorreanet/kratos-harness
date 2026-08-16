@@ -32,7 +32,9 @@ export function upgradeState(
   while (current !== target) {
     if (visited.has(current)) return { kind: "unsupported", path };
     visited.add(current);
-    const candidates = upgrades.filter(({ from: source }) => source === current);
+    const candidates = upgrades.filter(
+      ({ from: source }) => source === current,
+    );
     if (candidates.length !== 1) return { kind: "unsupported", path };
     const step = candidates[0];
     if (step === undefined) return { kind: "unsupported", path };

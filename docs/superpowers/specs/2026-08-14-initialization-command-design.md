@@ -1,11 +1,11 @@
 # Initialization Command Design
 
 Task 5 of the plan for issue
-[#25](https://github.com/thiagocorreanet/mestre-yoda/issues/25) (`SDD-01`).
+[#25](https://github.com/thiagocorreanet/kratos-harness/issues/25) (`SDD-01`).
 Extends the design in
 [`2026-08-13-project-initialization-design.md`](./2026-08-13-project-initialization-design.md)
 with the three decisions its plan assumed rather than made. Depends on
-[#101](https://github.com/thiagocorreanet/mestre-yoda/issues/101) (`RUN-05a`)
+[#101](https://github.com/thiagocorreanet/kratos-harness/issues/101) (`RUN-05a`)
 for the destinations outside `.brain/`.
 
 ## Problem

@@ -1,6 +1,6 @@
 # Issue #22 Concurrency Lock Evidence
 
-Issue [#22](https://github.com/thiagocorreanet/mestre-yoda/issues/22)
+Issue [#22](https://github.com/thiagocorreanet/kratos-harness/issues/22)
 (`RUN-07`) records verification for durable concurrency locks and recoverable
 work leases. This record does not claim compatibility parity credit or a public
 command.
@@ -109,8 +109,8 @@ into `unchanged` because the residue they left was a concurrent removal rather
 than uninterpretable bytes.
 
 Two behaviours remain open on
-[#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) and are carried
-into [#106](https://github.com/thiagocorreanet/mestre-yoda/issues/106), both
+[#99](https://github.com/thiagocorreanet/kratos-harness/issues/99) and are carried
+into [#106](https://github.com/thiagocorreanet/kratos-harness/issues/106), both
 recorded by that suite rather than assumed away:
 
 - A contender that loses the admission election is reported instead of

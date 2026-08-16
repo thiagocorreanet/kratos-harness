@@ -1,4 +1,9 @@
-import type { EvidenceV1, SnapshotV1 } from "@kratos/contracts";
+import type {
+  ApprovalV1,
+  EventV1,
+  EvidenceV1,
+  SnapshotV1,
+} from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -29,10 +34,7 @@ import {
 } from "../domain/workflow/index.js";
 import type { GitPath } from "../domain/git/index.js";
 import { verifyEvidence } from "../domain/evidence/index.js";
-import {
-  evaluateGates,
-  type GateMode,
-} from "../domain/gates/index.js";
+import { evaluateGates, type GateMode } from "../domain/gates/index.js";
 import {
   auditSnapshot,
   buildEvidenceBundle,
@@ -70,8 +72,11 @@ export async function observeWorkflow(
       ? EMPTY_DIGEST
       : await fileDigest(featurePaths(feature).state, anchored);
   const tokenBudget =
-    feature === null ? null : await activeTokenBudget(feature, anchored, registry);
-  const activeRun = feature === null ? null : await activeRunId(feature, anchored);
+    feature === null
+      ? null
+      : await activeTokenBudget(feature, anchored, registry);
+  const activeRun =
+    feature === null ? null : await activeRunId(feature, anchored);
   const requestedRun = invocation.flags.get("--run-id");
   const runId =
     activeRun ??
@@ -110,7 +115,9 @@ export async function observeWorkflow(
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(configuration, anchored);
   const validApprovals = approvals.values.filter((approval, index, values) => {
-    const seen = new Set(values.slice(0, index).map(({ approvalId }) => approvalId));
+    const seen = new Set(
+      values.slice(0, index).map(({ approvalId }) => approvalId),
+    );
     return (
       validateApproval(
         approval,
@@ -169,11 +176,11 @@ export async function observeWorkflow(
         } as const)
       : run.persistedSnapshot === null || run.replayedSnapshot === null
         ? null
-      : auditSnapshot(
-          run.persistedSnapshot,
-          run.replayedSnapshot,
-          anchored.digests,
-        );
+        : auditSnapshot(
+            run.persistedSnapshot,
+            run.replayedSnapshot,
+            anchored.digests,
+          );
   const repairPlan =
     integrityAudit === null || run.replayedSnapshot === null
       ? null
@@ -266,6 +273,19 @@ function approvalRevision(gate: string, revision: number): number {
   return gate === "final-acceptance" ? revision : 0;
 }
 
+/**
+ * Lineage read back from disk is untrusted input. Widening the fields the
+ * validation below actually re-checks keeps every guard meaningful instead of
+ * asserting the parsed value already satisfies the contract.
+ */
+type ArtifactLineageCandidate = Omit<
+  ArtifactLineage,
+  "contractVersion" | "observedIdentity"
+> & {
+  readonly contractVersion: string;
+  readonly observedIdentity?: ArtifactLineage["observedIdentity"] | undefined;
+};
+
 async function observeArtifactLineage(
   configuration: WorkflowReducerConfiguration,
   ports: RuntimePorts,
@@ -283,15 +303,16 @@ async function observeArtifactLineage(
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const parsed = JSON.parse(
         await ports.durableFileSystem.readText(`${root}/${name}`),
-      ) as ArtifactLineage;
+      ) as ArtifactLineageCandidate;
       if (
         parsed.contractVersion !== "1.0.0" ||
         typeof parsed.artifactId !== "string" ||
         typeof parsed.artifactRef !== "string" ||
         !/^[a-f0-9]{64}$/u.test(parsed.artifactDigest) ||
         !Array.isArray(parsed.parentDigests) ||
-        !parsed.parentDigests.every((digest) =>
-          /^[a-f0-9]{64}$/u.test(digest),
+        !parsed.parentDigests.every(
+          (digest: unknown) =>
+            typeof digest === "string" && /^[a-f0-9]{64}$/u.test(digest),
         ) ||
         parsed.runId !== configuration.runId ||
         !RUN_PHASES.includes(parsed.phase as (typeof RUN_PHASES)[number]) ||
@@ -312,11 +333,14 @@ async function observeArtifactLineage(
       ) {
         return { readable: false, values: [] };
       }
-      values.push(parsed);
+      values.push(parsed as ArtifactLineage);
     }
     const validation = validateLineageDag(
       values,
-      new Set([configuration.lineage.prdDigest, configuration.lineage.specDigest]),
+      new Set([
+        configuration.lineage.prdDigest,
+        configuration.lineage.specDigest,
+      ]),
     );
     return validation.kind === "valid"
       ? { readable: true, values }
@@ -396,7 +420,9 @@ async function observePolicy(
     const validated = registry.validate({
       id: "state.project-config",
       version: "1.0.0",
-      value: JSON.parse(await ports.durableFileSystem.readText(path)) as unknown,
+      value: JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown,
       structuralReasonCode: "runtime.state_corrupt",
     });
     if (validated.kind !== "valid") {
@@ -443,7 +469,9 @@ async function observeEvidence(
       const validated = registry.validate({
         id: "state.evidence",
         version: "1.0.0",
-        value: JSON.parse(await ports.durableFileSystem.readText(path)) as unknown,
+        value: JSON.parse(
+          await ports.durableFileSystem.readText(path),
+        ) as unknown,
         structuralReasonCode: "runtime.state_corrupt",
       });
       if (validated.kind !== "valid") {
@@ -519,14 +547,14 @@ async function observeApprovals(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly import("@kratos/contracts").ApprovalV1[];
+  readonly values: readonly ApprovalV1[];
 }> {
   const root = `.brain/02-features/${configuration.feature}/runs/${configuration.runId}/approvals`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: import("@kratos/contracts").ApprovalV1[] = [];
+    const values: ApprovalV1[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
@@ -566,7 +594,9 @@ async function hasActiveObjective(
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<boolean> {
-  const entry = await ports.durableFileSystem.inspect(featurePaths(feature).state);
+  const entry = await ports.durableFileSystem.inspect(
+    featurePaths(feature).state,
+  );
   if (entry.kind !== "file") return false;
   try {
     const validated = registry.validate({
@@ -598,7 +628,9 @@ async function activeTokenBudget(
     const validated = registry.validate({
       id: "state.feature",
       version: "1.0.0",
-      value: JSON.parse(await ports.durableFileSystem.readText(path)) as unknown,
+      value: JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown,
       structuralReasonCode: "runtime.state_corrupt",
     });
     return validated.kind === "valid"
@@ -616,7 +648,9 @@ async function activeRunId(
   const path = activeRunPath(feature);
   const entry = await ports.durableFileSystem.inspect(path);
   if (entry.kind !== "file") return null;
-  const value = (await ports.durableFileSystem.readText(path)).split("\n")[0]?.trim();
+  const value = (await ports.durableFileSystem.readText(path))
+    .split("\n")[0]
+    ?.trim();
   return value === undefined || value === "" ? null : value;
 }
 
@@ -651,7 +685,7 @@ async function observeRun(
   registry: SchemaRegistry,
 ): Promise<{
   readonly workflow: WorkflowObservation;
-  readonly events: readonly import("@kratos/contracts").EventV1[];
+  readonly events: readonly EventV1[];
   readonly persistedSnapshot: SnapshotV1 | null;
   readonly replayedSnapshot: SnapshotV1 | null;
 }> {
@@ -682,7 +716,7 @@ async function observeRun(
       structuralReasonCode: "runtime.state_corrupt",
     });
     if (validated.kind !== "valid") return corruptRun();
-    const state = validated.value as SnapshotV1;
+    const state = validated.value;
     const replayConfiguration: WorkflowReducerConfiguration = {
       projectId: state.projectId,
       feature: configuration.feature,
@@ -717,7 +751,7 @@ async function observeRun(
 
 function corruptRun(): {
   readonly workflow: WorkflowObservation;
-  readonly events: readonly import("@kratos/contracts").EventV1[];
+  readonly events: readonly EventV1[];
   readonly persistedSnapshot: null;
   readonly replayedSnapshot: null;
 } {

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { buildPlugin, hostPackage } from "./support/built-plugin";
+import { buildPlugin, hostPackage } from "./support/built-plugin.js";
 
 let cleanRoom = "";
 let isolatedArtifact = "";

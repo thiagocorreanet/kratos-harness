@@ -2,7 +2,7 @@
 
 ## Result
 
-Issue [#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20)
+Issue [#20](https://github.com/thiagocorreanet/kratos-harness/issues/20)
 (`RUN-05`) is verified as the runtime's internal durable filesystem transaction
 boundary. The implementation provides typed execution, inspection, and explicit
 recovery APIs; it does not add a public recovery command or claim a usable SDD

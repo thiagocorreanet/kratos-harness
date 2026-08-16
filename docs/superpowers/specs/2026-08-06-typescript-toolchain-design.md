@@ -2,7 +2,7 @@
 
 - Status: Approved
 - Decision date: 2026-08-06
-- Tracking issue: [#3](https://github.com/thiagocorreanet/mestre-yoda/issues/3)
+- Tracking issue: [#3](https://github.com/thiagocorreanet/kratos-harness/issues/3)
 - Depends on: [Yoda Observable Architecture Specification](2026-08-06-yoda-observable-architecture-design.md)
 - Approval basis: Maintainer-authorized autonomous recommendation
 

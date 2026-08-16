@@ -1,10 +1,10 @@
 # Git Service and Repository-State Classification Design
 
-Issue [#23](https://github.com/thiagocorreanet/mestre-yoda/issues/23)
+Issue [#23](https://github.com/thiagocorreanet/kratos-harness/issues/23)
 (`RUN-08`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`) and
-[#18](https://github.com/thiagocorreanet/mestre-yoda/issues/18) (`RUN-03`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`) and
+[#18](https://github.com/thiagocorreanet/kratos-harness/issues/18) (`RUN-03`).
 
 ## Problem
 
@@ -412,7 +412,7 @@ corpus" is therefore delivered as a property of the normalization — byte
 ordering, `/` separators, explicit decoding, no locale dependence — proven on
 Linux by the scenario corpus and by property tests. The real operating-system
 matrix belongs to
-[#51](https://github.com/thiagocorreanet/mestre-yoda/issues/51) (`QAL-03`),
+[#51](https://github.com/thiagocorreanet/kratos-harness/issues/51) (`QAL-03`),
 whose title is "Build the real-Git and cross-platform integration matrix".
 
 This is recorded as an explicit scope decision. The acceptance criterion is not

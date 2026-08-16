@@ -187,7 +187,8 @@ function validateSchema(
     const types = schema.type.filter(
       (candidate): candidate is string => typeof candidate === "string",
     );
-    if (types.length !== schema.type.length) throw new Error("Invalid type list");
+    if (types.length !== schema.type.length)
+      throw new Error("Invalid type list");
     if (!types.some((type) => valueType(value, type))) {
       addError(errors, "type", instancePath);
       return false;
@@ -259,7 +260,8 @@ function validateSchema(
     const properties = object(schema.properties) ?? {};
     if (Array.isArray(schema.required)) {
       for (const property of schema.required) {
-        if (typeof property !== "string") throw new Error("Invalid requirement");
+        if (typeof property !== "string")
+          throw new Error("Invalid requirement");
         if (!Object.hasOwn(record, property)) {
           addError(errors, "required", instancePath, {
             missingProperty: property,
@@ -313,6 +315,7 @@ function validateSchema(
 export class Ajv2020 {
   readonly #schemas = new Map<string, JsonSchema>();
 
+  // eslint-disable-next-line @typescript-eslint/no-useless-constructor, @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function -- the options parameter exists only for `ajv` constructor parity; this offline subset honours none of them
   public constructor(_options: Readonly<Record<string, unknown>> = {}) {}
 
   public addSchema(value: object): void {

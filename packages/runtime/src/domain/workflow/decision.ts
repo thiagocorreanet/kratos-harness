@@ -52,10 +52,14 @@ function hasOperation(
   observation: WorkflowObservation,
   operation: string,
 ): boolean {
-  return (
-    observation.kind !== "corrupt" &&
-    observation.operations.includes(operation)
-  );
+  switch (observation.kind) {
+    case "absent":
+      return observation.operations.includes(operation);
+    case "present":
+      return observation.state.operations.includes(operation);
+    case "corrupt":
+      return false;
+  }
 }
 
 function event(
@@ -66,7 +70,10 @@ function event(
     readonly revision: number;
     readonly identity: WorkflowIdentity;
   },
-  transition: Extract<WorkflowDecision, { readonly kind: "recorded" }>["transition"],
+  transition: Extract<
+    WorkflowDecision,
+    { readonly kind: "recorded" }
+  >["transition"],
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
 ): EventDraftV1 {
@@ -244,7 +251,10 @@ function recorded(
   request: ContinueWorkflowRequest,
   operation: string,
   revision: number,
-  transition: Extract<WorkflowDecision, { readonly kind: "recorded" }>["transition"],
+  transition: Extract<
+    WorkflowDecision,
+    { readonly kind: "recorded" }
+  >["transition"],
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
 ): WorkflowDecision {

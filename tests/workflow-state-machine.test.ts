@@ -27,8 +27,7 @@ const configuration = {
 };
 const services = {
   digests: {
-    sha256: (value: string) =>
-      createHash("sha256").update(value).digest("hex"),
+    sha256: (value: string) => createHash("sha256").update(value).digest("hex"),
   },
   isProxy: () => false,
   isPromise: () => false,
@@ -158,7 +157,11 @@ describe("workflow start and continuation", () => {
       },
     );
     if (started.kind !== "recorded") throw new Error("start refused");
-    const first = sealEvent(started.event, { revision: 0, hash: null }, services);
+    const first = sealEvent(
+      started.event,
+      { revision: 0, hash: null },
+      services,
+    );
     const observed = present();
     const continued = decideContinueWorkflow(observed, {
       feature: "workflow",

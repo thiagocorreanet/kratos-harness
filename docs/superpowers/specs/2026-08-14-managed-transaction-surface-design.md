@@ -1,10 +1,10 @@
 # Managed Transaction Surface Design
 
-Issue [#101](https://github.com/thiagocorreanet/mestre-yoda/issues/101)
+Issue [#101](https://github.com/thiagocorreanet/kratos-harness/issues/101)
 (`RUN-05a`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Extends
-[#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20) (`RUN-05`) and
-unblocks [#25](https://github.com/thiagocorreanet/mestre-yoda/issues/25)
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Extends
+[#20](https://github.com/thiagocorreanet/kratos-harness/issues/20) (`RUN-05`) and
+unblocks [#25](https://github.com/thiagocorreanet/kratos-harness/issues/25)
 (`SDD-01`).
 
 ## Problem

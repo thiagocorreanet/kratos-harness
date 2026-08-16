@@ -85,7 +85,9 @@ describe("done acceptance", () => {
       artifactDigest: "d".repeat(64),
       parentDigests: [parent.artifactDigest],
     };
-    expect(validateLineageDag([child, parent], new Set(lineage.parentDigests))).toMatchObject({
+    expect(
+      validateLineageDag([child, parent], new Set(lineage.parentDigests)),
+    ).toMatchObject({
       kind: "valid",
     });
     expect(validateLineageDag([child], new Set())).toMatchObject({
@@ -94,10 +96,7 @@ describe("done acceptance", () => {
     });
     expect(
       validateLineageDag(
-        [
-          { ...parent, parentDigests: [child.artifactDigest] },
-          child,
-        ],
+        [{ ...parent, parentDigests: [child.artifactDigest] }, child],
         new Set(),
       ),
     ).toMatchObject({ kind: "cycle" });

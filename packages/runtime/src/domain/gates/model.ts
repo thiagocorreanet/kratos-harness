@@ -16,13 +16,7 @@ export type GateId = (typeof GATE_IDS)[number];
 
 export interface GateContext {
   readonly mode: GateMode;
-  readonly phase:
-    | "prd"
-    | "spec"
-    | "plan"
-    | "code"
-    | "review"
-    | "acceptance";
+  readonly phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
   readonly contextReadable: boolean;
   readonly stopLoss: { readonly tripped: boolean; readonly exhausted: boolean };
   readonly prdDigest: string | null;

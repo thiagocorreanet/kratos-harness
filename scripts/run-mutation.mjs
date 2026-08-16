@@ -3,7 +3,9 @@ import { stripTypeScriptTypes } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+const root = dirname(
+  fileURLToPath(new URL("../package.json", import.meta.url)),
+);
 const source = await readFile(
   join(root, "packages/runtime/src/domain/gates/evaluate.ts"),
   "utf8",
@@ -56,17 +58,9 @@ function observations(evaluate) {
 const original = await load(javascript, "original");
 const expected = JSON.stringify(observations(original.evaluateGates));
 const mutations = [
-  [
-    "enforce-mode",
-    'context.mode === "enforce"',
-    'context.mode === "shadow"',
-  ],
+  ["enforce-mode", 'context.mode === "enforce"', 'context.mode === "shadow"'],
   ["open-gaps", "context.openGaps > 0", "context.openGaps < 0"],
-  [
-    "empty-failures",
-    "failures.length === 0",
-    "failures.length !== 0",
-  ],
+  ["empty-failures", "failures.length === 0", "failures.length !== 0"],
 ];
 let killed = 0;
 for (const [name, before, after] of mutations) {

@@ -1,0 +1,19 @@
+no_progress = true
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+max_concurrency = 8
+accept = ["200..=204"]
+include_fragments = "full"
+include_mail = false
+
+# These appear inside fenced code blocks in the plan records and are not
+# navigable targets: the `mestre-yoda.dev` values are JSON Schema `$id`
+# identifiers, which are URIs that are deliberately never dereferenced, and the
+# reserved `.invalid` and `.test` TLDs are test-case literals that RFC 6761
+# guarantees will never resolve.
+exclude = [
+  "^https://mestre-yoda\\.dev/",
+  "^https://x\\.invalid",
+  "^https://example\\.test",
+]

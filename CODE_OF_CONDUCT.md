@@ -59,7 +59,7 @@ acting as an appointed representative at an online or offline event.
 
 When the Project Lead is not involved in an incident, report it confidentially
 through GitHub's
-[private reporting form](https://github.com/thiagocorreanet/kratos/security/advisories/new)
+[private reporting form](https://github.com/thiagocorreanet/kratos-harness/security/advisories/new)
 with a title beginning `CODE OF CONDUCT`. Do not include vulnerability details
 unless the same report also concerns a security issue. The Project Lead acts as
 Community Moderator and keeps the report private, sharing information only as

@@ -1,9 +1,9 @@
 # Project Discovery and `.brain` Configuration Resolution Design
 
-Issue [#18](https://github.com/thiagocorreanet/mestre-yoda/issues/18) (`RUN-03`).
-Epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15).
-Depends on [#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`)
-and [#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12) (`CMP-04`).
+Issue [#18](https://github.com/thiagocorreanet/kratos-harness/issues/18) (`RUN-03`).
+Epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15).
+Depends on [#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`)
+and [#12](https://github.com/thiagocorreanet/kratos-harness/issues/12) (`CMP-04`).
 
 ## Problem
 
@@ -50,7 +50,7 @@ have changed anything on the way to failing.
 ## Non-goals
 
 - Command routing, flag parsing, the result envelope, and rendering. Those are
-  [#17](https://github.com/thiagocorreanet/mestre-yoda/issues/17) (`RUN-02`).
+  [#17](https://github.com/thiagocorreanet/kratos-harness/issues/17) (`RUN-02`).
   This issue defines what `--root` and `--worktree-local` *mean*; the parser
   that accepts them and the renderer that reports the failure belong there.
 - Registering any command. `init`, `doctor`, `status`, and `migrate` are owned

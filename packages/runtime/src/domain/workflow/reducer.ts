@@ -46,7 +46,7 @@ export function reduceWorkflow(
   ) {
     throw new Error("Unsupported workflow event");
   }
-  let status = state.status;
+  let status: WorkflowState["status"];
   let currentStep = state.currentStep;
   switch (event.reasonCode) {
     case "run.started":

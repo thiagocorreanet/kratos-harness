@@ -1,0 +1,7 @@
+# Default ownership for all repository content.
+* @thiagocorreanet
+
+# Protect repository automation, ownership, governance, and security policy.
+/.github/ @thiagocorreanet
+/GOVERNANCE.md @thiagocorreanet
+/SECURITY.md @thiagocorreanet

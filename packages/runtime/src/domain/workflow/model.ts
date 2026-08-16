@@ -100,11 +100,7 @@ export type WorkflowDecision =
   | {
       readonly kind: "recorded";
       readonly transition:
-        | "started"
-        | "resumed"
-        | "accepted"
-        | "rejected"
-        | "completed";
+        "started" | "resumed" | "accepted" | "rejected" | "completed";
       readonly event: EventDraftV1;
     }
   | {

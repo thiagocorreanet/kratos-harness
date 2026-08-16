@@ -2,10 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  readOnlyPorts,
-  ReadOnlyViolation,
-} from "@kratos/runtime/composition";
+import { readOnlyPorts, ReadOnlyViolation } from "@kratos/runtime/composition";
 import { memoryWorkspace, pipedInput } from "@kratos/runtime/infra/fake";
 import {
   nodeClock,

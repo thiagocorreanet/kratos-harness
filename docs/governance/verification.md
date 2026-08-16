@@ -1,7 +1,7 @@
 # Governance and Community-Path Verification
 
 - Verification date: 2026-08-06 (America/Sao_Paulo)
-- Tracking issue: [#4](https://github.com/thiagocorreanet/mestre-yoda/issues/4)
+- Tracking issue: [#4](https://github.com/thiagocorreanet/kratos-harness/issues/4)
 - Branch: `docs/issue-4-governance`
 - Policy commit: `dc6e40d`
 - Status: Complete
@@ -71,7 +71,7 @@ unfilled-template rejection.
 
 ## Post-merge closure evidence
 
-PR [#72](https://github.com/thiagocorreanet/mestre-yoda/pull/72) merged as
+PR [#72](https://github.com/thiagocorreanet/kratos-harness/pull/72) merged as
 `f10d4b3d2be6760c17ce7bbfae8d38b8da7d2bb8`. The following checks were then
 performed against `main`:
 
@@ -82,7 +82,7 @@ performed against `main`:
 | Security policy | `/security/policy` resolved with HTTP 200 |
 | CODEOWNERS errors | Empty `errors` array |
 | Private vulnerability reporting | `enabled: true` |
-| Documentation workflow | [Successful](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31141856101) |
+| Documentation workflow | Successful (predecessor run `31141856101`) |
 
 The remaining community-profile percentage belongs to issue and pull request
 templates, intentionally owned by issue #6. GitHub recognizes the adapted Code

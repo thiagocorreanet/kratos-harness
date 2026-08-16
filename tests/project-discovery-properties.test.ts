@@ -4,10 +4,7 @@ import {
   discoverProject,
   observeWorkspace,
 } from "@kratos/runtime/composition/discovery";
-import {
-  fixedEnvironment,
-  memoryWorkspace,
-} from "@kratos/runtime/infra/fake";
+import { fixedEnvironment, memoryWorkspace } from "@kratos/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
 
 function generator(seed: number): () => number {

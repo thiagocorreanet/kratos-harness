@@ -21,7 +21,7 @@ in English.
 
 ## Before starting
 
-1. Search the [current Kratos backlog](https://github.com/thiagocorreanet/kratos/issues) and the
+1. Search the [current Kratos backlog](https://github.com/thiagocorreanet/kratos-harness/issues) and the
    [inherited requirements ledger](KRATOS_BACKLOG.md) for an existing issue,
    then read its epic, dependencies, and architecture links.
 2. For a new public contract or structural change, open a focused issue before

@@ -194,7 +194,9 @@ describe("node workspace edge classifications", () => {
   });
 
   it("refuses a malformed Git marker instead of selecting it as a root", async () => {
-    const root = await mkdtemp(join(tmpdir(), "kratos-workspace-malformed-git-"));
+    const root = await mkdtemp(
+      join(tmpdir(), "kratos-workspace-malformed-git-"),
+    );
     try {
       await writeFile(
         join(root, ".git"),

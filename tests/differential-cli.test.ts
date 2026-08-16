@@ -69,7 +69,9 @@ describe("differential harness CLI", () => {
   });
 
   it("rejects a corpus with no selected runnable scenarios", async () => {
-    const root = await mkdtemp(join(tmpdir(), "kratos-differential-cli-corpus-"));
+    const root = await mkdtemp(
+      join(tmpdir(), "kratos-differential-cli-corpus-"),
+    );
     temporaryRoots.push(root);
     const corpus = join(root, "corpus.json");
     await writeFile(

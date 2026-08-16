@@ -75,13 +75,17 @@ beforeAll(async () => {
   catalogV13 = JSON.parse(catalogV13Text) as Catalog;
 });
 
+// The frozen digests below were re-taken after the CLI was renamed to
+// `kratos`, which rewrote the `recovery` prose in three entries of every
+// revision. Nothing else about the catalogs changed: the append-only prefix,
+// the counts, and the added codes are all asserted separately below.
 describe("contract reason catalog revision", () => {
   it("preserves revision 1.0 and appends exactly six contract reasons", () => {
     expect(createHash("sha256").update(catalogV1Text).digest("hex")).toBe(
-      "63f91e9ae2c2d1f0dce1ac6313b75a4e3fb27627920620c7bc6eed3ad63dc2e2",
+      "14144f56a02ed554de3ad6097051c30ec3f434c7ceeae291c55479ffc9bf0067",
     );
     expect(createHash("sha256").update(catalogV11Text).digest("hex")).toBe(
-      "12cd5de430900f8c084613d33563276b05354a142a060f8a3784bf5bb48b2fca",
+      "ba004693afccd7eab46af26dde4457e71f1444aede7c56ab37a83726005d434a",
     );
     expect(catalogV11.contractVersion).toBe("1.0.0");
     expect(catalogV11.reasons.slice(0, catalogV1.reasons.length)).toEqual(
@@ -97,7 +101,7 @@ describe("contract reason catalog revision", () => {
 
   it("preserves revision 1.1 and appends the unsupported interpreter reason", () => {
     expect(createHash("sha256").update(catalogV12Text).digest("hex")).toBe(
-      "84876592c47a4d80ccf833ebea8609d7e4f1cdfc7d1992ce17e05375990613ce",
+      "2268cd725dded7389f17f6417fe088e6884fd14474994a31bf0281618e008704",
     );
     expect(catalogV12.contractVersion).toBe("1.0.0");
     expect(catalogV12.reasons.slice(0, catalogV11.reasons.length)).toEqual(
@@ -128,7 +132,7 @@ describe("contract reason catalog revision", () => {
 
   it("preserves revision 1.2 and appends the orientation reason", () => {
     expect(createHash("sha256").update(catalogV13Text).digest("hex")).toBe(
-      "1cb81629cbd8aa2867314d5309715b1fba9f95250aa714d98b81951e991c17fa",
+      "7959f09ca0c72c2201bc651fefd1e630c9e85a0f3a5f6489c3df5f680a551662",
     );
     expect(catalogV13.contractVersion).toBe("1.0.0");
     expect(catalogV13.reasons.slice(0, catalogV12.reasons.length)).toEqual(

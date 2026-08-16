@@ -13,7 +13,7 @@ composition root is the only code that applies effects or writes to a stream.
 **Tech Stack:** TypeScript 6, Node 24, Vitest, esbuild. No new dependency.
 
 Design: [`docs/superpowers/specs/2026-08-07-command-routing-design.md`](../specs/2026-08-07-command-routing-design.md).
-Issue [#17](https://github.com/thiagocorreanet/mestre-yoda/issues/17) (`RUN-02`).
+Issue [#17](https://github.com/thiagocorreanet/kratos-harness/issues/17) (`RUN-02`).
 
 ## Global Constraints
 

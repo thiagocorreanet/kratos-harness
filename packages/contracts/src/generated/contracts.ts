@@ -106,87 +106,6 @@ export namespace AdapterMessageV1Contract {
   }
 }
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
-export namespace HostOperationMessageV1Contract {
-  export type HostOperationMessageV1 =
-    | ApprovalMessage
-    | HookMessage
-    | TimeoutMessage
-    | CancellationMessage
-    | ErrorMessage;
-
-  export interface Envelope {
-    contractVersion: "1.0.0";
-    hostContract: "1.0.0";
-    messageId: string;
-    correlationId: string;
-    operationId: string;
-    sequence: number;
-    occurredAt: string;
-  }
-
-  export interface ArtifactReference {
-    ref: string;
-    sha256: string;
-  }
-
-  export interface MutationReport {
-    state: "none" | "prepared" | "publishing" | "committed";
-    transactionRef: string | null;
-  }
-
-  export interface ApprovalMessage extends Envelope {
-    kind: "approval";
-    payload: {
-      approvalId: string;
-      decision: "approved" | "rejected";
-      scope: string;
-      artifact: ArtifactReference;
-      challenge: string;
-      approver: string;
-      expiresAt: string | null;
-    };
-  }
-
-  export interface HookMessage extends Envelope {
-    kind: "hook";
-    payload: {
-      host: "claude-code" | "codex";
-      hook: string;
-      phase: "before" | "after";
-      artifact: ArtifactReference;
-    };
-  }
-
-  export interface TimeoutMessage extends Envelope {
-    kind: "timeout";
-    payload: {
-      deadline: string;
-      elapsedMs: number;
-      mutation: MutationReport;
-    };
-  }
-
-  export interface CancellationMessage extends Envelope {
-    kind: "cancellation";
-    payload: {
-      requestedBy: string;
-      reason: string;
-      mutation: MutationReport;
-    };
-  }
-
-  export interface ErrorMessage extends Envelope {
-    kind: "error";
-    payload: {
-      reasonCode: string;
-      retryable: boolean;
-      recovery: string;
-      mutation: MutationReport;
-    };
-  }
-}
-export type HostOperationMessageV1 =
-  HostOperationMessageV1Contract.HostOperationMessageV1;
 export namespace InitAnswersV1Contract {
   export interface InitAnswersV1 {
     contractVersion: "1.0.0";
@@ -201,6 +120,112 @@ export namespace InitAnswersV1Contract {
   }
 }
 export type InitAnswersV1 = InitAnswersV1Contract.InitAnswersV1;
+export namespace HostOperationMessageV1Contract {
+  export type HostOperationMessageV1 =
+    | ApprovalMessage
+    | HookMessage
+    | TimeoutMessage
+    | CancellationMessage
+    | ErrorMessage;
+  export type Id = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Mutation = {
+    [k: string]: unknown | undefined;
+  } & {
+    state: "none" | "prepared" | "publishing" | "committed";
+    transactionRef: Reference | null;
+  };
+  export type SafeLine = string;
+
+  export interface ApprovalMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    correlationId: Id;
+    operationId: Id;
+    sequence: number;
+    occurredAt: string;
+    kind: "approval";
+    payload: {
+      approvalId: Id;
+      decision: "approved" | "rejected";
+      scope: Id;
+      artifact: Artifact;
+      challenge: Sha256;
+      approver: Id;
+      expiresAt: string | null;
+    };
+  }
+  export interface Artifact {
+    ref: Reference;
+    sha256: Sha256;
+  }
+  export interface HookMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    correlationId: Id;
+    operationId: Id;
+    sequence: number;
+    occurredAt: string;
+    kind: "hook";
+    payload: {
+      host: "claude-code" | "codex";
+      hook: Id;
+      phase: "before" | "after";
+      artifact: Artifact;
+    };
+  }
+  export interface TimeoutMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    correlationId: Id;
+    operationId: Id;
+    sequence: number;
+    occurredAt: string;
+    kind: "timeout";
+    payload: {
+      deadline: string;
+      elapsedMs: number;
+      mutation: Mutation;
+    };
+  }
+  export interface CancellationMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    correlationId: Id;
+    operationId: Id;
+    sequence: number;
+    occurredAt: string;
+    kind: "cancellation";
+    payload: {
+      requestedBy: Id;
+      reason: SafeLine;
+      mutation: Mutation;
+    };
+  }
+  export interface ErrorMessage {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    messageId: Id;
+    correlationId: Id;
+    operationId: Id;
+    sequence: number;
+    occurredAt: string;
+    kind: "error";
+    payload: {
+      reasonCode: string;
+      retryable: boolean;
+      recovery: SafeLine;
+      mutation: Mutation;
+    };
+  }
+}
+export type HostOperationMessageV1 =
+  HostOperationMessageV1Contract.HostOperationMessageV1;
 export namespace ApprovalV1Contract {
   export type Id = string;
   export type Sha256 = string;

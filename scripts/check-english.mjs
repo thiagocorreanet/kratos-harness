@@ -25,7 +25,10 @@ async function files(directory) {
       if (!excludedRoots.some((prefix) => name.startsWith(prefix))) {
         found.push(...(await files(path)));
       }
-    } else if (extensions.has(extname(entry.name)) && !excludedFiles.has(name)) {
+    } else if (
+      extensions.has(extname(entry.name)) &&
+      !excludedFiles.has(name)
+    ) {
       found.push(path);
     }
   }

@@ -126,7 +126,8 @@ function decideApproval(
       existing.observation === approval.observation &&
       existing.challenge === approval.challenge &&
       existing.expiresAt === approval.expiresAt;
-    return same && Date.parse(existing.expiresAt) >= Date.parse(observation.occurredAt)
+    return same &&
+      Date.parse(existing.expiresAt) >= Date.parse(observation.occurredAt)
       ? {
           result: resultFor("trail.ok", {
             summary: `Approval ${approval.approvalId} was already recorded.`,
@@ -158,7 +159,9 @@ function decideApproval(
 function validFutureExpiry(now: string, expiresAt: string): boolean {
   const current = Date.parse(now);
   const expiry = Date.parse(expiresAt);
-  return Number.isFinite(current) && Number.isFinite(expiry) && expiry > current;
+  return (
+    Number.isFinite(current) && Number.isFinite(expiry) && expiry > current
+  );
 }
 
 function refusal(reasonCode: "runtime.state_corrupt" | "trail.uso"): Decision {

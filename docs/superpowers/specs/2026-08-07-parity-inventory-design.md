@@ -2,8 +2,8 @@
 
 - Status: Approved
 - Decision date: 2026-08-07
-- Tracking issue: [#10](https://github.com/thiagocorreanet/mestre-yoda/issues/10)
-- Parent epic: [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
+- Tracking issue: [#10](https://github.com/thiagocorreanet/kratos-harness/issues/10)
+- Parent epic: [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8)
 - Depends on: [frozen Go v3 v0.6.5 baseline](../../compatibility/go-v3-v0.6.5-baseline.md)
 - Approval basis: maintainer-authorized autonomous recommendation
 

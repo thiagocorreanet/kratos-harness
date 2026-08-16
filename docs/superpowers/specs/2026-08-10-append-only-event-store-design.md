@@ -1,10 +1,10 @@
 # Append-Only Event Store and Hash Chain Design
 
-Issue [#21](https://github.com/thiagocorreanet/mestre-yoda/issues/21)
+Issue [#21](https://github.com/thiagocorreanet/kratos-harness/issues/21)
 (`RUN-06`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#19](https://github.com/thiagocorreanet/mestre-yoda/issues/19) (`RUN-04`) and
-[#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20) (`RUN-05`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#19](https://github.com/thiagocorreanet/kratos-harness/issues/19) (`RUN-04`) and
+[#20](https://github.com/thiagocorreanet/kratos-harness/issues/20) (`RUN-05`).
 
 ## Problem
 

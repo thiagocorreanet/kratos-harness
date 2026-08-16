@@ -21,11 +21,7 @@ import {
 } from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
-import {
-  applyPlan,
-  previewPlan,
-  type MutationPreview,
-} from "./index.js";
+import { applyPlan, previewPlan, type MutationPreview } from "./index.js";
 import { observeInitialization } from "./init.js";
 import { observeHostOperation } from "./host.js";
 import { observeMigration } from "./migration.js";
@@ -109,7 +105,7 @@ export async function runCommandLine(
               ? await observeHostOperation(invocation, ports, schemaRegistry)
               : invocation.command.prerequisite === "migration"
                 ? await observeMigration(invocation, ports, schemaRegistry)
-              : await observeWorkflow(invocation, ports, schemaRegistry);
+                : await observeWorkflow(invocation, ports, schemaRegistry);
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }

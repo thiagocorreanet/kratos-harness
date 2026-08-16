@@ -1,10 +1,10 @@
 # Embedded Runtime Distribution Contract Design
 
-Issue [#14](https://github.com/thiagocorreanet/mestre-yoda/issues/14) (`CMP-06`).
-Epic [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8).
-Depends on [#3](https://github.com/thiagocorreanet/mestre-yoda/issues/3) (`FND-02`),
-[#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11) (`CMP-03`), and
-[#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12) (`CMP-04`).
+Issue [#14](https://github.com/thiagocorreanet/kratos-harness/issues/14) (`CMP-06`).
+Epic [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8).
+Depends on [#3](https://github.com/thiagocorreanet/kratos-harness/issues/3) (`FND-02`),
+[#11](https://github.com/thiagocorreanet/kratos-harness/issues/11) (`CMP-03`), and
+[#12](https://github.com/thiagocorreanet/kratos-harness/issues/12) (`CMP-04`).
 
 ## Problem
 

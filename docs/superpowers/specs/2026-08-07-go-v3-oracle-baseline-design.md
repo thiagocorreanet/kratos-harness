@@ -2,8 +2,8 @@
 
 - Status: Approved by maintainer-authorized autonomous execution
 - Decision date: 2026-08-07
-- Tracking issue: [#9](https://github.com/thiagocorreanet/mestre-yoda/issues/9)
-- Parent epic: [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
+- Tracking issue: [#9](https://github.com/thiagocorreanet/kratos-harness/issues/9)
+- Parent epic: [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8)
 
 ## 1. Outcome
 

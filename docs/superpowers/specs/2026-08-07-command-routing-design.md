@@ -1,9 +1,9 @@
 # Command Routing and Structured Output Rendering Design
 
-Issue [#17](https://github.com/thiagocorreanet/mestre-yoda/issues/17) (`RUN-02`).
-Epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15).
-Depends on [#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11) (`CMP-03`)
-and [#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`).
+Issue [#17](https://github.com/thiagocorreanet/kratos-harness/issues/17) (`RUN-02`).
+Epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15).
+Depends on [#11](https://github.com/thiagocorreanet/kratos-harness/issues/11) (`CMP-03`)
+and [#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`).
 
 ## Problem
 

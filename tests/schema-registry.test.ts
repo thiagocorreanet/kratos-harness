@@ -15,7 +15,7 @@ import {
 } from "@kratos/runtime/infra/schema";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { buildPlugin, runtimeEntry } from "./support/built-plugin";
+import { buildPlugin, runtimeEntry } from "./support/built-plugin.js";
 
 const registry = ajvSchemaRegistry();
 const repositoryRoot = join(import.meta.dirname, "..");

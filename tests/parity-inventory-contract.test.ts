@@ -45,10 +45,7 @@ interface MatrixRow {
   readonly expected_behavior: string;
   readonly priority: "P0" | "P1" | "P2";
   readonly typescript_owner:
-    | "@kratos/contracts"
-    | "@kratos/runtime"
-    | "@kratos/adapters"
-    | "plugin";
+    "@kratos/contracts" | "@kratos/runtime" | "@kratos/adapters" | "plugin";
   readonly verification: Record<
     "unit" | "differential" | "integration" | "e2e",
     VerificationCase

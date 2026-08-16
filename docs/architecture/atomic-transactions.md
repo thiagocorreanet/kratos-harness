@@ -1,8 +1,8 @@
 # Atomic Filesystem Transactions and Crash Recovery
 
-Issue [#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20)
+Issue [#20](https://github.com/thiagocorreanet/kratos-harness/issues/20)
 (`RUN-05`) supplies the internal durable mutation boundary for the deterministic
-runtime epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15).
+runtime epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15).
 It does not add a public state command or complete the SDD trail. The staged CLI
 still supports only `help`, `version`, and `handshake`.
 

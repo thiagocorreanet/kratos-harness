@@ -586,20 +586,23 @@ function revertConflictScenario(): Promise<Scenario> {
  * scenario shares, which is exactly what let that bug through review.
  */
 function deleteModifyConflictScenario(): Promise<Scenario> {
-  return withScenarioRoot("kratos-git-delete-modify-conflict-", async (root) => {
-    await writeFile(join(root, "f.txt"), "base\n", "utf8");
-    stage(root, "f.txt");
-    commit(root, "base");
-    git(root, ["checkout", "-q", "-b", "other"]);
-    git(root, ["rm", "-q", "f.txt"]);
-    commit(root, "delete-f");
-    git(root, ["checkout", "-q", "main"]);
-    await writeFile(join(root, "f.txt"), "main change\n", "utf8");
-    stage(root, "f.txt");
-    commit(root, "modify-f");
-    gitExpectingFailure(root, ["merge", "-q", "other"]);
-    return ok(root, disposer(root));
-  });
+  return withScenarioRoot(
+    "kratos-git-delete-modify-conflict-",
+    async (root) => {
+      await writeFile(join(root, "f.txt"), "base\n", "utf8");
+      stage(root, "f.txt");
+      commit(root, "base");
+      git(root, ["checkout", "-q", "-b", "other"]);
+      git(root, ["rm", "-q", "f.txt"]);
+      commit(root, "delete-f");
+      git(root, ["checkout", "-q", "main"]);
+      await writeFile(join(root, "f.txt"), "main change\n", "utf8");
+      stage(root, "f.txt");
+      commit(root, "modify-f");
+      gitExpectingFailure(root, ["merge", "-q", "other"]);
+      return ok(root, disposer(root));
+    },
+  );
 }
 
 function nameWithSpaceScenario(): Promise<Scenario> {
@@ -636,12 +639,15 @@ function nameWithUnicodeScenario(): Promise<Scenario> {
 }
 
 function nameWithLeadingDashScenario(): Promise<Scenario> {
-  return withScenarioRoot("kratos-git-name-with-leading-dash-", async (root) => {
-    commitEmpty(root);
-    await writeFile(join(root, "-dashfile.txt"), "x\n", "utf8");
-    stage(root, "-dashfile.txt");
-    return ok(root, disposer(root));
-  });
+  return withScenarioRoot(
+    "kratos-git-name-with-leading-dash-",
+    async (root) => {
+      commitEmpty(root);
+      await writeFile(join(root, "-dashfile.txt"), "x\n", "utf8");
+      stage(root, "-dashfile.txt");
+      return ok(root, disposer(root));
+    },
+  );
 }
 
 /**

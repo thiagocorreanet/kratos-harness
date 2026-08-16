@@ -72,7 +72,7 @@ describe("universal result reason catalog", () => {
     expect(codes).toHaveLength(76);
     expect(new Set(codes).size).toBe(codes.length);
     expect(catalogDigest).toBe(
-      "63f91e9ae2c2d1f0dce1ac6313b75a4e3fb27627920620c7bc6eed3ad63dc2e2",
+      "14144f56a02ed554de3ad6097051c30ec3f434c7ceeae291c55479ffc9bf0067",
     );
   });
 

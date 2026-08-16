@@ -38,13 +38,15 @@ export const evidenceRecordCommand: CommandSpec = observingCommand(
         name: "--kind",
         kind: "value",
         valueLabel: "<kind>",
-        summary: "Classify the evidence as an artifact, event, approval, test, or observation.",
+        summary:
+          "Classify the evidence as an artifact, event, approval, test, or observation.",
       },
       {
         name: "--redaction",
         kind: "value",
         valueLabel: "<none|metadata-only|redacted>",
-        summary: "Record the redaction treatment applied to the referenced content.",
+        summary:
+          "Record the redaction treatment applied to the referenced content.",
       },
       {
         name: "--root",
@@ -63,7 +65,10 @@ function decideEvidence(
   invocation: Invocation,
   observation: Observation,
 ): Decision {
-  if (observation.workflow.kind !== "present" || !observation.evidenceReadable) {
+  if (
+    observation.workflow.kind !== "present" ||
+    !observation.evidenceReadable
+  ) {
     return refusal("runtime.state_corrupt");
   }
   const ref = invocation.positionals[0] ?? "";

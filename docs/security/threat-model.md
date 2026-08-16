@@ -1,6 +1,6 @@
 # Threat Model
 
-Issue [#52](https://github.com/thiagocorreanet/mestre-yoda/issues/52)
+Issue [#52](https://github.com/thiagocorreanet/kratos-harness/issues/52)
 (`QAL-04`) asks what this runtime is defended against. This document answers
 that per threat, names the test that proves each answer, and states plainly
 where a defense is partial or absent. A threat model that only lists strengths

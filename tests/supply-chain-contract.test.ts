@@ -21,6 +21,9 @@ interface Workflow {
         readonly name?: unknown;
         readonly permissions?: unknown;
         readonly "runs-on"?: unknown;
+        readonly strategy?: {
+          readonly matrix?: { readonly os?: readonly string[] };
+        };
         readonly "timeout-minutes"?: unknown;
         readonly steps: readonly {
           readonly name?: unknown;
@@ -221,12 +224,17 @@ describe("every workflow", () => {
   // Pinning, fork safety, and read-only authority were asserted per file,
   // which meant a new workflow inherited none of them. Asserting them over the
   // directory is what makes the next one arrive under the same rules.
-  it("is one of the four this repository publishes", async () => {
+  it("is one of the nine this repository publishes", async () => {
     expect(await workflowNames()).toEqual([
       "ci.yml",
       "codeql.yml",
+      "compatibility.yml",
       "dependency-review.yml",
       "docs.yml",
+      "nightly.yml",
+      "platform.yml",
+      "release.yml",
+      "security.yml",
     ]);
   });
 
@@ -256,7 +264,7 @@ describe("every workflow", () => {
     }
   });
 
-  it("grants authority above read in exactly one place", async () => {
+  it("grants authority above read in exactly two places", async () => {
     const elevated: string[] = [];
     for (const name of await workflowNames()) {
       for (const [jobName, job] of Object.entries(
@@ -265,13 +273,17 @@ describe("every workflow", () => {
         if (job.permissions !== undefined) elevated.push(`${name}:${jobName}`);
       }
     }
-    // Uploading an analysis is the only thing this repository's automation
-    // does that a read-only token cannot. Anything else appearing here is a
-    // workflow that acquired write authority without being noticed.
-    expect(elevated).toEqual(["codeql.yml:analyze"]);
+    // Uploading an analysis and publishing an attested tagged release are the
+    // only things this repository's automation does that a read-only token
+    // cannot. Anything else appearing here is a workflow that acquired write
+    // authority without being noticed.
+    expect(elevated.sort()).toEqual([
+      "codeql.yml:analyze",
+      "release.yml:package",
+    ]);
   });
 
-  it("bounds every job in time", async () => {
+  it("bounds every job in time on a GitHub-hosted runner", async () => {
     for (const name of await workflowNames()) {
       for (const [jobName, job] of Object.entries(
         (await workflow(name)).jobs,
@@ -279,6 +291,17 @@ describe("every workflow", () => {
         expect(job["timeout-minutes"], `${name}:${jobName}`).toEqual(
           expect.any(Number),
         );
+        // The native-platform jobs fan out over a matrix. Naming the hosts
+        // here is what keeps that fan-out on GitHub-hosted runners instead of
+        // a self-hosted label nobody audits.
+        if (job["runs-on"] === "${{ matrix.os }}") {
+          expect(job.strategy?.matrix?.os, `${name}:${jobName}`).toEqual([
+            "ubuntu-latest",
+            "macos-latest",
+            "windows-latest",
+          ]);
+          continue;
+        }
         expect(job["runs-on"], `${name}:${jobName}`).toBe("ubuntu-latest");
       }
     }

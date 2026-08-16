@@ -1,6 +1,6 @@
 # Host operation messages
 
-Issue [#113](https://github.com/thiagocorreanet/mestre-yoda/issues/113)
+Issue [#113](https://github.com/thiagocorreanet/kratos-harness/issues/113)
 defines the lifecycle messages a host and runtime exchange around one
 operation.
 

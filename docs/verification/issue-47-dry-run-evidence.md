@@ -1,6 +1,6 @@
 # Issue #47 Dry-Run Plan Evidence
 
-Issue [#47](https://github.com/thiagocorreanet/mestre-yoda/issues/47)
+Issue [#47](https://github.com/thiagocorreanet/kratos-harness/issues/47)
 (`RUN-09`) records verification for universal dry-run plans and decision
 explanation primitives. This record does not claim compatibility parity credit,
 a public command, or a public flag.

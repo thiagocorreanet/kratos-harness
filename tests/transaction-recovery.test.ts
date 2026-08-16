@@ -10,10 +10,7 @@ import {
 import { planOf } from "@kratos/runtime/domain/effects";
 import type { ManagedMutationPlan } from "@kratos/runtime/domain/transactions";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
-import type {
-  DurableEntry,
-  DurableFileSystem,
-} from "@kratos/runtime/ports";
+import type { DurableEntry, DurableFileSystem } from "@kratos/runtime/ports";
 import {
   fixedClock,
   memoryTransactionStorage,

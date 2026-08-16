@@ -105,7 +105,9 @@ function migrateBrain(
   const root = `.brain/migrations/${operation.migrationId}`;
   const authorizationRef = `${root}/authorization.json`;
   const rollbackRef = `${root}/rollback.json`;
-  const sources = new Map(operation.sourceFiles.map((file) => [file.path, file]));
+  const sources = new Map(
+    operation.sourceFiles.map((file) => [file.path, file]),
+  );
   const conversion = (
     copy: Extract<MigrationAction, { readonly kind: "copy" }>,
   ): MigrationV1["conversions"][number] => ({
@@ -145,7 +147,7 @@ function migrateBrain(
   const copyEffects: Effect[] = [];
   for (const copy of copies) {
     const source = sources.get(copy.source);
-    if (source === undefined || source.sha256 !== copy.sha256) return corrupt();
+    if (source?.sha256 !== copy.sha256) return corrupt();
     copyEffects.push({
       kind: "write_file",
       path: copy.target,
@@ -159,7 +161,10 @@ function migrateBrain(
       stateChanged: true,
       evidence: [
         { kind: "artifact", ref: receiptRef },
-        ...copies.map(({ target }) => ({ kind: "artifact" as const, ref: target })),
+        ...copies.map(({ target }) => ({
+          kind: "artifact" as const,
+          ref: target,
+        })),
       ],
     }),
     rootMode: "initialize",
@@ -209,7 +214,10 @@ function migrateRollback(observation: Observation): Decision {
       evidence: [{ kind: "artifact", ref: receiptRef }],
     }),
     plan: planOf(
-      ...operation.targets.map((path) => ({ kind: "delete_file" as const, path })),
+      ...operation.targets.map((path) => ({
+        kind: "delete_file" as const,
+        path,
+      })),
       {
         kind: "write_file",
         path: receiptRef,

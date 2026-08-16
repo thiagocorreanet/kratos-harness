@@ -94,10 +94,7 @@ function embedded(value) {
 
 async function buildRuntime(runtimeDirectory) {
   const sourceOutput = join(runtimeDirectory, "source");
-  const contractsIndex = join(
-    sourceOutput,
-    "packages/contracts/src/index.js",
-  );
+  const contractsIndex = join(sourceOutput, "packages/contracts/src/index.js");
   await Promise.all([
     compileTree(
       join(repositoryRoot, "packages/contracts/src"),
@@ -126,23 +123,28 @@ async function buildRuntime(runtimeDirectory) {
     "utf8",
   );
 
-  const [template, reasonCatalogText, contractFamiliesText] = await Promise.all([
-    readFile(
-      join(repositoryRoot, "packages/runtime/src/boot/preflight.mjs"),
-      "utf8",
-    ),
-    readFile(
-      join(repositoryRoot, "packages/contracts/catalogs/reason-codes.v1.3.json"),
-      "utf8",
-    ),
-    readFile(
-      join(
-        repositoryRoot,
-        "packages/contracts/catalogs/contract-families.v1.json",
+  const [template, reasonCatalogText, contractFamiliesText] = await Promise.all(
+    [
+      readFile(
+        join(repositoryRoot, "packages/runtime/src/boot/preflight.mjs"),
+        "utf8",
       ),
-      "utf8",
-    ),
-  ]);
+      readFile(
+        join(
+          repositoryRoot,
+          "packages/contracts/catalogs/reason-codes.v1.3.json",
+        ),
+        "utf8",
+      ),
+      readFile(
+        join(
+          repositoryRoot,
+          "packages/contracts/catalogs/contract-families.v1.json",
+        ),
+        "utf8",
+      ),
+    ],
+  );
   const families = JSON.parse(contractFamiliesText);
   const reason = JSON.parse(reasonCatalogText).reasons.find(
     ({ code }) => code === "runtime.node_unsupported",

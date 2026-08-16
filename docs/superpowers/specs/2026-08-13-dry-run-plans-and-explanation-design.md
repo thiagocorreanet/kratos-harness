@@ -1,12 +1,12 @@
 # Universal Dry-Run Plans and Decision Explanation Design
 
-Issue [#47](https://github.com/thiagocorreanet/mestre-yoda/issues/47)
+Issue [#47](https://github.com/thiagocorreanet/kratos-harness/issues/47)
 (`RUN-09`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`),
-[#17](https://github.com/thiagocorreanet/mestre-yoda/issues/17) (`RUN-02`),
-[#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20) (`RUN-05`), and
-[#21](https://github.com/thiagocorreanet/mestre-yoda/issues/21) (`RUN-06`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`),
+[#17](https://github.com/thiagocorreanet/kratos-harness/issues/17) (`RUN-02`),
+[#20](https://github.com/thiagocorreanet/kratos-harness/issues/20) (`RUN-05`), and
+[#21](https://github.com/thiagocorreanet/kratos-harness/issues/21) (`RUN-06`).
 
 ## Problem
 

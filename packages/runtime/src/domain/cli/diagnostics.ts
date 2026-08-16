@@ -91,7 +91,9 @@ export const handoffCommand: CommandSpec = observed(
       return absentOrCorrupt(observation);
     }
     const state = observation.workflow.state;
-    const blockers = observation.gateDecision.failures.map(({ gateId }) => gateId);
+    const blockers = observation.gateDecision.failures.map(
+      ({ gateId }) => gateId,
+    );
     const nextAction =
       observation.gateDecision.outcome === "block"
         ? "Resolve the reported gate blockers and rerun kratos doctor."
@@ -149,7 +151,8 @@ export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
     {
       name: "evidence",
       status:
-        !observation.evidenceReadable || observation.invalidEvidenceIds.length > 0
+        !observation.evidenceReadable ||
+        observation.invalidEvidenceIds.length > 0
           ? "fail"
           : observation.evidence.length === 0
             ? "warn"

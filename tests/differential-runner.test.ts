@@ -26,7 +26,9 @@ const emptyDigest =
 const roots: string[] = [];
 
 async function root(): Promise<string> {
-  const value = await mkdtemp(join(tmpdir(), "kratos-differential-runner-test-"));
+  const value = await mkdtemp(
+    join(tmpdir(), "kratos-differential-runner-test-"),
+  );
   roots.push(value);
   return value;
 }

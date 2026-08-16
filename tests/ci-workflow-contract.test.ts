@@ -92,10 +92,13 @@ describe("pull-request CI workflow", () => {
       "Install locked dependencies",
       "Check formatting",
       "Check spelling",
+      "Enforce English-only source prose",
       "Lint",
       "Type-check",
       "Run unit tests",
       "Run coverage tests",
+      "Check performance budgets",
+      "Run mutation sentinels",
       "Validate GitHub template schemas",
       "Run differential self-tests",
       "Build bundle",
@@ -159,16 +162,19 @@ describe("pull-request CI workflow", () => {
     const jobs = object(workflow.jobs, "jobs");
     const quality = object(jobs.quality, "quality");
     const steps = quality.steps as JsonObject[];
-    const commandSteps = steps.slice(3, 15);
+    const commandSteps = steps.slice(3, 18);
     const expectedCommands = [
       "node --version",
       "npm ci",
       "npm run format:check",
       "npm run spellcheck",
+      "npm run english:check",
       "npm run lint",
       "npm run typecheck",
       "npm test",
       "npm run test:coverage",
+      "npm run performance:check",
+      "npm run mutation:check",
       "npm run templates:validate",
       "npm run differential:check",
       "npm run build",
@@ -203,7 +209,9 @@ describe("pull-request CI workflow", () => {
       "if-no-files-found": "ignore",
       "include-hidden-files": true,
       name: "ci-failure-${{ github.run_id }}-${{ github.run_attempt }}",
-      path: ".ci-diagnostics/\ncoverage/\ndist/\n",
+      // The build refuses to write inside the source tree, so there is never a
+      // `dist/` here to collect.
+      path: ".ci-diagnostics/\ncoverage/\n",
       "retention-days": 3,
     });
     expect(rawWorkflow).not.toMatch(/\.npm|npm-debug|environment/iu);

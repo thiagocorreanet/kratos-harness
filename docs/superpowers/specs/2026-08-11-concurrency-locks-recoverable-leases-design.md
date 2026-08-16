@@ -1,10 +1,10 @@
 # Concurrency Locks and Recoverable Work Leases Design
 
-Issue [#22](https://github.com/thiagocorreanet/mestre-yoda/issues/22)
+Issue [#22](https://github.com/thiagocorreanet/kratos-harness/issues/22)
 (`RUN-07`). Epic
-[#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15). Depends on
-[#20](https://github.com/thiagocorreanet/mestre-yoda/issues/20) (`RUN-05`) and
-[#21](https://github.com/thiagocorreanet/mestre-yoda/issues/21) (`RUN-06`).
+[#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). Depends on
+[#20](https://github.com/thiagocorreanet/kratos-harness/issues/20) (`RUN-05`) and
+[#21](https://github.com/thiagocorreanet/kratos-harness/issues/21) (`RUN-06`).
 
 ## Problem
 

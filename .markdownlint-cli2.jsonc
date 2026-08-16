@@ -1,0 +1,16 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": {
+      "siblings_only": true,
+    },
+    // `a` joins `img` because the contributors block wraps an image in a
+    // link, which is the only form that construct takes; allowing the image
+    // but not its anchor made the README fail its own documentation gate.
+    "MD033": {
+      "allowed_elements": ["a", "p", "img"],
+    },
+  },
+  "globs": ["**/*.md", "!node_modules"],
+}

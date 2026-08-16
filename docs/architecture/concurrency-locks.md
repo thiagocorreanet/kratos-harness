@@ -1,6 +1,6 @@
 # Concurrency Locks and Recoverable Work Leases
 
-Issue [#22](https://github.com/thiagocorreanet/mestre-yoda/issues/22)
+Issue [#22](https://github.com/thiagocorreanet/kratos-harness/issues/22)
 (`RUN-07`) replaces the placeholder `Locks` port with a durable lease. It does
 not add a public command: the staged bundle still exposes only `help`,
 `version`, and `handshake`. Claude Code, Codex, a terminal, and automation may
@@ -178,8 +178,8 @@ before the record it retires is removed — and only a tombstone naming a
 different claim is uninterpretable.
 
 Two gaps remain, tracked by
-[#99](https://github.com/thiagocorreanet/mestre-yoda/issues/99) and owned by
-[#106](https://github.com/thiagocorreanet/mestre-yoda/issues/106). A contender
+[#99](https://github.com/thiagocorreanet/kratos-harness/issues/99) and owned by
+[#106](https://github.com/thiagocorreanet/kratos-harness/issues/106). A contender
 that loses the admission election is still reported rather
 than re-elected, so a round can end with no winner at all even though no lease
 was published. And because `.brain/locks/.admission` serializes administration

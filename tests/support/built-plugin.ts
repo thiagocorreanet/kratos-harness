@@ -6,11 +6,10 @@ export const repositoryRoot = join(import.meta.dirname, "../..");
 export const buildRoot = join(tmpdir(), "kratos-plugin-vitest-build");
 
 export function buildPlugin(): void {
-  execFileSync(
-    process.execPath,
-    ["scripts/build.mjs", "--output", buildRoot],
-    { cwd: repositoryRoot, stdio: "pipe" },
-  );
+  execFileSync(process.execPath, ["scripts/build.mjs", "--output", buildRoot], {
+    cwd: repositoryRoot,
+    stdio: "pipe",
+  });
 }
 
 export function hostPackage(host: "codex" | "claude-code"): string {

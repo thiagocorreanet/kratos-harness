@@ -22,8 +22,12 @@ try {
   );
 }
 
-const result = spawnSync(process.execPath, [runtime, ...process.argv.slice(2)], {
-  stdio: "inherit",
-});
+const result = spawnSync(
+  process.execPath,
+  [runtime, ...process.argv.slice(2)],
+  {
+    stdio: "inherit",
+  },
+);
 if (result.error !== undefined) throw result.error;
 process.exitCode = result.status ?? 1;

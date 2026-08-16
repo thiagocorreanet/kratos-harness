@@ -3,8 +3,8 @@
 - Status: Approved
 - Decision date: 2026-08-06
 - Scope: TypeScript rewrite of Mestre Yoda
-- Tracking issue: [#2](https://github.com/thiagocorreanet/mestre-yoda/issues/2)
-- Approval evidence: Maintainer-authorized autonomous review on [PR #69](https://github.com/thiagocorreanet/mestre-yoda/pull/69), green [documentation CI](https://github.com/thiagocorreanet/mestre-yoda/actions/runs/31138521049), independent review with no findings, and successful Mermaid rendering
+- Tracking issue: [#2](https://github.com/thiagocorreanet/kratos-harness/issues/2)
+- Approval evidence: Maintainer-authorized autonomous review on [PR #69](https://github.com/thiagocorreanet/kratos-harness/pull/69), green documentation CI (predecessor run `31138521049`), independent review with no findings, and successful Mermaid rendering
 
 ## 1. Purpose and authority
 

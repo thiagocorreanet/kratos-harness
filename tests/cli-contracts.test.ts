@@ -5,10 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-  createRuntime,
-  TransactionFailure,
-} from "@kratos/runtime/composition";
+import { createRuntime, TransactionFailure } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { DEFAULT_REGISTRY } from "@kratos/runtime/domain/cli";
 import { transactionFailureResult } from "@kratos/runtime/domain/result";

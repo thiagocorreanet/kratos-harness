@@ -26,12 +26,7 @@ export interface ApprovalRequest extends ApprovalBinding {
 export type ApprovalValidation =
   | { readonly kind: "valid"; readonly approval: ApprovalV1 }
   | {
-      readonly kind:
-        | "expired"
-        | "rejected"
-        | "replayed"
-        | "stale"
-        | "tampered";
+      readonly kind: "expired" | "rejected" | "replayed" | "stale" | "tampered";
     };
 
 export function approvalChallenge(

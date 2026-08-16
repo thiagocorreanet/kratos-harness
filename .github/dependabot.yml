@@ -1,0 +1,88 @@
+version: 2
+
+# Every dependency this repository has is pinned to an exact version or a
+# commit, which is what makes an update a reviewable change instead of
+# something that happens on its own at install time. The cost of that choice is
+# that nothing moves unless someone moves it, so this configuration is what
+# proposes the moves.
+#
+# A Dependabot pull request is a contribution like any other: the DCO gate in
+# `ci.yml` applies to it, so the range is signed with
+# `git rebase --signoff <base>` before it merges.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels:
+      - type:maintenance
+      - area:quality
+    commit-message:
+      prefix: chore
+      include: scope
+    # One pull request per group rather than per package. A toolchain that
+    # moves together — the linter and its plugin, the test runner and its
+    # coverage provider — is reviewed once, against one CI run, instead of
+    # arriving as four pull requests that each invalidate the others.
+    #
+    # A group carries compatible moves only. A major release is a breaking
+    # change the publisher has said is breaking, so it leaves the group and
+    # arrives as its own pull request, where the work it requires is visible
+    # against one package instead of hidden among three that need nothing.
+    groups:
+      lint:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - "@eslint/*"
+          - eslint
+          - eslint-*
+          - typescript-eslint
+      test:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - "@vitest/*"
+          - vitest
+      types:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - "@types/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - type:ci
+      - area:quality
+    commit-message:
+      prefix: ci
+      include: scope
+    # Every action is pinned to a commit, so an update here is a pin change
+    # with the version comment rewritten beside it — the only supported way to
+    # move a pin without a person resolving a tag by hand.
+    #
+    # The same rule as the npm groups: a major release of an action changes
+    # inputs or runtime and arrives alone, because reviewing it means reading
+    # its release notes rather than the diff.
+    groups:
+      actions:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - "*"

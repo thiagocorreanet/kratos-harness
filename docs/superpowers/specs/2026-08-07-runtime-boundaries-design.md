@@ -1,11 +1,11 @@
 # Runtime Boundaries, Ports, and Composition Design
 
-Issue [#16](https://github.com/thiagocorreanet/mestre-yoda/issues/16) (`RUN-01`).
-Epic [#15](https://github.com/thiagocorreanet/mestre-yoda/issues/15).
-Depends on [#3](https://github.com/thiagocorreanet/mestre-yoda/issues/3) (`FND-02`),
-[#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11) (`CMP-03`),
-[#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12) (`CMP-04`), and
-[#14](https://github.com/thiagocorreanet/mestre-yoda/issues/14) (`CMP-06`).
+Issue [#16](https://github.com/thiagocorreanet/kratos-harness/issues/16) (`RUN-01`).
+Epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15).
+Depends on [#3](https://github.com/thiagocorreanet/kratos-harness/issues/3) (`FND-02`),
+[#11](https://github.com/thiagocorreanet/kratos-harness/issues/11) (`CMP-03`),
+[#12](https://github.com/thiagocorreanet/kratos-harness/issues/12) (`CMP-04`), and
+[#14](https://github.com/thiagocorreanet/kratos-harness/issues/14) (`CMP-06`).
 
 ## Problem
 

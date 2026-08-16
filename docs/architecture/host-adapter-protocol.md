@@ -1,6 +1,6 @@
 # The Host Adapter Protocol
 
-Issue [#35](https://github.com/thiagocorreanet/mestre-yoda/issues/35)
+Issue [#35](https://github.com/thiagocorreanet/kratos-harness/issues/35)
 (`ADP-01`) gives Claude Code and Codex one way to reach the runtime.
 [ADR-0004](../adr/0004-host-adapter-boundary.md) already decided the shape: an
 adapter translates and relays, it never owns transition policy, and every host

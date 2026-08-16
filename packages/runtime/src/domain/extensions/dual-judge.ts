@@ -73,7 +73,9 @@ export function evaluateIndependentJudges(
       evidence,
     };
   }
-  if (evidence.some((item) => item.timedOut || item.verdict === "unavailable")) {
+  if (
+    evidence.some((item) => item.timedOut || item.verdict === "unavailable")
+  ) {
     return { kind: "human-review", reason: "judge.unavailable", evidence };
   }
   if (first.verdict !== second.verdict) {

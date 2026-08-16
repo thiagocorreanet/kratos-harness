@@ -2,9 +2,9 @@
 
 - Status: Approved
 - Decision date: 2026-08-07
-- Tracking issue: [#13](https://github.com/thiagocorreanet/mestre-yoda/issues/13)
-- Parent epic: [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
-- Depends on: issues [#9](https://github.com/thiagocorreanet/mestre-yoda/issues/9), [#10](https://github.com/thiagocorreanet/mestre-yoda/issues/10), [#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11), and [#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12)
+- Tracking issue: [#13](https://github.com/thiagocorreanet/kratos-harness/issues/13)
+- Parent epic: [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8)
+- Depends on: issues [#9](https://github.com/thiagocorreanet/kratos-harness/issues/9), [#10](https://github.com/thiagocorreanet/kratos-harness/issues/10), [#11](https://github.com/thiagocorreanet/kratos-harness/issues/11), and [#12](https://github.com/thiagocorreanet/kratos-harness/issues/12)
 - Approval basis: maintainer-authorized autonomous recommendation
 
 ## 1. Purpose

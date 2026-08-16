@@ -1,8 +1,8 @@
 # Contract Family Versioning Design
 
-- Issue: [#12](https://github.com/thiagocorreanet/mestre-yoda/issues/12)
-- Epic: [#8](https://github.com/thiagocorreanet/mestre-yoda/issues/8)
-- Dependencies: [#10](https://github.com/thiagocorreanet/mestre-yoda/issues/10), [#11](https://github.com/thiagocorreanet/mestre-yoda/issues/11)
+- Issue: [#12](https://github.com/thiagocorreanet/kratos-harness/issues/12)
+- Epic: [#8](https://github.com/thiagocorreanet/kratos-harness/issues/8)
+- Dependencies: [#10](https://github.com/thiagocorreanet/kratos-harness/issues/10), [#11](https://github.com/thiagocorreanet/kratos-harness/issues/11)
 - Status: Approved for implementation under the maintainer's standing autonomous-approval instruction
 - Date: 2026-08-07
 

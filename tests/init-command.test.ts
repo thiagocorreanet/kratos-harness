@@ -4,10 +4,7 @@ import { join } from "node:path";
 
 import { createRuntime } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
-import {
-  destinationsOf,
-  skeletonEffects,
-} from "@kratos/runtime/domain/init";
+import { destinationsOf, skeletonEffects } from "@kratos/runtime/domain/init";
 import { profileStack } from "@kratos/runtime/domain/init";
 import {
   fixedClock,

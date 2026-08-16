@@ -1,6 +1,6 @@
 # Dry-Run Plans and Decision Explanation
 
-Issue [#47](https://github.com/thiagocorreanet/mestre-yoda/issues/47)
+Issue [#47](https://github.com/thiagocorreanet/kratos-harness/issues/47)
 (`RUN-09`) lets a caller compute what a mutation would do without doing any of
 it. It does not add a public command, and it does not add a `--dry-run` flag —
 see **Why there is no flag yet**.

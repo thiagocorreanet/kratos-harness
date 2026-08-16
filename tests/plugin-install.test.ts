@@ -1,6 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 
@@ -10,7 +17,7 @@ import {
   buildPlugin,
   buildRoot,
   repositoryRoot,
-} from "./support/built-plugin";
+} from "./support/built-plugin.js";
 
 const installer = join(repositoryRoot, "scripts/install-plugin.mjs");
 const roots: string[] = [];
@@ -46,10 +53,12 @@ function run(
 
 async function digestTree(directory: string): Promise<string> {
   const hash = createHash("sha256");
-  const entries = (await readdir(directory, {
-    recursive: true,
-    withFileTypes: true,
-  }))
+  const entries = (
+    await readdir(directory, {
+      recursive: true,
+      withFileTypes: true,
+    })
+  )
     .filter((entry) => entry.isFile())
     .map((entry) => join(entry.parentPath, entry.name))
     .sort();
@@ -70,11 +79,15 @@ describe("atomic plugin installer", () => {
     const secondBuild = join(root, "second-build");
     await cp(buildRoot, secondBuild, { recursive: true });
 
-    expect(JSON.parse(run("install", "codex", buildRoot, target))).toMatchObject({
+    expect(
+      JSON.parse(run("install", "codex", buildRoot, target)),
+    ).toMatchObject({
       host: "codex",
       installed: true,
     });
-    expect(JSON.parse(run("install", "codex", buildRoot, target))).toMatchObject({
+    expect(
+      JSON.parse(run("install", "codex", buildRoot, target)),
+    ).toMatchObject({
       host: "codex",
       installed: true,
     });
@@ -94,13 +107,13 @@ describe("atomic plugin installer", () => {
     await writeFile(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
 
     run("update", "codex", secondBuild, target);
-    expect(await readFile(join(target, "runtime/manifest.json"), "utf8")).toContain(
-      manifest.runtime.sourceTreeSha256,
-    );
+    expect(
+      await readFile(join(target, "runtime/manifest.json"), "utf8"),
+    ).toContain(manifest.runtime.sourceTreeSha256);
     run("rollback", "codex", null, target);
-    expect(await readFile(join(target, "runtime/manifest.json"), "utf8")).not.toContain(
-      manifest.runtime.sourceTreeSha256,
-    );
+    expect(
+      await readFile(join(target, "runtime/manifest.json"), "utf8"),
+    ).not.toContain(manifest.runtime.sourceTreeSha256);
   });
 
   it("refuses a source whose core digest was substituted", async () => {
@@ -108,7 +121,10 @@ describe("atomic plugin installer", () => {
     roots.push(root);
     const source = join(root, "source");
     await cp(buildRoot, source, { recursive: true });
-    await writeFile(join(source, "claude-code/runtime/kratos.core.mjs"), "tampered");
+    await writeFile(
+      join(source, "claude-code/runtime/kratos.core.mjs"),
+      "tampered",
+    );
 
     expect(() =>
       run("install", "claude-code", source, join(root, "installed", "kratos")),
