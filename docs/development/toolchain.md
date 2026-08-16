@@ -37,7 +37,7 @@ clean and CI installations. Changing a dependency requires Node `24.18.0`, npm
 | `npm run lint` | Run typed ESLint with zero warnings |
 | `npm run typecheck` | Run strict TypeScript 6 compatibility checking without emit |
 | `npm test` | Run unit and clean-room bundle tests once |
-| `npm run test:coverage` | Enforce 100% coverage on the initial CLI decision surface |
+| `npm run test:coverage` | Enforce the recorded coverage floor over the runtime decision surface |
 | `npm run mutation:check` | Execute the deterministic gate mutation sentinels |
 | `npm run performance:check` | Enforce source and contract byte budgets |
 | `npm run oracle:verify` | Validate the public metadata-only Go v3 oracle catalog offline |
