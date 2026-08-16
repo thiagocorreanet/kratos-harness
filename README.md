@@ -154,10 +154,9 @@ npm run package:verify
 ```
 
 The build writes outside the source tree, under `${KRATOS_BUILD_OUTPUT}` or the
-operating-system temporary directory. This workspace currently has known
-contract-generation and CI-contract drift, so `verify` is not yet a release
-readiness claim. The build, CLI help, and package verification are independently
-executable.
+operating-system temporary directory. `verify` passing is a statement about
+this workspace, not a release readiness claim: the external validation listed
+under [Project maturity](#project-maturity) is what governs promotion.
 
 For local marketplace setup, project initialization, and removal, follow
 [Installing Kratos](docs/INSTALLATION.md). The complete operator path starts in
