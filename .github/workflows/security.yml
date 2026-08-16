@@ -1,0 +1,42 @@
+name: Security gate
+
+on:
+  pull_request:
+    branches: [developer, main]
+  push:
+    branches: [developer, main]
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  dependency-and-contracts:
+    name: Dependency and contract security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci
+      - name: Audit production dependency resolution
+        run: npm audit --omit=dev --audit-level=high
+      - name: Run security and transaction tests
+        run: >-
+          npm test -- --run
+          tests/node-transaction-security.test.ts
+          tests/git-runner-hardening.test.ts
+          tests/dco-log-safety.test.ts
+          tests/post-1.0-extensions.test.ts
+      - run: npm run contracts:check
