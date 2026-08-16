@@ -53,9 +53,14 @@ async function verifyArtifacts() {
   const resultSchema = await readJson(
     join(repositoryRoot, "schemas/result.v1.schema.json"),
   );
+  // The runtime registry compiles these same schemas with `validateFormats`
+  // off, because the offline validator bundled into the plugin implements no
+  // format at all. Verifying them under a stricter setting here would accept
+  // schemas the shipped runtime cannot compile.
   const manifestValidator = new Ajv2020({
     allErrors: true,
     strict: true,
+    validateFormats: false,
   }).compile(manifestSchema);
   if (!manifestValidator(manifest)) {
     throw new VerificationError("manifest does not satisfy its closed schema");
@@ -77,7 +82,11 @@ async function verifyArtifacts() {
     throw new VerificationError("registered schemas differ from inventory");
   }
 
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: true,
+    validateFormats: false,
+  });
   ajv.addSchema(resultSchema);
   for (const { path } of manifest.schemas) {
     ajv.compile(await readJson(join(repositoryRoot, path)));
@@ -125,8 +134,10 @@ try {
     console.error(`Contract verification failed: ${error.message}`);
     process.exitCode = 1;
   } else {
+    // Naming the underlying failure is what makes a red run diagnosable
+    // without re-running the script by hand.
     console.error(
-      "Contract verification failed: contract artifacts could not be verified",
+      `Contract verification failed: contract artifacts could not be verified (${error instanceof Error ? error.message : String(error)})`,
     );
     process.exitCode = 1;
   }
