@@ -9,7 +9,7 @@ import {
   buildRoot,
   hostPackage,
   repositoryRoot,
-} from "./support/built-plugin";
+} from "./support/built-plugin.js";
 
 interface DistributionManifest {
   readonly contractVersion: string;

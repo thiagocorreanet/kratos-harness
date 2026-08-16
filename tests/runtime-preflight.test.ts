@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { buildPlugin, runtimeEntry } from "./support/built-plugin";
+import { buildPlugin, runtimeEntry } from "./support/built-plugin.js";
 
 const repositoryRoot = join(import.meta.dirname, "..");
 const stub = join(import.meta.dirname, "fixtures/runtime/old-node.mjs");

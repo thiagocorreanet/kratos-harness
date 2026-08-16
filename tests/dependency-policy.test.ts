@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { buildPlugin, hostPackage } from "./support/built-plugin";
+import { buildPlugin, hostPackage } from "./support/built-plugin.js";
 
 const repositoryRoot = join(import.meta.dirname, "..");
 
@@ -183,9 +183,7 @@ describe("the installed dependency tree", () => {
     // assertion below by having nothing to refuse.
     expect(installed.length).toBeGreaterThan(200);
     expect(installed.map(({ name }) => name)).toContain("ajv");
-    expect(installed.map(({ name }) => name)).not.toContain(
-      "@kratos/runtime",
-    );
+    expect(installed.map(({ name }) => name)).not.toContain("@kratos/runtime");
   });
 
   it("carries no license outside the development allowlist", () => {

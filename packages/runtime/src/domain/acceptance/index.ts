@@ -25,7 +25,8 @@ export interface ArtifactLineage {
 export type LineageValidation =
   | { readonly kind: "valid"; readonly orderedArtifactIds: readonly string[] }
   | {
-      readonly kind: "cycle" | "duplicate" | "invalid-digest" | "missing-parent";
+      readonly kind:
+        "cycle" | "duplicate" | "invalid-digest" | "missing-parent";
       readonly artifactId: string;
     };
 
@@ -124,8 +125,7 @@ export function decideDone(candidate: DoneCandidate): DoneDecision {
     };
   }
   if (
-    candidate.approval === null ||
-    candidate.approval.decision !== "approved" ||
+    candidate.approval?.decision !== "approved" ||
     candidate.approval.runId !== candidate.runId ||
     candidate.approval.gate !== "final-acceptance"
   ) {

@@ -9,7 +9,7 @@ import {
   buildPlugin,
   hostPackage,
   runtimeEntry,
-} from "./support/built-plugin";
+} from "./support/built-plugin.js";
 
 const roots: string[] = [];
 

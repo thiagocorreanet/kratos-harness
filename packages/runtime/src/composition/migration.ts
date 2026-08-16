@@ -9,7 +9,10 @@ import {
 } from "../domain/migration/index.js";
 import type { Result } from "../domain/result/index.js";
 import { usageFailure, USAGE_WHY } from "../domain/result/index.js";
-import { canonicalizeJson, type SchemaRegistry } from "../domain/schema/index.js";
+import {
+  canonicalizeJson,
+  type SchemaRegistry,
+} from "../domain/schema/index.js";
 import type { DurableFileSystem, RuntimePorts } from "../ports/index.js";
 
 import { createRuntimeAt } from "./index.js";
@@ -60,7 +63,7 @@ export async function observeMigration(
       legacy: source === null ? null : legacyTree.map(migrationEntry),
       destination: destinationTree.map(migrationEntry),
     },
-    destination.digests.sha256,
+    (value) => destination.digests.sha256(value),
   );
   return {
     kind: "observed",
@@ -73,13 +76,15 @@ export async function observeMigration(
         now: destination.clock.now().toISOString(),
         plan,
         backupDigest: destination.digests.sha256(
-          canonicalizeJson(
-            destinationTree.map(migrationEntry),
-          ),
+          canonicalizeJson(destinationTree.map(migrationEntry)),
         ),
         sourceFiles: legacyTree
           .filter((entry) => entry.kind === "file")
-          .map(({ path, content, sha256 }) => ({ path, content, sha256: sha256 ?? "" })),
+          .map(({ path, content, sha256 }) => ({
+            path,
+            content,
+            sha256: sha256 ?? "",
+          })),
       },
     },
   };
@@ -108,8 +113,12 @@ async function observeRollback(
   let receipt: MigrationV1 | null = null;
   let targets: readonly string[] = [];
   try {
-    const receiptEntry = await ports.durableFileSystem.inspect(`${root}/receipt.json`);
-    const rollbackEntry = await ports.durableFileSystem.inspect(`${root}/rollback.json`);
+    const receiptEntry = await ports.durableFileSystem.inspect(
+      `${root}/receipt.json`,
+    );
+    const rollbackEntry = await ports.durableFileSystem.inspect(
+      `${root}/rollback.json`,
+    );
     if (receiptEntry.kind === "file" && rollbackEntry.kind === "file") {
       const validated = registry.validate({
         id: "state.migration",
@@ -125,7 +134,11 @@ async function observeRollback(
       if (
         validated.kind === "valid" &&
         validRollbackManifest(rollback, validated.value, migrationId, root) &&
-        (await rollbackTargetsUnchanged(rollback.targets, validated.value, ports))
+        (await rollbackTargetsUnchanged(
+          rollback.targets,
+          validated.value,
+          ports,
+        ))
       ) {
         receipt = validated.value;
         targets = [...new Set(rollback.targets)].sort();
@@ -203,8 +216,7 @@ async function rollbackTargetsUnchanged(
     const conversion = receipt.conversions[index];
     if (
       entry.kind !== "file" ||
-      conversion === undefined ||
-      entry.sha256 !== conversion.destinationDigest
+      entry.sha256 !== conversion?.destinationDigest
     ) {
       return false;
     }
@@ -235,7 +247,9 @@ async function walkBrain(
   }
   const values: ObservedEntry[] = [];
   await walkDirectory(".brain", "", fileSystem, values);
-  return values.sort((left, right) => left.path.localeCompare(right.path, "en-US"));
+  return values.sort((left, right) =>
+    left.path.localeCompare(right.path, "en-US"),
+  );
 }
 
 async function walkDirectory(
@@ -249,7 +263,13 @@ async function walkDirectory(
     const full = `${absolute}/${name}`;
     const entry = await fileSystem.inspect(full);
     if (entry.kind === "directory") {
-      values.push({ path, kind: "directory", sha256: null, bytes: 0, content: "" });
+      values.push({
+        path,
+        kind: "directory",
+        sha256: null,
+        bytes: 0,
+        content: "",
+      });
       await walkDirectory(full, path, fileSystem, values);
     } else if (entry.kind === "file") {
       values.push({

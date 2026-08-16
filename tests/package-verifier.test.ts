@@ -9,7 +9,7 @@ import {
   buildRoot,
   hostPackage,
   repositoryRoot,
-} from "./support/built-plugin";
+} from "./support/built-plugin.js";
 
 function verify(): string {
   return execFileSync(
