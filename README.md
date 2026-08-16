@@ -1,4 +1,6 @@
-# Kratos
+# Kratos HARNESS
+
+<img width="1008" height="502" alt="384534721-af617c49-717d-4aef-92cf-7adb3d973728" src="https://github.com/user-attachments/assets/1cd68305-31b4-4d00-a0aa-02a58617671e" />
 
 > A deterministic, observable development harness for AI coding agents.
 
@@ -241,6 +243,17 @@ policies are published in the [Code of Conduct](CODE_OF_CONDUCT.md),
 [Governance](GOVERNANCE.md), [Support policy](SUPPORT.md), and
 [Security policy](SECURITY.md). For vulnerabilities, follow the confidential
 reporting path in the [security policy](SECURITY.md).
+
+## Contributors
+
+Thanks to everyone who has contributed to Kratos.
+
+<a href="https://github.com/thiagocorreanet/kratos-harness/graphs/contributors">
+  <img
+    src="https://contrib.rocks/image?repo=thiagocorreanet/kratos-harness"
+    alt="Kratos contributors"
+  />
+</a>
 
 ## License
 
