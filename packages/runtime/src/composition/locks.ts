@@ -1108,25 +1108,41 @@ async function readAdmissionClaim(
 async function locateAdmission(
   services: LockServices,
 ): Promise<AdmissionLocation | null> {
-  let names: readonly string[];
-  try {
-    const entry = await services.durableFileSystem.inspect(admissionClaim);
-    if (entry.kind === "missing") return null;
-    if (entry.kind !== "directory") throw corrupt(admissionClaim);
-    names = await services.durableFileSystem.list(admissionClaim);
-  } catch (error) {
-    if (error instanceof LockFailure) throw error;
-    // A published admission that its own holder retired between the
-    // inspection and the listing is gone, and nothing locates it.
-    if (await vanishedUnderLocks(admissionClaim, services)) return null;
-    throw internal();
+  let generations: readonly AdmissionLocation[] = [];
+  let legacy = false;
+  // A retirement removes a generation while a successor publishes another, so
+  // an observer landing between the two sees both. That pair is the protocol
+  // handing over, not damage, and re-observing lets the retirement finish —
+  // the same rule `inspectLeaseHeld` applies to a trail published before the
+  // lease that seals it. Only a pair that survives the bound is
+  // uninterpretable.
+  for (
+    let observation = 0;
+    observation < MAX_LEASE_OBSERVATIONS;
+    observation++
+  ) {
+    let names: readonly string[];
+    try {
+      const entry = await services.durableFileSystem.inspect(admissionClaim);
+      if (entry.kind === "missing") return null;
+      if (entry.kind !== "directory") throw corrupt(admissionClaim);
+      names = await services.durableFileSystem.list(admissionClaim);
+    } catch (error) {
+      if (error instanceof LockFailure) throw error;
+      // A published admission that its own holder retired between the
+      // inspection and the listing is gone, and nothing locates it.
+      if (await vanishedUnderLocks(admissionClaim, services)) return null;
+      throw internal();
+    }
+    generations = names
+      .map(parseAdmissionGeneration)
+      .filter((value): value is AdmissionLocation => value !== null);
+    legacy = names.some(
+      (name) => name === "claim.json" || parseAdmissionTombstone(name) !== null,
+    );
+    if (generations.length <= 1 && !(generations.length !== 0 && legacy)) break;
+    await Promise.resolve();
   }
-  const generations = names
-    .map(parseAdmissionGeneration)
-    .filter((value): value is AdmissionLocation => value !== null);
-  const legacy = names.some(
-    (name) => name === "claim.json" || parseAdmissionTombstone(name) !== null,
-  );
   if (generations.length > 1 || (generations.length !== 0 && legacy))
     throw corrupt(admissionClaim);
   if (generations.length === 0) return legacy ? legacyAdmissionLocation : null;
