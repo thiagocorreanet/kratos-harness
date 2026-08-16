@@ -83,4 +83,3 @@ Do not open a public issue for a vulnerability. Follow the confidential path in
 the [Security policy](../SECURITY.md).
 
 Deep reference: [Threat model](../docs/security/threat-model.md).
-

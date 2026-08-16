@@ -90,4 +90,3 @@ and replay-derived snapshot are committed as one managed mutation.
 See the [command reference](../docs/user/commands.md) and
 [workflow architecture](../docs/architecture/workflow-state-machine.md) for the
 exact contract.
-

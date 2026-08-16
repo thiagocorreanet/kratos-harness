@@ -63,4 +63,3 @@ state. Host adapters translate and relay; they do not own workflow policy.
   is the editable visual model.
 - The [coverage inventory](../docs/architecture/architecture-coverage.csv)
   traces the analysis to individual files and symbols.
-

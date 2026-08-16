@@ -78,4 +78,3 @@ High-value contribution areas include:
 
 Before selecting work, read [Contributing and governance](Contributing-and-Governance.md)
 and the [delivery ledger](../KRATOS_BACKLOG.md).
-

@@ -18,4 +18,3 @@
 - [Editable Draw.io map](../docs/architecture/system-architecture.drawio)
 - [ADRs](../docs/adr/README.md)
 - [Security policy](../SECURITY.md)
-

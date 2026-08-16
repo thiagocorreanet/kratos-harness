@@ -81,4 +81,3 @@ Community standards:
 - [Security policy](../SECURITY.md)
 - [Contribution workflow](../docs/contributing/workflow.md)
 - [Verification guide](../docs/contributing/verification.md)
-

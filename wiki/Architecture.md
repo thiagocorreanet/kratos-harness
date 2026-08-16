@@ -86,4 +86,3 @@ hashes, path safety, durable filesystem primitives, and transaction journals.
 - [Runtime boundaries](../docs/architecture/runtime-boundaries.md)
 - [Architecture Decision Records](../docs/adr/README.md)
 - [Per-file coverage inventory](../docs/architecture/architecture-coverage.csv)
-

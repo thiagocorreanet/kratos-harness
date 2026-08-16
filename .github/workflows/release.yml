@@ -8,14 +8,16 @@ on:
 permissions:
   contents: read
 
-env:
-  KRATOS_BUILD_OUTPUT: ${{ runner.temp }}/kratos-plugin-build
-
 jobs:
   package:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: release
+    # `runner` is not a context a workflow-level `env` may read, so declaring
+    # this above the jobs made the whole file invalid and the workflow never
+    # started. A job-level `env` is evaluated once a runner exists.
+    env:
+      KRATOS_BUILD_OUTPUT: ${{ runner.temp }}/kratos-plugin-build
     permissions:
       contents: write
       id-token: write

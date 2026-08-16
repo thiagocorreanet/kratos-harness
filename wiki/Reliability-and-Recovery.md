@@ -107,4 +107,3 @@ References:
 - [Concurrency locks](../docs/architecture/concurrency-locks.md)
 - [Git service](../docs/architecture/git-service.md)
 - [Migration and recovery guide](../docs/user/migration-and-recovery.md)
-

@@ -82,4 +82,3 @@ completed.
 2. Read [Development trail](Development-Trail.md) before operating project state.
 3. Use the exact [command reference](../docs/user/commands.md).
 4. Review [Security model](Security-Model.md) before using a sensitive project.
-
