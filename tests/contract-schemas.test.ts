@@ -395,6 +395,14 @@ describe("versioned state and host schemas", () => {
     expect((await readdir(fixtureRoot)).sort()).toEqual(
       [
         ...artifacts.map(([, fixtureName]) => fixtureName),
+        // `host/operation-message.v1` is a lifecycle union rather than one
+        // payload shape, so it carries a fixture per lifecycle kind. Each one
+        // is validated in `host-operation-message.test.ts`.
+        "operation-approval.json",
+        "operation-cancellation.json",
+        "operation-error.json",
+        "operation-hook.json",
+        "operation-timeout.json",
         "version-cases.json",
       ].sort(),
     );

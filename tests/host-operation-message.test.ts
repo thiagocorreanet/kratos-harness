@@ -43,7 +43,9 @@ describe("host operation message contract", () => {
   });
 
   it("requires a transaction reference for an interrupted partial mutation", () => {
-    const candidate = structuredClone(timeout);
+    const candidate: {
+      payload: { mutation: { transactionRef: string | null } };
+    } = structuredClone(timeout);
     candidate.payload.mutation.transactionRef = null;
     const result = registry.validate({
       id: "host.operation-message",
@@ -90,7 +92,9 @@ describe("host operation message contract", () => {
   });
 
   it("declares one explicit required capability per message kind", () => {
-    expect(fixtures.map((fixture) => requiredCapability(message(fixture)))).toEqual([
+    expect(
+      fixtures.map((fixture) => requiredCapability(message(fixture))),
+    ).toEqual([
       "interaction.approval",
       "lifecycle.hook",
       "lifecycle.timeout",

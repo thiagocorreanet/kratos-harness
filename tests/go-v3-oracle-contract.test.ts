@@ -60,7 +60,7 @@ describe("frozen Go v3 oracle catalog", () => {
       oracle_id: "go-v3-v0.6.5",
       version: "0.6.5",
       source: {
-        repository_slug: "betaup-sistemas/yoda",
+        repository_slug: "betaup-sistemas/mestre-yoda",
         visibility: "private",
         tag: "v0.6.5",
         tag_object: "720f0a35074451208a0673324d223803add249e0",
@@ -69,7 +69,7 @@ describe("frozen Go v3 oracle catalog", () => {
         file_count: 1157,
       },
       distribution: {
-        repository_slug: "betaup-sistemas/yoda-dist",
+        repository_slug: "betaup-sistemas/mestre-yoda-dist",
         visibility: "private",
         tag: "v0.6.5",
         commit: "e6e6803c9329a53d362217a8f829a2801c83609d",
