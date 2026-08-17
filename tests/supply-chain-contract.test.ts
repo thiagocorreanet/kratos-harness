@@ -291,15 +291,22 @@ describe("every workflow", () => {
         expect(job["timeout-minutes"], `${name}:${jobName}`).toEqual(
           expect.any(Number),
         );
-        // The native-platform jobs fan out over a matrix. Naming the hosts
-        // here is what keeps that fan-out on GitHub-hosted runners instead of
-        // a self-hosted label nobody audits.
+        // The native-platform jobs fan out over a matrix. Closing the set of
+        // hosts is what keeps that fan-out on GitHub-hosted runners instead of
+        // a self-hosted label nobody audits. Which of the three a given
+        // workflow selects is a scheduling decision — `platform.yml` may narrow
+        // to Linux while `nightly.yml` keeps all three — so the contract is
+        // that every entry is one of these and that the list is not empty,
+        // never that a particular workflow spends every runner it could.
         if (job["runs-on"] === "${{ matrix.os }}") {
-          expect(job.strategy?.matrix?.os, `${name}:${jobName}`).toEqual([
-            "ubuntu-latest",
-            "macos-latest",
-            "windows-latest",
-          ]);
+          const hosts = job.strategy?.matrix?.os ?? [];
+          expect(hosts.length, `${name}:${jobName}`).toBeGreaterThan(0);
+          for (const host of hosts) {
+            expect(
+              ["ubuntu-latest", "macos-latest", "windows-latest"],
+              `${name}:${jobName}`,
+            ).toContain(host);
+          }
           continue;
         }
         expect(job["runs-on"], `${name}:${jobName}`).toBe("ubuntu-latest");

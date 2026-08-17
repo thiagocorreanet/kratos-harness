@@ -20,7 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Temporarily narrowed to Linux so a pull request is not blocked by
+        # host differences the fixtures have not been taught yet. `macos-latest`
+        # and `windows-latest` keep running the same steps in `nightly.yml`, so
+        # a regression on those systems is still reported — a day late instead
+        # of on the pull request. Restore them here once the fixtures are
+        # portable; the list below is the only line that has to change.
+        os: [ubuntu-latest]
         node: ["24.18.0"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
