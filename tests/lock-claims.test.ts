@@ -5329,11 +5329,7 @@ describe("durable lock claims", () => {
       for (const seed of [
         { directories: [generation, alternate] },
         { directories: [`${claim}/unexpected`] },
-        {
-          directories: [
-            `${claim}/.claim-0-${sha256Digests().sha256(canonicalizeJson(stale))}`,
-          ],
-        },
+        { directories: [`${claim}/.claim-00-${"a".repeat(64)}`] },
         { files: { [generation]: "bad" } },
         { files: { [`${generation}/unexpected`]: "bad" } },
         { directories: [record] },
@@ -5351,6 +5347,83 @@ describe("durable lock claims", () => {
           inspectLease(resource, services(lockStorage(seed))),
         ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
       }
+    },
+  );
+
+  // `RUN-07b` shipped with a reader that called a sibling's retirement damage.
+  // A scope release removes the record, then the cleanup marker, then the
+  // generation that held both, so a concurrent reader lands on a generation
+  // that is momentarily empty or on a record the listing named a moment before
+  // its owner unlinked it. Neither is state anyone has to repair.
+  it.each(["project", "run:run-01"] as const)(
+    "reads a %s generation a retirement emptied as unpublished",
+    async (resource) => {
+      const retiring: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `retiring-${resource}`,
+        resource,
+      };
+      const generation = parentDirectory(publishedScopeRecord(retiring));
+
+      await expect(
+        inspectLease(
+          resource,
+          services(lockStorage({ directories: [generation] })),
+        ),
+      ).resolves.toMatchObject({ kind: "empty", claim: null, lease: null });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "reads a %s record unlinked under the listing that named it as unpublished",
+    async (resource) => {
+      const retiring: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `unlinked-${resource}`,
+        resource,
+      };
+      const record = publishedScopeRecord(retiring);
+      const storage = lockStorage({
+        files: { [record]: canonicalizeJson(retiring) },
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+
+      await expect(
+        inspectLease(
+          resource,
+          withDurable(storage, {
+            inspect: async (path) =>
+              path === record ? { kind: "missing" } : baseInspect(path),
+          }),
+        ),
+      ).resolves.toMatchObject({ kind: "empty", claim: null, lease: null });
+    },
+  );
+
+  it.each(["project", "run:run-01"] as const)(
+    "reads a %s cleanup marker its own recovery removed as no pending recovery",
+    async (resource) => {
+      const retiring: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `unlinked-marker-${resource}`,
+        resource,
+      };
+      const marker = scopeRecoveryMarker(retiring);
+      const storage = lockStorage({
+        files: { [publishedScopeRecord(retiring)]: canonicalizeJson(retiring) },
+        directories: [marker],
+      });
+      const baseInspect = storage.durableFileSystem.inspect;
+
+      await expect(
+        inspectLease(
+          resource,
+          withDurable(storage, {
+            inspect: async (path) =>
+              path === marker ? { kind: "missing" } : baseInspect(path),
+          }),
+        ),
+      ).resolves.toMatchObject({ kind: "empty" });
     },
   );
 
