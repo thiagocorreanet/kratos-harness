@@ -1,17 +1,27 @@
 import type { EventDraftV1 } from "../events/index.js";
 
 import {
+  FACT_EVENT_REASONS,
   RUN_PHASES,
   WORKFLOW_POLICY_VERSION,
   type ContinueWorkflowRequest,
+  type FactOperation,
   type StartWorkflowRequest,
   type WorkflowDecision,
   type WorkflowIdentity,
   type WorkflowObservation,
 } from "./model.js";
 
-const operationId = (name: "continue" | "start", correlationId: string) =>
-  `sdd.${name}:${correlationId}`;
+const operationId = (
+  name: "continue" | "start" | FactOperation,
+  correlationId: string,
+) => `sdd.${name}:${correlationId}`;
+
+/** Every transition that moves the run, as opposed to recording a fact. */
+type MovingTransition = Exclude<
+  Extract<WorkflowDecision, { readonly kind: "recorded" }>["transition"],
+  "observed"
+>;
 
 const id = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
 const feature = /^[a-z0-9][a-z0-9-]{0,63}$/u;
@@ -70,19 +80,11 @@ function event(
     readonly revision: number;
     readonly identity: WorkflowIdentity;
   },
-  transition: Extract<
-    WorkflowDecision,
-    { readonly kind: "recorded" }
-  >["transition"],
+  transition: MovingTransition,
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
 ): EventDraftV1 {
-  const reasonCode: Readonly<
-    Record<
-      Extract<WorkflowDecision, { readonly kind: "recorded" }>["transition"],
-      string
-    >
-  > = {
+  const reasonCode: Readonly<Record<MovingTransition, string>> = {
     accepted: "run.transition.accepted",
     completed: "run.completed",
     rejected: "run.transition.rejected",
@@ -251,10 +253,7 @@ function recorded(
   request: ContinueWorkflowRequest,
   operation: string,
   revision: number,
-  transition: Extract<
-    WorkflowDecision,
-    { readonly kind: "recorded" }
-  >["transition"],
+  transition: MovingTransition,
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
 ): WorkflowDecision {
@@ -273,5 +272,88 @@ function recorded(
       artifactRefs,
       evidenceRefs,
     ),
+  };
+}
+
+export interface RecordFactRequest {
+  readonly feature: string;
+  readonly runId: string;
+  readonly correlationId: string;
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly expectedRevision: number;
+  readonly operation: FactOperation;
+  readonly artifactRefs: readonly string[];
+  readonly observedIdentity: WorkflowIdentity;
+}
+
+/**
+ * Decide the event that records a fact the gates will read.
+ *
+ * The same preconditions as any other operation on an open run, and the same
+ * idempotency: a repeated correlation identifier is a repeated delivery, not a
+ * second gap.
+ */
+export function decideRecordFact(
+  observation: WorkflowObservation,
+  request: RecordFactRequest,
+): WorkflowDecision {
+  if (
+    !feature.test(request.feature) ||
+    !id.test(request.runId) ||
+    !id.test(request.correlationId) ||
+    !id.test(request.eventId) ||
+    !id.test(operationId(request.operation, request.correlationId)) ||
+    !Number.isSafeInteger(request.expectedRevision) ||
+    request.expectedRevision < 0 ||
+    !id.test(request.observedIdentity.host) ||
+    (request.observedIdentity.model !== null &&
+      !id.test(request.observedIdentity.model)) ||
+    !request.artifactRefs.every((ref) => ref.length > 0)
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (observation.kind === "corrupt") {
+    return { kind: "refused", reasonCode: "blocked.state_unreadable" };
+  }
+  if (observation.kind === "absent") {
+    return { kind: "refused", reasonCode: "blocked.context_unreadable" };
+  }
+  const state = observation.state;
+  if (state.feature !== request.feature) {
+    return { kind: "refused", reasonCode: "blocked.feature_mismatch" };
+  }
+  if (state.runId !== request.runId) {
+    return { kind: "refused", reasonCode: "blocked.runid_mismatch" };
+  }
+  const operation = operationId(request.operation, request.correlationId);
+  if (state.operations.includes(operation)) {
+    return { kind: "unchanged", reason: "duplicate" };
+  }
+  if (state.status === "completed") {
+    return { kind: "unchanged", reason: "already-completed" };
+  }
+  if (request.expectedRevision !== state.revision) {
+    return { kind: "refused", reasonCode: "runtime.revision_conflict" };
+  }
+  return {
+    kind: "recorded",
+    transition: "observed",
+    event: {
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      eventId: request.eventId,
+      eventType: "decision",
+      occurredAt: request.occurredAt,
+      operation,
+      policyVersion: WORKFLOW_POLICY_VERSION,
+      priorRevision: state.revision,
+      resultingRevision: state.revision + 1,
+      reasonCode: FACT_EVENT_REASONS[request.operation],
+      effect: "state-and-artifact",
+      artifactRefs: [...request.artifactRefs],
+      evidenceRefs: [],
+      observedIdentity: request.observedIdentity,
+    },
   };
 }

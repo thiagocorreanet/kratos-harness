@@ -109,6 +109,7 @@ export const handoffCommand: CommandSpec = observed(
         `Phase: ${state.currentStep ?? "none"}`,
         `Gate outcome: ${observation.gateDecision.outcome}`,
         `Blockers: ${blockers.length === 0 ? "none" : blockers.join(", ")}`,
+        `Open gaps: ${String(observation.openGaps)}`,
         `Next action: ${nextAction}`,
       ],
     );

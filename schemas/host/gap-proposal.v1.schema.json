@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/gap-proposal/v1",
+  "title": "Kratos gap proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "gaps"],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "hostContract": {
+      "const": "1.0.0"
+    },
+    "gaps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/proposedGap"
+      }
+    }
+  },
+  "$defs": {
+    "proposedGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gapId",
+        "category",
+        "weight",
+        "description",
+        "recommendation",
+        "reasoning",
+        "documentRefs"
+      ],
+      "properties": {
+        "gapId": {
+          "$ref": "#/$defs/id"
+        },
+        "category": {
+          "enum": [
+            "ambiguous-rule",
+            "document-contradiction",
+            "owner-decision",
+            "unconfirmed-dependency"
+          ]
+        },
+        "weight": {
+          "enum": ["high", "medium", "low"]
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        },
+        "recommendation": {
+          "$ref": "#/$defs/text"
+        },
+        "reasoning": {
+          "$ref": "#/$defs/text"
+        },
+        "documentRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        }
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    }
+  }
+}

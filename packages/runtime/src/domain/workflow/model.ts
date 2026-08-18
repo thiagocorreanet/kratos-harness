@@ -96,11 +96,34 @@ export type WorkflowRefusal =
   | "trail.uso"
   | "trail.worktree_dirty";
 
+/**
+ * Operations that record a fact a gate will read without moving the run.
+ *
+ * They carry their own reason codes because replay must distinguish "the run
+ * advanced" from "what the run knows changed"; collapsing them would make a
+ * recorded gap look like a phase transition in the history.
+ */
+export const FACT_EVENT_REASONS = {
+  "gaps.record": "run.gap.recorded",
+  "gaps.resolve": "run.gap.resolved",
+  "gaps.waive": "run.gap.waived",
+  "gates.record": "run.gates.recorded",
+} as const;
+
+export type FactOperation = keyof typeof FACT_EVENT_REASONS;
+
+export type FactEventReason = (typeof FACT_EVENT_REASONS)[FactOperation];
+
 export type WorkflowDecision =
   | {
       readonly kind: "recorded";
       readonly transition:
-        "started" | "resumed" | "accepted" | "rejected" | "completed";
+        | "started"
+        | "resumed"
+        | "accepted"
+        | "rejected"
+        | "completed"
+        | "observed";
       readonly event: EventDraftV1;
     }
   | {

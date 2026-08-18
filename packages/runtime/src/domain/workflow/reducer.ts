@@ -74,6 +74,19 @@ export function reduceWorkflow(
       }
       status = "blocked";
       break;
+    case "run.gap.recorded":
+    case "run.gap.resolved":
+    case "run.gap.waived":
+    case "run.gates.recorded":
+      // Recording a fact a gate will read does not move the run through its
+      // phases. It changes what the next decision sees, which is why it still
+      // takes a revision: a gate answer bound to revision 4 must not be read
+      // as if it had been true at revision 3.
+      if (state.status === "completed" || state.currentStep === null) {
+        throw new Error("Run cannot record gate facts");
+      }
+      status = state.status;
+      break;
     case "run.completed":
       if (state.currentStep !== RUN_PHASES.at(-1)) {
         throw new Error("Run is not at final acceptance");

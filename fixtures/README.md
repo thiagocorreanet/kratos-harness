@@ -14,12 +14,15 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `event.json`;
 - `approval.json`;
 - `evidence.json`;
+- `gap.json`;
+- `gates.json`;
 - `lock.json`;
 - `migration.json`;
 - `transaction-manifest.json`;
 - `transaction-progress.json`;
 - `adapter-message.json`;
 - `init-answers.json`;
+- `gap-proposal.json`;
 - `operation-approval.json`;
 - `operation-hook.json`;
 - `operation-timeout.json`;

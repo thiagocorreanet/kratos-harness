@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/gap/v1",
+  "title": "Kratos gap record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "gapId",
+    "runId",
+    "phase",
+    "category",
+    "weight",
+    "description",
+    "recommendation",
+    "reasoning",
+    "documentRefs",
+    "prdDigest",
+    "specDigest",
+    "policyMode",
+    "recordedAt",
+    "resolution",
+    "waiver"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "stateContract": { "const": "1.0.0" },
+    "gapId": { "$ref": "#/$defs/id" },
+    "runId": { "$ref": "#/$defs/id" },
+    "phase": { "enum": ["prd", "spec"] },
+    "category": {
+      "enum": [
+        "ambiguous-rule",
+        "document-contradiction",
+        "owner-decision",
+        "unconfirmed-dependency"
+      ]
+    },
+    "weight": { "enum": ["high", "medium", "low"] },
+    "description": { "$ref": "#/$defs/text" },
+    "recommendation": { "$ref": "#/$defs/text" },
+    "reasoning": { "$ref": "#/$defs/text" },
+    "documentRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/reference" }
+    },
+    "prdDigest": { "$ref": "#/$defs/sha256" },
+    "specDigest": { "$ref": "#/$defs/sha256" },
+    "policyMode": { "enum": ["shadow", "warn", "enforce"] },
+    "recordedAt": { "$ref": "#/$defs/timestamp" },
+    "resolution": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision",
+            "documentChanged",
+            "decidedBy",
+            "decidedAt",
+            "observation"
+          ],
+          "properties": {
+            "decision": { "enum": ["accepted", "adjusted", "rejected"] },
+            "documentChanged": { "type": "boolean" },
+            "decidedBy": { "$ref": "#/$defs/id" },
+            "decidedAt": { "$ref": "#/$defs/timestamp" },
+            "observation": { "$ref": "#/$defs/text" }
+          }
+        }
+      ]
+    },
+    "waiver": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["acknowledgedBy", "acknowledgedAt", "observation"],
+          "properties": {
+            "acknowledgedBy": { "$ref": "#/$defs/id" },
+            "acknowledgedAt": { "$ref": "#/$defs/timestamp" },
+            "observation": { "$ref": "#/$defs/text" }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    }
+  }
+}

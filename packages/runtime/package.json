@@ -20,6 +20,7 @@
     "./domain/events": "./src/domain/events/index.ts",
     "./domain/evidence": "./src/domain/evidence/index.ts",
     "./domain/extensions": "./src/domain/extensions/index.ts",
+    "./domain/gaps": "./src/domain/gaps/index.ts",
     "./domain/gates": "./src/domain/gates/index.ts",
     "./domain/approvals": "./src/domain/approvals/index.ts",
     "./domain/acceptance": "./src/domain/acceptance/index.ts",
