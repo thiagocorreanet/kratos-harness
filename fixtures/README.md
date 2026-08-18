@@ -1,5 +1,10 @@
 # Fixtures
 
+[`feature-documents/complete`](feature-documents/complete) contains one filled,
+host-neutral example for each generated feature document. These examples show
+the required structure without defining the discovery method or acceptance
+identifier grammar owned by later issues.
+
 This directory owns stable compatibility inputs and golden scenarios shared by
 differential, contract, migration, and black-box tests.
 

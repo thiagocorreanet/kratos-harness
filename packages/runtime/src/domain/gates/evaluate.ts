@@ -21,8 +21,15 @@ function failure(
   gateId: GateId,
   reasonCode: GateFailure["reasonCode"],
   evidenceRefs: readonly string[],
+  detail: string | null = null,
 ): GateFailure {
-  return { gateId, reasonCode, priority: PRIORITY[gateId], evidenceRefs };
+  return {
+    gateId,
+    reasonCode,
+    priority: PRIORITY[gateId],
+    evidenceRefs,
+    detail,
+  };
 }
 
 function approved(
@@ -62,9 +69,24 @@ export function evaluateGates(context: GateContext): GateDecision {
       ]),
     );
   }
-  if (context.prdDigest === null) {
+  if (context.prdDocument.kind === "missing") {
     failures.push(
       failure("prd-present", "gate.prd_ausente", [".brain/02-features/active"]),
+    );
+  } else if (context.prdDocument.kind === "untouched") {
+    failures.push(
+      failure("prd-present", "gate.prd_untouched", [
+        ".brain/02-features/active",
+      ]),
+    );
+  } else if (context.prdDocument.kind === "incomplete") {
+    failures.push(
+      failure(
+        "prd-present",
+        "gate.prd_section_missing",
+        [".brain/02-features/active"],
+        `Missing required section: ${context.prdDocument.missingSection}`,
+      ),
     );
   }
   if (

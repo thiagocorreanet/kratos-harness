@@ -1,5 +1,6 @@
 import type { GapRecordV1, GateFactsV1 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
+import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
 import {
   fixedClock,
   fixedEnvironment,
@@ -154,6 +155,52 @@ async function handoff(run: Subject): Promise<string> {
   expect(await runCommandLine(["handoff"], view.ports)).toBe(0);
   return view.output.structured_.join("");
 }
+
+async function evidenceBundle(run: Subject): Promise<string> {
+  const bundling = next(run);
+  expect(await runCommandLine(["evidence", "bundle"], bundling.ports)).toBe(0);
+  return (
+    Object.entries(settled(bundling)).find(([path]) =>
+      path.startsWith(".brain/evidence/"),
+    )?.[1] ?? ""
+  );
+}
+
+describe("observed requirement documents", () => {
+  it("reports a copied, untouched template by its distinct reason", async () => {
+    const run = next(await startedRun("strict"), {
+      [PRD]: PRD_DOCUMENT.template,
+    });
+
+    expect(settled(run)[PRD]).toBe(PRD_DOCUMENT.template);
+    expect(await evidenceBundle(run)).toContain("gate.prd_untouched");
+  });
+
+  it("reports the canonical name of a missing PRD section", async () => {
+    const complete = `# Requirements\n\n${PRD_DOCUMENT.requiredSections
+      .map((section) => `## ${section}\n\nCompleted ${section}.`)
+      .join("\n\n")}\n`;
+    const run = next(await startedRun("strict"), {
+      [PRD]: complete.replace("## Success metrics", "## Measures"),
+    });
+    const bundle = await evidenceBundle(run);
+
+    expect(bundle).toContain("gate.prd_section_missing");
+    expect(bundle).toContain("Missing required section: Success metrics");
+  });
+
+  it("passes the requirement gate after every canonical section is present", async () => {
+    const complete = `# Requirements\n\n${PRD_DOCUMENT.requiredSections
+      .map((section) => `## ${section}\n\nCompleted ${section}.`)
+      .join("\n\n")}\n`;
+    const run = next(await startedRun("strict"), { [PRD]: complete });
+    const bundle = await evidenceBundle(run);
+
+    expect(bundle).not.toContain("gate.prd_untouched");
+    expect(bundle).not.toContain("gate.prd_section_missing");
+    expect(bundle).not.toContain("gate.prd_ausente");
+  });
+});
 
 /** Record the proposal against a run sitting in a gap-detecting phase. */
 async function recordProposal(

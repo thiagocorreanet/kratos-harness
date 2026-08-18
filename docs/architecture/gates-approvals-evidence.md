@@ -5,6 +5,25 @@ no filesystem, clock, Git, process, or network I/O. Failures are aggregated in
 stable priority order. `shadow` records findings while passing, `warn` reports
 findings without blocking, and `enforce` blocks.
 
+## Requirement document facts
+
+The composition layer reads the active `00-prd.md` through the durable
+filesystem port and passes one closed observation to the pure gate evaluator.
+The evaluator never reads the file itself. Its `prd-present` gate distinguishes
+four states in order:
+
+| Observation | Gate result |
+| --- | --- |
+| File is missing | `gate.prd_ausente` |
+| Bytes equal the generated PRD template | `gate.prd_untouched` |
+| A canonical heading is absent | `gate.prd_section_missing`, with that heading in `detail` |
+| Every canonical heading is present | Pass |
+
+Heading inspection accepts ATX headings outside fenced code blocks. This keeps
+a Markdown example from satisfying a document requirement accidentally. The
+required names and the untouched bytes come from `FEATURE_DOCUMENTS`, the same
+definition initialization renders.
+
 ## Gap facts
 
 `gates.json` under the run directory carries the facts the gates read:

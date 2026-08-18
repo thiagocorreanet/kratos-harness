@@ -23,6 +23,10 @@ const catalogV13Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.3.json",
 );
+const catalogV14Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.4.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -56,23 +60,32 @@ let catalogV1: Catalog;
 let catalogV11: Catalog;
 let catalogV12: Catalog;
 let catalogV13: Catalog;
+let catalogV14: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
 let catalogV13Text: string;
+let catalogV14Text: string;
 
 beforeAll(async () => {
-  [catalogV1Text, catalogV11Text, catalogV12Text, catalogV13Text] =
-    await Promise.all([
-      readFile(catalogV1Path, "utf8"),
-      readFile(catalogV11Path, "utf8"),
-      readFile(catalogV12Path, "utf8"),
-      readFile(catalogV13Path, "utf8"),
-    ]);
+  [
+    catalogV1Text,
+    catalogV11Text,
+    catalogV12Text,
+    catalogV13Text,
+    catalogV14Text,
+  ] = await Promise.all([
+    readFile(catalogV1Path, "utf8"),
+    readFile(catalogV11Path, "utf8"),
+    readFile(catalogV12Path, "utf8"),
+    readFile(catalogV13Path, "utf8"),
+    readFile(catalogV14Path, "utf8"),
+  ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
   catalogV12 = JSON.parse(catalogV12Text) as Catalog;
   catalogV13 = JSON.parse(catalogV13Text) as Catalog;
+  catalogV14 = JSON.parse(catalogV14Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -157,6 +170,34 @@ describe("contract reason catalog revision", () => {
       retryable: false,
       recovery: null,
     });
+  });
+
+  it("preserves revision 1.3 and appends the two PRD structure reasons", () => {
+    expect(catalogV14.contractVersion).toBe("1.0.0");
+    expect(catalogV14.reasons.slice(0, catalogV13.reasons.length)).toEqual(
+      catalogV13.reasons,
+    );
+    expect(catalogV14.reasons).toHaveLength(86);
+    expect(
+      catalogV14.reasons
+        .slice(catalogV13.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["gate.prd_untouched", "gate.prd_section_missing"]);
+  });
+
+  it("publishes fail-closed policy and recovery for PRD structure failures", () => {
+    for (const code of ["gate.prd_untouched", "gate.prd_section_missing"]) {
+      expect(
+        catalogV14.reasons.find((reason) => reason.code === code),
+        code,
+      ).toMatchObject({
+        status: "blocked",
+        exitCode: 3,
+        evidence: "required",
+        stateChanged: false,
+        retryable: true,
+      });
+    }
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

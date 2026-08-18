@@ -43,6 +43,10 @@ import {
 import type { GapProposalObservation } from "../domain/gaps/index.js";
 import { evaluateGates, type GateMode } from "../domain/gates/index.js";
 import {
+  inspectPrdDocument,
+  type PrdDocumentObservation,
+} from "../domain/feature-documents/index.js";
+import {
   auditSnapshot,
   buildEvidenceBundle,
   planSnapshotRepair,
@@ -103,10 +107,24 @@ export async function observeWorkflow(
   const runId =
     activeRun ??
     (typeof requestedRun === "string" ? requestedRun : anchored.ids.next());
+  const observedPrd =
+    feature === null
+      ? {
+          digest: EMPTY_DIGEST,
+          document: { kind: "missing" as const },
+          readable: true,
+        }
+      : await observePrd(feature, anchored);
   const observedLineage =
     feature === null
       ? { prdDigest: EMPTY_DIGEST, specDigest: EMPTY_DIGEST }
-      : await observeLineage(feature, anchored);
+      : {
+          prdDigest: observedPrd.digest,
+          specDigest: await fileDigest(
+            `.brain/02-features/${feature}/01-design.md`,
+            anchored,
+          ),
+        };
   const projectId = `project-${anchored.digests
     .sha256(anchored.environment.workingDirectory())
     .slice(0, 32)}`;
@@ -219,12 +237,14 @@ export async function observeWorkflow(
       gateFacts.readable &&
       gaps.readable &&
       artifactLineage.readable &&
+      observedPrd.readable &&
       run.workflow.kind !== "corrupt",
     stopLoss: gateFacts.stopLoss,
     prdDigest:
       observedLineage.prdDigest === EMPTY_DIGEST
         ? null
         : observedLineage.prdDigest,
+    prdDocument: observedPrd.document,
     specDigest:
       observedLineage.specDigest === EMPTY_DIGEST
         ? null
@@ -921,20 +941,45 @@ export function activeRunPath(feature: string): string {
   return `.brain/02-features/${feature}/active-run`;
 }
 
-async function observeLineage(
+async function observePrd(
   feature: string,
   ports: RuntimePorts,
-): Promise<RunLineage> {
-  return {
-    prdDigest: await fileDigest(
-      `.brain/02-features/${feature}/00-prd.md`,
-      ports,
-    ),
-    specDigest: await fileDigest(
-      `.brain/02-features/${feature}/01-design.md`,
-      ports,
-    ),
-  };
+): Promise<{
+  readonly digest: string;
+  readonly document: PrdDocumentObservation;
+  readonly readable: boolean;
+}> {
+  const path = `.brain/02-features/${feature}/00-prd.md`;
+  const entry = await ports.durableFileSystem.inspect(path);
+  if (entry.kind === "missing") {
+    return {
+      digest: EMPTY_DIGEST,
+      document: inspectPrdDocument(null),
+      readable: true,
+    };
+  }
+  if (entry.kind !== "file") {
+    return {
+      digest: EMPTY_DIGEST,
+      document: inspectPrdDocument(null),
+      readable: false,
+    };
+  }
+  try {
+    return {
+      digest: entry.sha256,
+      document: inspectPrdDocument(
+        await ports.durableFileSystem.readText(path),
+      ),
+      readable: true,
+    };
+  } catch {
+    return {
+      digest: entry.sha256,
+      document: inspectPrdDocument(null),
+      readable: false,
+    };
+  }
 }
 
 async function fileDigest(path: string, ports: RuntimePorts): Promise<string> {

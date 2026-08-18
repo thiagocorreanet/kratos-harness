@@ -5,6 +5,7 @@ import {
 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
+import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
 
 import {
   MANAGED_SECTION_BEGIN,
@@ -94,12 +95,9 @@ function stateFiles(
     [".brain/01-architecture/adr/.gitkeep", ""],
     [".brain/01-architecture/stack-profile.md", stackProfileDocument(profile)],
     [".brain/02-features/README.md", featuresReadme()],
-    ...FEATURE_TEMPLATES.map(
-      ([name, title]) =>
-        [
-          `.brain/02-features/_template/${name}.md`,
-          templateDocument(title),
-        ] as const,
+    ...FEATURE_DOCUMENTS.map(
+      ({ id, template }) =>
+        [`.brain/02-features/_template/${id}.md`, template] as const,
     ),
     [".brain/02-features/_template/state.json", templateState()],
     // The name of the active feature, written by the command that selects one.
@@ -272,24 +270,6 @@ function featuresReadme(): string {
     "",
     "One directory per feature, created from `_template`. `active` names the",
     "feature currently being worked on, and is empty when none is.",
-  );
-}
-
-/** The four stages of a feature, in the order they are worked. */
-const FEATURE_TEMPLATES: readonly (readonly [string, string])[] = [
-  ["00-prd", "Requirements"],
-  ["01-design", "Design"],
-  ["02-tasks", "Tasks"],
-  ["03-summa", "Summary"],
-];
-
-function templateDocument(title: string): string {
-  return lines(
-    `# ${title}`,
-    "",
-    "Copied into a feature directory when the feature is created. Replace this",
-    "line; an untouched template is how a feature ships without a decision",
-    "behind it.",
   );
 }
 

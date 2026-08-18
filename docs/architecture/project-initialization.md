@@ -45,6 +45,32 @@ what this runtime enforces today and leave the ported workflow gates to
 `SDD-04`. The feature template carries the contract header without the
 lifecycle fields `SDD-02` owns.
 
+## Feature document contracts
+
+The four Markdown templates are embedded in the runtime. Keeping them beside
+their document definitions preserves `skeletonEffects` as a pure function by
+inspection: initialization never reads package assets, and a packaged runtime
+cannot drift from its source templates. `FEATURE_DOCUMENTS` is the single
+source for each filename, title, required section name, guidance, and rendered
+bytes.
+
+| Document | Required sections |
+| --- | --- |
+| `00-prd.md` | Problem; Affected users; Goals; Non-goals; Scope boundary; Success metrics; Open questions; Problem discovery (5 Whys); Action framing (5W2H) |
+| `01-design.md` | Architecture summary; Data model; Interface surface; Integration points; Trade-offs; Risks |
+| `02-tasks.md` | Ordered work; Files; Acceptance criteria; Edge cases; Out of scope |
+| `03-summa.md` | One-sentence statement; Hard requirements; File allowlist; File denylist; Definition of done |
+
+Guidance travels with each feature copy inside Markdown comments. It remains
+available to an author without becoming rendered specification content. The
+task template notes that criterion identifiers belong to `SDD-13`; the PRD
+template only scaffolds the two discovery sections whose method belongs to
+`SDD-11`.
+
+The summary is the reviewer contract. After specification approval, changing
+its specification content is a failure. Flipping an acceptance checkbox in
+`02-tasks.md` is the sole exemption and does not count as a specification edit.
+
 ## Idempotency is a consequence
 
 `normalizeManagedMutationPlan` collapses a plan the project already satisfies

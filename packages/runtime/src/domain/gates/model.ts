@@ -1,4 +1,5 @@
 import type { ApprovalV1 } from "@kratos/contracts";
+import type { PrdDocumentObservation } from "../feature-documents/index.js";
 
 export type GateMode = "shadow" | "warn" | "enforce";
 
@@ -20,6 +21,7 @@ export interface GateContext {
   readonly contextReadable: boolean;
   readonly stopLoss: { readonly tripped: boolean; readonly exhausted: boolean };
   readonly prdDigest: string | null;
+  readonly prdDocument: PrdDocumentObservation;
   readonly specDigest: string | null;
   readonly approvals: readonly ApprovalV1[];
   readonly openGaps: number;
@@ -38,9 +40,12 @@ export interface GateFailure {
     | "gate.aprovacao_spec"
     | "gate.gaps_abertos"
     | "gate.particionamento"
-    | "gate.prd_ausente";
+    | "gate.prd_ausente"
+    | "gate.prd_section_missing"
+    | "gate.prd_untouched";
   readonly priority: number;
   readonly evidenceRefs: readonly string[];
+  readonly detail: string | null;
 }
 
 export interface GateDecision {

@@ -18,6 +18,7 @@ const base = {
   contextReadable: true,
   stopLoss: { tripped: false, exhausted: false },
   prdDigest: "a".repeat(64),
+  prdDocument: { kind: "complete" },
   specDigest: "b".repeat(64),
   approvals: [],
   openGaps: 1,

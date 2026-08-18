@@ -93,6 +93,7 @@ describe("deterministic gates", () => {
     contextReadable: true,
     stopLoss: { tripped: false, exhausted: false },
     prdDigest: "a".repeat(64),
+    prdDocument: { kind: "complete" as const },
     specDigest: "b".repeat(64),
     approvals: [],
     openGaps: 2,
