@@ -29,13 +29,14 @@ describe("schema-derived contract declarations", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      "contract families v1.0.0: verified (17 schemas; 14 legacy profiles; generated types current)\n",
+      "contract families v1.0.0: verified (18 schemas; 14 legacy profiles; generated types current)\n",
     );
     expect(after).toBe(before);
     expect(after).toContain("Generated from registered JSON Schemas.");
     expect(after).toContain("export type AdapterMessageV1");
     expect(after).toContain("export type HostOperationMessageV1");
     expect(after).toContain("export interface ProjectConfigV1");
+    expect(after).toContain("export interface RequirementDiscoveryV1");
     expect(after).toContain("export interface TransactionManifestV1");
     expect(after).toContain("export type TransactionProgressV1");
     const transactionDeclarations = after.slice(

@@ -126,6 +126,14 @@
       "typeName": "ProjectConfigV1"
     },
     {
+      "id": "state.requirement-discovery",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/requirement-discovery.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "RequirementDiscoveryV1"
+    },
+    {
       "id": "state.snapshot",
       "family": "state",
       "version": "1.0.0",

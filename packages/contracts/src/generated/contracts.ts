@@ -14,6 +14,7 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
+// source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/snapshot/v1 sha256:d69b9106ce76a395900012d65a507355aa45d19c4f52e21407e95ced233877e8
 // source: https://kratos.dev/schemas/state/transaction-manifest/v1 sha256:451cddd26a731a556f2a6cd764f9076b7c697ed640432a3145f2c56afd762eaa
 // source: https://kratos.dev/schemas/state/transaction-progress/v1 sha256:87c50f21dd68caafe3044fc2cba589a5505e289b9eabf591628480e2ec64acc4
@@ -674,6 +675,109 @@ export namespace ProjectConfigV1Contract {
   }
 }
 export type ProjectConfigV1 = ProjectConfigV1Contract.ProjectConfigV1;
+export namespace RequirementDiscoveryV1Contract {
+  export type NonEmptyText = string;
+  export type ProblemDiscovery = {
+    applied: boolean;
+    skipReason: NonEmptyText | null;
+    decisionReason: NonEmptyText;
+    /**
+     * @maxItems 64
+     */
+    investigation: InvestigationStep[];
+    causeCategory:
+      | "process"
+      | "system"
+      | "rule"
+      | "flow"
+      | "communication"
+      | "architecture"
+      | "operating-context";
+    probableRootCause: NonEmptyText;
+  } & ProblemDiscovery1;
+  export type ProblemDiscovery1 =
+    | {
+        applied: true;
+        skipReason: null;
+        /**
+         * @minItems 1
+         */
+        investigation: [unknown, ...unknown[]];
+        [k: string]: unknown | undefined;
+      }
+    | {
+        applied: false;
+        skipReason: NonEmptyText;
+        /**
+         * @maxItems 0
+         */
+        investigation: [];
+        [k: string]: unknown | undefined;
+      };
+  export type ActionFraming = {
+    applied: boolean;
+    skipReason: NonEmptyText | null;
+    decisionReason: NonEmptyText;
+    what: NonEmptyText | null;
+    why: NonEmptyText | null;
+    who: NonEmptyText | null;
+    where: NonEmptyText | null;
+    when: NonEmptyText | null;
+    how: NonEmptyText | null;
+    howMuch: NonEmptyText | null;
+  } & ActionFraming1;
+  export type ActionFraming1 =
+    | {
+        applied: true;
+        skipReason: null;
+        what: NonEmptyText;
+        why: NonEmptyText;
+        who: NonEmptyText;
+        where: NonEmptyText;
+        when: NonEmptyText;
+        how: NonEmptyText;
+        howMuch: NonEmptyText;
+        [k: string]: unknown | undefined;
+      }
+    | {
+        applied: false;
+        skipReason: NonEmptyText;
+        what: null;
+        why: null;
+        who: null;
+        where: null;
+        when: null;
+        how: null;
+        howMuch: null;
+        [k: string]: unknown | undefined;
+      };
+
+  export interface RequirementDiscoveryV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    originalRequest: NonEmptyText;
+    classification:
+      | "stated-problem"
+      | "proposed-solution"
+      | "defect"
+      | "improvement"
+      | "refactor"
+      | "external-obligation";
+    problemDiscovery: ProblemDiscovery;
+    validatedProblem: NonEmptyText;
+    solutionHypothesis: NonEmptyText;
+    successMetric: NonEmptyText;
+    wrongCauseRisk: NonEmptyText;
+    actionFraming: ActionFraming;
+    actionPlan: NonEmptyText;
+  }
+  export interface InvestigationStep {
+    question: NonEmptyText;
+    answer: NonEmptyText;
+  }
+}
+export type RequirementDiscoveryV1 =
+  RequirementDiscoveryV1Contract.RequirementDiscoveryV1;
 export namespace SnapshotV1Contract {
   export type Id = string;
   export type Sha256 = string;

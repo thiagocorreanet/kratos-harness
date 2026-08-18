@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/requirement-discovery/v1",
+  "title": "Kratos requirement discovery v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "originalRequest",
+    "classification",
+    "problemDiscovery",
+    "validatedProblem",
+    "solutionHypothesis",
+    "successMetric",
+    "wrongCauseRisk",
+    "actionFraming",
+    "actionPlan"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "stateContract": { "const": "1.0.0" },
+    "originalRequest": { "$ref": "#/$defs/nonEmptyText" },
+    "classification": {
+      "enum": [
+        "stated-problem",
+        "proposed-solution",
+        "defect",
+        "improvement",
+        "refactor",
+        "external-obligation"
+      ]
+    },
+    "problemDiscovery": { "$ref": "#/$defs/problemDiscovery" },
+    "validatedProblem": { "$ref": "#/$defs/nonEmptyText" },
+    "solutionHypothesis": { "$ref": "#/$defs/nonEmptyText" },
+    "successMetric": { "$ref": "#/$defs/nonEmptyText" },
+    "wrongCauseRisk": { "$ref": "#/$defs/nonEmptyText" },
+    "actionFraming": { "$ref": "#/$defs/actionFraming" },
+    "actionPlan": { "$ref": "#/$defs/nonEmptyText" }
+  },
+  "$defs": {
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "pattern": "\\S"
+    },
+    "investigationStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "answer"],
+      "properties": {
+        "question": { "$ref": "#/$defs/nonEmptyText" },
+        "answer": { "$ref": "#/$defs/nonEmptyText" }
+      }
+    },
+    "problemDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied",
+        "skipReason",
+        "decisionReason",
+        "investigation",
+        "causeCategory",
+        "probableRootCause"
+      ],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "skipReason": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "decisionReason": { "$ref": "#/$defs/nonEmptyText" },
+        "investigation": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/investigationStep" }
+        },
+        "causeCategory": {
+          "enum": [
+            "process",
+            "system",
+            "rule",
+            "flow",
+            "communication",
+            "architecture",
+            "operating-context"
+          ]
+        },
+        "probableRootCause": { "$ref": "#/$defs/nonEmptyText" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "applied": { "const": true },
+            "skipReason": { "type": "null" },
+            "investigation": { "type": "array", "minItems": 1 }
+          },
+          "required": ["applied", "skipReason", "investigation"]
+        },
+        {
+          "properties": {
+            "applied": { "const": false },
+            "skipReason": { "$ref": "#/$defs/nonEmptyText" },
+            "investigation": { "type": "array", "maxItems": 0 }
+          },
+          "required": ["applied", "skipReason", "investigation"]
+        }
+      ]
+    },
+    "actionFraming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied",
+        "skipReason",
+        "decisionReason",
+        "what",
+        "why",
+        "who",
+        "where",
+        "when",
+        "how",
+        "howMuch"
+      ],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "skipReason": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "decisionReason": { "$ref": "#/$defs/nonEmptyText" },
+        "what": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "why": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "who": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "where": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "when": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "how": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        },
+        "howMuch": {
+          "oneOf": [{ "$ref": "#/$defs/nonEmptyText" }, { "type": "null" }]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "applied": { "const": true },
+            "skipReason": { "type": "null" },
+            "what": { "$ref": "#/$defs/nonEmptyText" },
+            "why": { "$ref": "#/$defs/nonEmptyText" },
+            "who": { "$ref": "#/$defs/nonEmptyText" },
+            "where": { "$ref": "#/$defs/nonEmptyText" },
+            "when": { "$ref": "#/$defs/nonEmptyText" },
+            "how": { "$ref": "#/$defs/nonEmptyText" },
+            "howMuch": { "$ref": "#/$defs/nonEmptyText" }
+          },
+          "required": [
+            "applied",
+            "skipReason",
+            "what",
+            "why",
+            "who",
+            "where",
+            "when",
+            "how",
+            "howMuch"
+          ]
+        },
+        {
+          "properties": {
+            "applied": { "const": false },
+            "skipReason": { "$ref": "#/$defs/nonEmptyText" },
+            "what": { "type": "null" },
+            "why": { "type": "null" },
+            "who": { "type": "null" },
+            "where": { "type": "null" },
+            "when": { "type": "null" },
+            "how": { "type": "null" },
+            "howMuch": { "type": "null" }
+          },
+          "required": [
+            "applied",
+            "skipReason",
+            "what",
+            "why",
+            "who",
+            "where",
+            "when",
+            "how",
+            "howMuch"
+          ]
+        }
+      ]
+    }
+  }
+}

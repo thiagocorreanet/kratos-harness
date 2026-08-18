@@ -1,5 +1,6 @@
 import type {
   ProjectConfigV1,
+  RequirementDiscoveryV1,
   TransactionManifestV1,
   TransactionProgressV1,
 } from "@kratos/contracts";
@@ -18,6 +19,7 @@ describe("schema registry vocabulary", () => {
   it("maps every closed contract identifier to one generated type", () => {
     const ids = [
       "host.adapter-message",
+      "host.agent-output",
       "host.gap-proposal",
       "host.init-answers",
       "host.operation-message",
@@ -30,14 +32,18 @@ describe("schema registry vocabulary", () => {
       "state.lock",
       "state.migration",
       "state.project-config",
+      "state.requirement-discovery",
       "state.snapshot",
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(16);
+    expect(ids).toHaveLength(18);
     expectTypeOf<
       ContractValue<"state.project-config">
     >().toEqualTypeOf<ProjectConfigV1>();
+    expectTypeOf<
+      ContractValue<"state.requirement-discovery">
+    >().toEqualTypeOf<RequirementDiscoveryV1>();
     expectTypeOf<
       ContractValue<"state.transaction-manifest">
     >().toEqualTypeOf<TransactionManifestV1>();

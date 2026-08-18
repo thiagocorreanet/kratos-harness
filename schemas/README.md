@@ -23,6 +23,8 @@ The universal runtime-result family contains:
 The state family contains:
 
 - [`project-config.v1.schema.json`](state/project-config.v1.schema.json);
+- [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
+  the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
 - [`event.v1.schema.json`](state/event.v1.schema.json);
 - [`approval.v1.schema.json`](state/approval.v1.schema.json);

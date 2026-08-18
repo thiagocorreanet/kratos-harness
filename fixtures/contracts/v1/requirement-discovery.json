@@ -1,0 +1,31 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "originalRequest": "Correct the product name in the settings heading.",
+  "classification": "defect",
+  "problemDiscovery": {
+    "applied": false,
+    "skipReason": "This is a trivial defect with a known cause, scope, impact, and expected result.",
+    "decisionReason": "Further causal questioning would not change the decision.",
+    "investigation": [],
+    "causeCategory": "communication",
+    "probableRootCause": "The static heading contains an outdated spelling."
+  },
+  "validatedProblem": "One heading does not match the approved product name.",
+  "solutionHypothesis": "Replacing the outdated spelling will make the heading accurate.",
+  "successMetric": "The heading exactly matches the approved product name.",
+  "wrongCauseRisk": "Another source may generate the visible heading.",
+  "actionFraming": {
+    "applied": false,
+    "skipReason": "The small operation is already fully structured.",
+    "decisionReason": "Seven-field framing would not resolve any uncertainty.",
+    "what": null,
+    "why": null,
+    "who": null,
+    "where": null,
+    "when": null,
+    "how": null,
+    "howMuch": null
+  },
+  "actionPlan": "Replace the misspelled static heading and verify the rendered text."
+}
