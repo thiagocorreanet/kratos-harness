@@ -13,6 +13,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `continue` | Resume, reject, or complete one phase | Conditional |
 | `approve GATE` | Record digest-bound approval or rejection | Yes |
 | `evidence record ID REF` | Register classified, digest-bound evidence | Yes |
+| `agent record REF` | Extract, validate, and record one agent reply | Yes |
 | `gaps record REF` | Receive proposed gaps and derive the gate facts | Yes |
 | `gaps resolve ID` | Record the owner's verdict on one gap | Yes |
 | `gaps waive ID` | Record proceeding over a gap nobody answered | Yes |

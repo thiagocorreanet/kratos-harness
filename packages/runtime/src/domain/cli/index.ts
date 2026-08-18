@@ -5,6 +5,7 @@ export { initCommand } from "./init.js";
 export { hookCommand } from "./hook.js";
 export { objectiveCommand } from "./objective.js";
 export { adaptersCommand } from "./adapters.js";
+export { agentRecordCommand } from "./agent.js";
 export { approveCommand } from "./approval.js";
 export {
   auditCommand,

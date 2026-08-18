@@ -23,6 +23,7 @@ describe("implemented commands", () => {
         .sort(),
     ).toEqual([
       "adapters",
+      "agent record",
       "approve",
       "audit",
       "budgets",

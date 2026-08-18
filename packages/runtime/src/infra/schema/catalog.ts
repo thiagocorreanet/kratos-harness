@@ -1,5 +1,6 @@
 import manifest from "../../../../contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
+import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
@@ -40,6 +41,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/adapter-message.v1.schema.json",
       schema: adapterMessageSchema,
+    },
+    {
+      id: "host.agent-output",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/agent-output.v1.schema.json",
+      schema: agentOutputSchema,
     },
     {
       id: "host.gap-proposal",
@@ -154,6 +162,7 @@ export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
 
 const EXPECTED_SCHEMA_IDS = {
   "host.adapter-message": "https://kratos.dev/schemas/host/adapter-message/v1",
+  "host.agent-output": "https://kratos.dev/schemas/host/agent-output/v1",
   "host.gap-proposal": "https://kratos.dev/schemas/host/gap-proposal/v1",
   "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
   "host.operation-message":

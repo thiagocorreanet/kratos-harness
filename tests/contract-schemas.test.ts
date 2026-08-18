@@ -29,6 +29,7 @@ const artifacts = [
     "state",
   ],
   ["host/adapter-message.v1.schema.json", "adapter-message.json", "host"],
+  ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
@@ -78,6 +79,26 @@ describe("versioned state and host schemas", () => {
           );
         }
       } else {
+        if (fixtureName === "agent-output.json") {
+          // One closed payload per phase agent, chosen by the `agent`
+          // discriminator, so an unexpected field is a contract violation for
+          // every agent rather than only the one the fixture exercises.
+          const definitions = schema.$defs as JsonObject;
+          expect(schema.allOf, fixtureName).toHaveLength(6);
+          for (const name of [
+            "prdPayload",
+            "specPayload",
+            "planPayload",
+            "codePayload",
+            "reviewPayload",
+            "acceptancePayload",
+          ]) {
+            expect(
+              (definitions[name] as JsonObject).additionalProperties,
+              name,
+            ).toBe(false);
+          }
+        }
         expect(schema.additionalProperties, fixtureName).toBe(false);
       }
       const validate = ajv.compile(schema);

@@ -1,0 +1,23 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "agent": "acceptance",
+  "outcome": {
+    "status": "completed",
+    "next": "finish",
+    "questions": [],
+    "blockers": []
+  },
+  "artifacts": [".brain/02-features/refunds/05-acceptance.md"],
+  "changedFiles": [],
+  "payload": {
+    "verdict": "accepted",
+    "criteria": [
+      {
+        "criterionId": "criterion-refund-window",
+        "outcome": "mostly-passed",
+        "evidenceRef": ".brain/02-features/refunds/runs/run-01/evidence/tests.json"
+      }
+    ]
+  }
+}

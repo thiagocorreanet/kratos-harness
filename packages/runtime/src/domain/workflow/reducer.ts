@@ -74,6 +74,7 @@ export function reduceWorkflow(
       }
       status = "blocked";
       break;
+    case "run.agent.recorded":
     case "run.gap.recorded":
     case "run.gap.resolved":
     case "run.gap.waived":

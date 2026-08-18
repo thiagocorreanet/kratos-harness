@@ -14,6 +14,7 @@ export { REASON_CATALOG, reasonPolicy } from "./reasons.js";
 export type { ReasonPolicy } from "./reasons.js";
 export type {
   AdapterMessageV1,
+  AgentOutputV1,
   ApprovalV1,
   InitAnswersV1,
   HostOperationMessageV1,

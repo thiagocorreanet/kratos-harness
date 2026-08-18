@@ -1,4 +1,5 @@
 import type {
+  AgentOutputV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
@@ -35,6 +36,10 @@ import {
 } from "../domain/workflow/index.js";
 import type { GitPath } from "../domain/git/index.js";
 import { verifyEvidence } from "../domain/evidence/index.js";
+import {
+  extractAgentBlock,
+  type AgentOutputObservation,
+} from "../domain/agent/index.js";
 import type { GapProposalObservation } from "../domain/gaps/index.js";
 import { evaluateGates, type GateMode } from "../domain/gates/index.js";
 import {
@@ -140,6 +145,12 @@ export async function observeWorkflow(
   const gateFacts = await observeGateFacts(configuration, anchored, registry);
   const gaps = await observeGaps(configuration, anchored, registry);
   const gapProposal = await observeGapProposal(invocation, anchored, registry);
+  const agentOutput = await observeAgentReply(invocation, anchored, registry);
+  const agentOutputs = await observeAgentOutputs(
+    configuration,
+    anchored,
+    registry,
+  );
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(
     configuration,
@@ -301,6 +312,9 @@ export async function observeWorkflow(
       gaps: gaps.values,
       gapsReadable: gaps.readable,
       gapProposal,
+      agentOutput,
+      agentOutputs: agentOutputs.values,
+      agentOutputsReadable: agentOutputs.readable,
       gateFacts,
       openGaps,
       specApproved,
@@ -563,6 +577,98 @@ async function observeGapProposal(
       : { kind: "invalid", ref, diagnostics: validated.diagnostics };
   } catch {
     return { kind: "unreadable", ref };
+  }
+}
+
+/**
+ * Read the agent reply an output-recording command was pointed at.
+ *
+ * Extraction happens here, at the boundary, and the decision receives an
+ * outcome rather than prose. Nothing below this line ever sees the reply text,
+ * which is what keeps a domain decision from depending on phrasing.
+ */
+async function observeAgentReply(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<AgentOutputObservation> {
+  if (invocation.command.path.join(" ") !== "agent record") {
+    return { kind: "none" };
+  }
+  const ref = invocation.positionals[0];
+  if (ref === undefined) return { kind: "none" };
+  let reply: string;
+  try {
+    const entry = await ports.durableFileSystem.inspect(ref);
+    if (entry.kind !== "file") return { kind: "unreadable", ref };
+    reply = await ports.durableFileSystem.readText(ref);
+  } catch {
+    return { kind: "unreadable", ref };
+  }
+  const extracted = extractAgentBlock(reply);
+  if (extracted.kind === "absent") return { kind: "absent", ref };
+  if (extracted.kind === "malformed") {
+    return { kind: "malformed", ref, reason: extracted.reason };
+  }
+  const validated = registry.validate({
+    id: "host.agent-output",
+    version: "1.0.0",
+    value: extracted.value,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  return validated.kind === "valid"
+    ? { kind: "valid", ref, value: validated.value }
+    : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+}
+
+/**
+ * Read every agent output the run recorded.
+ *
+ * Recorded blocks are read back through the contract that admitted them, so a
+ * derived view reads typed data and a file that no longer satisfies the
+ * contract fails closed instead of reading as nothing recorded.
+ */
+async function observeAgentOutputs(
+  configuration: RunReference,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<{
+  readonly readable: boolean;
+  readonly values: readonly AgentOutputV1[];
+}> {
+  const root = `${runRoot(configuration)}/agent-output`;
+  const entry = await ports.durableFileSystem.inspect(root);
+  if (entry.kind === "missing") return { readable: true, values: [] };
+  if (entry.kind !== "directory") return { readable: false, values: [] };
+  try {
+    const values: AgentOutputV1[] = [];
+    for (const name of await ports.durableFileSystem.list(root)) {
+      if (!name.endsWith(".json")) return { readable: false, values: [] };
+      const path = `${root}/${name}`;
+      const file = await ports.durableFileSystem.inspect(path);
+      if (file.kind !== "file") return { readable: false, values: [] };
+      const validated = registry.validate({
+        id: "host.agent-output",
+        version: "1.0.0",
+        value: JSON.parse(
+          await ports.durableFileSystem.readText(path),
+        ) as unknown,
+        structuralReasonCode: "trail.output_invalido",
+      });
+      if (
+        validated.kind !== "valid" ||
+        `${validated.value.agent}.json` !== name
+      ) {
+        return { readable: false, values: [] };
+      }
+      values.push(validated.value);
+    }
+    values.sort((left, right) =>
+      left.agent.localeCompare(right.agent, "en-US"),
+    );
+    return { readable: true, values };
+  } catch {
+    return { readable: false, values: [] };
   }
 }
 

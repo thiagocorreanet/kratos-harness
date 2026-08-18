@@ -104,6 +104,7 @@ export type WorkflowRefusal =
  * recorded gap look like a phase transition in the history.
  */
 export const FACT_EVENT_REASONS = {
+  "agent.record": "run.agent.recorded",
   "gaps.record": "run.gap.recorded",
   "gaps.resolve": "run.gap.resolved",
   "gaps.waive": "run.gap.waived",
