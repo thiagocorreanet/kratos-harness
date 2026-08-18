@@ -101,8 +101,8 @@ function decideApproval(
     gate,
     decision:
       invocation.flags.get("--reject") === true ? "rejected" : "approved",
-    prdDigest: observation.configuration.lineage.prdDigest,
-    specDigest: observation.configuration.lineage.specDigest,
+    prdDigest: observation.observedLineage.prdDigest,
+    specDigest: observation.observedLineage.specDigest,
     policyVersion: "workflow-v1",
     approver,
     observation: note,

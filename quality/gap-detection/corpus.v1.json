@@ -1,0 +1,114 @@
+{
+  "corpusVersion": "1.0.0",
+  "thresholds": {
+    "minimumRecall": 0.8,
+    "maximumFalseGaps": 1
+  },
+  "documents": [
+    {
+      "id": "planted-01",
+      "path": "quality/gap-detection/documents/planted-01.md",
+      "planted": true,
+      "expected": [
+        {
+          "gapId": "planted-01-trial-length",
+          "category": "document-contradiction"
+        },
+        {
+          "gapId": "planted-01-active-users",
+          "category": "ambiguous-rule"
+        }
+      ]
+    },
+    {
+      "id": "planted-02",
+      "path": "quality/gap-detection/documents/planted-02.md",
+      "planted": true,
+      "expected": [
+        {
+          "gapId": "planted-02-authoritative-profile",
+          "category": "owner-decision"
+        },
+        {
+          "gapId": "planted-02-message-delivery",
+          "category": "unconfirmed-dependency"
+        }
+      ]
+    },
+    {
+      "id": "planted-03",
+      "path": "quality/gap-detection/documents/planted-03.md",
+      "planted": true,
+      "expected": [
+        {
+          "gapId": "planted-03-reservation-moment",
+          "category": "ambiguous-rule"
+        },
+        {
+          "gapId": "planted-03-warehouse-limit",
+          "category": "unconfirmed-dependency"
+        }
+      ]
+    },
+    {
+      "id": "planted-04",
+      "path": "quality/gap-detection/documents/planted-04.md",
+      "planted": true,
+      "expected": [
+        {
+          "gapId": "planted-04-retention",
+          "category": "document-contradiction"
+        },
+        {
+          "gapId": "planted-04-revenue-owner",
+          "category": "owner-decision"
+        }
+      ]
+    },
+    {
+      "id": "planted-05",
+      "path": "quality/gap-detection/documents/planted-05.md",
+      "planted": true,
+      "expected": [
+        {
+          "gapId": "planted-05-quiet-hours-zone",
+          "category": "ambiguous-rule"
+        },
+        {
+          "gapId": "planted-05-opt-out-scope",
+          "category": "document-contradiction"
+        }
+      ]
+    },
+    {
+      "id": "clean-01",
+      "path": "quality/gap-detection/documents/clean-01.md",
+      "planted": false,
+      "expected": []
+    },
+    {
+      "id": "clean-02",
+      "path": "quality/gap-detection/documents/clean-02.md",
+      "planted": false,
+      "expected": []
+    },
+    {
+      "id": "clean-03",
+      "path": "quality/gap-detection/documents/clean-03.md",
+      "planted": false,
+      "expected": []
+    },
+    {
+      "id": "clean-04",
+      "path": "quality/gap-detection/documents/clean-04.md",
+      "planted": false,
+      "expected": []
+    },
+    {
+      "id": "clean-05",
+      "path": "quality/gap-detection/documents/clean-05.md",
+      "planted": false,
+      "expected": []
+    }
+  ]
+}

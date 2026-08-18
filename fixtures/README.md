@@ -14,17 +14,27 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `event.json`;
 - `approval.json`;
 - `evidence.json`;
+- `gap.json`;
+- `gates.json`;
 - `lock.json`;
 - `migration.json`;
 - `transaction-manifest.json`;
 - `transaction-progress.json`;
 - `adapter-message.json`;
 - `init-answers.json`;
+- `gap-proposal.json`;
 - `operation-approval.json`;
 - `operation-hook.json`;
 - `operation-timeout.json`;
 - `operation-cancellation.json`;
-- `operation-error.json`.
+- `operation-error.json`;
+- `agent-output.json`.
+
+The [`agent-output/v1`](agent-output/v1) directory contains the agent output
+corpus: one valid and one invalid payload per phase agent under `valid/` and
+`invalid/`, and whole agent replies under `replies/` covering a reply with no
+machine block, a malformed block, a block followed by more prose, a decoy whose
+ordinary fenced example must be ignored, and a schema-invalid block.
 
 Its `version-cases.json` table covers current, previous, future, malformed,
 untrimmed, non-string, and missing family identities. These fixtures are

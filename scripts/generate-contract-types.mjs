@@ -134,7 +134,35 @@ function transactionProgressTypeSchema(schema) {
   };
 }
 
+/**
+ * The agent output contract validates as one closed object whose payload is
+ * chosen by the `agent` discriminator, because that is what makes a refusal
+ * name the offending path instead of the document root. TypeScript wants the
+ * same contract as a discriminated union, so the union is rebuilt here from
+ * the very conditionals the validator reads.
+ */
+function agentOutputTypeSchema(schema) {
+  const variants = schema.allOf.map((rule) => {
+    const agent = rule.if?.properties?.agent;
+    const payload = rule.then?.properties?.payload;
+    if (agent === undefined || payload === undefined) {
+      throw new Error("agent output conditional branch is incomplete");
+    }
+    return closedObjectVariant(schema, { agent, payload });
+  });
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: variants,
+    $defs: schema.$defs,
+  };
+}
+
 function schemaForTypeGeneration(id, schema) {
+  if (id === "host.agent-output") {
+    return agentOutputTypeSchema(schema);
+  }
   if (id === "state.transaction-manifest") {
     return transactionManifestTypeSchema(schema);
   }

@@ -58,8 +58,8 @@
     },
     "schemas": {
       "type": "array",
-      "minItems": 13,
-      "maxItems": 13,
+      "minItems": 17,
+      "maxItems": 17,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/schemaEntry"

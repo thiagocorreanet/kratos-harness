@@ -782,12 +782,17 @@ async function scopeCleanupMarker(
     if (String(Number(expiresText)) !== expiresText)
       throw corrupt(location.directory);
     const entry = await services.durableFileSystem.inspect(marker.path);
+    // The cleanup this marker elects removes the marker before the generation
+    // that holds it, so a listing legitimately names one that is already gone.
+    if (entry.kind === "missing") return null;
     if (entry.kind !== "directory") throw corrupt(marker.path);
     if ((await services.durableFileSystem.list(marker.path)).length !== 0)
       throw corrupt(marker.path);
     return marker;
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A generation retired under this lookup takes its own marker with it.
+    if (await vanishedUnderLocks(claim, services)) return null;
     throw internal();
   }
 }
@@ -902,11 +907,14 @@ async function assertScopeClaimChildren(
     ];
     if (String(Number(expiresText)) !== expiresText) throw corrupt(claim);
     const generation = `${claim}/${generationName}`;
-    if (
-      (await services.durableFileSystem.inspect(generation)).kind !==
-      "directory"
-    )
-      throw corrupt(generation);
+    const generationEntry =
+      await services.durableFileSystem.inspect(generation);
+    // The generation leaves ahead of the `claim` directory that holds it, so a
+    // listing that just named it can be overtaken by its own retirement. The
+    // claim itself is still there, which is why the vanish check below cannot
+    // rescue this shape and it has to be read here.
+    if (generationEntry.kind === "missing") return;
+    if (generationEntry.kind !== "directory") throw corrupt(generation);
     const children = await services.durableFileSystem.list(generation);
     const markers = children
       .map((name) =>
@@ -937,17 +945,24 @@ async function assertScopeClaimChildren(
       throw corrupt(generation);
     for (const marker of markers) {
       const markerEntry = await services.durableFileSystem.inspect(marker.path);
+      // The cleanup that owns this marker removes it before the generation, so
+      // a listing can name a marker that has already finished its work.
+      if (markerEntry.kind === "missing") continue;
       if (markerEntry.kind !== "directory") throw corrupt(marker.path);
       if ((await services.durableFileSystem.list(marker.path)).length !== 0)
         throw corrupt(marker.path);
     }
-    if (!children.includes("claim.json")) {
-      if (markers.length === 1) return;
-      throw corrupt(generation);
-    }
+    // A generation holding neither a record nor a marker is a cleanup between
+    // its own two removals, which `recoverEmptyScopeGeneration` finishes. The
+    // child guard above already closed every other shape, so what remains here
+    // is the retirement in flight rather than damage.
+    if (!children.includes("claim.json")) return;
     const entry = await services.durableFileSystem.inspect(
       `${generation}/claim.json`,
     );
+    // The record leaves ahead of the generation that holds it, so a listing
+    // that named it a moment ago can be overtaken by its own retirement.
+    if (entry.kind === "missing") return;
     if (entry.kind !== "file") throw corrupt(`${generation}/claim.json`);
     const text = await services.durableFileSystem.readText(
       `${generation}/claim.json`,
@@ -968,6 +983,8 @@ async function assertScopeClaimChildren(
       throw corrupt(`${generation}/claim.json`);
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A claim retired mid-listing has no children left to validate.
+    if (await vanishedUnderLocks(claim, services)) return;
     throw internal();
   }
 }
@@ -1018,6 +1035,9 @@ async function readClaim(
     const generation = generations.join("");
     const path = `${claim}/${generation}/claim.json`;
     const entry = await services.durableFileSystem.inspect(path);
+    // A record its own retirement removed under this read is unpublished, and
+    // an unpublished claim is nothing rather than something to repair.
+    if (entry.kind === "missing") return null;
     if (entry.kind !== "file") throw corrupt(path);
     const text = await services.durableFileSystem.readText(path);
     let record: LockClaimRecord | null;
@@ -1049,6 +1069,8 @@ async function readClaim(
     });
   } catch (error) {
     if (error instanceof LockFailure) throw error;
+    // A claim the protocol retired under this read is gone, not damaged.
+    if (await vanishedUnderLocks(claim, services)) return null;
     throw internal();
   }
 }

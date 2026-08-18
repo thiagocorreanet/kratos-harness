@@ -1,0 +1,19 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "gapId": "gap-refund-window",
+  "runId": "run-2026-08-14-0001",
+  "phase": "prd",
+  "category": "document-contradiction",
+  "weight": "high",
+  "description": "The refund window is stated as thirty days and as fourteen days.",
+  "recommendation": "Keep the thirty-day window and delete the shorter clause.",
+  "reasoning": "The two passages produce two different expiry checks in code.",
+  "documentRefs": [".brain/02-features/refunds/00-prd.md"],
+  "prdDigest": "9f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8",
+  "specDigest": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809",
+  "policyMode": "enforce",
+  "recordedAt": "2026-08-14T12:00:00.000Z",
+  "resolution": null,
+  "waiver": null
+}

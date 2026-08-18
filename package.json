@@ -18,6 +18,7 @@
     "performance:check": "node scripts/check-performance.mjs",
     "benchmark": "node scripts/run-benchmarks.mjs",
     "eval:calibrate": "node scripts/calibrate-model-evals.mjs",
+    "gaps:calibrate": "node scripts/check-gap-calibration.mjs",
     "mutation:check": "node scripts/run-mutation.mjs",
     "plugin:install": "node scripts/install-plugin.mjs",
     "rulesets:verify": "node scripts/verify-github-rulesets.mjs",
@@ -35,7 +36,7 @@
     "build": "node scripts/build.mjs",
     "kratos": "node scripts/run-built.mjs",
     "package:verify": "node scripts/verify-package.mjs",
-    "verify": "npm run format:check && npm run spellcheck && npm run english:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run mutation:check && npm run performance:check && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify && npm run benchmark"
+    "verify": "npm run format:check && npm run spellcheck && npm run english:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run mutation:check && npm run gaps:calibrate && npm run performance:check && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify && npm run benchmark"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

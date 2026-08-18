@@ -1,12 +1,16 @@
 import manifest from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import versionCases from "../fixtures/contracts/v1/version-cases.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
+import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
+import gap from "../fixtures/contracts/v1/gap.json" with { type: "json" };
+import gates from "../fixtures/contracts/v1/gates.json" with { type: "json" };
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
@@ -41,6 +45,26 @@ const fixtures = [
     requiredField: "messageId",
     structuralReasonCode: "trail.output_invalido",
     fixture: adapterMessage,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.agent-output",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "payload",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutput,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.gap-proposal",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "gaps",
+    structuralReasonCode: "trail.uso",
+    fixture: gapProposal,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -101,6 +125,26 @@ const fixtures = [
     requiredField: "feature",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: feature,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.gap",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "gapId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: gap,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.gates",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "openGaps",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: gates,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

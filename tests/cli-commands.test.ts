@@ -23,6 +23,7 @@ describe("implemented commands", () => {
         .sort(),
     ).toEqual([
       "adapters",
+      "agent record",
       "approve",
       "audit",
       "budgets",
@@ -33,6 +34,10 @@ describe("implemented commands", () => {
       "evidence bundle",
       "evidence record",
       "explain",
+      "gaps record",
+      "gaps resolve",
+      "gaps waive",
+      "gates record",
       "handoff",
       "handshake",
       "help",

@@ -18,8 +18,15 @@ import {
 } from "./diagnostics.js";
 import { RETIRED_COMMAND_SPECS } from "./retired.js";
 import { adaptersCommand } from "./adapters.js";
+import { agentRecordCommand } from "./agent.js";
 import { approveCommand } from "./approval.js";
 import { evidenceRecordCommand } from "./evidence.js";
+import {
+  gapsRecordCommand,
+  gapsResolveCommand,
+  gapsWaiveCommand,
+  gatesRecordCommand,
+} from "./gaps.js";
 import { migrateBrainCommand, migrateRollbackCommand } from "./migration.js";
 import {
   auditCommand,
@@ -90,6 +97,7 @@ const handshakeCommand: CommandSpec = {
 
 export const DEFAULT_REGISTRY: CommandRegistry = [
   adaptersCommand,
+  agentRecordCommand,
   approveCommand,
   auditCommand,
   budgetsCommand,
@@ -100,6 +108,10 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   evidenceBundleCommand,
   evidenceRecordCommand,
   explainCommand,
+  gapsRecordCommand,
+  gapsResolveCommand,
+  gapsWaiveCommand,
+  gatesRecordCommand,
   handoffCommand,
   handshakeCommand,
   helpCommand,

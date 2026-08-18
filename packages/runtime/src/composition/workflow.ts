@@ -1,7 +1,9 @@
 import type {
+  AgentOutputV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
+  GapRecordV1,
   SnapshotV1,
 } from "@kratos/contracts";
 
@@ -34,6 +36,11 @@ import {
 } from "../domain/workflow/index.js";
 import type { GitPath } from "../domain/git/index.js";
 import { verifyEvidence } from "../domain/evidence/index.js";
+import {
+  extractAgentBlock,
+  type AgentOutputObservation,
+} from "../domain/agent/index.js";
+import type { GapProposalObservation } from "../domain/gaps/index.js";
 import { evaluateGates, type GateMode } from "../domain/gates/index.js";
 import {
   auditSnapshot,
@@ -47,6 +54,21 @@ import { anchorPorts, resolveCommandRoot } from "./root.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+/**
+ * Where a run's files live. The helpers that only read those paths take this
+ * rather than the reducer configuration, so nothing can reach a lineage that
+ * is not theirs to read.
+ */
+interface RunReference {
+  readonly feature: string;
+  readonly runId: string;
+}
+
+/** Where one run keeps everything it recorded. */
+function runRoot(reference: RunReference): string {
+  return `.brain/02-features/${reference.feature}/runs/${reference.runId}`;
+}
 
 export type ObservedWorkflow =
   | { readonly kind: "failure"; readonly result: Result }
@@ -81,19 +103,18 @@ export async function observeWorkflow(
   const runId =
     activeRun ??
     (typeof requestedRun === "string" ? requestedRun : anchored.ids.next());
-  const lineage =
+  const observedLineage =
     feature === null
       ? { prdDigest: EMPTY_DIGEST, specDigest: EMPTY_DIGEST }
       : await observeLineage(feature, anchored);
   const projectId = `project-${anchored.digests
     .sha256(anchored.environment.workingDirectory())
     .slice(0, 32)}`;
-  const configuration: WorkflowReducerConfiguration = {
+  const location = {
     projectId,
     feature: feature ?? "unselected",
     runId,
-    lineage,
-  };
+  } as const;
   const run =
     feature === null
       ? {
@@ -102,7 +123,17 @@ export async function observeWorkflow(
           persistedSnapshot: null,
           replayedSnapshot: null,
         }
-      : await observeRun(configuration, anchored, registry);
+      : await observeRun(location, anchored, registry);
+  /**
+   * Lineage is a fact of the run, not of the working tree the run is there to
+   * change. An open run replays from the digests it committed at `run.started`;
+   * only a run that does not exist yet takes the ones on disk, which is how
+   * that fact gets recorded in the first place.
+   */
+  const configuration: WorkflowReducerConfiguration = {
+    ...location,
+    lineage: run.persistedSnapshot?.lineage ?? observedLineage,
+  };
   const approvals = await observeApprovals(configuration, anchored, registry);
   const correlation = invocation.flags.get("--correlation-id");
   const host = invocation.flags.get("--host");
@@ -111,9 +142,21 @@ export async function observeWorkflow(
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
   const evidence = await observeEvidence(configuration, anchored, registry);
-  const gateFacts = await observeGateFacts(configuration, anchored);
+  const gateFacts = await observeGateFacts(configuration, anchored, registry);
+  const gaps = await observeGaps(configuration, anchored, registry);
+  const gapProposal = await observeGapProposal(invocation, anchored, registry);
+  const agentOutput = await observeAgentReply(invocation, anchored, registry);
+  const agentOutputs = await observeAgentOutputs(
+    configuration,
+    anchored,
+    registry,
+  );
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
-  const artifactLineage = await observeArtifactLineage(configuration, anchored);
+  const artifactLineage = await observeArtifactLineage(
+    configuration,
+    observedLineage,
+    anchored,
+  );
   const validApprovals = approvals.values.filter((approval, index, values) => {
     const seen = new Set(
       values.slice(0, index).map(({ approvalId }) => approvalId),
@@ -124,8 +167,8 @@ export async function observeWorkflow(
         {
           runId,
           gate: approval.gate,
-          prdDigest: lineage.prdDigest,
-          specDigest: lineage.specDigest,
+          prdDigest: observedLineage.prdDigest,
+          specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
           policyMode: policy.mode,
           objectiveDigest,
@@ -140,6 +183,28 @@ export async function observeWorkflow(
       ).kind === "valid"
     );
   });
+  /**
+   * Whether the specification the run is bound to has been approved.
+   *
+   * The same fact the `spec-approved` gate reads, exposed because it is also
+   * the boundary gap detection stops at.
+   */
+  const specApproved = validApprovals.some(
+    (approval) =>
+      approval.gate === "spec" &&
+      approval.decision === "approved" &&
+      approval.prdDigest === observedLineage.prdDigest &&
+      approval.specDigest === observedLineage.specDigest,
+  );
+  /**
+   * The open-gap count the gates act on.
+   *
+   * After approval the remaining questions are technical by construction, so a
+   * gap recorded past that point is history rather than a blocker. Applying the
+   * boundary here as well as where the facts are derived keeps a run approved
+   * after its last derivation honest.
+   */
+  const openGaps = specApproved ? 0 : gateFacts.openGaps;
   const phase =
     run.workflow.kind === "present"
       ? (run.workflow.state.currentStep ?? "acceptance")
@@ -152,13 +217,20 @@ export async function observeWorkflow(
       approvals.readable &&
       evidence.readable &&
       gateFacts.readable &&
+      gaps.readable &&
       artifactLineage.readable &&
       run.workflow.kind !== "corrupt",
     stopLoss: gateFacts.stopLoss,
-    prdDigest: lineage.prdDigest === EMPTY_DIGEST ? null : lineage.prdDigest,
-    specDigest: lineage.specDigest === EMPTY_DIGEST ? null : lineage.specDigest,
+    prdDigest:
+      observedLineage.prdDigest === EMPTY_DIGEST
+        ? null
+        : observedLineage.prdDigest,
+    specDigest:
+      observedLineage.specDigest === EMPTY_DIGEST
+        ? null
+        : observedLineage.specDigest,
     approvals: validApprovals,
-    openGaps: gateFacts.openGaps,
+    openGaps,
     partitionRequired: gateFacts.partitionRequired,
     partitionApproved: gateFacts.partitionApproved,
     finalAcceptance: validApprovals.some(
@@ -215,6 +287,7 @@ export async function observeWorkflow(
       kind: "workflow",
       workflow: run.workflow,
       configuration,
+      observedLineage,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId: anchored.ids.next(),
@@ -236,6 +309,15 @@ export async function observeWorkflow(
       evidence: evidence.values,
       invalidEvidenceIds: evidence.invalidIds,
       evidenceReadable: evidence.readable,
+      gaps: gaps.values,
+      gapsReadable: gaps.readable,
+      gapProposal,
+      agentOutput,
+      agentOutputs: agentOutputs.values,
+      agentOutputsReadable: agentOutputs.readable,
+      gateFacts,
+      openGaps,
+      specApproved,
       referencedFiles,
       gateDecision,
       policyMode: policy.mode,
@@ -244,8 +326,8 @@ export async function observeWorkflow(
         {
           runId,
           gate: invocation.positionals[0] ?? "final-acceptance",
-          prdDigest: lineage.prdDigest,
-          specDigest: lineage.specDigest,
+          prdDigest: observedLineage.prdDigest,
+          specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
           policyMode: policy.mode,
           objectiveDigest,
@@ -287,7 +369,8 @@ type ArtifactLineageCandidate = Omit<
 };
 
 async function observeArtifactLineage(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
+  observedLineage: RunLineage,
   ports: RuntimePorts,
 ): Promise<{
   readonly readable: boolean;
@@ -335,12 +418,11 @@ async function observeArtifactLineage(
       }
       values.push(parsed as ArtifactLineage);
     }
+    // Lineage files record the digests observed when their artifact was
+    // produced, so the roots they may descend from are the ones on disk.
     const validation = validateLineageDag(
       values,
-      new Set([
-        configuration.lineage.prdDigest,
-        configuration.lineage.specDigest,
-      ]),
+      new Set([observedLineage.prdDigest, observedLineage.specDigest]),
     );
     return validation.kind === "valid"
       ? { readable: true, values }
@@ -358,9 +440,18 @@ interface ObservedGateFacts {
   readonly partitionApproved: boolean;
 }
 
+/**
+ * Read the facts the gates evaluate.
+ *
+ * Absence is not a failure: a project that has recorded nothing yet has no
+ * open gaps, no tripped budget, and no partition to approve. Anything else
+ * that cannot be read as the published contract fails closed, because a file
+ * the runtime cannot understand is not evidence that everything is fine.
+ */
 async function observeGateFacts(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
+  registry: SchemaRegistry,
 ): Promise<ObservedGateFacts> {
   const empty = {
     readable: true,
@@ -369,43 +460,215 @@ async function observeGateFacts(
     partitionRequired: false,
     partitionApproved: true,
   } as const;
-  const path = `.brain/02-features/${configuration.feature}/runs/${configuration.runId}/gates.json`;
+  const path = `${runRoot(configuration)}/gates.json`;
   const entry = await ports.durableFileSystem.inspect(path);
   if (entry.kind === "missing") return empty;
   if (entry.kind !== "file") return { ...empty, readable: false };
   try {
-    const value = JSON.parse(await ports.durableFileSystem.readText(path)) as {
-      contractVersion?: unknown;
-      openGaps?: unknown;
-      partitionRequired?: unknown;
-      partitionApproved?: unknown;
-      stopLoss?: { tripped?: unknown; exhausted?: unknown };
-    };
+    const validated = registry.validate({
+      id: "state.gates",
+      version: "1.0.0",
+      value: JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
     if (
-      value.contractVersion !== "1.0.0" ||
-      typeof value.openGaps !== "number" ||
-      !Number.isSafeInteger(value.openGaps) ||
-      value.openGaps < 0 ||
-      typeof value.partitionRequired !== "boolean" ||
-      typeof value.partitionApproved !== "boolean" ||
-      value.stopLoss === undefined ||
-      typeof value.stopLoss.tripped !== "boolean" ||
-      typeof value.stopLoss.exhausted !== "boolean"
+      validated.kind !== "valid" ||
+      validated.value.runId !== configuration.runId ||
+      validated.value.openGaps !== validated.value.openGapIds.length
     ) {
       return { ...empty, readable: false };
     }
     return {
       readable: true,
       stopLoss: {
-        tripped: value.stopLoss.tripped,
-        exhausted: value.stopLoss.exhausted,
+        tripped: validated.value.stopLoss.tripped,
+        exhausted: validated.value.stopLoss.exhausted,
       },
-      openGaps: value.openGaps,
-      partitionRequired: value.partitionRequired,
-      partitionApproved: value.partitionApproved,
+      openGaps: validated.value.openGaps,
+      partitionRequired: validated.value.partitionRequired,
+      partitionApproved: validated.value.partitionApproved,
     };
   } catch {
     return { ...empty, readable: false };
+  }
+}
+
+/**
+ * Read every gap the run recorded.
+ *
+ * Gaps are read whole rather than counted, because the commands that answer
+ * one need the record they are answering and the gate needs a count derived
+ * from the same set.
+ */
+async function observeGaps(
+  configuration: RunReference,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<{
+  readonly readable: boolean;
+  readonly values: readonly GapRecordV1[];
+}> {
+  const root = `${runRoot(configuration)}/gaps`;
+  const entry = await ports.durableFileSystem.inspect(root);
+  if (entry.kind === "missing") return { readable: true, values: [] };
+  if (entry.kind !== "directory") return { readable: false, values: [] };
+  try {
+    const values: GapRecordV1[] = [];
+    for (const name of await ports.durableFileSystem.list(root)) {
+      if (!name.endsWith(".json")) return { readable: false, values: [] };
+      const path = `${root}/${name}`;
+      const file = await ports.durableFileSystem.inspect(path);
+      if (file.kind !== "file") return { readable: false, values: [] };
+      const validated = registry.validate({
+        id: "state.gap",
+        version: "1.0.0",
+        value: JSON.parse(
+          await ports.durableFileSystem.readText(path),
+        ) as unknown,
+        structuralReasonCode: "runtime.state_corrupt",
+      });
+      if (
+        validated.kind !== "valid" ||
+        validated.value.runId !== configuration.runId ||
+        `${validated.value.gapId}.json` !== name
+      ) {
+        return { readable: false, values: [] };
+      }
+      values.push(validated.value);
+    }
+    values.sort((left, right) =>
+      left.gapId.localeCompare(right.gapId, "en-US"),
+    );
+    return { readable: true, values };
+  } catch {
+    return { readable: false, values: [] };
+  }
+}
+
+/**
+ * Read the proposal a gap-recording command was pointed at.
+ *
+ * The model authored it, so it is validated at the boundary and handed to the
+ * decision as an outcome rather than as content to be trusted.
+ */
+async function observeGapProposal(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<GapProposalObservation> {
+  if (invocation.command.path.join(" ") !== "gaps record") {
+    return { kind: "absent" };
+  }
+  const ref = invocation.positionals[0];
+  if (ref === undefined) return { kind: "absent" };
+  try {
+    const entry = await ports.durableFileSystem.inspect(ref);
+    if (entry.kind !== "file") return { kind: "unreadable", ref };
+    const validated = registry.validate({
+      id: "host.gap-proposal",
+      version: "1.0.0",
+      value: JSON.parse(await ports.durableFileSystem.readText(ref)) as unknown,
+      structuralReasonCode: "trail.uso",
+    });
+    return validated.kind === "valid"
+      ? { kind: "valid", ref, value: validated.value }
+      : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+  } catch {
+    return { kind: "unreadable", ref };
+  }
+}
+
+/**
+ * Read the agent reply an output-recording command was pointed at.
+ *
+ * Extraction happens here, at the boundary, and the decision receives an
+ * outcome rather than prose. Nothing below this line ever sees the reply text,
+ * which is what keeps a domain decision from depending on phrasing.
+ */
+async function observeAgentReply(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<AgentOutputObservation> {
+  if (invocation.command.path.join(" ") !== "agent record") {
+    return { kind: "none" };
+  }
+  const ref = invocation.positionals[0];
+  if (ref === undefined) return { kind: "none" };
+  let reply: string;
+  try {
+    const entry = await ports.durableFileSystem.inspect(ref);
+    if (entry.kind !== "file") return { kind: "unreadable", ref };
+    reply = await ports.durableFileSystem.readText(ref);
+  } catch {
+    return { kind: "unreadable", ref };
+  }
+  const extracted = extractAgentBlock(reply);
+  if (extracted.kind === "absent") return { kind: "absent", ref };
+  if (extracted.kind === "malformed") {
+    return { kind: "malformed", ref, reason: extracted.reason };
+  }
+  const validated = registry.validate({
+    id: "host.agent-output",
+    version: "1.0.0",
+    value: extracted.value,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  return validated.kind === "valid"
+    ? { kind: "valid", ref, value: validated.value }
+    : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+}
+
+/**
+ * Read every agent output the run recorded.
+ *
+ * Recorded blocks are read back through the contract that admitted them, so a
+ * derived view reads typed data and a file that no longer satisfies the
+ * contract fails closed instead of reading as nothing recorded.
+ */
+async function observeAgentOutputs(
+  configuration: RunReference,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<{
+  readonly readable: boolean;
+  readonly values: readonly AgentOutputV1[];
+}> {
+  const root = `${runRoot(configuration)}/agent-output`;
+  const entry = await ports.durableFileSystem.inspect(root);
+  if (entry.kind === "missing") return { readable: true, values: [] };
+  if (entry.kind !== "directory") return { readable: false, values: [] };
+  try {
+    const values: AgentOutputV1[] = [];
+    for (const name of await ports.durableFileSystem.list(root)) {
+      if (!name.endsWith(".json")) return { readable: false, values: [] };
+      const path = `${root}/${name}`;
+      const file = await ports.durableFileSystem.inspect(path);
+      if (file.kind !== "file") return { readable: false, values: [] };
+      const validated = registry.validate({
+        id: "host.agent-output",
+        version: "1.0.0",
+        value: JSON.parse(
+          await ports.durableFileSystem.readText(path),
+        ) as unknown,
+        structuralReasonCode: "trail.output_invalido",
+      });
+      if (
+        validated.kind !== "valid" ||
+        `${validated.value.agent}.json` !== name
+      ) {
+        return { readable: false, values: [] };
+      }
+      values.push(validated.value);
+    }
+    values.sort((left, right) =>
+      left.agent.localeCompare(right.agent, "en-US"),
+    );
+    return { readable: true, values };
+  } catch {
+    return { readable: false, values: [] };
   }
 }
 
@@ -438,7 +701,7 @@ async function observePolicy(
 }
 
 async function observeEvidence(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -542,7 +805,7 @@ async function observeReferencedFiles(
 }
 
 async function observeApprovals(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -680,7 +943,7 @@ async function fileDigest(path: string, ports: RuntimePorts): Promise<string> {
 }
 
 async function observeRun(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -717,6 +980,9 @@ async function observeRun(
     });
     if (validated.kind !== "valid") return corruptRun();
     const state = validated.value;
+    // The run replays from the lineage it committed, exactly as every later
+    // append does. Re-observing the working tree here would make the two
+    // disagree the moment a phase wrote the file it exists to produce.
     const replayConfiguration: WorkflowReducerConfiguration = {
       projectId: state.projectId,
       feature: configuration.feature,

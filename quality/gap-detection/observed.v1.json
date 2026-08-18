@@ -1,0 +1,218 @@
+{
+  "observationVersion": "1.0.0",
+  "model": "claude-opus-5",
+  "recordedAt": "2026-08-17",
+  "policyMode": "shadow",
+  "documents": [
+    {
+      "id": "planted-01",
+      "proposal": {
+        "contractVersion": "1.0.0",
+        "hostContract": "1.0.0",
+        "gaps": [
+          {
+            "gapId": "planted-01-trial-length",
+            "category": "document-contradiction",
+            "weight": "high",
+            "description": "The trial lasts 14 days in the rules and 30 days in the reporting section.",
+            "recommendation": "Keep the 14-day trial and correct the reporting section.",
+            "reasoning": "Two lengths produce two different expiry dates and two different bills.",
+            "documentRefs": ["quality/gap-detection/documents/planted-01.md"]
+          },
+          {
+            "gapId": "planted-01-active-users",
+            "category": "ambiguous-rule",
+            "weight": "high",
+            "description": "The charge is per active user, and active is never defined.",
+            "recommendation": "Define an active user as one who signed in during the billed period.",
+            "reasoning": "Counting every invited member and counting members who signed in are both readings, and they bill differently.",
+            "documentRefs": ["quality/gap-detection/documents/planted-01.md"]
+          }
+        ]
+      },
+      "matches": [
+        {
+          "gapId": "planted-01-trial-length",
+          "matched": "planted-01-trial-length"
+        },
+        {
+          "gapId": "planted-01-active-users",
+          "matched": "planted-01-active-users"
+        }
+      ]
+    },
+    {
+      "id": "planted-02",
+      "proposal": {
+        "contractVersion": "1.0.0",
+        "hostContract": "1.0.0",
+        "gaps": [
+          {
+            "gapId": "planted-02-authoritative-profile",
+            "category": "owner-decision",
+            "weight": "high",
+            "description": "Two linked accounts carry two profiles, and no rule says which one wins.",
+            "recommendation": "Ask the owner which directory is authoritative for the member profile.",
+            "reasoning": "The choice is a policy about who owns member data, not something the document implies.",
+            "documentRefs": ["quality/gap-detection/documents/planted-02.md"]
+          },
+          {
+            "gapId": "planted-02-message-delivery",
+            "category": "unconfirmed-dependency",
+            "weight": "medium",
+            "description": "The text message service is assumed to reach every country the product is sold in.",
+            "recommendation": "Confirm country coverage with the message provider before the sign-in work starts.",
+            "reasoning": "Nobody has confirmed the coverage, and the fallback path changes if it is partial.",
+            "documentRefs": ["quality/gap-detection/documents/planted-02.md"]
+          }
+        ]
+      },
+      "matches": [
+        {
+          "gapId": "planted-02-authoritative-profile",
+          "matched": "planted-02-authoritative-profile"
+        },
+        {
+          "gapId": "planted-02-message-delivery",
+          "matched": "planted-02-message-delivery"
+        }
+      ]
+    },
+    {
+      "id": "planted-03",
+      "proposal": {
+        "contractVersion": "1.0.0",
+        "hostContract": "1.0.0",
+        "gaps": [
+          {
+            "gapId": "planted-03-reservation-moment",
+            "category": "ambiguous-rule",
+            "weight": "high",
+            "description": "Stock is reserved immediately when an order is placed, and placed is not defined.",
+            "recommendation": "Reserve at order submission, before payment authorization.",
+            "reasoning": "Reserving at submission and reserving at payment are both readings, and they oversell differently.",
+            "documentRefs": ["quality/gap-detection/documents/planted-03.md"]
+          },
+          {
+            "gapId": "planted-03-warehouse-limit",
+            "category": "unconfirmed-dependency",
+            "weight": "medium",
+            "description": "Reading the warehouse endpoint on every product page view assumes a rate limit nobody confirmed.",
+            "recommendation": "Confirm the warehouse rate limit, then decide between live reads and a cache.",
+            "reasoning": "The design depends on a limit the warehouse team has not stated.",
+            "documentRefs": ["quality/gap-detection/documents/planted-03.md"]
+          }
+        ]
+      },
+      "matches": [
+        {
+          "gapId": "planted-03-reservation-moment",
+          "matched": "planted-03-reservation-moment"
+        },
+        {
+          "gapId": "planted-03-warehouse-limit",
+          "matched": "planted-03-warehouse-limit"
+        }
+      ]
+    },
+    {
+      "id": "planted-04",
+      "proposal": {
+        "contractVersion": "1.0.0",
+        "hostContract": "1.0.0",
+        "gaps": [
+          {
+            "gapId": "planted-04-retention",
+            "category": "document-contradiction",
+            "weight": "high",
+            "description": "Reports are deleted after 90 days in the rules and kept for one year in the retention section.",
+            "recommendation": "Keep one retention period and state it once.",
+            "reasoning": "Two periods produce two different deletion jobs.",
+            "documentRefs": ["quality/gap-detection/documents/planted-04.md"]
+          },
+          {
+            "gapId": "planted-04-revenue-owner",
+            "category": "owner-decision",
+            "weight": "medium",
+            "description": "The report shows the figure the business reports externally, and no team owns that definition here.",
+            "recommendation": "Ask the owner whether finance or sales owns the revenue definition.",
+            "reasoning": "Only the owner can choose between two teams that define revenue differently.",
+            "documentRefs": ["quality/gap-detection/documents/planted-04.md"]
+          }
+        ]
+      },
+      "matches": [
+        {
+          "gapId": "planted-04-retention",
+          "matched": "planted-04-retention"
+        },
+        {
+          "gapId": "planted-04-revenue-owner",
+          "matched": "planted-04-revenue-owner"
+        }
+      ]
+    },
+    {
+      "id": "planted-05",
+      "proposal": {
+        "contractVersion": "1.0.0",
+        "hostContract": "1.0.0",
+        "gaps": [
+          {
+            "gapId": "planted-05-quiet-hours-zone",
+            "category": "ambiguous-rule",
+            "weight": "high",
+            "description": "Quiet hours run from 22:00 to 07:00 with no time zone.",
+            "recommendation": "Apply quiet hours in the member's own time zone.",
+            "reasoning": "Member local time and server time are both readings, and they hold different messages.",
+            "documentRefs": ["quality/gap-detection/documents/planted-05.md"]
+          },
+          {
+            "gapId": "planted-05-opt-out-scope",
+            "category": "document-contradiction",
+            "weight": "medium",
+            "description": "Notifications are turned off per channel in the rules and across every channel in the preferences section.",
+            "recommendation": "Offer the per-channel switch and correct the preferences section.",
+            "reasoning": "The two passages describe two different preference models.",
+            "documentRefs": ["quality/gap-detection/documents/planted-05.md"]
+          }
+        ]
+      },
+      "matches": [
+        {
+          "gapId": "planted-05-quiet-hours-zone",
+          "matched": "planted-05-quiet-hours-zone"
+        },
+        {
+          "gapId": "planted-05-opt-out-scope",
+          "matched": "planted-05-opt-out-scope"
+        }
+      ]
+    },
+    {
+      "id": "clean-01",
+      "proposal": null,
+      "matches": []
+    },
+    {
+      "id": "clean-02",
+      "proposal": null,
+      "matches": []
+    },
+    {
+      "id": "clean-03",
+      "proposal": null,
+      "matches": []
+    },
+    {
+      "id": "clean-04",
+      "proposal": null,
+      "matches": []
+    },
+    {
+      "id": "clean-05",
+      "proposal": null,
+      "matches": []
+    }
+  ]
+}

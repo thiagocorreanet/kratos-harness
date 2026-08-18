@@ -25,6 +25,10 @@ The state family contains:
 - [`event.v1.schema.json`](state/event.v1.schema.json);
 - [`approval.v1.schema.json`](state/approval.v1.schema.json);
 - [`evidence.v1.schema.json`](state/evidence.v1.schema.json);
+- [`gap.v1.schema.json`](state/gap.v1.schema.json), one recorded gap and the
+  answer it carries;
+- [`gates.v1.schema.json`](state/gates.v1.schema.json), the derived facts the
+  gates read;
 - [`feature.v1.schema.json`](state/feature.v1.schema.json);
 - [`lock.v1.schema.json`](state/lock.v1.schema.json);
 - [`migration.v1.schema.json`](state/migration.v1.schema.json);
@@ -32,10 +36,15 @@ The state family contains:
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 
 The host family contains
-[`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and
+[`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json),
+[`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json), plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
-approval, hook, timeout, cancellation, and error delivery. The
+approval, hook, timeout, cancellation, and error delivery, and
+[`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
+block one phase agent appends to its reply. See the
+[agent output contract](../docs/architecture/agent-output-contract.md) for the
+delimiter, the envelope, and the extraction rules. The
 registry format is
 [`contract-manifest.v1.schema.json`](contracts/contract-manifest.v1.schema.json).
 

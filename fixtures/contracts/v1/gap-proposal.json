@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "gaps": [
+    {
+      "gapId": "gap-refund-window",
+      "category": "document-contradiction",
+      "weight": "high",
+      "description": "The refund window is stated as thirty days and as fourteen days.",
+      "recommendation": "Keep the thirty-day window and delete the shorter clause.",
+      "reasoning": "The two passages produce two different expiry checks in code.",
+      "documentRefs": [".brain/02-features/refunds/00-prd.md"]
+    }
+  ]
+}

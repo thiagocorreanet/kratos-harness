@@ -5,9 +5,11 @@ import type {
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
+  AgentOutputV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
+  GapRecordV1,
   HostOperationMessageV1,
   MigrationV1,
   SnapshotV1,
@@ -15,6 +17,7 @@ import type {
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
+  RunLineage,
   WorkflowReducerConfiguration,
   WorkflowState,
   WorkflowObservation,
@@ -25,6 +28,8 @@ import type {
   IntegrityAudit,
   RepairPlan,
 } from "../observability/index.js";
+import type { AgentOutputObservation } from "../agent/index.js";
+import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 
@@ -114,7 +119,18 @@ export type CommandObservation =
   | {
       readonly kind: "workflow";
       readonly workflow: WorkflowObservation;
+      /**
+       * The reducer seed, whose lineage is the fact the run recorded when it
+       * started. Replay reproduces the committed snapshot from it, so it must
+       * never move while the run is open.
+       */
       readonly configuration: WorkflowReducerConfiguration;
+      /**
+       * The PRD and design digests on disk right now. Gates, approvals, and
+       * artifact lineage bind to these, because the point of the `prd` and
+       * `spec` phases is to change them.
+       */
+      readonly observedLineage: RunLineage;
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;
@@ -134,6 +150,31 @@ export type CommandObservation =
       readonly evidence: readonly EvidenceV1[];
       readonly invalidEvidenceIds: readonly string[];
       readonly evidenceReadable: boolean;
+      /** Every gap the run recorded, in identifier order. */
+      readonly gaps: readonly GapRecordV1[];
+      readonly gapsReadable: boolean;
+      /** The proposal a gap-recording command was pointed at, if any. */
+      readonly gapProposal: GapProposalObservation;
+      /** The agent reply an output-recording command was pointed at, if any. */
+      readonly agentOutput: AgentOutputObservation;
+      /** Every agent output the run recorded, in agent order. */
+      readonly agentOutputs: readonly AgentOutputV1[];
+      readonly agentOutputsReadable: boolean;
+      /** The gate facts exactly as recorded, before the approval boundary. */
+      readonly gateFacts: {
+        readonly readable: boolean;
+        readonly stopLoss: {
+          readonly tripped: boolean;
+          readonly exhausted: boolean;
+        };
+        readonly openGaps: number;
+        readonly partitionRequired: boolean;
+        readonly partitionApproved: boolean;
+      };
+      /** The open-gap count the gates act on, after the approval boundary. */
+      readonly openGaps: number;
+      /** Whether the specification bound to this lineage is approved. */
+      readonly specApproved: boolean;
       readonly referencedFiles: readonly {
         readonly ref: string;
         readonly content: string;

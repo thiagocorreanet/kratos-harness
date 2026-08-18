@@ -20,6 +20,29 @@ detail used for idempotency. The event stream and snapshot are written by one
 managed transaction and remain protected by revision fingerprints and the run
 lease boundary.
 
+## Run lineage
+
+A run records the PRD and design digests it observed when `run.started` was
+sealed. That pair is the reducer seed, and every later command replays from the
+pair the run committed rather than from whatever the working tree holds now.
+
+The distinction matters because writing `00-prd.md` and `01-design.md` is the
+work the `prd` and `spec` phases exist to do. A seed re-read from disk changes
+the moment a phase succeeds, so replay stops reproducing the committed snapshot
+and the append refuses as corrupt before it can write the correction — a
+deadlock rather than a transient condition, and the happy path of the workflow
+would be the thing that triggers it.
+
+What the working tree holds now is observed separately and is what gates,
+approvals, and artifact lineage bind to. A PRD that changes invalidates the
+approvals bound to its old digest; it does not invalidate the run's history.
+
+One consequence is deliberate: replay cannot re-derive `lineage` from the event
+chain, so `audit` and `repair` compare every other snapshot field against replay
+and take this one as recorded. Binding lineage to the chain instead would mean a
+`state.event` contract change, which the frozen persisted contract does not
+allow at version 1.0.0.
+
 ## Command flow
 
 1. `kratos objective` records the active demand.
