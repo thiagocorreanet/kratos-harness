@@ -1,0 +1,21 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "agent": "code",
+  "outcome": {
+    "status": "blocked",
+    "next": "retry",
+    "questions": [],
+    "blockers": ["The refund ledger migration has not been applied yet."]
+  },
+  "artifacts": [],
+  "changedFiles": [
+    { "ref": "src/refunds/window.ts", "change": "modified" },
+    { "ref": "tests/refund-window.test.ts", "change": "added" }
+  ],
+  "payload": {
+    "stepId": "step-window",
+    "testsAdded": 3,
+    "testsPassed": false
+  }
+}

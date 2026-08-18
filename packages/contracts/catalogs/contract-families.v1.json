@@ -22,6 +22,14 @@
       "typeName": "AdapterMessageV1"
     },
     {
+      "id": "host.agent-output",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/agent-output.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "AgentOutputV1"
+    },
+    {
       "id": "host.gap-proposal",
       "family": "host",
       "version": "1.0.0",

@@ -5,6 +5,7 @@ import type {
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
+  AgentOutputV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
@@ -27,6 +28,7 @@ import type {
   IntegrityAudit,
   RepairPlan,
 } from "../observability/index.js";
+import type { AgentOutputObservation } from "../agent/index.js";
 import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
@@ -153,6 +155,11 @@ export type CommandObservation =
       readonly gapsReadable: boolean;
       /** The proposal a gap-recording command was pointed at, if any. */
       readonly gapProposal: GapProposalObservation;
+      /** The agent reply an output-recording command was pointed at, if any. */
+      readonly agentOutput: AgentOutputObservation;
+      /** Every agent output the run recorded, in agent order. */
+      readonly agentOutputs: readonly AgentOutputV1[];
+      readonly agentOutputsReadable: boolean;
       /** The gate facts exactly as recorded, before the approval boundary. */
       readonly gateFacts: {
         readonly readable: boolean;

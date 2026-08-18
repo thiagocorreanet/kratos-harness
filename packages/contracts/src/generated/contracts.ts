@@ -1,6 +1,7 @@
 // Generated from registered JSON Schemas. Do not edit.
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
+// source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
@@ -109,6 +110,190 @@ export namespace AdapterMessageV1Contract {
   }
 }
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
+export namespace AgentOutputV1Contract {
+  export type AgentOutputV1 =
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "prd";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PrdPayload;
+      }
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "spec";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: SpecPayload;
+      }
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "plan";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PlanPayload;
+      }
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "code";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: CodePayload;
+      }
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "review";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: ReviewPayload;
+      }
+    | {
+        contractVersion: "1.0.0";
+        hostContract: "1.0.0";
+        agent: "acceptance";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: AcceptancePayload;
+      };
+  export type Outcome = {
+    [k: string]: unknown | undefined;
+  } & {
+    status: "completed" | "awaiting-input" | "blocked";
+    next: "proceed" | "wait" | "retry" | "finish" | "stop";
+    /**
+     * @maxItems 64
+     */
+    questions: Question[];
+    /**
+     * @maxItems 64
+     */
+    blockers: Text[];
+  };
+  export type Question = {
+    [k: string]: unknown | undefined;
+  } & {
+    questionId: Id;
+    prompt: Text;
+    kind: "free-text" | "single-choice" | "multiple-choice";
+    /**
+     * @maxItems 32
+     */
+    options: Option[];
+  };
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  /**
+   * @maxItems 64
+   */
+  export type Artifacts = Reference[];
+  /**
+   * @maxItems 256
+   */
+  export type ChangedFiles = {
+    ref: Reference;
+    change: "added" | "modified" | "deleted";
+  }[];
+
+  export interface Option {
+    optionId: Id;
+    label: Text;
+  }
+  export interface PrdPayload {
+    objective: Text;
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+  }
+  export interface SpecPayload {
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+    approvalRequired: boolean;
+  }
+  export interface PlanPayload {
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    steps: [
+      {
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      },
+      ...{
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      }[],
+    ];
+  }
+  export interface CodePayload {
+    stepId: Id;
+    testsAdded: number;
+    testsPassed: boolean;
+  }
+  export interface ReviewPayload {
+    verdict: "pass" | "changes-requested" | "fail";
+    /**
+     * @maxItems 128
+     */
+    findings: {
+      findingId: Id;
+      severity: "high" | "medium" | "low";
+      summary: Text;
+      ref: Reference;
+    }[];
+  }
+  export interface AcceptancePayload {
+    verdict: "accepted" | "rejected";
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    criteria: [
+      {
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      },
+      ...{
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      }[],
+    ];
+  }
+}
+export type AgentOutputV1 = AgentOutputV1Contract.AgentOutputV1;
 export namespace GapProposalV1Contract {
   export type Id = string;
   export type Text = string;

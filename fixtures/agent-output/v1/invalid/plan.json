@@ -1,0 +1,16 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "agent": "plan",
+  "outcome": {
+    "status": "completed",
+    "next": "proceed",
+    "questions": [],
+    "blockers": []
+  },
+  "artifacts": [".brain/02-features/refunds/02-plan.md"],
+  "changedFiles": [],
+  "payload": {
+    "steps": []
+  }
+}

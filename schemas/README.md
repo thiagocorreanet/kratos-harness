@@ -40,7 +40,11 @@ The host family contains
 [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json), plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
-approval, hook, timeout, cancellation, and error delivery. The
+approval, hook, timeout, cancellation, and error delivery, and
+[`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
+block one phase agent appends to its reply. See the
+[agent output contract](../docs/architecture/agent-output-contract.md) for the
+delimiter, the envelope, and the extraction rules. The
 registry format is
 [`contract-manifest.v1.schema.json`](contracts/contract-manifest.v1.schema.json).
 

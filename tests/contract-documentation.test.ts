@@ -15,6 +15,7 @@ let projectDiscovery: string;
 let runtimeBoundaries: string;
 let concurrencyLocks: string;
 let reasonCatalog: string;
+let agentOutput: string;
 
 beforeAll(async () => {
   [
@@ -27,6 +28,7 @@ beforeAll(async () => {
     runtimeBoundaries,
     concurrencyLocks,
     reasonCatalog,
+    agentOutput,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -56,6 +58,10 @@ beforeAll(async () => {
         repositoryRoot,
         "packages/contracts/catalogs/reason-codes.v1.3.json",
       ),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/agent-output-contract.md"),
       "utf8",
     ),
   ]);
@@ -137,6 +143,26 @@ describe("contract versioning documentation", () => {
     expect(readme).toContain("schema registry contract");
   });
 
+  it("publishes the delimiter, the envelope, and the extraction rules", () => {
+    for (const token of [
+      "===KRATOS-AGENT-OUTPUT-V1===",
+      "===END-KRATOS-AGENT-OUTPUT-V1===",
+      "deliberately not a Markdown fence",
+      "kratos agent record REF",
+      "host.agent-output@1.0.0",
+      "run.agent.recorded",
+      "trail.output_invalido",
+      "no model call and no network access",
+      "additionalProperties: false",
+      "issues/113",
+    ]) {
+      expect(agentOutput).toContain(token);
+    }
+    // The two path fields exist to stay apart; documentation that stopped
+    // saying so would be documenting a different contract.
+    expect(agentOutput).toContain("stay separate fields");
+  });
+
   it("indexes all current artifact families and commands", () => {
     for (const token of [
       "project-config.v1.schema.json",
@@ -150,6 +176,7 @@ describe("contract versioning documentation", () => {
       "transaction-manifest.v1.schema.json",
       "transaction-progress.v1.schema.json",
       "adapter-message.v1.schema.json",
+      "agent-output.v1.schema.json",
       "operation-message.v1.schema.json",
       "contract-manifest.v1.schema.json",
       "npm run contracts:generate",
@@ -173,6 +200,7 @@ describe("contract versioning documentation", () => {
       "operation-timeout.json",
       "operation-cancellation.json",
       "operation-error.json",
+      "agent-output.json",
       "version-cases.json",
     ]) {
       expect(fixtureIndex).toContain(token);

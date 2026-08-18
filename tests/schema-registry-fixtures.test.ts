@@ -1,6 +1,7 @@
 import manifest from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import versionCases from "../fixtures/contracts/v1/version-cases.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
@@ -44,6 +45,16 @@ const fixtures = [
     requiredField: "messageId",
     structuralReasonCode: "trail.output_invalido",
     fixture: adapterMessage,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.agent-output",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "payload",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutput,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },

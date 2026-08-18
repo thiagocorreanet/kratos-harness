@@ -50,6 +50,7 @@ describe("commands that observe before deciding", () => {
     ).map((command) => command.path.join(" "));
 
     expect(observing).toEqual([
+      "agent record",
       "approve",
       "audit",
       "budgets",

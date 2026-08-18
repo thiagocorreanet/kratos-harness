@@ -1,5 +1,6 @@
 import type {
   AdapterMessageV1,
+  AgentOutputV1,
   ApprovalV1,
   HostOperationMessageV1,
   InitAnswersV1,
@@ -19,6 +20,7 @@ import type {
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1;
+  readonly "host.agent-output": AgentOutputV1;
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
