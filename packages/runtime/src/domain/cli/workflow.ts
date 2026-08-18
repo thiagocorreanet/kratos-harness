@@ -226,8 +226,8 @@ export const doneCommand: CommandSpec = observingCommand(
       (approval) =>
         approval.gate === "final-acceptance" &&
         approval.runId === observation.configuration.runId &&
-        approval.prdDigest === observation.configuration.lineage.prdDigest &&
-        approval.specDigest === observation.configuration.lineage.specDigest &&
+        approval.prdDigest === observation.observedLineage.prdDigest &&
+        approval.specDigest === observation.observedLineage.specDigest &&
         approval.policyVersion === "workflow-v1" &&
         approval.challenge === observation.approvalChallenge &&
         approval.decision === "approved" &&
@@ -264,8 +264,8 @@ export const doneCommand: CommandSpec = observingCommand(
               artifactRef: artifactObservation.ref,
               artifactDigest: artifactObservation.sha256,
               parentDigests: [
-                observation.configuration.lineage.prdDigest,
-                observation.configuration.lineage.specDigest,
+                observation.observedLineage.prdDigest,
+                observation.observedLineage.specDigest,
               ],
               runId: observation.configuration.runId,
               phase: "acceptance",
@@ -396,8 +396,8 @@ function workflowDecision(
           artifactRef: artifact.ref,
           artifactDigest: artifact.sha256,
           parentDigests: [
-            observation.configuration.lineage.prdDigest,
-            observation.configuration.lineage.specDigest,
+            observation.observedLineage.prdDigest,
+            observation.observedLineage.specDigest,
           ].filter((digest, index, values) => values.indexOf(digest) === index),
           runId: observation.configuration.runId,
           phase:
