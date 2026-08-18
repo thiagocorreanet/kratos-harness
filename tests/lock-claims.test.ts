@@ -5427,6 +5427,34 @@ describe("durable lock claims", () => {
     },
   );
 
+  // The generation is the last thing a retirement removes, and the `claim`
+  // directory that held it survives. A reader that listed the generation a
+  // moment earlier therefore inspects a path that is already gone without the
+  // ancestor vanish check having anything to report.
+  it.each(["project", "run:run-01"] as const)(
+    "reads a %s generation unlinked under the listing that named it as unpublished",
+    async (resource) => {
+      const retiring: LockClaimRecord = {
+        ...observedRecord,
+        claimId: `unlinked-generation-${resource}`,
+        resource,
+      };
+      const generation = parentDirectory(publishedScopeRecord(retiring));
+      const storage = lockStorage({ directories: [generation] });
+      const baseInspect = storage.durableFileSystem.inspect;
+
+      await expect(
+        inspectLease(
+          resource,
+          withDurable(storage, {
+            inspect: async (path) =>
+              path === generation ? { kind: "missing" } : baseInspect(path),
+          }),
+        ),
+      ).resolves.toMatchObject({ kind: "empty", claim: null, lease: null });
+    },
+  );
+
   it.each(["project", "run:run-01"] as const)(
     "removes every partial expired %s scope candidate form",
     async (resource) => {

@@ -907,11 +907,14 @@ async function assertScopeClaimChildren(
     ];
     if (String(Number(expiresText)) !== expiresText) throw corrupt(claim);
     const generation = `${claim}/${generationName}`;
-    if (
-      (await services.durableFileSystem.inspect(generation)).kind !==
-      "directory"
-    )
-      throw corrupt(generation);
+    const generationEntry =
+      await services.durableFileSystem.inspect(generation);
+    // The generation leaves ahead of the `claim` directory that holds it, so a
+    // listing that just named it can be overtaken by its own retirement. The
+    // claim itself is still there, which is why the vanish check below cannot
+    // rescue this shape and it has to be read here.
+    if (generationEntry.kind === "missing") return;
+    if (generationEntry.kind !== "directory") throw corrupt(generation);
     const children = await services.durableFileSystem.list(generation);
     const markers = children
       .map((name) =>
