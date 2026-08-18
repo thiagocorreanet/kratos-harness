@@ -13,7 +13,13 @@ global binary, or implement workflow policy in this skill.
 Run a JSON handshake first, pass an explicit project `--root`, and relay the
 runtime's result, reason code, evidence, and recovery unchanged. The normal
 trail is `objective`, `start`, `continue`, content-bound `approve`,
-`evidence record`, and `done`. Lifecycle cancellation, timeout, hook, and error
+`evidence record`, and `done`. During the `prd` and `spec` phases, propose
+gaps as a `host.gap-proposal@1.0.0` document and hand it to
+`gaps record <path>`. A gap is one of four things: a rule that admits two
+readings which produce different code, a decision only the owner can make, a
+contradiction between two passages, or an external dependency nobody has
+confirmed. Propose nothing outside that set, and never decide whether a gap
+blocks the run; the runtime derives that from what it recorded. Lifecycle cancellation, timeout, hook, and error
 facts are sent to `hook --host codex` through the shared host contract.
 
 Unknown model identity stays `null`. A user-provided model label is not an

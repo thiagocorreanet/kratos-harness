@@ -45,6 +45,20 @@ current phase:
 "$KRATOS_BUILD_OUTPUT/codex/runtime/kratos.mjs" explain gate.aprovacao_spec
 ```
 
+While the run is in its `prd` or `spec` phase, hand the runtime the gaps the
+model proposed and let it derive the gate facts:
+
+```sh
+"$KRATOS_BUILD_OUTPUT/codex/runtime/kratos.mjs" gaps record ./gap-proposal.json
+"$KRATOS_BUILD_OUTPUT/codex/runtime/kratos.mjs" handoff
+"$KRATOS_BUILD_OUTPUT/codex/runtime/kratos.mjs" gaps resolve gap-refund-window --decision accepted --document-changed --decided-by human:owner --observation "Adopted the thirty-day window."
+```
+
+Under the strict policy an open gap blocks the run with `gate.gaps_abertos`.
+Under the standard policy the same gap is recorded and reported while the run
+continues. `gaps waive` records the owner proceeding over a gap nobody
+answered; the gap stays on record as unanswered.
+
 The exact `done` inputs depend on the active run and final approval. Ask the
 installed Kratos skill to report status, run doctor, and show help before
 completing it.

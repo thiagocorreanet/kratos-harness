@@ -90,7 +90,7 @@ describe("README honesty", () => {
       build: "node scripts/build.mjs",
       "package:verify": "node scripts/verify-package.mjs",
       verify:
-        "npm run format:check && npm run spellcheck && npm run english:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run mutation:check && npm run performance:check && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify && npm run benchmark",
+        "npm run format:check && npm run spellcheck && npm run english:check && npm run lint && npm run typecheck && npm test && npm run test:coverage && npm run mutation:check && npm run gaps:calibrate && npm run performance:check && npm run oracle:verify && npm run parity:check && npm run result:check && npm run contracts:check && npm run differential:check && npm run build && npm run package:verify && npm run benchmark",
     });
     expect(commands.indexOf("npm run build")).toBeLessThan(
       commands.indexOf("npm run kratos -- help"),

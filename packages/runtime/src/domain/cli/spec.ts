@@ -8,6 +8,7 @@ import type {
   ApprovalV1,
   EventV1,
   EvidenceV1,
+  GapRecordV1,
   HostOperationMessageV1,
   MigrationV1,
   SnapshotV1,
@@ -26,6 +27,7 @@ import type {
   IntegrityAudit,
   RepairPlan,
 } from "../observability/index.js";
+import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 
@@ -146,6 +148,26 @@ export type CommandObservation =
       readonly evidence: readonly EvidenceV1[];
       readonly invalidEvidenceIds: readonly string[];
       readonly evidenceReadable: boolean;
+      /** Every gap the run recorded, in identifier order. */
+      readonly gaps: readonly GapRecordV1[];
+      readonly gapsReadable: boolean;
+      /** The proposal a gap-recording command was pointed at, if any. */
+      readonly gapProposal: GapProposalObservation;
+      /** The gate facts exactly as recorded, before the approval boundary. */
+      readonly gateFacts: {
+        readonly readable: boolean;
+        readonly stopLoss: {
+          readonly tripped: boolean;
+          readonly exhausted: boolean;
+        };
+        readonly openGaps: number;
+        readonly partitionRequired: boolean;
+        readonly partitionApproved: boolean;
+      };
+      /** The open-gap count the gates act on, after the approval boundary. */
+      readonly openGaps: number;
+      /** Whether the specification bound to this lineage is approved. */
+      readonly specApproved: boolean;
       readonly referencedFiles: readonly {
         readonly ref: string;
         readonly content: string;

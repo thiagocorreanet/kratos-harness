@@ -6,6 +6,9 @@ import type {
   EventV1,
   EvidenceV1,
   FeatureStateV1,
+  GapProposalV1,
+  GapRecordV1,
+  GateFactsV1,
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
@@ -16,12 +19,15 @@ import type {
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1;
+  readonly "host.gap-proposal": GapProposalV1;
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
   readonly "state.feature": FeatureStateV1;
+  readonly "state.gap": GapRecordV1;
+  readonly "state.gates": GateFactsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1;
   readonly "state.project-config": ProjectConfigV1;

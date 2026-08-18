@@ -1,0 +1,11 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "runId": "run-2026-08-14-0001",
+  "openGaps": 1,
+  "openGapIds": ["gap-refund-window"],
+  "stopLoss": { "tripped": false, "exhausted": false },
+  "partitionRequired": false,
+  "partitionApproved": true,
+  "derivedAt": "2026-08-14T12:00:00.000Z"
+}

@@ -18,12 +18,15 @@ describe("schema registry vocabulary", () => {
   it("maps every closed contract identifier to one generated type", () => {
     const ids = [
       "host.adapter-message",
+      "host.gap-proposal",
       "host.init-answers",
       "host.operation-message",
       "state.approval",
       "state.event",
       "state.evidence",
       "state.feature",
+      "state.gap",
+      "state.gates",
       "state.lock",
       "state.migration",
       "state.project-config",
@@ -31,7 +34,7 @@ describe("schema registry vocabulary", () => {
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(13);
+    expect(ids).toHaveLength(16);
     expectTypeOf<
       ContractValue<"state.project-config">
     >().toEqualTypeOf<ProjectConfigV1>();

@@ -19,6 +19,8 @@ private keys are prohibited.
 | `.brain/02-features/` | Managed state | Objectives, runs, and materialized snapshots |
 | `.brain/approvals/` | Managed state | Content-bound decisions |
 | `.brain/evidence/` | Managed metadata | Digests, classification, and references |
+| `.brain/02-features/<feature>/runs/<run>/gaps/` | Managed state | One record per detected gap and the answer it carries |
+| `.brain/02-features/<feature>/runs/<run>/gates.json` | Derived state | The facts the gates read, derived from the records |
 | `.brain/migrations/` | Managed recovery | Plans, receipts, backups, and rollback records |
 | `.claude/` | Mixed/managed sections | Claude Code integration |
 | `.codex/` and `AGENTS.md` | Mixed/managed sections | Codex integration |

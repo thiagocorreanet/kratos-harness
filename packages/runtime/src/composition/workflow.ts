@@ -2,6 +2,7 @@ import type {
   ApprovalV1,
   EventV1,
   EvidenceV1,
+  GapRecordV1,
   SnapshotV1,
 } from "@kratos/contracts";
 
@@ -34,6 +35,7 @@ import {
 } from "../domain/workflow/index.js";
 import type { GitPath } from "../domain/git/index.js";
 import { verifyEvidence } from "../domain/evidence/index.js";
+import type { GapProposalObservation } from "../domain/gaps/index.js";
 import { evaluateGates, type GateMode } from "../domain/gates/index.js";
 import {
   auditSnapshot,
@@ -56,6 +58,11 @@ const EMPTY_DIGEST =
 interface RunReference {
   readonly feature: string;
   readonly runId: string;
+}
+
+/** Where one run keeps everything it recorded. */
+function runRoot(reference: RunReference): string {
+  return `.brain/02-features/${reference.feature}/runs/${reference.runId}`;
 }
 
 export type ObservedWorkflow =
@@ -130,7 +137,9 @@ export async function observeWorkflow(
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
   const evidence = await observeEvidence(configuration, anchored, registry);
-  const gateFacts = await observeGateFacts(configuration, anchored);
+  const gateFacts = await observeGateFacts(configuration, anchored, registry);
+  const gaps = await observeGaps(configuration, anchored, registry);
+  const gapProposal = await observeGapProposal(invocation, anchored, registry);
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(
     configuration,
@@ -163,6 +172,28 @@ export async function observeWorkflow(
       ).kind === "valid"
     );
   });
+  /**
+   * Whether the specification the run is bound to has been approved.
+   *
+   * The same fact the `spec-approved` gate reads, exposed because it is also
+   * the boundary gap detection stops at.
+   */
+  const specApproved = validApprovals.some(
+    (approval) =>
+      approval.gate === "spec" &&
+      approval.decision === "approved" &&
+      approval.prdDigest === observedLineage.prdDigest &&
+      approval.specDigest === observedLineage.specDigest,
+  );
+  /**
+   * The open-gap count the gates act on.
+   *
+   * After approval the remaining questions are technical by construction, so a
+   * gap recorded past that point is history rather than a blocker. Applying the
+   * boundary here as well as where the facts are derived keeps a run approved
+   * after its last derivation honest.
+   */
+  const openGaps = specApproved ? 0 : gateFacts.openGaps;
   const phase =
     run.workflow.kind === "present"
       ? (run.workflow.state.currentStep ?? "acceptance")
@@ -175,6 +206,7 @@ export async function observeWorkflow(
       approvals.readable &&
       evidence.readable &&
       gateFacts.readable &&
+      gaps.readable &&
       artifactLineage.readable &&
       run.workflow.kind !== "corrupt",
     stopLoss: gateFacts.stopLoss,
@@ -187,7 +219,7 @@ export async function observeWorkflow(
         ? null
         : observedLineage.specDigest,
     approvals: validApprovals,
-    openGaps: gateFacts.openGaps,
+    openGaps,
     partitionRequired: gateFacts.partitionRequired,
     partitionApproved: gateFacts.partitionApproved,
     finalAcceptance: validApprovals.some(
@@ -266,6 +298,12 @@ export async function observeWorkflow(
       evidence: evidence.values,
       invalidEvidenceIds: evidence.invalidIds,
       evidenceReadable: evidence.readable,
+      gaps: gaps.values,
+      gapsReadable: gaps.readable,
+      gapProposal,
+      gateFacts,
+      openGaps,
+      specApproved,
       referencedFiles,
       gateDecision,
       policyMode: policy.mode,
@@ -388,9 +426,18 @@ interface ObservedGateFacts {
   readonly partitionApproved: boolean;
 }
 
+/**
+ * Read the facts the gates evaluate.
+ *
+ * Absence is not a failure: a project that has recorded nothing yet has no
+ * open gaps, no tripped budget, and no partition to approve. Anything else
+ * that cannot be read as the published contract fails closed, because a file
+ * the runtime cannot understand is not evidence that everything is fine.
+ */
 async function observeGateFacts(
   configuration: RunReference,
   ports: RuntimePorts,
+  registry: SchemaRegistry,
 ): Promise<ObservedGateFacts> {
   const empty = {
     readable: true,
@@ -399,43 +446,123 @@ async function observeGateFacts(
     partitionRequired: false,
     partitionApproved: true,
   } as const;
-  const path = `.brain/02-features/${configuration.feature}/runs/${configuration.runId}/gates.json`;
+  const path = `${runRoot(configuration)}/gates.json`;
   const entry = await ports.durableFileSystem.inspect(path);
   if (entry.kind === "missing") return empty;
   if (entry.kind !== "file") return { ...empty, readable: false };
   try {
-    const value = JSON.parse(await ports.durableFileSystem.readText(path)) as {
-      contractVersion?: unknown;
-      openGaps?: unknown;
-      partitionRequired?: unknown;
-      partitionApproved?: unknown;
-      stopLoss?: { tripped?: unknown; exhausted?: unknown };
-    };
+    const validated = registry.validate({
+      id: "state.gates",
+      version: "1.0.0",
+      value: JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
     if (
-      value.contractVersion !== "1.0.0" ||
-      typeof value.openGaps !== "number" ||
-      !Number.isSafeInteger(value.openGaps) ||
-      value.openGaps < 0 ||
-      typeof value.partitionRequired !== "boolean" ||
-      typeof value.partitionApproved !== "boolean" ||
-      value.stopLoss === undefined ||
-      typeof value.stopLoss.tripped !== "boolean" ||
-      typeof value.stopLoss.exhausted !== "boolean"
+      validated.kind !== "valid" ||
+      validated.value.runId !== configuration.runId ||
+      validated.value.openGaps !== validated.value.openGapIds.length
     ) {
       return { ...empty, readable: false };
     }
     return {
       readable: true,
       stopLoss: {
-        tripped: value.stopLoss.tripped,
-        exhausted: value.stopLoss.exhausted,
+        tripped: validated.value.stopLoss.tripped,
+        exhausted: validated.value.stopLoss.exhausted,
       },
-      openGaps: value.openGaps,
-      partitionRequired: value.partitionRequired,
-      partitionApproved: value.partitionApproved,
+      openGaps: validated.value.openGaps,
+      partitionRequired: validated.value.partitionRequired,
+      partitionApproved: validated.value.partitionApproved,
     };
   } catch {
     return { ...empty, readable: false };
+  }
+}
+
+/**
+ * Read every gap the run recorded.
+ *
+ * Gaps are read whole rather than counted, because the commands that answer
+ * one need the record they are answering and the gate needs a count derived
+ * from the same set.
+ */
+async function observeGaps(
+  configuration: RunReference,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<{
+  readonly readable: boolean;
+  readonly values: readonly GapRecordV1[];
+}> {
+  const root = `${runRoot(configuration)}/gaps`;
+  const entry = await ports.durableFileSystem.inspect(root);
+  if (entry.kind === "missing") return { readable: true, values: [] };
+  if (entry.kind !== "directory") return { readable: false, values: [] };
+  try {
+    const values: GapRecordV1[] = [];
+    for (const name of await ports.durableFileSystem.list(root)) {
+      if (!name.endsWith(".json")) return { readable: false, values: [] };
+      const path = `${root}/${name}`;
+      const file = await ports.durableFileSystem.inspect(path);
+      if (file.kind !== "file") return { readable: false, values: [] };
+      const validated = registry.validate({
+        id: "state.gap",
+        version: "1.0.0",
+        value: JSON.parse(
+          await ports.durableFileSystem.readText(path),
+        ) as unknown,
+        structuralReasonCode: "runtime.state_corrupt",
+      });
+      if (
+        validated.kind !== "valid" ||
+        validated.value.runId !== configuration.runId ||
+        `${validated.value.gapId}.json` !== name
+      ) {
+        return { readable: false, values: [] };
+      }
+      values.push(validated.value);
+    }
+    values.sort((left, right) =>
+      left.gapId.localeCompare(right.gapId, "en-US"),
+    );
+    return { readable: true, values };
+  } catch {
+    return { readable: false, values: [] };
+  }
+}
+
+/**
+ * Read the proposal a gap-recording command was pointed at.
+ *
+ * The model authored it, so it is validated at the boundary and handed to the
+ * decision as an outcome rather than as content to be trusted.
+ */
+async function observeGapProposal(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<GapProposalObservation> {
+  if (invocation.command.path.join(" ") !== "gaps record") {
+    return { kind: "absent" };
+  }
+  const ref = invocation.positionals[0];
+  if (ref === undefined) return { kind: "absent" };
+  try {
+    const entry = await ports.durableFileSystem.inspect(ref);
+    if (entry.kind !== "file") return { kind: "unreadable", ref };
+    const validated = registry.validate({
+      id: "host.gap-proposal",
+      version: "1.0.0",
+      value: JSON.parse(await ports.durableFileSystem.readText(ref)) as unknown,
+      structuralReasonCode: "trail.uso",
+    });
+    return validated.kind === "valid"
+      ? { kind: "valid", ref, value: validated.value }
+      : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+  } catch {
+    return { kind: "unreadable", ref };
   }
 }
 

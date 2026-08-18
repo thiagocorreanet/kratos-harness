@@ -22,6 +22,14 @@
       "typeName": "AdapterMessageV1"
     },
     {
+      "id": "host.gap-proposal",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/gap-proposal.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "GapProposalV1"
+    },
+    {
       "id": "host.init-answers",
       "family": "host",
       "version": "1.0.0",
@@ -68,6 +76,22 @@
       "path": "schemas/state/feature.v1.schema.json",
       "boundary": "persisted",
       "typeName": "FeatureStateV1"
+    },
+    {
+      "id": "state.gap",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/gap.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "GapRecordV1"
+    },
+    {
+      "id": "state.gates",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/gates.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "GateFactsV1"
     },
     {
       "id": "state.lock",

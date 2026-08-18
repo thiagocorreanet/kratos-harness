@@ -1,12 +1,15 @@
 // Generated from registered JSON Schemas. Do not edit.
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
+// source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
+// source: https://kratos.dev/schemas/state/gap/v1 sha256:cff06bc219cb2dc4005680230a936e20e47374fe05b12f3ced21108d0ee55591
+// source: https://kratos.dev/schemas/state/gates/v1 sha256:45d68cae9eeb4958f506db033b8972dcc9ec721df46e2ee41683798b7e9bf6f4
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
@@ -106,6 +109,37 @@ export namespace AdapterMessageV1Contract {
   }
 }
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
+export namespace GapProposalV1Contract {
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+
+  export interface GapProposalV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    /**
+     * @minItems 1
+     */
+    gaps: [ProposedGap, ...ProposedGap[]];
+  }
+  export interface ProposedGap {
+    gapId: Id;
+    category:
+      | "ambiguous-rule"
+      | "document-contradiction"
+      | "owner-decision"
+      | "unconfirmed-dependency";
+    weight: "high" | "medium" | "low";
+    description: Text;
+    recommendation: Text;
+    reasoning: Text;
+    /**
+     * @minItems 1
+     */
+    documentRefs: [Reference, ...Reference[]];
+  }
+}
+export type GapProposalV1 = GapProposalV1Contract.GapProposalV1;
 export namespace InitAnswersV1Contract {
   export interface InitAnswersV1 {
     contractVersion: "1.0.0";
@@ -316,6 +350,74 @@ export namespace FeatureStateV1Contract {
   }
 }
 export type FeatureStateV1 = FeatureStateV1Contract.FeatureStateV1;
+export namespace GapRecordV1Contract {
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+
+  export interface GapRecordV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    gapId: Id;
+    runId: Id;
+    phase: "prd" | "spec";
+    category:
+      | "ambiguous-rule"
+      | "document-contradiction"
+      | "owner-decision"
+      | "unconfirmed-dependency";
+    weight: "high" | "medium" | "low";
+    description: Text;
+    recommendation: Text;
+    reasoning: Text;
+    /**
+     * @minItems 1
+     */
+    documentRefs: [Reference, ...Reference[]];
+    prdDigest: Sha256;
+    specDigest: Sha256;
+    policyMode: "shadow" | "warn" | "enforce";
+    recordedAt: Timestamp;
+    resolution: null | {
+      decision: "accepted" | "adjusted" | "rejected";
+      documentChanged: boolean;
+      decidedBy: Id;
+      decidedAt: Timestamp;
+      observation: Text;
+    };
+    waiver: null | {
+      acknowledgedBy: Id;
+      acknowledgedAt: Timestamp;
+      observation: Text;
+    };
+  }
+}
+export type GapRecordV1 = GapRecordV1Contract.GapRecordV1;
+export namespace GateFactsV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+
+  export interface GateFactsV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    runId: Id;
+    openGaps: number;
+    /**
+     * @maxItems 4096
+     */
+    openGapIds: Id[];
+    stopLoss: {
+      tripped: boolean;
+      exhausted: boolean;
+    };
+    partitionRequired: boolean;
+    partitionApproved: boolean;
+    derivedAt: Timestamp;
+  }
+}
+export type GateFactsV1 = GateFactsV1Contract.GateFactsV1;
 export namespace LockLeaseV1Contract {
   export type Id = string;
   export type Timestamp = string;
