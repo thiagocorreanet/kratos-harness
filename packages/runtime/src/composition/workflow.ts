@@ -48,6 +48,16 @@ import { anchorPorts, resolveCommandRoot } from "./root.js";
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+/**
+ * Where a run's files live. The helpers that only read those paths take this
+ * rather than the reducer configuration, so nothing can reach a lineage that
+ * is not theirs to read.
+ */
+interface RunReference {
+  readonly feature: string;
+  readonly runId: string;
+}
+
 export type ObservedWorkflow =
   | { readonly kind: "failure"; readonly result: Result }
   | {
@@ -81,19 +91,18 @@ export async function observeWorkflow(
   const runId =
     activeRun ??
     (typeof requestedRun === "string" ? requestedRun : anchored.ids.next());
-  const lineage =
+  const observedLineage =
     feature === null
       ? { prdDigest: EMPTY_DIGEST, specDigest: EMPTY_DIGEST }
       : await observeLineage(feature, anchored);
   const projectId = `project-${anchored.digests
     .sha256(anchored.environment.workingDirectory())
     .slice(0, 32)}`;
-  const configuration: WorkflowReducerConfiguration = {
+  const location = {
     projectId,
     feature: feature ?? "unselected",
     runId,
-    lineage,
-  };
+  } as const;
   const run =
     feature === null
       ? {
@@ -102,7 +111,17 @@ export async function observeWorkflow(
           persistedSnapshot: null,
           replayedSnapshot: null,
         }
-      : await observeRun(configuration, anchored, registry);
+      : await observeRun(location, anchored, registry);
+  /**
+   * Lineage is a fact of the run, not of the working tree the run is there to
+   * change. An open run replays from the digests it committed at `run.started`;
+   * only a run that does not exist yet takes the ones on disk, which is how
+   * that fact gets recorded in the first place.
+   */
+  const configuration: WorkflowReducerConfiguration = {
+    ...location,
+    lineage: run.persistedSnapshot?.lineage ?? observedLineage,
+  };
   const approvals = await observeApprovals(configuration, anchored, registry);
   const correlation = invocation.flags.get("--correlation-id");
   const host = invocation.flags.get("--host");
@@ -113,7 +132,11 @@ export async function observeWorkflow(
   const evidence = await observeEvidence(configuration, anchored, registry);
   const gateFacts = await observeGateFacts(configuration, anchored);
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
-  const artifactLineage = await observeArtifactLineage(configuration, anchored);
+  const artifactLineage = await observeArtifactLineage(
+    configuration,
+    observedLineage,
+    anchored,
+  );
   const validApprovals = approvals.values.filter((approval, index, values) => {
     const seen = new Set(
       values.slice(0, index).map(({ approvalId }) => approvalId),
@@ -124,8 +147,8 @@ export async function observeWorkflow(
         {
           runId,
           gate: approval.gate,
-          prdDigest: lineage.prdDigest,
-          specDigest: lineage.specDigest,
+          prdDigest: observedLineage.prdDigest,
+          specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
           policyMode: policy.mode,
           objectiveDigest,
@@ -155,8 +178,14 @@ export async function observeWorkflow(
       artifactLineage.readable &&
       run.workflow.kind !== "corrupt",
     stopLoss: gateFacts.stopLoss,
-    prdDigest: lineage.prdDigest === EMPTY_DIGEST ? null : lineage.prdDigest,
-    specDigest: lineage.specDigest === EMPTY_DIGEST ? null : lineage.specDigest,
+    prdDigest:
+      observedLineage.prdDigest === EMPTY_DIGEST
+        ? null
+        : observedLineage.prdDigest,
+    specDigest:
+      observedLineage.specDigest === EMPTY_DIGEST
+        ? null
+        : observedLineage.specDigest,
     approvals: validApprovals,
     openGaps: gateFacts.openGaps,
     partitionRequired: gateFacts.partitionRequired,
@@ -215,6 +244,7 @@ export async function observeWorkflow(
       kind: "workflow",
       workflow: run.workflow,
       configuration,
+      observedLineage,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId: anchored.ids.next(),
@@ -244,8 +274,8 @@ export async function observeWorkflow(
         {
           runId,
           gate: invocation.positionals[0] ?? "final-acceptance",
-          prdDigest: lineage.prdDigest,
-          specDigest: lineage.specDigest,
+          prdDigest: observedLineage.prdDigest,
+          specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
           policyMode: policy.mode,
           objectiveDigest,
@@ -287,7 +317,8 @@ type ArtifactLineageCandidate = Omit<
 };
 
 async function observeArtifactLineage(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
+  observedLineage: RunLineage,
   ports: RuntimePorts,
 ): Promise<{
   readonly readable: boolean;
@@ -335,12 +366,11 @@ async function observeArtifactLineage(
       }
       values.push(parsed as ArtifactLineage);
     }
+    // Lineage files record the digests observed when their artifact was
+    // produced, so the roots they may descend from are the ones on disk.
     const validation = validateLineageDag(
       values,
-      new Set([
-        configuration.lineage.prdDigest,
-        configuration.lineage.specDigest,
-      ]),
+      new Set([observedLineage.prdDigest, observedLineage.specDigest]),
     );
     return validation.kind === "valid"
       ? { readable: true, values }
@@ -359,7 +389,7 @@ interface ObservedGateFacts {
 }
 
 async function observeGateFacts(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
 ): Promise<ObservedGateFacts> {
   const empty = {
@@ -438,7 +468,7 @@ async function observePolicy(
 }
 
 async function observeEvidence(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -542,7 +572,7 @@ async function observeReferencedFiles(
 }
 
 async function observeApprovals(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -680,7 +710,7 @@ async function fileDigest(path: string, ports: RuntimePorts): Promise<string> {
 }
 
 async function observeRun(
-  configuration: WorkflowReducerConfiguration,
+  configuration: RunReference,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<{
@@ -717,6 +747,9 @@ async function observeRun(
     });
     if (validated.kind !== "valid") return corruptRun();
     const state = validated.value;
+    // The run replays from the lineage it committed, exactly as every later
+    // append does. Re-observing the working tree here would make the two
+    // disagree the moment a phase wrote the file it exists to produce.
     const replayConfiguration: WorkflowReducerConfiguration = {
       projectId: state.projectId,
       feature: configuration.feature,

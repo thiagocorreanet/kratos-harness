@@ -15,6 +15,7 @@ import type {
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
+  RunLineage,
   WorkflowReducerConfiguration,
   WorkflowState,
   WorkflowObservation,
@@ -114,7 +115,18 @@ export type CommandObservation =
   | {
       readonly kind: "workflow";
       readonly workflow: WorkflowObservation;
+      /**
+       * The reducer seed, whose lineage is the fact the run recorded when it
+       * started. Replay reproduces the committed snapshot from it, so it must
+       * never move while the run is open.
+       */
       readonly configuration: WorkflowReducerConfiguration;
+      /**
+       * The PRD and design digests on disk right now. Gates, approvals, and
+       * artifact lineage bind to these, because the point of the `prd` and
+       * `spec` phases is to change them.
+       */
+      readonly observedLineage: RunLineage;
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;
