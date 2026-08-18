@@ -61,7 +61,7 @@ jobs:
           cmp .reproducibility/kratos-claude-code.first.tgz .reproducibility/kratos-claude-code.second.tgz
           cmp .reproducibility/kratos-codex.first.tgz .reproducibility/kratos-codex.second.tgz
       - name: Attest plugin archive
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v3.0.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: release/*.tgz
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
