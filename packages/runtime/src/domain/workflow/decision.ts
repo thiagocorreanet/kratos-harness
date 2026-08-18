@@ -210,6 +210,7 @@ export function decideContinueWorkflow(
       "rejected",
       request.action.artifactRefs,
       request.action.evidenceRefs,
+      ["explicit-reject"],
     );
   }
   if (
@@ -224,6 +225,7 @@ export function decideContinueWorkflow(
       "rejected",
       request.action.artifactRefs,
       request.action.evidenceRefs,
+      rejectionWhy(request.action),
     );
   }
   const finalPhase = state.currentStep === RUN_PHASES.at(-1);
@@ -235,6 +237,7 @@ export function decideContinueWorkflow(
       "rejected",
       request.action.artifactRefs,
       request.action.evidenceRefs,
+      ["final-completion-not-allowed"],
     );
   }
   return recorded(
@@ -247,6 +250,28 @@ export function decideContinueWorkflow(
   );
 }
 
+function rejectionWhy(
+  action: Extract<
+    ContinueWorkflowRequest["action"],
+    { readonly kind: "complete-phase" }
+  >,
+): readonly string[] {
+  const reasons = [...action.gateFailures];
+  if (
+    action.artifactRefs.length === 0 &&
+    !reasons.includes("artifact-unreadable")
+  ) {
+    reasons.push("artifact-missing");
+  }
+  if (
+    action.evidenceRefs.length === 0 &&
+    !reasons.includes("evidence-invalid")
+  ) {
+    reasons.push("evidence-missing");
+  }
+  return [...new Set(reasons)];
+}
+
 function recorded(
   request: ContinueWorkflowRequest,
   operation: string,
@@ -257,6 +282,7 @@ function recorded(
   >["transition"],
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
+  why?: readonly string[],
 ): WorkflowDecision {
   return {
     kind: "recorded",
@@ -273,5 +299,6 @@ function recorded(
       artifactRefs,
       evidenceRefs,
     ),
+    ...(why === undefined ? {} : { why: [...why] }),
   };
 }

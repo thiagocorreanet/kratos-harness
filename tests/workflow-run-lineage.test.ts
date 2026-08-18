@@ -197,6 +197,35 @@ describe("a run whose phases write the lineage files", () => {
     expect(snapshotOf(run).currentStep).toBe("spec");
   });
 
+  it("reports the invalid evidence that rejected a continue", async () => {
+    const started = await startedRun();
+    const run = next(started, {
+      [PRD]: "# PRD\n\nShip the export pipeline.\n",
+    });
+
+    const code = await runCommandLine(
+      [
+        "--json",
+        "continue",
+        "--complete",
+        "--artifact",
+        PRD,
+        "--evidence",
+        PRD,
+        "--correlation-id",
+        "reject-prd",
+      ],
+      run.ports,
+    );
+
+    expect(code).toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "trail.ok",
+      summary: "Workflow transition rejected was recorded.",
+      why: ["evidence-invalid"],
+    });
+  });
+
   it("advances to plan after the spec phase writes the design", async () => {
     const started = await startedRun();
     const prd = await recordEvidence(

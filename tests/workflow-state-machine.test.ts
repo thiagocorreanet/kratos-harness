@@ -139,6 +139,7 @@ describe("workflow start and continuation", () => {
     expect(decision).toMatchObject({
       kind: "recorded",
       transition: "rejected",
+      why: ["gate.prd_ausente", "artifact-missing", "evidence-missing"],
       event: { reasonCode: "run.transition.rejected" },
     });
   });
