@@ -125,6 +125,8 @@ export type WorkflowDecision =
         | "completed"
         | "observed";
       readonly event: EventDraftV1;
+      /** Stable identifiers explaining why a transition was rejected. */
+      readonly why?: readonly string[];
     }
   | {
       readonly kind: "unchanged";

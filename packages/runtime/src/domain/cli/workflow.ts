@@ -422,6 +422,12 @@ function workflowDecision(
   return {
     result: resultFor("trail.ok", {
       summary: `Workflow transition ${workflow.transition} was recorded.`,
+      why:
+        workflow.transition === "rejected"
+          ? (workflow.why ?? [
+              "The workflow transition was rejected by its persisted conditions.",
+            ])
+          : [],
       stateChanged: true,
       evidence: [
         { kind: "event", ref: `${runRoot}/events.jsonl` },
