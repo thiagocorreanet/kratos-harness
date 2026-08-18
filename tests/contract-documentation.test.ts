@@ -117,9 +117,12 @@ describe("contract versioning documentation", () => {
     expect(guide).toContain("reason-codes.v1.1.json");
     expect(guide).toContain("reason-codes.v1.2.json");
     expect(guide).toContain("reason-codes.v1.3.json");
+    expect(guide).toContain("reason-codes.v1.4.json");
     expect(guide).toContain("runtime.node_unsupported");
-    expect(resultContract).toContain("reason-codes.v1.3.json");
+    expect(resultContract).toContain("reason-codes.v1.4.json");
     expect(resultContract).toContain("runtime.orientation_ok");
+    expect(resultContract).toContain("gate.prd_untouched");
+    expect(resultContract).toContain("gate.prd_section_missing");
   });
 
   it("keeps the lock contract inside the published reason catalog", () => {

@@ -268,7 +268,7 @@ function rendererContract() {
       readFileSync(
         join(
           repositoryRoot,
-          "packages/contracts/catalogs/reason-codes.v1.3.json",
+          "packages/contracts/catalogs/reason-codes.v1.4.json",
         ),
         "utf8",
       ),

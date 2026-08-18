@@ -75,6 +75,12 @@ before the runtime bundle has loaded at all, so the plugin entry point embeds
 its summary and recovery text verbatim from the catalog. It is documented in
 full by the [runtime distribution contract](runtime-distribution.md).
 
+Revision `1.4.0` preserves those 84 entries and adds
+[`gate.prd_untouched`](../../packages/contracts/catalogs/reason-codes.v1.4.json)
+and `gate.prd_section_missing`. Both are additive, fail-closed gate outcomes;
+the latter carries the missing canonical section name in the gate failure
+detail.
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied

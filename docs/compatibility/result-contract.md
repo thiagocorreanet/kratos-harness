@@ -23,7 +23,9 @@ Version 1 is owned by four checked artifact families:
 - [`reason-codes.v1.2.json`](../../packages/contracts/catalogs/reason-codes.v1.2.json)
   adds `runtime.node_unsupported`;
 - [`reason-codes.v1.3.json`](../../packages/contracts/catalogs/reason-codes.v1.3.json)
-  is the current revision and adds `runtime.orientation_ok`;
+  adds `runtime.orientation_ok`;
+- [`reason-codes.v1.4.json`](../../packages/contracts/catalogs/reason-codes.v1.4.json)
+  is the current revision and adds the two checkable PRD structure failures;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.
 
@@ -115,6 +117,11 @@ Catalog revision 1.3 preserves those 83 entries byte-for-byte and adds
 output such as usage text or a version identifier. No frozen reason described a
 successful read-only operation: `trail.ok` requires evidence and represents a
 committed mutation, so orientation output had no truthful reason to report.
+
+Catalog revision 1.4 preserves those 84 entries byte-for-byte and adds
+`gate.prd_untouched` and `gate.prd_section_missing`. Both are additive,
+fail-closed gate outcomes. The latter carries the missing canonical section
+name in the gate failure detail.
 
 ## Evidence references
 

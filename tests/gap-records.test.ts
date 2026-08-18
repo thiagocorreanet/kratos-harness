@@ -470,6 +470,7 @@ describe("deriving the facts the gates read", () => {
       contextReadable: true,
       stopLoss: { tripped: false, exhausted: false },
       prdDigest: PRD,
+      prdDocument: { kind: "complete" as const },
       specDigest: SPEC,
       approvals: [],
       openGaps: facts([first]).openGaps,
