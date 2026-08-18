@@ -2,8 +2,13 @@
 
 [`feature-documents/complete`](feature-documents/complete) contains one filled,
 host-neutral example for each generated feature document. These examples show
-the required structure without defining the discovery method or acceptance
-identifier grammar owned by later issues.
+the required structure without defining the acceptance identifier grammar
+owned by a later issue.
+
+[`requirement-discovery`](requirement-discovery) contains complete PRDs for a
+vague solution-shaped request, a simple demand that skips both techniques, and
+a demand where both techniques run. Each embeds a valid current discovery
+record, and the first is the worked example used by the architecture guide.
 
 This directory owns stable compatibility inputs and golden scenarios shared by
 differential, contract, migration, and black-box tests.
@@ -15,6 +20,7 @@ by the
 The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 
 - `project-config.json`;
+- `requirement-discovery.json`;
 - `snapshot.json`;
 - `event.json`;
 - `approval.json`;

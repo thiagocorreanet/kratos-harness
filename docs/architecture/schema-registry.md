@@ -13,20 +13,30 @@ interface and are embedded in the runtime bundle.
 
 ## Closed contract catalog
 
-Callers select one of eight identifiers. `ContractValues` maps each identifier
+Callers select one of eighteen identifiers. `ContractValues` maps each identifier
 to the declaration generated from its committed schema; it is not an open
 string registry.
 
 | Contract identifier | Family | Current version | Generated TypeScript value |
 | --- | --- | --- | --- |
 | `host.adapter-message` | host | `1.0.0` | `AdapterMessageV1` |
+| `host.agent-output` | host | `1.0.0` | `AgentOutputV1` |
+| `host.gap-proposal` | host | `1.0.0` | `GapProposalV1` |
+| `host.init-answers` | host | `1.0.0` | `InitAnswersV1` |
+| `host.operation-message` | host | `1.0.0` | `HostOperationMessageV1` |
 | `state.approval` | state | `1.0.0` | `ApprovalV1` |
 | `state.event` | state | `1.0.0` | `EventV1` |
 | `state.evidence` | state | `1.0.0` | `EvidenceV1` |
+| `state.feature` | state | `1.0.0` | `FeatureStateV1` |
+| `state.gap` | state | `1.0.0` | `GapRecordV1` |
+| `state.gates` | state | `1.0.0` | `GateFactsV1` |
 | `state.lock` | state | `1.0.0` | `LockLeaseV1` |
 | `state.migration` | state | `1.0.0` | `MigrationV1` |
 | `state.project-config` | state | `1.0.0` | `ProjectConfigV1` |
+| `state.requirement-discovery` | state | `1.0.0` | `RequirementDiscoveryV1` |
 | `state.snapshot` | state | `1.0.0` | `SnapshotV1` |
+| `state.transaction-manifest` | state | `1.0.0` | `TransactionManifestV1` |
+| `state.transaction-progress` | state | `1.0.0` | `TransactionProgressV1` |
 
 In TypeScript, `ContractId` is exactly `keyof ContractValues`, and
 `ContractValue<I>` selects `ContractValues[I]`. A successful validation result

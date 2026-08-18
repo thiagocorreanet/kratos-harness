@@ -14,6 +14,7 @@ import gatesSchema from "../../../../../schemas/state/gates.v1.schema.json" with
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
+import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
 import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json" with { type: "json" };
 import transactionManifestSchema from "../../../../../schemas/state/transaction-manifest.v1.schema.json" with { type: "json" };
 import transactionProgressSchema from "../../../../../schemas/state/transaction-progress.v1.schema.json" with { type: "json" };
@@ -134,6 +135,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: projectConfigSchema,
     },
     {
+      id: "state.requirement-discovery",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/requirement-discovery.v1.schema.json",
+      schema: requirementDiscoverySchema,
+    },
+    {
       id: "state.snapshot",
       family: "state",
       version: "1.0.0",
@@ -176,6 +184,8 @@ const EXPECTED_SCHEMA_IDS = {
   "state.lock": "https://kratos.dev/schemas/state/lock/v1",
   "state.migration": "https://kratos.dev/schemas/state/migration/v1",
   "state.project-config": "https://kratos.dev/schemas/state/project-config/v1",
+  "state.requirement-discovery":
+    "https://kratos.dev/schemas/state/requirement-discovery/v1",
   "state.snapshot": "https://kratos.dev/schemas/state/snapshot/v1",
   "state.transaction-manifest":
     "https://kratos.dev/schemas/state/transaction-manifest/v1",

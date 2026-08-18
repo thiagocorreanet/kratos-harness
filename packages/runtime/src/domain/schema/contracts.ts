@@ -13,6 +13,7 @@ import type {
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
+  RequirementDiscoveryV1,
   SnapshotV1,
   TransactionManifestV1,
   TransactionProgressV1,
@@ -33,6 +34,7 @@ export interface ContractValues {
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1;
   readonly "state.project-config": ProjectConfigV1;
+  readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.snapshot": SnapshotV1;
   readonly "state.transaction-manifest": TransactionManifestV1;
   readonly "state.transaction-progress": TransactionProgressV1;

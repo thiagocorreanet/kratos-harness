@@ -33,6 +33,11 @@ const artifacts = [
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
+  [
+    "state/requirement-discovery.v1.schema.json",
+    "requirement-discovery.json",
+    "state",
+  ],
 ] as const;
 
 type JsonObject = Record<string, unknown>;

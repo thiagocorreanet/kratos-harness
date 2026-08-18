@@ -71,6 +71,11 @@ The summary is the reviewer contract. After specification approval, changing
 its specification content is a failure. Flipping an acceptance checkbox in
 `02-tasks.md` is the sole exemption and does not count as a specification edit.
 
+The PRD's discovery sections implement the
+[requirement discovery contract](requirement-discovery.md). Their guidance
+classifies every demand, makes 5 Whys adaptive, keeps 5W2H after discovery, and
+scaffolds the one schema-validated machine record shared by every host.
+
 ## Idempotency is a consequence
 
 `normalizeManagedMutationPlan` collapses a plan the project already satisfies

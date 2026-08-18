@@ -27,6 +27,7 @@ export type {
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
+  RequirementDiscoveryV1,
   SnapshotV1,
   TransactionManifestV1,
   TransactionProgressV1,

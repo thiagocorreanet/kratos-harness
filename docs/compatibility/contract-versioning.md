@@ -88,10 +88,16 @@ version value.
 
 ## Current payload schemas
 
-Seven persisted state schemas define project configuration, snapshots, events,
-approvals, evidence metadata, lock leases, and migration plans or receipts.
-The host schema defines correlated adapter requests and responses. All are JSON
-Schema 2020-12 documents with closed objects and exact family identities.
+Thirteen persisted state schemas include project configuration, requirement
+discovery, workflow facts, snapshots, events, approvals, evidence metadata,
+lock leases, migrations, and transaction records. Five host schemas cover
+adapter messages, phase-agent output, gap proposals, initialization answers,
+and operation delivery. All are JSON Schema 2020-12 documents with closed
+objects and exact family identities.
+
+`state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
+readable, no migration rewrites them, and no approval or gate contract changes.
+The embedded record is host neutral and carries no new I/O or trust authority.
 
 The schemas constrain wire shape; they do not implement event replay, lock time
 evaluation, migration execution, or host transport. Those services remain

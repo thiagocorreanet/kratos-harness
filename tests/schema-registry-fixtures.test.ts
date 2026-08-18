@@ -14,6 +14,7 @@ import gates from "../fixtures/contracts/v1/gates.json" with { type: "json" };
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import snapshot from "../fixtures/contracts/v1/snapshot.json" with { type: "json" };
 import transactionManifest from "../fixtures/contracts/v1/transaction-manifest.json" with { type: "json" };
 import transactionProgress from "../fixtures/contracts/v1/transaction-progress.json" with { type: "json" };
@@ -175,6 +176,16 @@ const fixtures = [
     requiredField: "language",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfig,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.requirement-discovery",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "classification",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: requirementDiscovery,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
