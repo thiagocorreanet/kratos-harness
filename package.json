@@ -41,7 +41,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "26.2.0",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "ajv": "8.20.0",
     "cspell": "10.0.1",
     "esbuild": "0.28.2",
@@ -50,7 +50,7 @@
     "prettier": "3.9.6",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.67.0",
-    "vitest": "4.1.10",
+    "vitest": "4.1.11",
     "yaml": "2.9.0"
   },
   "allowScripts": {
