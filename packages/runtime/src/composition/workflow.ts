@@ -50,8 +50,11 @@ import {
 } from "../domain/feature-documents/index.js";
 import { inspectTaskDocument } from "../domain/acceptance-criteria/index.js";
 import {
+  buildAcceptanceVerdict,
   buildCriteriaSnapshot,
   compareCriteriaSnapshot,
+  decideAcceptanceVerdict,
+  findLegacyPlanBaselineIndex,
 } from "../domain/acceptance-criteria/index.js";
 import {
   auditSnapshot,
@@ -182,6 +185,8 @@ export async function observeWorkflow(
     run.events,
     eventId,
     occurredAt,
+    agentOutput,
+    evidence,
     anchored,
     registry,
   );
@@ -745,6 +750,11 @@ async function observeAcceptanceCriteria(
   events: readonly EventV1[],
   eventId: string,
   occurredAt: string,
+  agentOutput: AgentOutputObservation,
+  evidence: {
+    readonly values: readonly EvidenceV1[];
+    readonly invalidIds: readonly string[];
+  },
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<
@@ -789,17 +799,34 @@ async function observeAcceptanceCriteria(
   let snapshotDigest: string | null = null;
   const verdicts: AcceptanceVerdictV1[] = [];
   for (const event of events) {
-    for (const ref of event.artifactRefs) {
-      const snapshotMatch =
-        /\/acceptance-criteria\/([^/]+)\/snapshot\.json$/u.exec(ref);
+    let eventSnapshotBinding: { ref: string; digest: string } | null = null;
+    for (const recordedRef of event.artifactRefs) {
+      const anchored = parseArtifactDigestRef(recordedRef);
+      if (
+        anchored !== null &&
+        event.artifactRefs.includes(anchored.artifactRef)
+      ) {
+        continue;
+      }
+      const ref = anchored?.artifactRef ?? recordedRef;
+      const snapshotMatch = /\/acceptance\/criteria\/([^/]+)\.json$/u.exec(ref);
       const verdictMatch =
-        /\/acceptance-criteria\/([^/]+)\/verdicts\/(AC-\d+\.\d+\.E?\d+)\.json$/u.exec(
+        /\/acceptance\/verdicts\/([^/]+)\/(AC-\d+\.\d+\.E?\d+)\.json$/u.exec(
           ref,
         );
       if (snapshotMatch === null && verdictMatch === null) continue;
       try {
         const artifact = await ports.durableFileSystem.inspect(ref);
         if (artifact.kind !== "file") {
+          readable = false;
+          continue;
+        }
+        const expectedDigest =
+          anchored?.digest ??
+          event.artifactRefs
+            .map(parseArtifactDigestRef)
+            .find((candidate) => candidate?.artifactRef === ref)?.digest;
+        if (expectedDigest !== artifact.sha256) {
           readable = false;
           continue;
         }
@@ -842,8 +869,64 @@ async function observeAcceptanceCriteria(
             readable = false;
             continue;
           }
+          const binding = {
+            ref: validated.value.criteriaSnapshotRef,
+            digest: validated.value.criteriaSnapshotDigest,
+          };
+          if (
+            eventSnapshotBinding !== null &&
+            (eventSnapshotBinding.ref !== binding.ref ||
+              eventSnapshotBinding.digest !== binding.digest)
+          ) {
+            readable = false;
+            continue;
+          }
+          eventSnapshotBinding = binding;
           verdicts.push(validated.value);
         }
+      } catch {
+        readable = false;
+      }
+    }
+    if (
+      eventSnapshotBinding !== null &&
+      (snapshotRef !== eventSnapshotBinding.ref ||
+        snapshotDigest !== eventSnapshotBinding.digest)
+    ) {
+      try {
+        const snapshotMatch = /\/acceptance\/criteria\/([^/]+)\.json$/u.exec(
+          eventSnapshotBinding.ref,
+        );
+        const artifact = await ports.durableFileSystem.inspect(
+          eventSnapshotBinding.ref,
+        );
+        if (
+          snapshotMatch === null ||
+          artifact.kind !== "file" ||
+          artifact.sha256 !== eventSnapshotBinding.digest
+        ) {
+          readable = false;
+          continue;
+        }
+        const validated = registry.validate({
+          id: "state.acceptance-criteria-snapshot",
+          version: "1.0.0",
+          value: JSON.parse(
+            await ports.durableFileSystem.readText(eventSnapshotBinding.ref),
+          ) as unknown,
+          structuralReasonCode: "runtime.state_corrupt",
+        });
+        if (
+          validated.kind !== "valid" ||
+          validated.value.runId !== configuration.runId ||
+          validated.value.eventId !== snapshotMatch[1]
+        ) {
+          readable = false;
+          continue;
+        }
+        snapshot = validated.value;
+        snapshotRef = eventSnapshotBinding.ref;
+        snapshotDigest = eventSnapshotBinding.digest;
       } catch {
         readable = false;
       }
@@ -865,7 +948,7 @@ async function observeAcceptanceCriteria(
     if (change.kind === "append") {
       const declarations = frozenDeclarationTuple(currentDeclarations);
       if (declarations !== null) {
-        appendSnapshotRef = `${runRoot(configuration)}/acceptance-criteria/${eventId}/snapshot.json`;
+        appendSnapshotRef = `${runRoot(configuration)}/acceptance/criteria/${eventId}.json`;
         appendSnapshot = buildCriteriaSnapshot({
           runId: configuration.runId,
           eventId,
@@ -881,54 +964,166 @@ async function observeAcceptanceCriteria(
       }
     }
   }
-  const planEvent = [...events]
+  const baselineEvents = [...events]
     .reverse()
-    .find((event) => event.artifactRefs.includes(documentRef));
-  const baselineRequired = planEvent !== undefined;
+    .filter(
+      (event) =>
+        event.eventType === "transition" &&
+        event.reasonCode === "run.transition.accepted" &&
+        event.artifactRefs.includes(documentRef),
+    );
+  const baselineRequired = baselineEvents.length > 0;
   let bootstrapSnapshot: AcceptanceCriteriaSnapshotV1 | null = null;
   let bootstrapSnapshotRef: string | null = null;
   let bootstrapSnapshotDigest: string | null = null;
   if (
     snapshot === null &&
-    planEvent !== undefined &&
+    baselineEvents.length > 0 &&
     documentDigest !== null &&
     currentDeclarations.length > 0 &&
     currentDeclarations.every(({ checked }) => !checked)
   ) {
-    try {
-      const lineageRef = `${runRoot(configuration)}/lineage/${planEvent.eventId}.json`;
-      const lineageEntry = await ports.durableFileSystem.inspect(lineageRef);
-      if (lineageEntry.kind === "file") {
+    const baselineCandidates: {
+      event: EventV1;
+      lineage: {
+        readonly artifactRef?: unknown;
+        readonly artifactDigest?: unknown;
+        readonly phase?: unknown;
+        readonly producerCommand?: unknown;
+      };
+    }[] = [];
+    for (const event of baselineEvents) {
+      try {
+        const lineageRef = `${runRoot(configuration)}/lineage/${event.eventId}.json`;
+        const lineageEntry = await ports.durableFileSystem.inspect(lineageRef);
+        if (lineageEntry.kind !== "file") continue;
         const lineage = JSON.parse(
           await ports.durableFileSystem.readText(lineageRef),
         ) as {
           readonly artifactRef?: unknown;
           readonly artifactDigest?: unknown;
+          readonly phase?: unknown;
+          readonly producerCommand?: unknown;
         };
-        if (
-          lineage.artifactRef === documentRef &&
-          lineage.artifactDigest === documentDigest
-        ) {
-          const declarations = frozenDeclarationTuple(currentDeclarations);
-          if (declarations !== null) {
-            bootstrapSnapshotRef = `${runRoot(configuration)}/acceptance-criteria/${eventId}/snapshot.json`;
-            bootstrapSnapshot = buildCriteriaSnapshot({
-              runId: configuration.runId,
-              eventId,
-              sourceRef: documentRef,
-              sourceDigest: documentDigest,
-              recordedAt: occurredAt,
-              previousSnapshotRef: null,
-              declarations,
-            });
-            bootstrapSnapshotDigest = ports.digests.sha256(
-              `${JSON.stringify(bootstrapSnapshot, null, 2)}\n`,
-            );
-          }
-        }
+        baselineCandidates.push({ event, lineage });
+      } catch {
+        continue;
       }
-    } catch {
-      readable = false;
+    }
+    if (
+      findLegacyPlanBaselineIndex({
+        documentRef,
+        documentDigest,
+        candidates: baselineCandidates,
+      }) !== -1
+    ) {
+      const declarations = frozenDeclarationTuple(currentDeclarations);
+      if (declarations !== null) {
+        bootstrapSnapshotRef = `${runRoot(configuration)}/acceptance/criteria/${eventId}.json`;
+        bootstrapSnapshot = buildCriteriaSnapshot({
+          runId: configuration.runId,
+          eventId,
+          sourceRef: documentRef,
+          sourceDigest: documentDigest,
+          recordedAt: occurredAt,
+          previousSnapshotRef: null,
+          declarations,
+        });
+        bootstrapSnapshotDigest = ports.digests.sha256(
+          `${JSON.stringify(bootstrapSnapshot, null, 2)}\n`,
+        );
+      }
+    }
+  }
+
+  let initialSnapshot: AcceptanceCriteriaSnapshotV1 | null = null;
+  let initialSnapshotRef: string | null = null;
+  let initialSnapshotDigest: string | null = null;
+  const initialDeclarations = frozenDeclarationTuple(currentDeclarations);
+  if (
+    initialDeclarations !== null &&
+    documentDigest !== null &&
+    currentDeclarations.every(({ checked }) => !checked)
+  ) {
+    initialSnapshotRef = `${runRoot(configuration)}/acceptance/criteria/${eventId}.json`;
+    initialSnapshot = buildCriteriaSnapshot({
+      runId: configuration.runId,
+      eventId,
+      sourceRef: documentRef,
+      sourceDigest: documentDigest,
+      recordedAt: occurredAt,
+      previousSnapshotRef: null,
+      declarations: initialDeclarations,
+    });
+    initialSnapshotDigest = ports.digests.sha256(
+      `${JSON.stringify(initialSnapshot, null, 2)}\n`,
+    );
+  }
+
+  const preparedVerdicts: {
+    value: AcceptanceVerdictV1;
+    ref: string;
+    digest: string;
+  }[] = [];
+  const baselineSnapshot = snapshot ?? bootstrapSnapshot;
+  const baselineSnapshotRef = snapshotRef ?? bootstrapSnapshotRef;
+  const baselineSnapshotDigest = snapshotDigest ?? bootstrapSnapshotDigest;
+  if (
+    agentOutput.kind === "valid" &&
+    agentOutput.value.agent === "acceptance" &&
+    baselineSnapshot !== null &&
+    baselineSnapshotRef !== null &&
+    baselineSnapshotDigest !== null
+  ) {
+    const latestOutcomes = new Map(
+      verdicts.map(({ criterionId, outcome }) => [criterionId, outcome]),
+    );
+    const change = compareCriteriaSnapshot({
+      phase: "acceptance",
+      frozen: baselineSnapshot.declarations,
+      current: currentDeclarations,
+      latestOutcomes,
+    });
+    const selectedSnapshot =
+      change.kind === "append" ? appendSnapshot : baselineSnapshot;
+    const selectedSnapshotRef =
+      change.kind === "append" ? appendSnapshotRef : baselineSnapshotRef;
+    const selectedSnapshotDigest =
+      change.kind === "append" ? appendSnapshotDigest : baselineSnapshotDigest;
+    const decision = decideAcceptanceVerdict({
+      declarations: currentDeclarations,
+      globalVerdict: agentOutput.value.payload.verdict,
+      criteria: agentOutput.value.payload.criteria,
+      evidence: evidence.values,
+      invalidEvidenceIds: evidence.invalidIds,
+    });
+    if (
+      change.kind !== "refused" &&
+      decision.kind === "accepted" &&
+      selectedSnapshot !== null &&
+      selectedSnapshotRef !== null &&
+      selectedSnapshotDigest !== null
+    ) {
+      for (const criterion of decision.criteria) {
+        const value = buildAcceptanceVerdict({
+          runId: configuration.runId,
+          eventId,
+          criterionId: criterion.criterionId,
+          outcome: criterion.outcome,
+          criteriaSnapshotRef: selectedSnapshotRef,
+          criteriaSnapshotDigest: selectedSnapshotDigest,
+          evidenceId: criterion.evidenceId,
+          evidenceRef: criterion.evidenceRef,
+          evidenceDigest: criterion.evidenceDigest,
+          recordedAt: occurredAt,
+        });
+        const ref = `${runRoot(configuration)}/acceptance/verdicts/${eventId}/${criterion.criterionId}.json`;
+        preparedVerdicts.push({
+          value,
+          ref,
+          digest: ports.digests.sha256(`${JSON.stringify(value, null, 2)}\n`),
+        });
+      }
     }
   }
   return {
@@ -949,7 +1144,20 @@ async function observeAcceptanceCriteria(
     bootstrapSnapshotRef,
     bootstrapSnapshotDigest,
     baselineRequired,
+    initialSnapshot,
+    initialSnapshotRef,
+    initialSnapshotDigest,
+    preparedVerdicts,
   };
+}
+
+function parseArtifactDigestRef(
+  ref: string,
+): { artifactRef: string; digest: string } | null {
+  const match = /^(.*)#sha256=([a-f0-9]{64})$/u.exec(ref);
+  return match === null
+    ? null
+    : { artifactRef: match[1] ?? "", digest: match[2] ?? "" };
 }
 
 function frozenDeclarationTuple(

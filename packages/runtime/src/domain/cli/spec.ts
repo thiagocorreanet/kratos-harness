@@ -190,6 +190,14 @@ export type CommandObservation =
         readonly bootstrapSnapshotRef: string | null;
         readonly bootstrapSnapshotDigest: string | null;
         readonly baselineRequired: boolean;
+        readonly initialSnapshot: AcceptanceCriteriaSnapshotV1 | null;
+        readonly initialSnapshotRef: string | null;
+        readonly initialSnapshotDigest: string | null;
+        readonly preparedVerdicts: readonly {
+          readonly value: AcceptanceVerdictV1;
+          readonly ref: string;
+          readonly digest: string;
+        }[];
       };
       /** The gate facts exactly as recorded, before the approval boundary. */
       readonly gateFacts: {

@@ -230,3 +230,48 @@ export function buildAcceptanceVerdict(
 ): AcceptanceVerdictV1 {
   return { contractVersion: "1.0.0", stateContract: "1.0.0", ...input };
 }
+
+export function isLegacyPlanBaseline(input: {
+  readonly documentRef: string;
+  readonly documentDigest: string;
+  readonly event: {
+    readonly eventType: string;
+    readonly reasonCode: string;
+    readonly operation: string;
+    readonly artifactRefs: readonly string[];
+  };
+  readonly lineage: {
+    readonly artifactRef?: unknown;
+    readonly artifactDigest?: unknown;
+    readonly phase?: unknown;
+    readonly producerCommand?: unknown;
+  };
+}): boolean {
+  return (
+    input.event.eventType === "transition" &&
+    input.event.reasonCode === "run.transition.accepted" &&
+    input.event.artifactRefs.includes(input.documentRef) &&
+    input.lineage.artifactRef === input.documentRef &&
+    input.lineage.artifactDigest === input.documentDigest &&
+    input.lineage.phase === "plan" &&
+    input.lineage.producerCommand === input.event.operation
+  );
+}
+
+export function findLegacyPlanBaselineIndex(input: {
+  readonly documentRef: string;
+  readonly documentDigest: string;
+  readonly candidates: readonly {
+    readonly event: Parameters<typeof isLegacyPlanBaseline>[0]["event"];
+    readonly lineage: Parameters<typeof isLegacyPlanBaseline>[0]["lineage"];
+  }[];
+}): number {
+  return input.candidates.findIndex(({ event, lineage }) =>
+    isLegacyPlanBaseline({
+      documentRef: input.documentRef,
+      documentDigest: input.documentDigest,
+      event,
+      lineage,
+    }),
+  );
+}

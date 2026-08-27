@@ -159,10 +159,11 @@ export type TaskDocumentObservation =
   | { readonly kind: "valid"; readonly declarations: readonly AcceptanceCriterionDeclaration[] };
 ```
 
-Cap declarations at 256. Compute the normalized declaration text with `[ ]`
-regardless of input state so later snapshots distinguish text changes from
-checkbox changes. Update the task template and fixture to the exact approved
-hierarchy.
+Cap declarations at 126 so the largest acceptance append preserves the
+unchanged `EventV1` limit of 256 artifact references. Compute the normalized
+declaration text with `[ ]` regardless of input state so later snapshots
+distinguish text changes from checkbox changes. Update the task template and
+fixture to the exact approved hierarchy.
 
 - [ ] **Step 4: Implement deterministic checkbox rendering**
 

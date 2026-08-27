@@ -29,7 +29,7 @@
     "declarations": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 256,
+      "maxItems": 126,
       "items": { "$ref": "#/$defs/declaration" }
     }
   },
@@ -71,7 +71,7 @@
         "ordinal": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 255
+          "maximum": 125
         },
         "declarationDigest": { "$ref": "#/$defs/sha256" }
       }

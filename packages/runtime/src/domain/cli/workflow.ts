@@ -1,7 +1,6 @@
-import type { AcceptanceCriteriaSnapshotV1 } from "@kratos/contracts";
 import { planOf, type Effect } from "../effects.js";
 import { decideDone } from "../acceptance/index.js";
-import { buildCriteriaSnapshot } from "../acceptance-criteria/index.js";
+import { compareCriteriaSnapshot } from "../acceptance-criteria/index.js";
 import { resultFor } from "../result/index.js";
 import {
   decideContinueWorkflow,
@@ -142,42 +141,89 @@ export const continueCommand: CommandSpec = observingCommand(
       observation.workflow.kind === "present" &&
       observation.workflow.state.currentStep === "plan";
     const criteria = observation.acceptanceCriteria;
-    const criteriaSnapshotRef = `${observationRunRoot(observation)}/acceptance-criteria/${observation.eventId}/snapshot.json`;
-    const declarations = snapshotDeclarations(criteria.currentDeclarations);
+    const criteriaSnapshotRef = criteria.initialSnapshotRef;
     const criteriaSnapshot =
       completingPlan &&
       artifact === criteria.documentRef &&
       artifactReadable &&
       criteria.readable &&
       criteria.document.kind === "valid" &&
-      criteria.documentDigest !== null &&
-      declarations !== null &&
+      criteria.initialSnapshot !== null &&
+      criteriaSnapshotRef !== null &&
+      criteria.initialSnapshotDigest !== null &&
       criteria.currentDeclarations.every(({ checked }) => !checked)
-        ? buildCriteriaSnapshot({
-            runId: observation.configuration.runId,
-            eventId: observation.eventId,
-            sourceRef: criteria.documentRef,
-            sourceDigest: criteria.documentDigest,
-            recordedAt: observation.occurredAt,
-            previousSnapshotRef: null,
-            declarations,
-          })
+        ? criteria.initialSnapshot
         : null;
     if (completingPlan && criteriaSnapshot === null) {
       return invalidCriteriaDocument(observation);
     }
+    const phase =
+      observation.workflow.kind === "present"
+        ? observation.workflow.state.currentStep
+        : null;
+    const enforcingFrozenCriteria = phase === "code" || phase === "review";
+    const baseline = criteria.snapshot ?? criteria.bootstrapSnapshot;
+    if (enforcingFrozenCriteria && baseline === null) {
+      return criteriaPolicyRefusal(
+        observation,
+        "gate.ac_baseline_unverifiable",
+        "The frozen acceptance criterion baseline cannot be verified.",
+      );
+    }
+    if (enforcingFrozenCriteria && baseline !== null) {
+      const latestOutcomes = new Map(
+        criteria.verdicts.map(({ criterionId, outcome }) => [
+          criterionId,
+          outcome,
+        ]),
+      );
+      const change = compareCriteriaSnapshot({
+        phase,
+        frozen: baseline.declarations,
+        current: criteria.currentDeclarations,
+        latestOutcomes,
+      });
+      if (change.kind === "refused") {
+        return criteriaPolicyRefusal(
+          observation,
+          change.reasonCode,
+          `Acceptance criterion ${change.criterionId} changed outside acceptance.`,
+        );
+      }
+    }
+    const bootstrapRef =
+      enforcingFrozenCriteria && criteria.snapshot === null
+        ? criteria.bootstrapSnapshotRef
+        : null;
+    const bootstrapDigest =
+      enforcingFrozenCriteria && criteria.snapshot === null
+        ? criteria.bootstrapSnapshotDigest
+        : null;
+    const criteriaArtifactRefs = [
+      ...(criteriaSnapshotRef !== null &&
+      criteriaSnapshot !== null &&
+      criteria.initialSnapshotDigest !== null
+        ? [
+            criteriaSnapshotRef,
+            artifactDigestRef(
+              criteriaSnapshotRef,
+              criteria.initialSnapshotDigest,
+            ),
+          ]
+        : []),
+      ...(bootstrapRef !== null && bootstrapDigest !== null
+        ? [bootstrapRef, artifactDigestRef(bootstrapRef, bootstrapDigest)]
+        : []),
+    ];
     const evidenceReadable =
       typeof evidence === "string" &&
       selectedEvidence !== undefined &&
       !observation.invalidEvidenceIds.includes(selectedEvidence.evidenceId);
     const refs = {
-      artifactRefs:
-        artifactReadable && typeof artifact === "string"
-          ? [
-              artifact,
-              ...(criteriaSnapshot === null ? [] : [criteriaSnapshotRef]),
-            ]
-          : [],
+      artifactRefs: [
+        ...(artifactReadable && typeof artifact === "string" ? [artifact] : []),
+        ...criteriaArtifactRefs,
+      ],
       evidenceRefs:
         evidenceReadable && typeof evidence === "string" ? [evidence] : [],
     };
@@ -220,15 +266,26 @@ export const continueCommand: CommandSpec = observingCommand(
         action,
       }),
       observation,
-      criteriaSnapshot === null
-        ? []
-        : [
-            {
-              kind: "write_file",
-              path: criteriaSnapshotRef,
-              content: `${JSON.stringify(criteriaSnapshot, null, 2)}\n`,
-            },
-          ],
+      [
+        ...(criteriaSnapshot === null || criteriaSnapshotRef === null
+          ? []
+          : ([
+              {
+                kind: "write_file",
+                path: criteriaSnapshotRef,
+                content: `${JSON.stringify(criteriaSnapshot, null, 2)}\n`,
+              },
+            ] as const)),
+        ...(bootstrapRef === null || criteria.bootstrapSnapshot === null
+          ? []
+          : [
+              {
+                kind: "write_file" as const,
+                path: bootstrapRef,
+                content: `${JSON.stringify(criteria.bootstrapSnapshot, null, 2)}\n`,
+              },
+            ]),
+      ],
     );
   },
 );
@@ -520,23 +577,28 @@ function invalidCriteriaDocument(observation: Observation): Decision {
   };
 }
 
-function observationRunRoot(observation: Observation): string {
-  return `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}`;
+function criteriaPolicyRefusal(
+  observation: Observation,
+  reasonCode:
+    | "gate.ac_baseline_unverifiable"
+    | "gate.ac_declaration_changed"
+    | "gate.ac_append_forbidden"
+    | "gate.ac_checkbox_forbidden",
+  detail: string,
+): Decision {
+  return {
+    result: resultFor(reasonCode, {
+      why: [detail],
+      evidence: [
+        { kind: "artifact", ref: observation.acceptanceCriteria.documentRef },
+      ],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
 }
 
-function snapshotDeclarations(
-  declarations: Observation["acceptanceCriteria"]["currentDeclarations"],
-): AcceptanceCriteriaSnapshotV1["declarations"] | null {
-  const frozen = declarations.map(
-    ({ criterionId, workUnit, task, kind, ordinal, declarationDigest }) => ({
-      criterionId,
-      workUnit,
-      task,
-      kind,
-      ordinal,
-      declarationDigest,
-    }),
-  );
-  const [first, ...rest] = frozen;
-  return first === undefined ? null : [first, ...rest];
+function artifactDigestRef(ref: string, digest: string): string {
+  return `${ref}#sha256=${digest}`;
 }

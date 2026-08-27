@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,6 +52,28 @@ const verdict = {
 } as const;
 
 describe("acceptance criterion contracts", () => {
+  it("preserves the published host and manifest v1 schema bytes", async () => {
+    const [agentOutput, manifestV1] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "schemas/host/agent-output.v1.schema.json"),
+        "utf8",
+      ),
+      readFile(
+        join(
+          repositoryRoot,
+          "schemas/contracts/contract-manifest.v1.schema.json",
+        ),
+        "utf8",
+      ),
+    ]);
+    expect(createHash("sha256").update(agentOutput).digest("hex")).toBe(
+      "7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a",
+    );
+    expect(createHash("sha256").update(manifestV1).digest("hex")).toBe(
+      "0de8cb9096adbe984b729cb511d57f8c9aa0e3f50f6ec09b9bc39cf5b022cff6",
+    );
+  });
+
   it("exposes one matcher for the published grammar and length boundary", async () => {
     const contracts = (await import("@kratos/contracts")) as Record<
       string,

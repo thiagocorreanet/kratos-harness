@@ -139,14 +139,25 @@ describe("task acceptance criterion parser", () => {
     ]);
   });
 
-  it("bounds the document to 256 declarations", () => {
+  it("rejects an identified checkbox outside a canonical criterion section", () => {
+    const source = valid.replace(
+      "- `packages/runtime/src/domain/acceptance-criteria/`",
+      "- `packages/runtime/src/domain/acceptance-criteria/`\n- [ ] AC-01.2.9: Misplaced declaration.",
+    );
+    expect(inspectTaskDocument(source)).toEqual({
+      kind: "malformed",
+      line: 12,
+    });
+  });
+
+  it("bounds the document to 126 declarations", () => {
     const criteria = Array.from(
-      { length: 257 },
+      { length: 127 },
       (_, index) => `- [ ] AC-01.2.${String(index + 1)}: Criterion.`,
     );
     expect(inspectTaskDocument(document(criteria))).toEqual({
       kind: "malformed",
-      line: 271,
+      line: 141,
     });
   });
 

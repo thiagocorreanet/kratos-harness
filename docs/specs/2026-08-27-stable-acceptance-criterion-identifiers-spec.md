@@ -100,7 +100,7 @@ document text.
 - contract and state identities;
 - run, event, source reference, source digest, timestamp, and optional previous
   snapshot reference;
-- no more than 256 ordered declaration entries;
+- no more than 126 ordered declaration entries;
 - each entry's identifier, coordinates, kind, ordinal, and a digest of the
   declaration with its checkbox normalized to unchecked.
 
@@ -223,8 +223,11 @@ when available and otherwise identify the line and expected grammar.
 - Assert exact template bytes, immutable catalog prefixes, schema/type drift,
   transaction atomicity, retry idempotency, phase ownership, legacy bootstrap,
   partial acceptance, done readiness, and replay.
-- Bound task documents to 256 criteria and AC IDs to 128 characters. Derive all
-  persisted paths from validated run and criterion identifiers.
+- Bound task documents to 126 criteria and AC IDs to 128 characters. The
+  criterion bound preserves `EventV1`'s 256-reference envelope in the largest
+  acceptance transaction: two references per verdict plus the agent output,
+  task document, snapshot, and snapshot digest anchor. Derive all persisted
+  paths from validated run and criterion identifiers.
 - Keep criterion text and evidence content out of events. Verdicts persist only
   bounded identifiers and digest-bound metadata.
 - Introduce no network, process, host, clock, filesystem, or approval authority

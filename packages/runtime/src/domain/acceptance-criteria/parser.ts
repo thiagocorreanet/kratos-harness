@@ -7,7 +7,7 @@ import type {
   TaskDocumentObservation,
 } from "./model.js";
 
-const MAX_CRITERIA = 256;
+const MAX_CRITERIA = 126;
 const workUnitHeading = /^### Work unit (\d+):\s+\S.*$/u;
 const taskHeading = /^#### Task (\d+)\.(\d+):\s+\S.*$/u;
 const checkboxDeclaration = /^- \[( |x)\] (\S+): (\S.*)$/u;
@@ -72,7 +72,13 @@ export function inspectTaskDocument(
       }
       continue;
     }
-    if (section === null || !line.startsWith("- [")) continue;
+    if (section === null) {
+      if (/^- \[(?: |x)\] AC-/u.test(line)) {
+        return { kind: "malformed", line: lineNumber };
+      }
+      continue;
+    }
+    if (!line.startsWith("- [")) continue;
 
     const declaration = checkboxDeclaration.exec(line);
     if (declaration === null || workUnit === null || task === null) {

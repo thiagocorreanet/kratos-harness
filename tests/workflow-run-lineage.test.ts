@@ -324,8 +324,7 @@ describe("a run whose phases write the lineage files", () => {
     const state = settled(plan).files;
     const snapshotEntry = Object.entries(state).find(
       ([path]) =>
-        path.includes("/acceptance-criteria/") &&
-        path.endsWith("/snapshot.json"),
+        path.includes("/acceptance/criteria/") && path.endsWith(".json"),
     );
     expect(snapshotEntry).toBeDefined();
     const frozen = JSON.parse(snapshotEntry?.[1] ?? "") as {
@@ -368,7 +367,7 @@ describe("a run whose phases write the lineage files", () => {
     expect(snapshotOf(plan).currentStep).toBe("plan");
     expect(
       Object.keys(settled(plan).files).some((path) =>
-        path.includes("/acceptance-criteria/"),
+        path.includes("/acceptance/criteria/"),
       ),
     ).toBe(false);
   });
@@ -476,30 +475,189 @@ describe("a run whose phases write the lineage files", () => {
       "- [ ] AC-1.1.E2: An acceptance-only append is recorded.",
     );
     const recordedEvent = eventValues(recording).at(-1);
-    const verdictRefs =
-      recordedEvent?.artifactRefs.filter((ref) => ref.includes("/verdicts/")) ??
-      [];
-    expect(verdictRefs).toHaveLength(3);
-    expect(verdictRefs).toEqual(
+    const verdictAnchors =
+      recordedEvent?.artifactRefs.filter(
+        (ref) =>
+          ref.includes("/acceptance/verdicts/") &&
+          ref.includes(".json#sha256="),
+      ) ?? [];
+    expect(verdictAnchors).toHaveLength(3);
+    expect(verdictAnchors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("/AC-1.1.1.json"),
-        expect.stringContaining("/AC-1.1.E1.json"),
-        expect.stringContaining("/AC-1.1.E2.json"),
+        expect.stringContaining("/AC-1.1.1.json#sha256="),
+        expect.stringContaining("/AC-1.1.E1.json#sha256="),
+        expect.stringContaining("/AC-1.1.E2.json#sha256="),
       ]),
     );
-    const appendedSnapshotRef = recordedEvent?.artifactRefs.find((ref) =>
-      ref.endsWith("/snapshot.json"),
+    const verdictRefs = verdictAnchors.map((ref) =>
+      ref.slice(0, ref.indexOf("#sha256=")),
     );
+    const appendedSnapshotRef = Object.keys(files).find((ref) => {
+      if (!ref.includes("/acceptance/criteria/") || !ref.endsWith(".json")) {
+        return false;
+      }
+      const candidate = JSON.parse(files[ref] ?? "{}") as {
+        previousSnapshotRef?: unknown;
+      };
+      return candidate.previousSnapshotRef !== null;
+    });
     expect(appendedSnapshotRef).toBeDefined();
     const appendedSnapshot = JSON.parse(
       files[appendedSnapshotRef ?? ""] ?? "",
     ) as { previousSnapshotRef: string | null };
-    expect(appendedSnapshot.previousSnapshotRef).toContain("/snapshot.json");
+    expect(appendedSnapshot.previousSnapshotRef).toContain(
+      "/acceptance/criteria/",
+    );
 
     const replayed = next(recording);
     expect(await runCommandLine(["status"], replayed.ports)).toBe(0);
     expect(eventValues(replayed).at(-1)?.artifactRefs).toEqual(
       recordedEvent?.artifactRefs,
+    );
+
+    const verdictToTamper = verdictRefs[0];
+    if (verdictToTamper === undefined) throw new Error("no verdict to tamper");
+    const tamperedValue = JSON.parse(files[verdictToTamper] ?? "") as {
+      outcome: string;
+    };
+    const tampered = next(recording, {
+      [verdictToTamper]: `${JSON.stringify({ ...tamperedValue, outcome: "passed" }, null, 2)}\n`,
+      [AGENT_REPLY]: agentReply(output),
+    });
+    expect(
+      await runCommandLine(
+        [
+          "--json",
+          "agent",
+          "record",
+          AGENT_REPLY,
+          "--correlation-id",
+          "tampered-verdict",
+        ],
+        tampered.ports,
+      ),
+    ).toBe(3);
+    expect(
+      JSON.parse(tampered.output.structured_.join("")) as {
+        reasonCode: string;
+      },
+    ).toMatchObject({ reasonCode: "gate.ac_baseline_unverifiable" });
+  });
+
+  it("records the 126-criterion maximum within the EventV1 envelope", async () => {
+    const criterionIds = Array.from(
+      { length: 126 },
+      (_, index) => `AC-1.1.${String(index + 1)}`,
+    );
+    const taskDocument = (ids: readonly string[]) =>
+      [
+        "# Tasks",
+        "",
+        "## Ordered work",
+        "",
+        "### Work unit 1: Runtime",
+        "",
+        "#### Task 1.1: Persist acceptance",
+        "",
+        "##### Acceptance criteria",
+        "",
+        ...ids.map(
+          (criterionId) => `- [ ] ${criterionId}: Criterion ${criterionId}.`,
+        ),
+        "",
+        "## Out of scope",
+        "",
+        "- Prompt wording.",
+        "",
+      ].join("\n");
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip it.\n" }),
+      PRD,
+      "max-evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "max-complete-prd")).toBe(0);
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "max-evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "max-complete-spec")).toBe(0);
+    const plan = await recordEvidence(
+      next(spec, { [TASKS]: taskDocument(criterionIds.slice(0, -1)) }),
+      TASKS,
+      "max-evidence-plan",
+    );
+    expect(await completePhase(plan, TASKS, "max-complete-plan")).toBe(0);
+    const code = await recordEvidence(
+      next(plan, { [CODE_SUMMARY]: "Code complete.\n" }),
+      CODE_SUMMARY,
+      "max-evidence-code",
+    );
+    expect(await completePhase(code, CODE_SUMMARY, "max-complete-code")).toBe(
+      0,
+    );
+    const review = await recordEvidence(
+      next(code, { [REVIEW_SUMMARY]: "Review complete.\n" }),
+      REVIEW_SUMMARY,
+      "max-evidence-review",
+    );
+    expect(
+      await completePhase(review, REVIEW_SUMMARY, "max-complete-review"),
+    ).toBe(0);
+    const acceptance = await recordEvidence(
+      next(review, {
+        [TASKS]: taskDocument(criterionIds),
+        [ACCEPTANCE_EVIDENCE]: "All focused tests passed.\n",
+      }),
+      ACCEPTANCE_EVIDENCE,
+      "max-evidence-acceptance",
+    );
+    const criterionReports = criterionIds.map((criterionId) => ({
+      criterionId,
+      outcome: "passed" as const,
+      evidenceRef: ACCEPTANCE_EVIDENCE,
+    }));
+    const firstCriterionReport = criterionReports[0];
+    if (firstCriterionReport === undefined) throw new Error("no criteria");
+    const output: AgentOutputV1 = {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      agent: "acceptance",
+      outcome: {
+        status: "completed",
+        next: "finish",
+        questions: [],
+        blockers: [],
+      },
+      artifacts: [],
+      changedFiles: [],
+      payload: {
+        verdict: "accepted",
+        criteria: [firstCriterionReport, ...criterionReports.slice(1)],
+      },
+    };
+    const recording = next(acceptance, {
+      [AGENT_REPLY]: agentReply(output),
+    });
+
+    expect(
+      await runCommandLine(
+        [
+          "agent",
+          "record",
+          AGENT_REPLY,
+          "--correlation-id",
+          "max-acceptance-verdict",
+        ],
+        recording.ports,
+      ),
+    ).toBe(0);
+    const refs = eventValues(recording).at(-1)?.artifactRefs ?? [];
+    expect(refs).toHaveLength(256);
+    expect(refs).toContainEqual(expect.stringContaining("/AC-1.1.1.json"));
+    expect(refs).toContainEqual(
+      expect.stringContaining("/AC-1.1.126.json#sha256="),
     );
   });
 
@@ -523,6 +681,18 @@ describe("a run whose phases write the lineage files", () => {
       "evidence-plan",
     );
     expect(await completePhase(plan, TASKS, "complete-plan")).toBe(0);
+    const codeEvidence = await recordEvidence(
+      next(plan, { [CODE_SUMMARY]: "Code complete.\n" }),
+      CODE_SUMMARY,
+      "evidence-code",
+    );
+    const changed = next(codeEvidence, {
+      [TASKS]: TASK_DOCUMENT.replace("- [ ] AC-1.1.1", "- [x] AC-1.1.1"),
+    });
+    expect(
+      await completePhase(changed, CODE_SUMMARY, "complete-code-with-flip"),
+    ).toBe(3);
+    expect(snapshotOf(changed).currentStep).toBe("code");
     const codeOutput: AgentOutputV1 = {
       contractVersion: "1.0.0",
       hostContract: "1.0.0",
@@ -537,8 +707,7 @@ describe("a run whose phases write the lineage files", () => {
       changedFiles: [],
       payload: { stepId: "step-1", testsAdded: 1, testsPassed: true },
     };
-    const recording = next(plan, {
-      [TASKS]: TASK_DOCUMENT.replace("- [ ] AC-1.1.1", "- [x] AC-1.1.1"),
+    const recording = next(changed, {
       [AGENT_REPLY]: agentReply(codeOutput),
     });
 

@@ -1,6 +1,8 @@
 import {
   compareCriteriaSnapshot,
   decideAcceptanceVerdict,
+  findLegacyPlanBaselineIndex,
+  isLegacyPlanBaseline,
   type FrozenCriterion,
 } from "@kratos/runtime/domain/acceptance-criteria";
 import type { EvidenceV1 } from "@kratos/contracts";
@@ -230,5 +232,69 @@ describe("acceptance verdict policy", () => {
       kind: "refused",
       reasonCode: "gate.ac_verdict_mismatch",
     });
+  });
+});
+
+describe("legacy acceptance criterion baseline", () => {
+  const event = {
+    eventType: "transition",
+    reasonCode: "run.transition.accepted",
+    operation: "sdd.continue:complete-plan",
+    artifactRefs: [".brain/02-features/feature/02-tasks.md"],
+  };
+  const lineage = {
+    artifactRef: ".brain/02-features/feature/02-tasks.md",
+    artifactDigest: "a".repeat(64),
+    phase: "plan",
+    producerCommand: "sdd.continue:complete-plan",
+  };
+
+  it("accepts only exact accepted plan lineage", () => {
+    expect(
+      isLegacyPlanBaseline({
+        documentRef: lineage.artifactRef,
+        documentDigest: lineage.artifactDigest,
+        event,
+        lineage,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["later phase", { ...lineage, phase: "code" }],
+    ["different digest", { ...lineage, artifactDigest: "b".repeat(64) }],
+    [
+      "different producer",
+      { ...lineage, producerCommand: "sdd.continue:code" },
+    ],
+  ])("rejects %s lineage as a bootstrap authority", (_name, candidate) => {
+    expect(
+      isLegacyPlanBaseline({
+        documentRef: lineage.artifactRef,
+        documentDigest: lineage.artifactDigest,
+        event,
+        lineage: candidate,
+      }),
+    ).toBe(false);
+  });
+
+  it("finds the older plan baseline behind a later code event", () => {
+    expect(
+      findLegacyPlanBaselineIndex({
+        documentRef: lineage.artifactRef,
+        documentDigest: lineage.artifactDigest,
+        candidates: [
+          {
+            event: { ...event, operation: "sdd.continue:complete-code" },
+            lineage: {
+              ...lineage,
+              phase: "code",
+              producerCommand: "sdd.continue:complete-code",
+            },
+          },
+          { event, lineage },
+        ],
+      }),
+    ).toBe(1);
   });
 });

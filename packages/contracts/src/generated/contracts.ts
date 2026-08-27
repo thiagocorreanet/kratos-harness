@@ -2,11 +2,11 @@
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
-// source: https://kratos.dev/schemas/host/agent-output/v1 sha256:c155b5b41672e4f4207fbd93653e2b0336745d5b96f91155aa9f40888cb5f3d4
+// source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
-// source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:af50a8a36a83a7d0310258155a5cebced9c6bccae2a55bedb9b3678ba62d0fbf
+// source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
@@ -209,7 +209,6 @@ export namespace AgentOutputV1Contract {
     ref: Reference;
     change: "added" | "modified" | "deleted";
   }[];
-  export type KratosAcceptanceCriterionIdentifierV1 = string;
 
   export interface Option {
     optionId: Id;
@@ -286,12 +285,12 @@ export namespace AgentOutputV1Contract {
      */
     criteria: [
       {
-        criterionId: KratosAcceptanceCriterionIdentifierV1;
+        criterionId: Id;
         outcome: "passed" | "failed" | "not-run";
         evidenceRef: Reference;
       },
       ...{
-        criterionId: KratosAcceptanceCriterionIdentifierV1;
+        criterionId: Id;
         outcome: "passed" | "failed" | "not-run";
         evidenceRef: Reference;
       }[],
@@ -469,7 +468,7 @@ export namespace AcceptanceCriteriaSnapshotV1Contract {
     previousSnapshotRef: Reference | null;
     /**
      * @minItems 1
-     * @maxItems 256
+     * @maxItems 126
      */
     declarations: [Declaration, ...Declaration[]];
   }

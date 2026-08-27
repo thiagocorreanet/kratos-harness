@@ -52,6 +52,16 @@ review can report evidence but cannot change checkbox state. The gate returns
 the ordered `criteria` states and blocks on the first identifier that is not
 passed, checked, and evidence-valid, so partial acceptance remains explicit.
 
+Snapshots use `acceptance/criteria/<event-id>.json`; verdicts use
+`acceptance/verdicts/<event-id>/<AC-ID>.json`. The event carries each actual
+artifact path followed by its `<path>#sha256=<digest>` anchor, so generic
+consumers can resolve the path and the runtime can verify its immutable bytes.
+Task documents are bounded to 126 criteria: the largest acceptance transaction
+then uses exactly `EventV1`'s existing 256-reference envelope, including output,
+task document, appended snapshot, and its anchor. Each verdict also binds the
+snapshot path and digest it judged. Editing historical JSON makes the acceptance
+context unreadable instead of rewriting replayed history.
+
 ## Gap facts
 
 `gates.json` under the run directory carries the facts the gates read:

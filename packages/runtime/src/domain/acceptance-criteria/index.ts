@@ -4,6 +4,8 @@ export {
   buildCriteriaSnapshot,
   compareCriteriaSnapshot,
   decideAcceptanceVerdict,
+  findLegacyPlanBaselineIndex,
+  isLegacyPlanBaseline,
 } from "./policy.js";
 export type {
   AcceptanceCriterionDeclaration,

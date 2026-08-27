@@ -9,7 +9,6 @@ import {
 } from "../agent/index.js";
 import { planOf, type Effect } from "../effects.js";
 import {
-  buildAcceptanceVerdict,
   compareCriteriaSnapshot,
   decideAcceptanceVerdict,
   renderCriterionCheckboxes,
@@ -97,7 +96,7 @@ function decideRecord(observation: Observation): Decision {
   const criteria = observation.acceptanceCriteria;
   if (
     criteria.snapshot === null &&
-    criteria.baselineRequired &&
+    (phase === "code" || phase === "review" || phase === "acceptance") &&
     criteria.bootstrapSnapshot === null
   ) {
     return criterionRefusal(
@@ -156,7 +155,8 @@ function decideRecord(observation: Observation): Decision {
   const bootstrapEffects: Effect[] =
     criteria.snapshot === null &&
     criteria.bootstrapSnapshot !== null &&
-    criteria.bootstrapSnapshotRef !== null
+    criteria.bootstrapSnapshotRef !== null &&
+    criteria.bootstrapSnapshotDigest !== null
       ? [
           {
             kind: "write_file",
@@ -166,8 +166,16 @@ function decideRecord(observation: Observation): Decision {
         ]
       : [];
   const bootstrapRefs =
-    criteria.snapshot === null && criteria.bootstrapSnapshotRef !== null
-      ? [criteria.bootstrapSnapshotRef]
+    criteria.snapshot === null &&
+    criteria.bootstrapSnapshotRef !== null &&
+    criteria.bootstrapSnapshotDigest !== null
+      ? [
+          criteria.bootstrapSnapshotRef,
+          artifactDigestRef(
+            criteria.bootstrapSnapshotRef,
+            criteria.bootstrapSnapshotDigest,
+          ),
+        ]
       : [];
 
   return commit(
@@ -264,26 +272,31 @@ function recordAcceptance(
       `Acceptance criterion ${verdict.criterionId} was refused.`,
     );
   }
-  const root = `${runRoot(observation)}/acceptance-criteria/${observation.eventId}`;
-  const verdictEffects: Effect[] = verdict.criteria.map((criterion) => {
-    const value = buildAcceptanceVerdict({
-      runId: observation.configuration.runId,
-      eventId: observation.eventId,
-      criterionId: criterion.criterionId,
-      outcome: criterion.outcome,
-      criteriaSnapshotRef: snapshotRef,
-      criteriaSnapshotDigest: snapshotDigest,
-      evidenceId: criterion.evidenceId,
-      evidenceRef: criterion.evidenceRef,
-      evidenceDigest: criterion.evidenceDigest,
-      recordedAt: observation.occurredAt,
-    });
-    return {
-      kind: "write_file" as const,
-      path: `${root}/verdicts/${criterion.criterionId}.json`,
-      content: serializeValue(value),
-    };
+  const preparedById = new Map(
+    criteria.preparedVerdicts.map((prepared) => [
+      prepared.value.criterionId,
+      prepared,
+    ]),
+  );
+  if (
+    preparedById.size !== verdict.criteria.length ||
+    verdict.criteria.some(({ criterionId }) => !preparedById.has(criterionId))
+  ) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      outputRef,
+      "The digest-bound acceptance verdict artifacts could not be prepared.",
+    );
+  }
+  const preparedVerdicts = verdict.criteria.flatMap(({ criterionId }) => {
+    const prepared = preparedById.get(criterionId);
+    return prepared === undefined ? [] : [prepared];
   });
+  const verdictEffects: Effect[] = preparedVerdicts.map(({ value, ref }) => ({
+    kind: "write_file" as const,
+    path: ref,
+    content: serializeValue(value),
+  }));
   const snapshotNeedsWrite =
     change.kind === "append" || criteria.snapshot === null;
   const snapshotEffects: Effect[] = snapshotNeedsWrite
@@ -295,9 +308,10 @@ function recordAcceptance(
         },
       ]
     : [];
-  const verdictRefs = verdict.criteria.map(
-    ({ criterionId }) => `${root}/verdicts/${criterionId}.json`,
-  );
+  const verdictRefs = preparedVerdicts.flatMap(({ ref, digest }) => [
+    ref,
+    artifactDigestRef(ref, digest),
+  ]);
   return commit(
     observation,
     [
@@ -317,10 +331,16 @@ function recordAcceptance(
     [
       outputRef,
       criteria.documentRef,
-      ...(snapshotNeedsWrite ? [snapshotRef] : []),
+      ...(snapshotNeedsWrite
+        ? [snapshotRef, artifactDigestRef(snapshotRef, snapshotDigest)]
+        : []),
       ...verdictRefs,
     ],
   );
+}
+
+function artifactDigestRef(ref: string, digest: string): string {
+  return `${ref}#sha256=${digest}`;
 }
 
 /**

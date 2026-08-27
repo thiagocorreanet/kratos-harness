@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kratos.dev/schemas/contracts/contract-manifest/v1",
-  "title": "Kratos contract family manifest v1",
+  "$id": "https://kratos.dev/schemas/contracts/contract-manifest/v1.1",
+  "title": "Kratos contract family manifest v1.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,7 +25,7 @@
       "const": "1.0.0"
     },
     "reasonCatalog": {
-      "const": "1.4.0"
+      "const": "1.5.0"
     },
     "stateContract": {
       "type": "object",
@@ -59,7 +59,7 @@
     "schemas": {
       "type": "array",
       "minItems": 18,
-      "maxItems": 18,
+      "maxItems": 20,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/schemaEntry"
