@@ -75,7 +75,7 @@ describe("pull-request CI workflow", () => {
     const quality = object(jobs.quality, "quality");
     expect(quality.name).toBe("Node quality and package");
     expect(quality["runs-on"]).toBe("ubuntu-latest");
-    expect(quality["timeout-minutes"]).toBe(15);
+    expect(quality["timeout-minutes"]).toBe(30);
     expect(quality.env).toEqual({ CI: "true" });
     expect(quality.permissions).toBeUndefined();
     expect(quality["continue-on-error"]).toBeUndefined();

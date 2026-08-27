@@ -103,13 +103,24 @@ withholds them from fork-originated code and the workflow contains no expression
 that requests them. `tests/ci-workflow-contract.test.ts` fails if these
 least-privilege controls regress.
 
+## Current timeout bound
+
+The initial campaign below proved the original 15-minute bound. The quality
+pipeline later grew enough that valid Dependabot runs
+[`32696973676`](https://github.com/thiagocorreanet/kratos-harness/actions/runs/32696973676)
+and
+[`32697062714`](https://github.com/thiagocorreanet/kratos-harness/actions/runs/32697062714)
+reached that limit after their preceding steps passed. The current executable
+contract therefore allows 30 minutes while retaining a finite GitHub-hosted job
+bound.
+
 ## Acceptance mapping
 
 | Requirement | Evidence |
 | --- | --- |
 | Pull requests to `developer` and `main` | Exact trigger contract plus actionlint validation |
 | Install, format, lint, type, unit, schema, build, smoke, and package gates | Implementation success run completed every named step |
-| Immutable Actions and timeout | Full-SHA contract and 15-minute job limit |
+| Immutable Actions and timeout | Full-SHA contract and current 30-minute job limit; initial 15-minute evidence retained above |
 | Superseded pull-request cancellation without lost pushes | PR-number groups; unique run IDs for non-PR events |
 | Useful short-lived diagnostics | Four successful failure uploads with three-day expiry |
 | Lint, type, test, and package failures block | Four deliberate failing runs above |
