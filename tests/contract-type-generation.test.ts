@@ -35,6 +35,10 @@ describe("schema-derived contract declarations", () => {
     expect(after).toContain("Generated from registered JSON Schemas.");
     expect(after).toContain("export type AdapterMessageV1");
     expect(after).toContain("export type HostOperationMessageV1");
+    expect(after).toContain('kind: "create";');
+    expect(after).toContain('kind: "move";');
+    expect(after).toContain("source: Target;");
+    expect(after).toContain("destination: Target;");
     expect(after).toContain("export interface ProjectConfigV1");
     expect(after).toContain("export interface RequirementDiscoveryV1");
     expect(after).toContain("export interface TransactionManifestV1");

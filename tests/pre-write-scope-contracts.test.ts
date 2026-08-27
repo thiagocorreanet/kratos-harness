@@ -22,7 +22,14 @@ describe("pre-write scope contracts", () => {
     };
 
     expect(validate(scope), JSON.stringify(validate.errors)).toBe(true);
-    for (const glob of ["", "!", "/etc/**", "../private/**", "src\\**"]) {
+    for (const glob of [
+      "",
+      "!",
+      "/etc/**",
+      "C:/private/**",
+      "../private/**",
+      "src\\**",
+    ]) {
       expect(
         validate({ ...scope, allow: [glob] }),
         `expected ${JSON.stringify(glob)} to be invalid`,
@@ -30,18 +37,67 @@ describe("pre-write scope contracts", () => {
     }
   });
 
-  it("accepts normalized multi-target mutation requests", () => {
+  it("accepts an ordered heterogeneous normalized mutation request", () => {
     const validate = validator(preToolUseSchema);
     const request = {
       contractVersion: "1.0.0",
       hostContract: "1.0.0",
-      operation: "move",
-      targets: ["src/old-name.ts", "src/new-name.ts"],
+      mutations: [
+        { kind: "create", path: "src/new-file.ts" },
+        { kind: "update", path: "src/index.ts" },
+        { kind: "delete", path: "src/obsolete.ts" },
+        {
+          kind: "move",
+          source: "src/old-name.ts",
+          destination: "src/new-name.ts",
+        },
+      ],
     };
 
     expect(validate(request), JSON.stringify(validate.errors)).toBe(true);
-    expect(validate({ ...request, targets: [] })).toBe(false);
-    expect(validate({ ...request, operation: "shell" })).toBe(false);
+    expect(validate({ ...request, mutations: [] })).toBe(false);
+  });
+
+  it("requires the exact closed shape for each normalized mutation", () => {
+    const validate = validator(preToolUseSchema);
+    const request = {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      mutations: [
+        {
+          kind: "move",
+          source: "src/old-name.ts",
+          destination: "src/new-name.ts",
+        },
+      ],
+    };
+
+    expect(validate(request), JSON.stringify(validate.errors)).toBe(true);
+    expect(
+      validate({
+        ...request,
+        mutations: [{ kind: "move", source: "src/old-name.ts" }],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...request,
+        mutations: [
+          {
+            kind: "move",
+            source: "src/old-name.ts",
+            destination: "src/new-name.ts",
+            path: "src/unexpected.ts",
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...request,
+        mutations: [{ kind: "update", path: "src/index.ts", extra: true }],
+      }),
+    ).toBe(false);
   });
 
   it("keeps existing guardrails valid and accepts an additive project write block", () => {
@@ -62,9 +118,9 @@ describe("pre-write scope contracts", () => {
       }),
       JSON.stringify(validate.errors),
     ).toBe(true);
-    expect(validate({ ...legacy, writeBlocks: ["../private/**"] })).toBe(
-      false,
-    );
+    for (const glob of ["../private/**", "C:/private/**"]) {
+      expect(validate({ ...legacy, writeBlocks: [glob] })).toBe(false);
+    }
   });
 
   it("registers generated scope, guardrails, and pre-tool types", () => {
@@ -83,8 +139,7 @@ describe("pre-write scope contracts", () => {
     const request = {
       contractVersion: "1.0.0",
       hostContract: "1.0.0",
-      operation: "update",
-      targets: ["src/index.ts"],
+      mutations: [{ kind: "update", path: "src/index.ts" }],
     };
 
     expect(

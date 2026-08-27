@@ -6,17 +6,17 @@
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
-// source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:481657d81586410f30a1ba6a813fa57bcbac760d249bacde53a27f38d85fdb08
+// source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
-// source: https://kratos.dev/schemas/state/feature-scope/v1 sha256:966d01e7ea57c71f333e1fb45af87cdc477be31e2ea5f63480d066dc182e6b68
+// source: https://kratos.dev/schemas/state/feature-scope/v1 sha256:22cd993ba7cd6f434799fbf4163cb5ff597d2ee195d9737009291ca5ef63df0f
 // source: https://kratos.dev/schemas/state/gap/v1 sha256:cff06bc219cb2dc4005680230a936e20e47374fe05b12f3ced21108d0ee55591
 // source: https://kratos.dev/schemas/state/gates/v1 sha256:45d68cae9eeb4958f506db033b8972dcc9ec721df46e2ee41683798b7e9bf6f4
-// source: https://kratos.dev/schemas/state/guardrails/v1 sha256:498926b187896aa9de41c6acb29282b3aceefd2f026ae957686aba8cef2646d9
+// source: https://kratos.dev/schemas/state/guardrails/v1 sha256:2ae4800cb3cda5b075b296ad91e3fee875b4698b9c62b52598e65ec60bfe1255
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
@@ -453,19 +453,36 @@ export namespace HostOperationMessageV1Contract {
 export type HostOperationMessageV1 =
   HostOperationMessageV1Contract.HostOperationMessageV1;
 export namespace PreToolUseV1Contract {
-  export type PreToolUseV1 = {
-    [k: string]: unknown | undefined;
-  } & {
+  export type Mutation =
+    CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;
+  export type Target = string;
+
+  export interface PreToolUseV1 {
     contractVersion: "1.0.0";
     hostContract: "1.0.0";
-    operation: "create" | "update" | "delete" | "move";
     /**
      * @minItems 1
      * @maxItems 256
      */
-    targets: [Target, ...Target[]];
-  };
-  export type Target = string;
+    mutations: [Mutation, ...Mutation[]];
+  }
+  export interface CreateMutation {
+    kind: "create";
+    path: Target;
+  }
+  export interface UpdateMutation {
+    kind: "update";
+    path: Target;
+  }
+  export interface DeleteMutation {
+    kind: "delete";
+    path: Target;
+  }
+  export interface MoveMutation {
+    kind: "move";
+    source: Target;
+    destination: Target;
+  }
 }
 export type PreToolUseV1 = PreToolUseV1Contract.PreToolUseV1;
 export namespace AcceptanceCriteriaSnapshotV1Contract {

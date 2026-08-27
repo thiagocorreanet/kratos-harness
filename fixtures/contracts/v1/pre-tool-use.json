@@ -1,6 +1,10 @@
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
-  "operation": "update",
-  "targets": ["src/index.ts"]
+  "mutations": [
+    {
+      "kind": "update",
+      "path": "src/index.ts"
+    }
+  ]
 }

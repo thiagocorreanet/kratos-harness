@@ -4,36 +4,68 @@
   "title": "Kratos pre-tool use v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contractVersion", "hostContract", "operation", "targets"],
+  "required": ["contractVersion", "hostContract", "mutations"],
   "properties": {
     "contractVersion": { "const": "1.0.0" },
     "hostContract": { "const": "1.0.0" },
-    "operation": { "enum": ["create", "update", "delete", "move"] },
-    "targets": {
+    "mutations": {
       "type": "array",
       "minItems": 1,
       "maxItems": 256,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/target" }
+      "items": { "$ref": "#/$defs/mutation" }
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "operation": { "const": "move" } },
-        "required": ["operation"]
-      },
-      "then": {
-        "properties": { "targets": { "type": "array", "minItems": 2 } }
-      }
-    }
-  ],
   "$defs": {
     "target": {
       "type": "string",
       "minLength": 1,
       "maxLength": 4096,
       "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "mutation": {
+      "oneOf": [
+        { "$ref": "#/$defs/createMutation" },
+        { "$ref": "#/$defs/updateMutation" },
+        { "$ref": "#/$defs/deleteMutation" },
+        { "$ref": "#/$defs/moveMutation" }
+      ]
+    },
+    "createMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "create" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "updateMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "update" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "deleteMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "delete" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "moveMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "destination"],
+      "properties": {
+        "kind": { "const": "move" },
+        "source": { "$ref": "#/$defs/target" },
+        "destination": { "$ref": "#/$defs/target" }
+      }
     }
   }
 }
