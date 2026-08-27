@@ -11,13 +11,18 @@ Replace placeholder documents with deterministic templates a pure gate can check
 
 ## File allowlist
 
-- Runtime feature-document and gate modules.
-- Tests, fixtures, contracts, and related documentation.
+- `packages/runtime/src/domain/feature-documents/**`
+- `packages/runtime/src/domain/gates/**`
+- `tests/**`
+- `fixtures/**`
+- `packages/contracts/**`
+- `docs/**`
 
 ## File denylist
 
-- Approval and digest contracts.
-- Host-specific prompts.
+- `packages/runtime/src/domain/approvals/**`
+- `packages/runtime/src/infra/digests.ts`
+- `distribution/**`
 
 ## Definition of done
 

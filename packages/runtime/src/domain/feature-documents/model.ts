@@ -230,12 +230,14 @@ const SOURCES = [
       {
         name: "File allowlist",
         depth: 2,
-        guidance: "List paths the implementation may change.",
+        guidance:
+          "List one project-relative glob per code-formatted bullet, for example: - `packages/runtime/src/**`.",
       },
       {
         name: "File denylist",
         depth: 2,
-        guidance: "List paths the implementation must not change.",
+        guidance:
+          "List one project-relative glob per code-formatted bullet, for example: - `packages/contracts/**`.",
       },
       {
         name: "Definition of done",

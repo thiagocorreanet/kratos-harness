@@ -39,6 +39,7 @@
     "./domain/schema": "./src/domain/schema/index.ts",
     "./domain/transactions": "./src/domain/transactions/index.ts",
     "./domain/workflow": "./src/domain/workflow/index.ts",
+    "./domain/write-guard": "./src/domain/write-guard/index.ts",
     "./handshake": "./src/handshake.ts",
     "./infra/fake": "./src/infra/fake/index.ts",
     "./infra/node": "./src/infra/node/index.ts",
