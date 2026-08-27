@@ -59,6 +59,9 @@ function subject(
       environment: fixedEnvironment({}, ROOT),
       output,
       standardInput: pipedInput(answers),
+      targetInspector: {
+        inspect: (path) => Promise.resolve({ kind: "inside", path }),
+      },
       workspace: memoryWorkspace({
         directories: [ROOT, ...workspaceDirectories],
       }),

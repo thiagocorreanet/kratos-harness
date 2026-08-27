@@ -33,6 +33,7 @@ import {
   nodeIds,
   nodeOutput,
   nodeStandardInput,
+  nodeTargetInspector,
   nodeWorkspace,
   sha256Digests,
 } from "../infra/node/index.js";
@@ -153,6 +154,7 @@ export function createRuntimeAt(
     environment: nodeEnvironment(),
     output: nodeOutput(),
     standardInput: nodeStandardInput(),
+    targetInspector: nodeTargetInspector(root),
     workspace: nodeWorkspace(),
     ...overrides,
   };

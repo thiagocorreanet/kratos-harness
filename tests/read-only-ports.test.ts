@@ -11,6 +11,7 @@ import {
   nodeFileSystem,
   nodeIds,
   nodeOutput,
+  nodeTargetInspector,
   sha256Digests,
 } from "@kratos/runtime/infra/node";
 import type { RuntimePorts } from "@kratos/runtime/ports";
@@ -31,6 +32,7 @@ async function temporaryProject<T>(
       fileSystem: nodeFileSystem(root),
       git: { observe: () => Promise.reject(new Error("unused")) },
       standardInput: pipedInput("unused"),
+      targetInspector: nodeTargetInspector(root),
       workspace: memoryWorkspace(),
       locks: {
         inspect: () => Promise.reject(new Error("unused")),

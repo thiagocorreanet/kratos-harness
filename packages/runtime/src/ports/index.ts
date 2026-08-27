@@ -4,6 +4,7 @@ import type {
   WorktreeLocation,
 } from "../domain/project/observation.js";
 import type { Digests, DurableFileSystem } from "./transactions.js";
+import type { TargetInspector } from "./filesystem.js";
 
 export type { Locks } from "./locks.js";
 
@@ -12,6 +13,7 @@ export type {
   DurableEntry,
   DurableFileSystem,
 } from "./transactions.js";
+export type { TargetInspection, TargetInspector } from "./filesystem.js";
 
 /**
  * Injected effect boundaries.
@@ -108,6 +110,7 @@ export interface RuntimePorts {
   readonly environment: Environment;
   readonly output: Output;
   readonly standardInput: StandardInput;
+  readonly targetInspector: TargetInspector;
   /**
    * Read-only facts about where the project is.
    *

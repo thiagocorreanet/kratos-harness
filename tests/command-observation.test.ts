@@ -63,6 +63,7 @@ describe("commands that observe before deciding", () => {
       "gaps record",
       "gaps resolve",
       "gaps waive",
+      "guard write",
       "gates record",
       "handoff",
       "init",
@@ -74,6 +75,7 @@ describe("commands that observe before deciding", () => {
       "start",
       "stats",
       "status",
+      "scope record",
     ]);
   });
 
