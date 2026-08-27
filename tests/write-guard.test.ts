@@ -43,7 +43,19 @@ describe("ordered project-relative globs", () => {
       true,
     ],
     ["matches a nested globstar", ["src/**/*.ts"], "src/lib/ui/index.ts", true],
+    [
+      "keeps a mid-segment double star inside its path segment",
+      ["src/foo**bar.ts"],
+      "src/foo/a/bar.ts",
+      false,
+    ],
     ["matches a character class", ["docs/[a-z]?.md"], "docs/ab.md", true],
+    [
+      "does not let a character-class range cross a slash",
+      ["docs/[--0].md"],
+      "docs/.md",
+      false,
+    ],
     [
       "honors a later negation",
       ["src/**", "!src/generated/**"],
@@ -80,6 +92,16 @@ describe("summary scope translation", () => {
     expect(parsed).toEqual({ kind: "malformed", line: 3 });
   });
 
+  it("rejects unsafe and degenerate character classes in reviewer scope", () => {
+    for (const pattern of ["docs/[--0].md", "docs/[!].md", "docs/[a.md"]) {
+      expect(
+        parseSummaryScope(
+          `## File allowlist\n\n- \`${pattern}\`\n\n## File denylist\n`,
+        ),
+      ).toEqual({ kind: "malformed", line: 3 });
+    }
+  });
+
   it("refuses a scope that the summary grammar cannot render and parse", () => {
     expect(() => renderSummaryScope(scope(["!!src/**"]))).toThrow(
       "Summary scope contains an unrenderable glob",
@@ -106,6 +128,52 @@ describe("summary scope translation", () => {
       reasonCode: "guard.scope_corrupt",
       target: "src/index.ts",
     });
+  });
+
+  it("includes nested allowlist declarations in reviewer scope agreement", () => {
+    const review = parseSummaryScope(`## File allowlist
+
+### Nested component
+
+- \`src/**\`
+
+## File denylist
+`);
+    const recorded = scope([]);
+
+    expect(review).toEqual({ kind: "valid", scope: scope(["src/**"]) });
+    if (review.kind !== "valid")
+      throw new Error("expected a valid review scope");
+    expect(
+      decideWriteTarget({
+        target: "src/index.ts",
+        scope: recorded,
+        reviewerScope: review.scope,
+        guardrails: guardrails(),
+      }),
+    ).toEqual({
+      kind: "refused",
+      reasonCode: "guard.scope_corrupt",
+      target: "src/index.ts",
+    });
+  });
+
+  it.each([
+    ["a shorter closing fence", "````\n```\n- `private/**`\n````"],
+    ["a mismatched closing fence", "~~~\n```\n- `private/**`\n~~~"],
+    [
+      "a fence with invalid closing syntax",
+      "```\n```text\n- `private/**`\n```",
+    ],
+  ])("does not parse bullets inside %s", (_description, fenced) => {
+    expect(
+      parseSummaryScope(`## File allowlist
+
+${fenced}
+
+## File denylist
+`),
+    ).toEqual({ kind: "valid", scope: scope([]) });
   });
 });
 

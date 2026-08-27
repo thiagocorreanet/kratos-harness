@@ -120,3 +120,51 @@ files are not formatted: `packages/runtime/src/infra/schema/catalog.ts`,
 `tests/contract-reason-catalog.test.ts`, and
 `tests/schema-registry-types.test.ts`. The task-owned file set passes a direct
 Prettier check, and `git diff --check` passes.
+
+## Fix round 1: accepted review findings
+
+### RED
+
+Command:
+
+```text
+npm test -- tests/write-guard.test.ts
+```
+
+Result before the fix: `1 failed`, `5 failed`, `24 passed`.
+
+- `src/foo**bar.ts` incorrectly matched `src/foo/a/bar.ts` because every
+  consecutive-star pair was compiled as a slash-crossing globstar.
+- `docs/[--0].md` was accepted even though that JavaScript range includes
+  `/`; degenerate `[!]` and unmatched classes were not rejected.
+- A nested `###` heading cleared the active allowlist, silently omitting its
+  code-formatted declaration from reviewer drift detection.
+- A shorter backtick closer and a backtick fence with trailing text both ended
+  a fence early, letting the following bullet be observed or leaving an
+  unmatched fence.
+
+### GREEN
+
+The matcher now treats `**` as slash-crossing only when it is an entire path
+segment. Otherwise each star is segment-local. Character classes are compiled
+from validated literals/ranges: direct slash, slash-spanning ranges, malformed
+or empty negated bodies, brackets, and backslashes are rejected; negated
+classes add `/` to their exclusion set. Nested headings preserve the active
+level-two scope section and include their declarations. Fences now retain their
+opening marker kind and length and close only on a same-kind marker at least as
+long with whitespace-only trailing content.
+
+Fresh verification:
+
+```text
+npm test -- tests/write-guard.test.ts tests/feature-documents.test.ts
+# 2 passed, 38 passed
+npm run typecheck
+npm run lint
+npx prettier --check packages/runtime/src/domain/write-guard/glob-policy.ts packages/runtime/src/domain/write-guard/scope-document.ts tests/write-guard.test.ts
+# All matched files use Prettier code style
+git diff --check
+```
+
+The unrelated repository-wide formatting concern remains unchanged and was not
+touched in this fix round.

@@ -35,7 +35,7 @@ function compileGlob(pattern: string): RegExp | null {
   for (let index = 0; index < pattern.length; index += 1) {
     const character = pattern[index];
     if (character === "*") {
-      if (pattern[index + 1] === "*") {
+      if (isCompleteGlobstar(pattern, index)) {
         if (pattern[index + 2] === "/") {
           source += "(?:.*/)?";
           index += 2;
@@ -56,13 +56,9 @@ function compileGlob(pattern: string): RegExp | null {
       const closing = pattern.indexOf("]", index + 1);
       if (closing < 0) return null;
       const content = pattern.slice(index + 1, closing);
-      if (
-        content.length === 0 ||
-        content.includes("/") ||
-        content.includes("[")
-      )
-        return null;
-      source += `[${content.startsWith("!") ? "^" : ""}${content.startsWith("!") ? content.slice(1) : content}]`;
+      const characterClass = compileCharacterClass(content);
+      if (characterClass === null) return null;
+      source += characterClass;
       index = closing;
       continue;
     }
@@ -74,6 +70,55 @@ function compileGlob(pattern: string): RegExp | null {
   } catch {
     return null;
   }
+}
+
+function isCompleteGlobstar(pattern: string, index: number): boolean {
+  return (
+    pattern[index + 1] === "*" &&
+    (index === 0 || pattern[index - 1] === "/") &&
+    (index + 2 === pattern.length || pattern[index + 2] === "/")
+  );
+}
+
+function compileCharacterClass(content: string): string | null {
+  const negated = content.startsWith("!");
+  const body = negated ? content.slice(1) : content;
+  if (
+    body.length === 0 ||
+    body.includes("/") ||
+    body.includes("[") ||
+    body.includes("\\")
+  ) {
+    return null;
+  }
+
+  let source = negated ? "[^/" : "[";
+  for (let index = 0; index < body.length; index += 1) {
+    const first = body[index];
+    const rangeEnd = body[index + 2];
+    if (first === undefined) return null;
+    if (body[index + 1] === "-" && rangeEnd !== undefined) {
+      if (!safeCharacterRange(first, rangeEnd)) return null;
+      source += `${escapeCharacterClass(first)}-${escapeCharacterClass(rangeEnd)}`;
+      index += 2;
+      continue;
+    }
+    source += escapeCharacterClass(first);
+  }
+  return `${source}]`;
+}
+
+function safeCharacterRange(first: string, last: string): boolean {
+  const start = first.charCodeAt(0);
+  const end = last.charCodeAt(0);
+  const slash = "/".charCodeAt(0);
+  return start <= end && !(start <= slash && slash <= end);
+}
+
+function escapeCharacterClass(value: string): string {
+  return value === "\\" || value === "]" || value === "^" || value === "-"
+    ? `\\${value}`
+    : value;
 }
 
 function isSafeProjectRelativePattern(pattern: string): boolean {

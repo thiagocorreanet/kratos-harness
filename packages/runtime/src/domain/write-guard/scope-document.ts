@@ -9,6 +9,11 @@ export type SummaryScopeParse =
 const allowHeading = "File allowlist";
 const denyHeading = "File denylist";
 
+interface Fence {
+  readonly kind: "`" | "~";
+  readonly length: number;
+}
+
 /**
  * Parse reviewer-owned scope sections without reading a document from disk.
  * Only exact code-formatted bullets are executable scope declarations.
@@ -17,21 +22,26 @@ export function parseSummaryScope(content: string): SummaryScopeParse {
   const allow: string[] = [];
   const deny: string[] = [];
   let section: "allow" | "deny" | null = null;
+  let sectionDepth: number | null = null;
   let seenAllow = false;
   let seenDeny = false;
   let comment = false;
-  let fence: "`" | "~" | null = null;
+  let fence: Fence | null = null;
 
   for (const [index, line] of content.split(/\r?\n/u).entries()) {
     const lineNumber = index + 1;
-    const fenceMarker = /^\s*(`{3,}|~{3,})/u.exec(line)?.[1];
-    if (fenceMarker !== undefined) {
-      const kind = fenceMarker[0] as "`" | "~";
-      if (fence === null) fence = kind;
-      else if (fence === kind) fence = null;
+    if (fence !== null) {
+      if (isClosingFence(line, fence)) fence = null;
       continue;
     }
-    if (fence !== null) continue;
+    const openingFence = /^(?: {0,3})(`{3,}|~{3,})/u.exec(line)?.[1];
+    if (openingFence !== undefined) {
+      fence = {
+        kind: openingFence[0] as "`" | "~",
+        length: openingFence.length,
+      };
+      continue;
+    }
 
     if (comment || line.trimStart().startsWith("<!--")) {
       comment = !line.includes("-->");
@@ -40,17 +50,23 @@ export function parseSummaryScope(content: string): SummaryScopeParse {
 
     const heading = /^(#{1,6})\s+(.+?)\s*#*\s*$/u.exec(line);
     if (heading !== null) {
-      section = null;
-      if (heading[1]?.length !== 2) continue;
+      const depth = heading[1]?.length ?? 0;
+      if (sectionDepth !== null && depth <= sectionDepth) {
+        section = null;
+        sectionDepth = null;
+      }
+      if (depth !== 2) continue;
       const title = heading[2];
       if (title === allowHeading) {
         if (seenAllow) return malformed(lineNumber);
         seenAllow = true;
         section = "allow";
+        sectionDepth = depth;
       } else if (title === denyHeading) {
         if (seenDeny) return malformed(lineNumber);
         seenDeny = true;
         section = "deny";
+        sectionDepth = depth;
       }
       continue;
     }
@@ -101,6 +117,13 @@ export function scopesAgree(
 
 function malformed(line: number): SummaryScopeParse {
   return { kind: "malformed", line };
+}
+
+function isClosingFence(line: string, fence: Fence): boolean {
+  const marker = /^(?: {0,3})(`+|~+)[ \t]*$/u.exec(line)?.[1];
+  return (
+    marker?.startsWith(fence.kind) === true && marker.length >= fence.length
+  );
 }
 
 function sameList(left: readonly string[], right: readonly string[]): boolean {
