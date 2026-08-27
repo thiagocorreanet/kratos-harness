@@ -24,6 +24,7 @@
 ### Task 1: Canonical identifier and persisted contracts
 
 **Files:**
+
 - Create: `schemas/contracts/acceptance-criterion-id.v1.schema.json`
 - Create: `schemas/state/acceptance-criteria-snapshot.v1.schema.json`
 - Create: `schemas/state/acceptance-verdict.v1.schema.json`
@@ -34,6 +35,7 @@
 - Test: `tests/contract-schemas.test.ts`
 
 **Interfaces:**
+
 - Produces: `ACCEPTANCE_CRITERION_ID_PATTERN`, `ACCEPTANCE_CRITERION_ID_MAX_LENGTH`, `isAcceptanceCriterionId(value: unknown): value is string`.
 - Produces: generated `AcceptanceCriteriaSnapshotV1` and `AcceptanceVerdictV1` declarations.
 - Preserves: all pre-existing schema bytes and contract family identities.
@@ -101,6 +103,7 @@ git commit -m "feat: publish acceptance criterion contracts"
 ### Task 2: Task-document hierarchy and pure parser
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/acceptance-criteria/model.ts`
 - Create: `packages/runtime/src/domain/acceptance-criteria/parser.ts`
 - Create: `packages/runtime/src/domain/acceptance-criteria/index.ts`
@@ -110,6 +113,7 @@ git commit -m "feat: publish acceptance criterion contracts"
 - Test: `tests/feature-documents.test.ts`
 
 **Interfaces:**
+
 - Produces: `inspectTaskDocument(content: string | null): TaskDocumentObservation`.
 - Produces: `renderCriterionCheckboxes(content, outcomes): string` without I/O.
 - Consumes: `isAcceptanceCriterionId` from `@kratos/contracts`.
@@ -193,11 +197,13 @@ git commit -m "feat: parse identified acceptance criteria"
 ### Task 3: Freeze and verdict domain policy
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/acceptance-criteria/policy.ts`
 - Modify: `packages/runtime/src/domain/acceptance-criteria/index.ts`
 - Test: `tests/acceptance-criteria-policy.test.ts`
 
 **Interfaces:**
+
 - Produces: `compareCriteriaSnapshot(request): CriteriaChangeDecision`.
 - Produces: `decideAcceptanceVerdict(request): AcceptanceVerdictDecision`.
 - Produces: pure builders for snapshot and verdict payloads; digests remain injected values.
@@ -255,12 +261,14 @@ git commit -m "feat: freeze acceptance criterion declarations"
 ### Task 4: Observe criterion history and freeze plan completion
 
 **Files:**
+
 - Modify: `packages/runtime/src/composition/workflow.ts`
 - Modify: `packages/runtime/src/domain/cli/spec.ts`
 - Modify: `packages/runtime/src/domain/cli/workflow.ts`
 - Test: `tests/workflow-acceptance-criteria.test.ts`
 
 **Interfaces:**
+
 - Produces: a closed `acceptanceCriteria` observation on workflow commands.
 - Persists: initial criteria snapshot in the same effect plan as accepted plan completion.
 - Consumes: event artifact references to select immutable snapshots in event order.
@@ -305,6 +313,7 @@ git commit -m "feat: freeze criteria when the plan completes"
 ### Task 5: Acceptance recording and checkbox authority
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/agent/coherence.ts`
 - Modify: `packages/runtime/src/domain/cli/agent.ts`
 - Modify: `packages/runtime/src/domain/workflow/model.ts`
@@ -313,6 +322,7 @@ git commit -m "feat: freeze criteria when the plan completes"
 - Test: `tests/agent-output-contract.test.ts`
 
 **Interfaces:**
+
 - Extends: semantic agent-output validation with the canonical AC matcher and exact global verdict agreement.
 - Adds: a criterion-aware acceptance fact event while retaining `EventV1`.
 - Persists: one immutable verdict record per declaration and an appended snapshot when permitted.
@@ -357,6 +367,7 @@ git commit -m "feat: record evidence-bound criterion verdicts"
 ### Task 6: Per-criterion gate and final completion
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/gates/model.ts`
 - Modify: `packages/runtime/src/domain/gates/evaluate.ts`
 - Modify: `packages/runtime/src/domain/acceptance/index.ts`
@@ -366,6 +377,7 @@ git commit -m "feat: record evidence-bound criterion verdicts"
 - Test: `tests/gate-facts.test.ts`
 
 **Interfaces:**
+
 - Replaces: `GateContext.finalAcceptance` with `acceptanceCriteria`.
 - Adds: `GateDecision.criteria`, ordered by document ordinal.
 - Preserves: final human approval and existing done lineage requirements.
@@ -415,6 +427,7 @@ git commit -m "feat: report partial acceptance by criterion"
 ### Task 7: Reason catalog, legacy bootstrap, replay, and public evidence
 
 **Files:**
+
 - Create: `packages/contracts/catalogs/reason-codes.v1.5.json`
 - Modify: `packages/contracts/src/compatibility.ts`
 - Modify: `packages/contracts/src/reasons.ts`
@@ -429,6 +442,7 @@ git commit -m "feat: report partial acceptance by criterion"
 - Test: `tests/acceptance-criterion-compatibility.test.ts`
 
 **Interfaces:**
+
 - Publishes: reason catalog `1.5.0` as an append-only extension of `1.4.0`.
 - Adds: verified bootstrap from exact plan lineage only.
 - Proves: event replay preserves AC-bearing artifact references byte-for-byte.
@@ -497,9 +511,11 @@ git commit -m "docs: prove stable acceptance criterion behavior"
 ### Task 8: Final audit and PR handoff
 
 **Files:**
+
 - Verify only; update the issue evidence document if observed counts changed.
 
 **Interfaces:**
+
 - Produces: a clean, reviewable branch and PR body closing issue #132.
 
 - [ ] **Step 1: Audit the complete diff**
