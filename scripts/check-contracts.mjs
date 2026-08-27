@@ -53,6 +53,12 @@ async function verifyArtifacts() {
   const resultSchema = await readJson(
     join(repositoryRoot, "schemas/result.v1.schema.json"),
   );
+  const acceptanceCriterionIdSchema = await readJson(
+    join(
+      repositoryRoot,
+      "schemas/contracts/acceptance-criterion-id.v1.schema.json",
+    ),
+  );
   // The runtime registry compiles these same schemas with `validateFormats`
   // off, because the offline validator bundled into the plugin implements no
   // format at all. Verifying them under a stricter setting here would accept
@@ -88,6 +94,7 @@ async function verifyArtifacts() {
     validateFormats: false,
   });
   ajv.addSchema(resultSchema);
+  ajv.addSchema(acceptanceCriterionIdSchema);
   for (const { path } of manifest.schemas) {
     ajv.compile(await readJson(join(repositoryRoot, path)));
   }

@@ -54,6 +54,22 @@
       "typeName": "HostOperationMessageV1"
     },
     {
+      "id": "state.acceptance-criteria-snapshot",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/acceptance-criteria-snapshot.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "AcceptanceCriteriaSnapshotV1"
+    },
+    {
+      "id": "state.acceptance-verdict",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/acceptance-verdict.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "AcceptanceVerdictV1"
+    },
+    {
       "id": "state.approval",
       "family": "state",
       "version": "1.0.0",

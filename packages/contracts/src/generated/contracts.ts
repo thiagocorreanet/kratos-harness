@@ -1,10 +1,13 @@
 // Generated from registered JSON Schemas. Do not edit.
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
+// dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:af50a8a36a83a7d0310258155a5cebced9c6bccae2a55bedb9b3678ba62d0fbf
+// source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
@@ -446,6 +449,64 @@ export namespace HostOperationMessageV1Contract {
 }
 export type HostOperationMessageV1 =
   HostOperationMessageV1Contract.HostOperationMessageV1;
+export namespace AcceptanceCriteriaSnapshotV1Contract {
+  export type Id = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Coordinate = string;
+
+  export interface AcceptanceCriteriaSnapshotV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    runId: Id;
+    eventId: Id;
+    sourceRef: Reference;
+    sourceDigest: Sha256;
+    recordedAt: Timestamp;
+    previousSnapshotRef: Reference | null;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    declarations: [Declaration, ...Declaration[]];
+  }
+  export interface Declaration {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    workUnit: Coordinate;
+    task: Coordinate;
+    kind: "main" | "edge";
+    ordinal: number;
+    declarationDigest: Sha256;
+  }
+}
+export type AcceptanceCriteriaSnapshotV1 =
+  AcceptanceCriteriaSnapshotV1Contract.AcceptanceCriteriaSnapshotV1;
+export namespace AcceptanceVerdictV1Contract {
+  export type Id = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+
+  export interface AcceptanceVerdictV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    runId: Id;
+    eventId: Id;
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    outcome: "passed" | "failed" | "not-run";
+    criteriaSnapshotRef: Reference;
+    criteriaSnapshotDigest: Sha256;
+    evidenceId: Id;
+    evidenceRef: Reference;
+    evidenceDigest: Sha256;
+    recordedAt: Timestamp;
+  }
+}
+export type AcceptanceVerdictV1 =
+  AcceptanceVerdictV1Contract.AcceptanceVerdictV1;
 export namespace ApprovalV1Contract {
   export type Id = string;
   export type Sha256 = string;

@@ -1,4 +1,6 @@
 import type {
+  AcceptanceCriteriaSnapshotV1,
+  AcceptanceVerdictV1,
   AdapterMessageV1,
   AgentOutputV1,
   ApprovalV1,
@@ -26,6 +28,8 @@ export interface ContractValues {
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "state.approval": ApprovalV1;
+  readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
+  readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
   readonly "state.feature": FeatureStateV1;

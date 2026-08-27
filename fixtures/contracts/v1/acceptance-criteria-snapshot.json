@@ -1,0 +1,20 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "runId": "run-01",
+  "eventId": "event-plan",
+  "sourceRef": ".brain/02-features/refunds/02-tasks.md",
+  "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "recordedAt": "2026-08-27T12:00:00Z",
+  "previousSnapshotRef": null,
+  "declarations": [
+    {
+      "criterionId": "AC-1.2.3",
+      "workUnit": "1",
+      "task": "2",
+      "kind": "main",
+      "ordinal": 0,
+      "declarationDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}
