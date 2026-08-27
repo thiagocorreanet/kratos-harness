@@ -2,19 +2,21 @@
 
 ## Ordered work
 
-### 1. Publish the document contract
+### Work unit 1: Publish the document contract
 
-#### Files
+#### Task 1.1: Centralize feature document definitions
+
+##### Files
 
 - `packages/runtime/src/domain/feature-documents/`
 
-#### Acceptance criteria
+##### Acceptance criteria
 
-- [ ] All definitions and templates come from one module.
+- [ ] AC-1.1.1: All definitions and templates come from one module.
 
-#### Edge cases
+##### Edge cases
 
-- Ignore heading-shaped text inside fenced examples.
+- [ ] AC-1.1.E1: Ignore heading-shaped text inside fenced examples.
 
 ## Out of scope
 
