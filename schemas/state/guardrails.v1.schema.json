@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/guardrails/v1",
+  "title": "Kratos guardrails v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "policyMode", "snapshots", "managedPaths"],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "stateContract": { "const": "1.0.0" },
+    "policyMode": { "enum": ["standard", "strict"] },
+    "snapshots": { "type": "boolean" },
+    "managedPaths": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/path" }
+    },
+    "writeBlocks": { "$ref": "#/$defs/globs" }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?($|/))(?!.*//)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "glob": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?:!(?=.+$))?(?!.*\\\\)(?!.*(?:^|/)\\.\\.?($|/))(?!.*//)(?!.*\\/$)[^!/\\u0000-\\u001f\\u007f][^\\u0000-\\u001f\\u007f]*$"
+    },
+    "globs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/glob" }
+    }
+  }
+}

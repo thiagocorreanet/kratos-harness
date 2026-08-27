@@ -1,0 +1,8 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "policyMode": "standard",
+  "snapshots": true,
+  "managedPaths": [".brain"],
+  "writeBlocks": ["private/**"]
+}

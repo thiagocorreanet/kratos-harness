@@ -31,6 +31,10 @@ const catalogV15Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.5.json",
 );
+const catalogV16Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.6.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -66,12 +70,14 @@ let catalogV12: Catalog;
 let catalogV13: Catalog;
 let catalogV14: Catalog;
 let catalogV15: Catalog;
+let catalogV16: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
 let catalogV13Text: string;
 let catalogV14Text: string;
 let catalogV15Text: string;
+let catalogV16Text: string;
 
 beforeAll(async () => {
   [
@@ -81,6 +87,7 @@ beforeAll(async () => {
     catalogV13Text,
     catalogV14Text,
     catalogV15Text,
+    catalogV16Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -88,6 +95,7 @@ beforeAll(async () => {
     readFile(catalogV13Path, "utf8"),
     readFile(catalogV14Path, "utf8"),
     readFile(catalogV15Path, "utf8"),
+    readFile(catalogV16Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -95,6 +103,7 @@ beforeAll(async () => {
   catalogV13 = JSON.parse(catalogV13Text) as Catalog;
   catalogV14 = JSON.parse(catalogV14Text) as Catalog;
   catalogV15 = JSON.parse(catalogV15Text) as Catalog;
+  catalogV16 = JSON.parse(catalogV16Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -235,6 +244,27 @@ describe("contract reason catalog revision", () => {
       expect(
         catalogV15.reasons.find((reason) => reason.code === code),
       ).toMatchObject({
+        status: "blocked",
+        exitCode: 3,
+        evidence: "required",
+        stateChanged: false,
+        retryable: true,
+      });
+    }
+  });
+
+  it("preserves revision 1.5 and appends stable pre-write refusal reasons", () => {
+    const codes = ["guard.path_escape", "guard.target_uninspectable"];
+    expect(catalogV16.reasons.slice(0, catalogV15.reasons.length)).toEqual(
+      catalogV15.reasons,
+    );
+    expect(
+      catalogV16.reasons
+        .slice(catalogV15.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(codes);
+    for (const code of codes) {
+      expect(catalogV16.reasons.find((reason) => reason.code === code)).toMatchObject({
         status: "blocked",
         exitCode: 3,
         evidence: "required",

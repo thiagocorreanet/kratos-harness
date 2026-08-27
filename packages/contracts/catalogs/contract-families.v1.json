@@ -2,7 +2,7 @@
   "contractVersion": "1.0.0",
   "pluginVersion": "0.0.0-development",
   "resultContract": "1.0.0",
-  "reasonCatalog": "1.5.0",
+  "reasonCatalog": "1.6.0",
   "stateContract": {
     "current": "1.0.0",
     "readable": ["1.0.0"],
@@ -54,6 +54,14 @@
       "typeName": "HostOperationMessageV1"
     },
     {
+      "id": "host.pre-tool-use",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/pre-tool-use.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PreToolUseV1"
+    },
+    {
       "id": "state.acceptance-criteria-snapshot",
       "family": "state",
       "version": "1.0.0",
@@ -102,6 +110,14 @@
       "typeName": "FeatureStateV1"
     },
     {
+      "id": "state.feature-scope",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/feature-scope.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "FeatureScopeV1"
+    },
+    {
       "id": "state.gap",
       "family": "state",
       "version": "1.0.0",
@@ -116,6 +132,14 @@
       "path": "schemas/state/gates.v1.schema.json",
       "boundary": "persisted",
       "typeName": "GateFactsV1"
+    },
+    {
+      "id": "state.guardrails",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/guardrails.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "GuardrailsV1"
     },
     {
       "id": "state.lock",

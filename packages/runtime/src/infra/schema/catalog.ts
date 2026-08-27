@@ -4,6 +4,7 @@ import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schem
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
+import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
@@ -11,9 +12,11 @@ import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-ver
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
+import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
 import gapSchema from "../../../../../schemas/state/gap.v1.schema.json" with { type: "json" };
 import gatesSchema from "../../../../../schemas/state/gates.v1.schema.json" with { type: "json" };
+import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.json" with { type: "json" };
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
@@ -75,6 +78,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: operationMessageSchema,
     },
     {
+      id: "host.pre-tool-use",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/pre-tool-use.v1.schema.json",
+      schema: preToolUseSchema,
+    },
+    {
       id: "state.acceptance-criteria-snapshot",
       family: "state",
       version: "1.0.0",
@@ -117,6 +127,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: featureSchema,
     },
     {
+      id: "state.feature-scope",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/feature-scope.v1.schema.json",
+      schema: featureScopeSchema,
+    },
+    {
       id: "state.gap",
       family: "state",
       version: "1.0.0",
@@ -129,6 +146,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/gates.v1.schema.json",
       schema: gatesSchema,
+    },
+    {
+      id: "state.guardrails",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/guardrails.v1.schema.json",
+      schema: guardrailsSchema,
     },
     {
       id: "state.lock",
@@ -193,6 +217,7 @@ const EXPECTED_SCHEMA_IDS = {
   "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
   "host.operation-message":
     "https://kratos.dev/schemas/host/operation-message/v1",
+  "host.pre-tool-use": "https://kratos.dev/schemas/host/pre-tool-use/v1",
   "state.approval": "https://kratos.dev/schemas/state/approval/v1",
   "state.acceptance-criteria-snapshot":
     "https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1",
@@ -201,8 +226,11 @@ const EXPECTED_SCHEMA_IDS = {
   "state.event": "https://kratos.dev/schemas/state/event/v1",
   "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
   "state.feature": "https://kratos.dev/schemas/state/feature/v1",
+  "state.feature-scope":
+    "https://kratos.dev/schemas/state/feature-scope/v1",
   "state.gap": "https://kratos.dev/schemas/state/gap/v1",
   "state.gates": "https://kratos.dev/schemas/state/gates/v1",
+  "state.guardrails": "https://kratos.dev/schemas/state/guardrails/v1",
   "state.lock": "https://kratos.dev/schemas/state/lock/v1",
   "state.migration": "https://kratos.dev/schemas/state/migration/v1",
   "state.project-config": "https://kratos.dev/schemas/state/project-config/v1",

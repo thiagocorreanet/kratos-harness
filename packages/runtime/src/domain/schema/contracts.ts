@@ -9,12 +9,15 @@ import type {
   EventV1,
   EvidenceV1,
   FeatureStateV1,
+  FeatureScopeV1,
   GapProposalV1,
   GapRecordV1,
   GateFactsV1,
+  GuardrailsV1,
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
+  PreToolUseV1,
   RequirementDiscoveryV1,
   SnapshotV1,
   TransactionManifestV1,
@@ -27,14 +30,17 @@ export interface ContractValues {
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
+  readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
   readonly "state.feature": FeatureStateV1;
+  readonly "state.feature-scope": FeatureScopeV1;
   readonly "state.gap": GapRecordV1;
   readonly "state.gates": GateFactsV1;
+  readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1;
   readonly "state.project-config": ProjectConfigV1;
@@ -48,6 +54,10 @@ export type ContractId = keyof ContractValues;
 export type ContractValue<I extends ContractId> = ContractValues[I];
 export type StructuralReasonCode =
   | "guard.config_corrupt"
+  | "guard.guardrails_corrupt"
+  | "guard.path_escape"
+  | "guard.scope_corrupt"
+  | "guard.target_uninspectable"
   | "runtime.state_corrupt"
   | "trail.uso"
   | "trail.output_invalido";
