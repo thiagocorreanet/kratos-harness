@@ -524,7 +524,7 @@
             "required": ["criterionId", "outcome", "evidenceRef"],
             "properties": {
               "criterionId": {
-                "$ref": "#/$defs/id"
+                "$ref": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1"
               },
               "outcome": {
                 "enum": ["passed", "failed", "not-run"]

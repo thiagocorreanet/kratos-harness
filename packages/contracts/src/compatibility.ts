@@ -1,5 +1,5 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.4.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.5.json" with { type: "json" };
 
 /**
  * The contract identities this bundle carries. Consumers report these rather

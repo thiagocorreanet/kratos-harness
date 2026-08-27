@@ -123,6 +123,46 @@ describe("deterministic gates", () => {
     expect(warn.failures).toEqual(enforce.failures);
     expect(shadow.failures).toEqual(enforce.failures);
   });
+
+  it("reports partial acceptance in task-document order", () => {
+    const decision = evaluateGates({
+      ...context,
+      approvals: [],
+      openGaps: 0,
+      partitionRequired: false,
+      finalAcceptance: true,
+      acceptanceCriteria: [
+        {
+          criterionId: "AC-1.2.1",
+          state: "passed",
+          checked: true,
+          evidenceValid: true,
+        },
+        {
+          criterionId: "AC-1.2.E1",
+          state: "failed",
+          checked: false,
+          evidenceValid: true,
+        },
+      ],
+    });
+    expect(
+      decision.criteria.map(({ criterionId, state }) => ({
+        criterionId,
+        state,
+      })),
+    ).toEqual([
+      { criterionId: "AC-1.2.1", state: "passed" },
+      { criterionId: "AC-1.2.E1", state: "failed" },
+    ]);
+    expect(decision.failures).toContainEqual(
+      expect.objectContaining({
+        gateId: "acceptance-criteria",
+        reasonCode: "gate.ac_incomplete",
+        detail: "Acceptance criterion AC-1.2.E1 is incomplete.",
+      }),
+    );
+  });
 });
 
 describe("evidence and handoff", () => {

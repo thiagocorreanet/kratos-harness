@@ -430,10 +430,27 @@ describe("agreements the schema cannot state", () => {
     ).toBe("verdict-contradicts-criteria");
   });
 
+  it("refuses duplicate acceptance identifiers even when outcomes differ", () => {
+    const acceptance = structuredClone(valid.acceptance) as AgentOutputV1;
+    if (acceptance.agent !== "acceptance")
+      throw new Error("the acceptance fixture changed");
+    const criterion = acceptance.payload.criteria[0];
+    expect(
+      checkAgentOutput({
+        ...acceptance,
+        payload: {
+          verdict: "rejected",
+          criteria: [criterion, { ...criterion, outcome: "failed" }],
+        },
+      }),
+    ).toBe("duplicate-criterion-id");
+  });
+
   it("describes every refusal in one sentence", () => {
     const reasons: readonly AgentOutputRefusal[] = [
       "artifact-also-changed",
       "duplicate-changed-file",
+      "duplicate-criterion-id",
       "duplicate-option-id",
       "duplicate-question-id",
       "duplicate-step-id",

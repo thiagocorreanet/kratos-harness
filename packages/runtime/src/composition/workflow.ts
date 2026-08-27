@@ -1,5 +1,7 @@
 import type {
   AgentOutputV1,
+  AcceptanceCriteriaSnapshotV1,
+  AcceptanceVerdictV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
@@ -46,6 +48,11 @@ import {
   inspectPrdDocument,
   type PrdDocumentObservation,
 } from "../domain/feature-documents/index.js";
+import { inspectTaskDocument } from "../domain/acceptance-criteria/index.js";
+import {
+  buildCriteriaSnapshot,
+  compareCriteriaSnapshot,
+} from "../domain/acceptance-criteria/index.js";
 import {
   auditSnapshot,
   buildEvidenceBundle,
@@ -157,6 +164,7 @@ export async function observeWorkflow(
   const host = invocation.flags.get("--host");
   const model = invocation.flags.get("--model");
   const occurredAt = anchored.clock.now().toISOString();
+  const eventId = anchored.ids.next();
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
   const evidence = await observeEvidence(configuration, anchored, registry);
@@ -166,6 +174,14 @@ export async function observeWorkflow(
   const agentOutput = await observeAgentReply(invocation, anchored, registry);
   const agentOutputs = await observeAgentOutputs(
     configuration,
+    anchored,
+    registry,
+  );
+  const acceptanceCriteria = await observeAcceptanceCriteria(
+    configuration,
+    run.events,
+    eventId,
+    occurredAt,
     anchored,
     registry,
   );
@@ -227,6 +243,35 @@ export async function observeWorkflow(
     run.workflow.kind === "present"
       ? (run.workflow.state.currentStep ?? "acceptance")
       : "prd";
+  const verdictByCriterion = new Map(
+    acceptanceCriteria.verdicts.map((verdict) => [
+      verdict.criterionId,
+      verdict,
+    ]),
+  );
+  const acceptanceCriterionStates = acceptanceCriteria.currentDeclarations.map(
+    (declaration) => {
+      const verdict = verdictByCriterion.get(declaration.criterionId);
+      const evidenceRecord =
+        verdict === undefined
+          ? undefined
+          : evidence.values.find(
+              ({ evidenceId }) => evidenceId === verdict.evidenceId,
+            );
+      return {
+        criterionId: declaration.criterionId,
+        state: verdict?.outcome ?? "unreported",
+        checked: declaration.checked,
+        evidenceValid:
+          acceptanceCriteria.snapshotRef === verdict?.criteriaSnapshotRef &&
+          acceptanceCriteria.snapshotDigest ===
+            verdict.criteriaSnapshotDigest &&
+          evidenceRecord?.ref === verdict.evidenceRef &&
+          evidenceRecord.sha256 === verdict.evidenceDigest &&
+          !evidence.invalidIds.includes(verdict.evidenceId),
+      } as const;
+    },
+  );
   const gateDecision = evaluateGates({
     mode: policy.mode,
     phase,
@@ -238,6 +283,7 @@ export async function observeWorkflow(
       gaps.readable &&
       artifactLineage.readable &&
       observedPrd.readable &&
+      acceptanceCriteria.readable &&
       run.workflow.kind !== "corrupt",
     stopLoss: gateFacts.stopLoss,
     prdDigest:
@@ -256,6 +302,7 @@ export async function observeWorkflow(
     finalAcceptance: validApprovals.some(
       ({ gate }) => gate === "final-acceptance",
     ),
+    acceptanceCriteria: acceptanceCriterionStates,
   });
   const integrityAudit =
     run.workflow.kind === "corrupt"
@@ -310,7 +357,7 @@ export async function observeWorkflow(
       observedLineage,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
-      eventId: anchored.ids.next(),
+      eventId,
       occurredAt,
       objectiveActive,
       objectiveDigest,
@@ -335,6 +382,7 @@ export async function observeWorkflow(
       agentOutput,
       agentOutputs: agentOutputs.values,
       agentOutputsReadable: agentOutputs.readable,
+      acceptanceCriteria,
       gateFacts,
       openGaps,
       specApproved,
@@ -690,6 +738,238 @@ async function observeAgentOutputs(
   } catch {
     return { readable: false, values: [] };
   }
+}
+
+async function observeAcceptanceCriteria(
+  configuration: RunReference,
+  events: readonly EventV1[],
+  eventId: string,
+  occurredAt: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  Extract<
+    CommandObservation,
+    { readonly kind: "workflow" }
+  >["acceptanceCriteria"]
+> {
+  const documentRef = `.brain/02-features/${configuration.feature}/02-tasks.md`;
+  let documentContent: string | null = null;
+  let documentDigest: string | null = null;
+  let readable = true;
+  const entry = await ports.durableFileSystem.inspect(documentRef);
+  if (entry.kind === "file") {
+    try {
+      documentContent = await ports.durableFileSystem.readText(documentRef);
+      documentDigest = entry.sha256;
+    } catch {
+      readable = false;
+    }
+  } else if (entry.kind !== "missing") {
+    readable = false;
+  }
+  const document = inspectTaskDocument(documentContent);
+  const currentDeclarations =
+    document.kind === "valid"
+      ? document.declarations.map((declaration) => ({
+          criterionId: declaration.criterionId,
+          workUnit: declaration.workUnit,
+          task: declaration.task,
+          kind: declaration.criterionKind,
+          ordinal: declaration.ordinal,
+          declarationDigest: ports.digests.sha256(
+            declaration.normalizedDeclaration,
+          ),
+          checked: declaration.checked,
+        }))
+      : [];
+
+  let snapshot: AcceptanceCriteriaSnapshotV1 | null = null;
+  let snapshotRef: string | null = null;
+  let snapshotDigest: string | null = null;
+  const verdicts: AcceptanceVerdictV1[] = [];
+  for (const event of events) {
+    for (const ref of event.artifactRefs) {
+      const snapshotMatch =
+        /\/acceptance-criteria\/([^/]+)\/snapshot\.json$/u.exec(ref);
+      const verdictMatch =
+        /\/acceptance-criteria\/([^/]+)\/verdicts\/(AC-\d+\.\d+\.E?\d+)\.json$/u.exec(
+          ref,
+        );
+      if (snapshotMatch === null && verdictMatch === null) continue;
+      try {
+        const artifact = await ports.durableFileSystem.inspect(ref);
+        if (artifact.kind !== "file") {
+          readable = false;
+          continue;
+        }
+        const parsed = JSON.parse(
+          await ports.durableFileSystem.readText(ref),
+        ) as unknown;
+        if (snapshotMatch !== null) {
+          const validated = registry.validate({
+            id: "state.acceptance-criteria-snapshot",
+            version: "1.0.0",
+            value: parsed,
+            structuralReasonCode: "runtime.state_corrupt",
+          });
+          if (
+            validated.kind !== "valid" ||
+            validated.value.runId !== configuration.runId ||
+            validated.value.eventId !== event.eventId ||
+            snapshotMatch[1] !== event.eventId
+          ) {
+            readable = false;
+            continue;
+          }
+          snapshot = validated.value;
+          snapshotRef = ref;
+          snapshotDigest = artifact.sha256;
+        } else if (verdictMatch !== null) {
+          const validated = registry.validate({
+            id: "state.acceptance-verdict",
+            version: "1.0.0",
+            value: parsed,
+            structuralReasonCode: "runtime.state_corrupt",
+          });
+          if (
+            validated.kind !== "valid" ||
+            validated.value.runId !== configuration.runId ||
+            validated.value.eventId !== event.eventId ||
+            verdictMatch[1] !== event.eventId ||
+            verdictMatch[2] !== validated.value.criterionId
+          ) {
+            readable = false;
+            continue;
+          }
+          verdicts.push(validated.value);
+        }
+      } catch {
+        readable = false;
+      }
+    }
+  }
+  let appendSnapshot: AcceptanceCriteriaSnapshotV1 | null = null;
+  let appendSnapshotRef: string | null = null;
+  let appendSnapshotDigest: string | null = null;
+  if (snapshot !== null && snapshotRef !== null && documentDigest !== null) {
+    const latestOutcomes = new Map(
+      verdicts.map(({ criterionId, outcome }) => [criterionId, outcome]),
+    );
+    const change = compareCriteriaSnapshot({
+      phase: "acceptance",
+      frozen: snapshot.declarations,
+      current: currentDeclarations,
+      latestOutcomes,
+    });
+    if (change.kind === "append") {
+      const declarations = frozenDeclarationTuple(currentDeclarations);
+      if (declarations !== null) {
+        appendSnapshotRef = `${runRoot(configuration)}/acceptance-criteria/${eventId}/snapshot.json`;
+        appendSnapshot = buildCriteriaSnapshot({
+          runId: configuration.runId,
+          eventId,
+          sourceRef: documentRef,
+          sourceDigest: documentDigest,
+          recordedAt: occurredAt,
+          previousSnapshotRef: snapshotRef,
+          declarations,
+        });
+        appendSnapshotDigest = ports.digests.sha256(
+          `${JSON.stringify(appendSnapshot, null, 2)}\n`,
+        );
+      }
+    }
+  }
+  const planEvent = [...events]
+    .reverse()
+    .find((event) => event.artifactRefs.includes(documentRef));
+  const baselineRequired = planEvent !== undefined;
+  let bootstrapSnapshot: AcceptanceCriteriaSnapshotV1 | null = null;
+  let bootstrapSnapshotRef: string | null = null;
+  let bootstrapSnapshotDigest: string | null = null;
+  if (
+    snapshot === null &&
+    planEvent !== undefined &&
+    documentDigest !== null &&
+    currentDeclarations.length > 0 &&
+    currentDeclarations.every(({ checked }) => !checked)
+  ) {
+    try {
+      const lineageRef = `${runRoot(configuration)}/lineage/${planEvent.eventId}.json`;
+      const lineageEntry = await ports.durableFileSystem.inspect(lineageRef);
+      if (lineageEntry.kind === "file") {
+        const lineage = JSON.parse(
+          await ports.durableFileSystem.readText(lineageRef),
+        ) as {
+          readonly artifactRef?: unknown;
+          readonly artifactDigest?: unknown;
+        };
+        if (
+          lineage.artifactRef === documentRef &&
+          lineage.artifactDigest === documentDigest
+        ) {
+          const declarations = frozenDeclarationTuple(currentDeclarations);
+          if (declarations !== null) {
+            bootstrapSnapshotRef = `${runRoot(configuration)}/acceptance-criteria/${eventId}/snapshot.json`;
+            bootstrapSnapshot = buildCriteriaSnapshot({
+              runId: configuration.runId,
+              eventId,
+              sourceRef: documentRef,
+              sourceDigest: documentDigest,
+              recordedAt: occurredAt,
+              previousSnapshotRef: null,
+              declarations,
+            });
+            bootstrapSnapshotDigest = ports.digests.sha256(
+              `${JSON.stringify(bootstrapSnapshot, null, 2)}\n`,
+            );
+          }
+        }
+      }
+    } catch {
+      readable = false;
+    }
+  }
+  return {
+    readable,
+    documentRef,
+    documentContent,
+    documentDigest,
+    document,
+    currentDeclarations,
+    snapshot,
+    snapshotRef,
+    snapshotDigest,
+    verdicts,
+    appendSnapshot,
+    appendSnapshotRef,
+    appendSnapshotDigest,
+    bootstrapSnapshot,
+    bootstrapSnapshotRef,
+    bootstrapSnapshotDigest,
+    baselineRequired,
+  };
+}
+
+function frozenDeclarationTuple(
+  declarations: Extract<
+    CommandObservation,
+    { readonly kind: "workflow" }
+  >["acceptanceCriteria"]["currentDeclarations"],
+): AcceptanceCriteriaSnapshotV1["declarations"] | null {
+  const frozen = declarations.map(
+    ({ criterionId, workUnit, task, kind, ordinal, declarationDigest }) => ({
+      criterionId,
+      workUnit,
+      task,
+      kind,
+      ordinal,
+      declarationDigest,
+    }),
+  );
+  const [first, ...rest] = frozen;
+  return first === undefined ? null : [first, ...rest];
 }
 
 async function observePolicy(

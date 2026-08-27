@@ -5,7 +5,8 @@ import type {
 } from "@kratos/contracts";
 import type { AcceptanceCriterionOutcome } from "./model.js";
 
-export type AcceptancePhase = "objective" | "spec" | "plan" | "code" | "review" | "acceptance";
+export type AcceptancePhase =
+  "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
 
 export interface FrozenCriterion {
   readonly criterionId: string;
@@ -28,7 +29,7 @@ export type CriteriaChangeDecision =
       readonly reasonCode:
         | "gate.ac_declaration_changed"
         | "gate.ac_append_forbidden"
-        | "gate.ac_checkbox_unauthorized";
+        | "gate.ac_checkbox_forbidden";
       readonly criterionId: string;
     };
 
@@ -40,8 +41,9 @@ export function compareCriteriaSnapshot(request: {
 }): CriteriaChangeDecision {
   const sharedLength = Math.min(request.frozen.length, request.current.length);
   for (let index = 0; index < sharedLength; index += 1) {
-    const frozen = request.frozen[index]!;
-    const current = request.current[index]!;
+    const frozen = request.frozen.at(index);
+    const current = request.current.at(index);
+    if (frozen === undefined || current === undefined) continue;
     if (!sameDeclaration(frozen, current)) {
       return {
         kind: "refused",
@@ -51,43 +53,57 @@ export function compareCriteriaSnapshot(request: {
     }
   }
   if (request.current.length < request.frozen.length) {
+    const removed = request.frozen.at(request.current.length);
+    if (removed === undefined) return { kind: "unchanged" };
     return {
       kind: "refused",
       reasonCode: "gate.ac_declaration_changed",
-      criterionId: request.frozen[request.current.length]!.criterionId,
+      criterionId: removed.criterionId,
     };
   }
 
   for (const criterion of request.current) {
-    const expected = request.latestOutcomes?.get(criterion.criterionId) === "passed";
+    const expected =
+      request.latestOutcomes?.get(criterion.criterionId) === "passed";
     if (criterion.checked !== expected) {
       return {
         kind: "refused",
-        reasonCode: "gate.ac_checkbox_unauthorized",
+        reasonCode: "gate.ac_checkbox_forbidden",
         criterionId: criterion.criterionId,
       };
     }
   }
 
-  if (request.current.length === request.frozen.length) return { kind: "unchanged" };
+  if (request.current.length === request.frozen.length)
+    return { kind: "unchanged" };
   const appended = request.current.slice(request.frozen.length);
+  const firstAppended = appended.at(0);
+  if (firstAppended === undefined) return { kind: "unchanged" };
   if (request.phase !== "acceptance") {
     return {
       kind: "refused",
       reasonCode: "gate.ac_append_forbidden",
-      criterionId: appended[0]!.criterionId,
+      criterionId: firstAppended.criterionId,
     };
   }
-  return { kind: "append", appendedIds: appended.map(({ criterionId }) => criterionId) };
+  return {
+    kind: "append",
+    appendedIds: appended.map(({ criterionId }) => criterionId),
+  };
 }
 
-function sameDeclaration(left: FrozenCriterion, right: FrozenCriterion): boolean {
-  return left.criterionId === right.criterionId &&
+function sameDeclaration(
+  left: FrozenCriterion,
+  right: FrozenCriterion,
+): boolean {
+  return (
+    left.criterionId === right.criterionId &&
     left.workUnit === right.workUnit &&
     left.task === right.task &&
     left.kind === right.kind &&
     left.ordinal === right.ordinal &&
-    left.declarationDigest === right.declarationDigest;
+    left.declarationDigest === right.declarationDigest
+  );
 }
 
 export interface ReportedCriterion {
@@ -110,13 +126,16 @@ export type AcceptanceVerdictDecision =
       readonly reasonCode:
         | "gate.ac_verdict_mismatch"
         | "gate.ac_evidence_missing"
-        | "gate.ac_global_verdict_mismatch";
+        | "gate.ac_evidence_invalid";
       readonly criterionId: string;
     }
   | {
       readonly kind: "accepted";
       readonly criteria: readonly BoundCriterionVerdict[];
-      readonly checkboxOutcomes: ReadonlyMap<string, AcceptanceCriterionOutcome>;
+      readonly checkboxOutcomes: ReadonlyMap<
+        string,
+        AcceptanceCriterionOutcome
+      >;
     };
 
 export function decideAcceptanceVerdict(request: {
@@ -126,25 +145,48 @@ export function decideAcceptanceVerdict(request: {
   readonly evidence: readonly EvidenceV1[];
   readonly invalidEvidenceIds?: readonly string[];
 }): AcceptanceVerdictDecision {
-  const declared = new Set(request.declarations.map(({ criterionId }) => criterionId));
+  const declared = new Set(
+    request.declarations.map(({ criterionId }) => criterionId),
+  );
   const reports = new Map<string, ReportedCriterion>();
   for (const report of request.criteria) {
     if (!declared.has(report.criterionId) || reports.has(report.criterionId)) {
-      return { kind: "refused", reasonCode: "gate.ac_verdict_mismatch", criterionId: report.criterionId };
+      return {
+        kind: "refused",
+        reasonCode: "gate.ac_verdict_mismatch",
+        criterionId: report.criterionId,
+      };
     }
     reports.set(report.criterionId, report);
   }
-  const evidenceById = new Map(request.evidence.map((item) => [item.evidenceId, item]));
+  const evidenceByRef = new Map(
+    request.evidence.map((item) => [item.ref, item]),
+  );
   const invalid = new Set(request.invalidEvidenceIds ?? []);
   const bound: BoundCriterionVerdict[] = [];
   for (const declaration of request.declarations) {
     const report = reports.get(declaration.criterionId);
     if (report === undefined) {
-      return { kind: "refused", reasonCode: "gate.ac_verdict_mismatch", criterionId: declaration.criterionId };
+      return {
+        kind: "refused",
+        reasonCode: "gate.ac_verdict_mismatch",
+        criterionId: declaration.criterionId,
+      };
     }
-    const evidence = evidenceById.get(report.evidenceRef);
-    if (evidence === undefined || invalid.has(evidence.evidenceId)) {
-      return { kind: "refused", reasonCode: "gate.ac_evidence_missing", criterionId: declaration.criterionId };
+    const evidence = evidenceByRef.get(report.evidenceRef);
+    if (evidence === undefined) {
+      return {
+        kind: "refused",
+        reasonCode: "gate.ac_evidence_missing",
+        criterionId: declaration.criterionId,
+      };
+    }
+    if (invalid.has(evidence.evidenceId)) {
+      return {
+        kind: "refused",
+        reasonCode: "gate.ac_evidence_invalid",
+        criterionId: declaration.criterionId,
+      };
     }
     bound.push({
       criterionId: declaration.criterionId,
@@ -158,21 +200,33 @@ export function decideAcceptanceVerdict(request: {
   if ((request.globalVerdict === "accepted") !== allPassed) {
     return {
       kind: "refused",
-      reasonCode: "gate.ac_global_verdict_mismatch",
-      criterionId: bound.find(({ outcome }) => outcome !== "passed")?.criterionId ?? bound[0]!.criterionId,
+      reasonCode: "gate.ac_verdict_mismatch",
+      criterionId:
+        bound.find(({ outcome }) => outcome !== "passed")?.criterionId ??
+        bound.at(0)?.criterionId ??
+        "AC-0.0.0",
     };
   }
   return {
     kind: "accepted",
     criteria: bound,
-    checkboxOutcomes: new Map(bound.map(({ criterionId, outcome }) => [criterionId, outcome])),
+    checkboxOutcomes: new Map(
+      bound.map(({ criterionId, outcome }) => [criterionId, outcome]),
+    ),
   };
 }
 
-export function buildCriteriaSnapshot(input: Omit<AcceptanceCriteriaSnapshotV1, "contractVersion" | "stateContract">): AcceptanceCriteriaSnapshotV1 {
+export function buildCriteriaSnapshot(
+  input: Omit<
+    AcceptanceCriteriaSnapshotV1,
+    "contractVersion" | "stateContract"
+  >,
+): AcceptanceCriteriaSnapshotV1 {
   return { contractVersion: "1.0.0", stateContract: "1.0.0", ...input };
 }
 
-export function buildAcceptanceVerdict(input: Omit<AcceptanceVerdictV1, "contractVersion" | "stateContract">): AcceptanceVerdictV1 {
+export function buildAcceptanceVerdict(
+  input: Omit<AcceptanceVerdictV1, "contractVersion" | "stateContract">,
+): AcceptanceVerdictV1 {
   return { contractVersion: "1.0.0", stateContract: "1.0.0", ...input };
 }

@@ -8,10 +8,9 @@ import { describe, expect, it } from "vitest";
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 async function json(path: string): Promise<Record<string, unknown>> {
-  return JSON.parse(await readFile(join(repositoryRoot, path), "utf8")) as Record<
-    string,
-    unknown
-  >;
+  return JSON.parse(
+    await readFile(join(repositoryRoot, path), "utf8"),
+  ) as Record<string, unknown>;
 }
 
 const snapshot = {
@@ -46,8 +45,7 @@ const verdict = {
     ".brain/02-features/refunds/runs/run-01/acceptance/criteria/event-plan.json",
   criteriaSnapshotDigest: "c".repeat(64),
   evidenceId: "evidence-edge-3",
-  evidenceRef:
-    ".brain/02-features/refunds/runs/run-01/evidence/edge-3.json",
+  evidenceRef: ".brain/02-features/refunds/runs/run-01/evidence/edge-3.json",
   evidenceDigest: "d".repeat(64),
   recordedAt: "2026-08-27T12:05:00Z",
 } as const;
@@ -64,9 +62,10 @@ describe("acceptance criterion contracts", () => {
     );
     expect(contracts.ACCEPTANCE_CRITERION_ID_MAX_LENGTH).toBe(128);
 
-    const matches = contracts.isAcceptanceCriterionId;
+    const matches = contracts.isAcceptanceCriterionId as
+      ((value: unknown) => boolean) | undefined;
     expect(typeof matches).toBe("function");
-    if (typeof matches !== "function") return;
+    if (matches === undefined) return;
     expect(matches("AC-1.2.3")).toBe(true);
     expect(matches("AC-01.002.E0003")).toBe(true);
     expect(matches("AC-1.2.EE3")).toBe(false);

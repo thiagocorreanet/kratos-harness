@@ -69,10 +69,7 @@ beforeAll(async () => {
   [resultSchema, acceptanceCriterionIdSchema] = await Promise.all([
     readJson(join(schemaRoot, "result.v1.schema.json")),
     readJson(
-      join(
-        schemaRoot,
-        "contracts/acceptance-criterion-id.v1.schema.json",
-      ),
+      join(schemaRoot, "contracts/acceptance-criterion-id.v1.schema.json"),
     ),
   ]);
   loaded = await Promise.all(

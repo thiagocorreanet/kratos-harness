@@ -132,7 +132,7 @@ async function buildRuntime(runtimeDirectory) {
       readFile(
         join(
           repositoryRoot,
-          "packages/contracts/catalogs/reason-codes.v1.4.json",
+          "packages/contracts/catalogs/reason-codes.v1.5.json",
         ),
         "utf8",
       ),

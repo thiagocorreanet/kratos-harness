@@ -14,6 +14,7 @@ export type AgentOutputRefusal =
   | "duplicate-option-id"
   | "duplicate-question-id"
   | "duplicate-step-id"
+  | "duplicate-criterion-id"
   | "unknown-step-dependency"
   | "verdict-contradicts-criteria"
   | "verdict-contradicts-findings";
@@ -31,6 +32,8 @@ export function describeAgentOutputRefusal(reason: AgentOutputRefusal): string {
       return "A blocking question identifier is used more than once.";
     case "duplicate-step-id":
       return "A plan step identifier is used more than once.";
+    case "duplicate-criterion-id":
+      return "An acceptance criterion identifier is reported more than once.";
     case "unknown-step-dependency":
       return "A plan step depends on a step the plan does not contain.";
     case "verdict-contradicts-criteria":
@@ -95,6 +98,13 @@ function checkPayload(output: AgentOutputV1): AgentOutputRefusal | null {
     output.payload.findings.some(({ severity }) => severity === "high")
   ) {
     return "verdict-contradicts-findings";
+  }
+  if (
+    output.agent === "acceptance" &&
+    new Set(output.payload.criteria.map(({ criterionId }) => criterionId))
+      .size !== output.payload.criteria.length
+  ) {
+    return "duplicate-criterion-id";
   }
   if (
     output.agent === "acceptance" &&

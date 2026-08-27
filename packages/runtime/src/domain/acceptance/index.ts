@@ -107,7 +107,15 @@ export function decideDone(candidate: DoneCandidate): DoneDecision {
   const evidenceRefs = candidate.evidence
     .map(({ ref }) => ref)
     .sort((left, right) => left.localeCompare(right, "en-US"));
-  if (!candidate.allStepsComplete || candidate.invalidEvidenceIds.length > 0) {
+  if (
+    !candidate.allStepsComplete ||
+    candidate.invalidEvidenceIds.length > 0 ||
+    candidate.gates.criteria.length === 0 ||
+    candidate.gates.criteria.some(
+      ({ state, checked, evidenceValid }) =>
+        state !== "passed" || !checked || !evidenceValid,
+    )
+  ) {
     return {
       kind: "refused",
       reasonCode: "trail.aceite_incompleto",

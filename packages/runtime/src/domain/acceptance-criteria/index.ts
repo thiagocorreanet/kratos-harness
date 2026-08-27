@@ -1,7 +1,4 @@
-export {
-  inspectTaskDocument,
-  renderCriterionCheckboxes,
-} from "./parser.js";
+export { inspectTaskDocument, renderCriterionCheckboxes } from "./parser.js";
 export {
   buildAcceptanceVerdict,
   buildCriteriaSnapshot,

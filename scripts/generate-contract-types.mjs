@@ -181,8 +181,8 @@ export async function generateContractTypes({
 } = {}) {
   const [manifest, resultSchemaText, acceptanceCriterionIdSchemaText] =
     await Promise.all([
-    readJson(manifestPath),
-    readFile(resultSchemaPath, "utf8"),
+      readJson(manifestPath),
+      readFile(resultSchemaPath, "utf8"),
       readFile(acceptanceCriterionIdSchemaPath, "utf8"),
     ]);
   const headers = [];

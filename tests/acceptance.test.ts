@@ -43,6 +43,14 @@ describe("done acceptance", () => {
       primary: null,
       failures: [],
       mode: "enforce" as const,
+      criteria: [
+        {
+          criterionId: "AC-1.1.1",
+          state: "passed" as const,
+          checked: true,
+          evidenceValid: true,
+        },
+      ],
     },
     approval,
     evidence: [evidence],

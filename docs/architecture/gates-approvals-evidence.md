@@ -24,6 +24,34 @@ a Markdown example from satisfying a document requirement accidentally. The
 required names and the untouched bytes come from `FEATURE_DOCUMENTS`, the same
 definition initialization renders.
 
+## Identified acceptance criteria
+
+The first coordinate is named a **work unit**, matching the hierarchy in
+`02-tasks.md`. The canonical grammar and validation expression are published
+once in `schemas/contracts/acceptance-criterion-id.v1.schema.json`:
+
+```text
+AC-<work-unit>.<task>.<criterion>   main-path criterion
+AC-<work-unit>.<task>.E<criterion> edge case
+^AC-\d+\.\d+\.E?\d+$
+```
+
+Identifiers are at most 128 characters. The task document is the only
+declaration surface and its Markdown checkbox is the only current-state
+surface. Completing `plan` freezes ordered declaration digests in an immutable
+`state.acceptance-criteria-snapshot@1.0.0` artifact referenced by the same
+transition event. Existing entries may never be removed, reordered,
+renumbered, reused, or edited. Acceptance alone may append an unchecked tail;
+the appended snapshot points to its predecessor.
+
+An acceptance agent reports every declared identifier exactly once and cites
+digest-valid evidence. The runtime writes one immutable
+`state.acceptance-verdict@1.0.0` artifact per identifier, carries those paths in
+the unchanged `EventV1.artifactRefs`, and reconciles checkbox bytes. Code and
+review can report evidence but cannot change checkbox state. The gate returns
+the ordered `criteria` states and blocks on the first identifier that is not
+passed, checked, and evidence-valid, so partial acceptance remains explicit.
+
 ## Gap facts
 
 `gates.json` under the run directory carries the facts the gates read:
@@ -81,6 +109,7 @@ manifest, so input order cannot change the package.
 and objective digest, run state, current phase, gate outcome, blockers, and next
 host action without copying user-authored objective text into a public stream.
 
-Final acceptance requires complete steps, no gate failures, a valid
+Final acceptance requires every identified criterion to pass, complete steps,
+no gate failures, a valid
 `final-acceptance` approval, verified evidence, and artifact lineage bound to
 the same run and policy.

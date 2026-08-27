@@ -17,7 +17,7 @@ The universal runtime-result family contains:
   which adds `runtime.node_unsupported`;
 - [`reason-codes.v1.3.json`](../packages/contracts/catalogs/reason-codes.v1.3.json),
   which adds `runtime.orientation_ok`;
-- [`reason-codes.v1.4.json`](../packages/contracts/catalogs/reason-codes.v1.4.json),
+- [`reason-codes.v1.5.json`](../packages/contracts/catalogs/reason-codes.v1.5.json),
   the current revision, which adds checkable PRD structure failures.
 
 The state family contains:

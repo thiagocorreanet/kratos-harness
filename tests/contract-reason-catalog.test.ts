@@ -27,6 +27,10 @@ const catalogV14Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.4.json",
 );
+const catalogV15Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.5.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -61,11 +65,13 @@ let catalogV11: Catalog;
 let catalogV12: Catalog;
 let catalogV13: Catalog;
 let catalogV14: Catalog;
+let catalogV15: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
 let catalogV13Text: string;
 let catalogV14Text: string;
+let catalogV15Text: string;
 
 beforeAll(async () => {
   [
@@ -74,18 +80,21 @@ beforeAll(async () => {
     catalogV12Text,
     catalogV13Text,
     catalogV14Text,
+    catalogV15Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
     readFile(catalogV12Path, "utf8"),
     readFile(catalogV13Path, "utf8"),
     readFile(catalogV14Path, "utf8"),
+    readFile(catalogV15Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
   catalogV12 = JSON.parse(catalogV12Text) as Catalog;
   catalogV13 = JSON.parse(catalogV13Text) as Catalog;
   catalogV14 = JSON.parse(catalogV14Text) as Catalog;
+  catalogV15 = JSON.parse(catalogV15Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -190,6 +199,41 @@ describe("contract reason catalog revision", () => {
       expect(
         catalogV14.reasons.find((reason) => reason.code === code),
         code,
+      ).toMatchObject({
+        status: "blocked",
+        exitCode: 3,
+        evidence: "required",
+        stateChanged: false,
+        retryable: true,
+      });
+    }
+  });
+
+  it("preserves revision 1.4 and appends stable acceptance criterion reasons", () => {
+    const codes = [
+      "gate.ac_document_missing",
+      "gate.ac_identifier_malformed",
+      "gate.ac_identifier_duplicate",
+      "gate.ac_baseline_unverifiable",
+      "gate.ac_declaration_changed",
+      "gate.ac_append_forbidden",
+      "gate.ac_checkbox_forbidden",
+      "gate.ac_verdict_mismatch",
+      "gate.ac_evidence_missing",
+      "gate.ac_evidence_invalid",
+      "gate.ac_incomplete",
+    ];
+    expect(catalogV15.reasons.slice(0, catalogV14.reasons.length)).toEqual(
+      catalogV14.reasons,
+    );
+    expect(
+      catalogV15.reasons
+        .slice(catalogV14.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(codes);
+    for (const code of codes) {
+      expect(
+        catalogV15.reasons.find((reason) => reason.code === code),
       ).toMatchObject({
         status: "blocked",
         exitCode: 3,

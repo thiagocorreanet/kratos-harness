@@ -1,4 +1,9 @@
+import type { AgentOutputV1, EventV1 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
+import {
+  AGENT_BLOCK_CLOSE,
+  AGENT_BLOCK_OPEN,
+} from "@kratos/runtime/domain/agent";
 import {
   fixedClock,
   fixedEnvironment,
@@ -19,6 +24,37 @@ const TEXT = "Ship the export pipeline";
 const FEATURE = "ship-the-export-pipeline";
 const PRD = `.brain/02-features/${FEATURE}/00-prd.md`;
 const SPEC = `.brain/02-features/${FEATURE}/01-design.md`;
+const TASKS = `.brain/02-features/${FEATURE}/02-tasks.md`;
+const CODE_SUMMARY = `.brain/02-features/${FEATURE}/code-summary.md`;
+const REVIEW_SUMMARY = `.brain/02-features/${FEATURE}/review-summary.md`;
+const ACCEPTANCE_EVIDENCE = `.brain/02-features/${FEATURE}/acceptance-evidence.txt`;
+const AGENT_REPLY = `.brain/02-features/${FEATURE}/agent-reply.md`;
+const TASK_DOCUMENT = [
+  "# Tasks",
+  "",
+  "## Ordered work",
+  "",
+  "### Work unit 1: Runtime",
+  "",
+  "#### Task 1.1: Persist acceptance",
+  "",
+  "##### Files",
+  "",
+  "- `packages/runtime`",
+  "",
+  "##### Acceptance criteria",
+  "",
+  "- [ ] AC-1.1.1: The verdict is persisted.",
+  "",
+  "##### Edge cases",
+  "",
+  "- [ ] AC-1.1.E1: Missing evidence is refused.",
+  "",
+  "## Out of scope",
+  "",
+  "- Prompt wording.",
+  "",
+].join("\n");
 const ANSWERS = JSON.stringify({
   contractVersion: "1.0.0",
   hostContract: "1.0.0",
@@ -159,6 +195,21 @@ function snapshotOf(run: Subject): {
   >;
 }
 
+function agentReply(output: AgentOutputV1): string {
+  return `${AGENT_BLOCK_OPEN}\n${JSON.stringify(output, null, 2)}\n${AGENT_BLOCK_CLOSE}\n`;
+}
+
+function eventValues(run: Subject): readonly EventV1[] {
+  const log =
+    Object.entries(settled(run).files).find(([path]) =>
+      path.endsWith("/events.jsonl"),
+    )?.[1] ?? "";
+  return log
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as EventV1);
+}
+
 /**
  * Regression coverage for the run lineage the reducer is seeded with.
  *
@@ -245,6 +296,268 @@ describe("a run whose phases write the lineage files", () => {
     expect(run.output.human_.join("")).not.toContain("runtime.state_corrupt");
     expect(code).toBe(0);
     expect(snapshotOf(run).currentStep).toBe("plan");
+  });
+
+  it("freezes identified criteria in the event that completes planning", async () => {
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip it.\n" }),
+      PRD,
+      "evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "complete-prd")).toBe(0);
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "complete-spec")).toBe(0);
+    const plan = await recordEvidence(
+      next(spec, { [TASKS]: TASK_DOCUMENT }),
+      TASKS,
+      "evidence-plan",
+    );
+
+    expect(await completePhase(plan, TASKS, "complete-plan")).toBe(0);
+
+    expect(snapshotOf(plan).currentStep).toBe("code");
+    const state = settled(plan).files;
+    const snapshotEntry = Object.entries(state).find(
+      ([path]) =>
+        path.includes("/acceptance-criteria/") &&
+        path.endsWith("/snapshot.json"),
+    );
+    expect(snapshotEntry).toBeDefined();
+    const frozen = JSON.parse(snapshotEntry?.[1] ?? "") as {
+      declarations: readonly { criterionId: string }[];
+    };
+    expect(frozen.declarations.map(({ criterionId }) => criterionId)).toEqual([
+      "AC-1.1.1",
+      "AC-1.1.E1",
+    ]);
+    const eventLog =
+      Object.entries(state).find(([path]) =>
+        path.endsWith("/events.jsonl"),
+      )?.[1] ?? "";
+    expect(eventLog).toContain(snapshotEntry?.[0] ?? "missing-snapshot-ref");
+  });
+
+  it("does not complete planning from a malformed criterion document", async () => {
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip it.\n" }),
+      PRD,
+      "evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "complete-prd")).toBe(0);
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "complete-spec")).toBe(0);
+    const invalid = TASK_DOCUMENT.replace("AC-1.1.E1", "AC-1.1.EE1");
+    const plan = await recordEvidence(
+      next(spec, { [TASKS]: invalid }),
+      TASKS,
+      "evidence-plan",
+    );
+
+    expect(await completePhase(plan, TASKS, "complete-plan")).toBe(3);
+
+    expect(snapshotOf(plan).currentStep).toBe("plan");
+    expect(
+      Object.keys(settled(plan).files).some((path) =>
+        path.includes("/acceptance-criteria/"),
+      ),
+    ).toBe(false);
+  });
+
+  it("records a partial acceptance verdict per criterion and flips only passed checkboxes", async () => {
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip it.\n" }),
+      PRD,
+      "evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "complete-prd")).toBe(0);
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "complete-spec")).toBe(0);
+    const plan = await recordEvidence(
+      next(spec, { [TASKS]: TASK_DOCUMENT }),
+      TASKS,
+      "evidence-plan",
+    );
+    expect(await completePhase(plan, TASKS, "complete-plan")).toBe(0);
+    const code = await recordEvidence(
+      next(plan, { [CODE_SUMMARY]: "Code complete.\n" }),
+      CODE_SUMMARY,
+      "evidence-code",
+    );
+    expect(await completePhase(code, CODE_SUMMARY, "complete-code")).toBe(0);
+    const review = await recordEvidence(
+      next(code, { [REVIEW_SUMMARY]: "Review complete.\n" }),
+      REVIEW_SUMMARY,
+      "evidence-review",
+    );
+    expect(await completePhase(review, REVIEW_SUMMARY, "complete-review")).toBe(
+      0,
+    );
+    const appendedTaskDocument = TASK_DOCUMENT.replace(
+      "- [ ] AC-1.1.E1: Missing evidence is refused.",
+      "- [ ] AC-1.1.E1: Missing evidence is refused.\n- [ ] AC-1.1.E2: An acceptance-only append is recorded.",
+    );
+    const acceptance = await recordEvidence(
+      next(review, {
+        [TASKS]: appendedTaskDocument,
+        [ACCEPTANCE_EVIDENCE]: "Focused tests passed.\n",
+      }),
+      ACCEPTANCE_EVIDENCE,
+      "evidence-acceptance",
+    );
+    const output: AgentOutputV1 = {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      agent: "acceptance",
+      outcome: {
+        status: "completed",
+        next: "finish",
+        questions: [],
+        blockers: [],
+      },
+      artifacts: [],
+      changedFiles: [],
+      payload: {
+        verdict: "rejected",
+        criteria: [
+          {
+            criterionId: "AC-1.1.E1",
+            outcome: "failed",
+            evidenceRef: ACCEPTANCE_EVIDENCE,
+          },
+          {
+            criterionId: "AC-1.1.1",
+            outcome: "passed",
+            evidenceRef: ACCEPTANCE_EVIDENCE,
+          },
+          {
+            criterionId: "AC-1.1.E2",
+            outcome: "not-run",
+            evidenceRef: ACCEPTANCE_EVIDENCE,
+          },
+        ],
+      },
+    };
+    const recording = next(acceptance, { [AGENT_REPLY]: agentReply(output) });
+
+    expect(
+      await runCommandLine(
+        [
+          "agent",
+          "record",
+          AGENT_REPLY,
+          "--correlation-id",
+          "acceptance-verdict",
+        ],
+        recording.ports,
+      ),
+    ).toBe(0);
+
+    const files = settled(recording).files;
+    expect(files[TASKS]).toContain("- [x] AC-1.1.1: The verdict is persisted.");
+    expect(files[TASKS]).toContain(
+      "- [ ] AC-1.1.E1: Missing evidence is refused.",
+    );
+    expect(files[TASKS]).toContain(
+      "- [ ] AC-1.1.E2: An acceptance-only append is recorded.",
+    );
+    const recordedEvent = eventValues(recording).at(-1);
+    const verdictRefs =
+      recordedEvent?.artifactRefs.filter((ref) => ref.includes("/verdicts/")) ??
+      [];
+    expect(verdictRefs).toHaveLength(3);
+    expect(verdictRefs).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("/AC-1.1.1.json"),
+        expect.stringContaining("/AC-1.1.E1.json"),
+        expect.stringContaining("/AC-1.1.E2.json"),
+      ]),
+    );
+    const appendedSnapshotRef = recordedEvent?.artifactRefs.find((ref) =>
+      ref.endsWith("/snapshot.json"),
+    );
+    expect(appendedSnapshotRef).toBeDefined();
+    const appendedSnapshot = JSON.parse(
+      files[appendedSnapshotRef ?? ""] ?? "",
+    ) as { previousSnapshotRef: string | null };
+    expect(appendedSnapshot.previousSnapshotRef).toContain("/snapshot.json");
+
+    const replayed = next(recording);
+    expect(await runCommandLine(["status"], replayed.ports)).toBe(0);
+    expect(eventValues(replayed).at(-1)?.artifactRefs).toEqual(
+      recordedEvent?.artifactRefs,
+    );
+  });
+
+  it("refuses an implementing-phase checkbox flip", async () => {
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip it.\n" }),
+      PRD,
+      "evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "complete-prd")).toBe(0);
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "complete-spec")).toBe(0);
+    const plan = await recordEvidence(
+      next(spec, { [TASKS]: TASK_DOCUMENT }),
+      TASKS,
+      "evidence-plan",
+    );
+    expect(await completePhase(plan, TASKS, "complete-plan")).toBe(0);
+    const codeOutput: AgentOutputV1 = {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      agent: "code",
+      outcome: {
+        status: "completed",
+        next: "proceed",
+        questions: [],
+        blockers: [],
+      },
+      artifacts: [],
+      changedFiles: [],
+      payload: { stepId: "step-1", testsAdded: 1, testsPassed: true },
+    };
+    const recording = next(plan, {
+      [TASKS]: TASK_DOCUMENT.replace("- [ ] AC-1.1.1", "- [x] AC-1.1.1"),
+      [AGENT_REPLY]: agentReply(codeOutput),
+    });
+
+    expect(
+      await runCommandLine(
+        ["--json", "agent", "record", AGENT_REPLY],
+        recording.ports,
+      ),
+    ).toBe(3);
+    const result = JSON.parse(recording.output.structured_.join("")) as {
+      reasonCode: string;
+      why: readonly string[];
+    };
+    expect(result.reasonCode).toBe("gate.ac_checkbox_forbidden");
+    expect(
+      Object.keys(settled(recording).files).some((path) =>
+        path.endsWith("/agent-output/code.json"),
+      ),
+    ).toBe(false);
   });
 
   it("keeps the recorded lineage when a phase artifact is edited later", async () => {

@@ -88,8 +88,7 @@ export function inspectTaskDocument(
     }
     const parts = criterionParts.exec(criterionId);
     if (
-      parts === null ||
-      parts[1] !== workUnit ||
+      parts?.[1] !== workUnit ||
       parts[2] !== task ||
       (section === "edge") !== (parts[3] === "E")
     ) {
@@ -139,7 +138,14 @@ export function renderCriterionCheckboxes(
   }
   return content.replace(
     /^(- \[)( |x)(\] (AC-\d+\.\d+\.E?\d+): [^\r\n]+)(\r?)$/gmu,
-    (line, open: string, _current: string, tail: string, id: string, cr: string) => {
+    (
+      line,
+      open: string,
+      _current: string,
+      tail: string,
+      id: string,
+      cr: string,
+    ) => {
       const outcome = outcomes.get(id);
       if (outcome === undefined) return line;
       return `${open}${outcome === "passed" ? "x" : " "}${tail}${cr}`;

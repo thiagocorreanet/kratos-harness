@@ -1,5 +1,7 @@
+import type { AcceptanceCriteriaSnapshotV1 } from "@kratos/contracts";
 import { planOf, type Effect } from "../effects.js";
 import { decideDone } from "../acceptance/index.js";
+import { buildCriteriaSnapshot } from "../acceptance-criteria/index.js";
 import { resultFor } from "../result/index.js";
 import {
   decideContinueWorkflow,
@@ -135,13 +137,47 @@ export const continueCommand: CommandSpec = observingCommand(
     const artifactReadable =
       typeof artifact === "string" &&
       observation.referencedFiles.some(({ ref }) => ref === artifact);
+    const completingPlan =
+      invocation.flags.get("--complete") === true &&
+      observation.workflow.kind === "present" &&
+      observation.workflow.state.currentStep === "plan";
+    const criteria = observation.acceptanceCriteria;
+    const criteriaSnapshotRef = `${observationRunRoot(observation)}/acceptance-criteria/${observation.eventId}/snapshot.json`;
+    const declarations = snapshotDeclarations(criteria.currentDeclarations);
+    const criteriaSnapshot =
+      completingPlan &&
+      artifact === criteria.documentRef &&
+      artifactReadable &&
+      criteria.readable &&
+      criteria.document.kind === "valid" &&
+      criteria.documentDigest !== null &&
+      declarations !== null &&
+      criteria.currentDeclarations.every(({ checked }) => !checked)
+        ? buildCriteriaSnapshot({
+            runId: observation.configuration.runId,
+            eventId: observation.eventId,
+            sourceRef: criteria.documentRef,
+            sourceDigest: criteria.documentDigest,
+            recordedAt: observation.occurredAt,
+            previousSnapshotRef: null,
+            declarations,
+          })
+        : null;
+    if (completingPlan && criteriaSnapshot === null) {
+      return invalidCriteriaDocument(observation);
+    }
     const evidenceReadable =
       typeof evidence === "string" &&
       selectedEvidence !== undefined &&
       !observation.invalidEvidenceIds.includes(selectedEvidence.evidenceId);
     const refs = {
       artifactRefs:
-        artifactReadable && typeof artifact === "string" ? [artifact] : [],
+        artifactReadable && typeof artifact === "string"
+          ? [
+              artifact,
+              ...(criteriaSnapshot === null ? [] : [criteriaSnapshotRef]),
+            ]
+          : [],
       evidenceRefs:
         evidenceReadable && typeof evidence === "string" ? [evidence] : [],
     };
@@ -165,6 +201,9 @@ export const continueCommand: CommandSpec = observingCommand(
                 ...(typeof evidence === "string" && !evidenceReadable
                   ? ["evidence-invalid"]
                   : []),
+                ...(completingPlan && criteriaSnapshot === null
+                  ? ["acceptance-criteria-invalid"]
+                  : []),
               ],
               allowFinalCompletion: false,
             } as const)
@@ -181,6 +220,15 @@ export const continueCommand: CommandSpec = observingCommand(
         action,
       }),
       observation,
+      criteriaSnapshot === null
+        ? []
+        : [
+            {
+              kind: "write_file",
+              path: criteriaSnapshotRef,
+              content: `${JSON.stringify(criteriaSnapshot, null, 2)}\n`,
+            },
+          ],
     );
   },
 );
@@ -324,6 +372,7 @@ export const doneCommand: CommandSpec = observingCommand(
 function workflowDecision(
   workflow: WorkflowDecision,
   observation: Observation,
+  authorizedEffects: readonly Effect[] = [],
 ): Decision {
   if (workflow.kind === "refused") {
     const evidence =
@@ -362,7 +411,7 @@ function workflowDecision(
     };
   }
   const runRoot = `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}`;
-  const effects: Effect[] = [];
+  const effects: Effect[] = [...authorizedEffects];
   let lineageRef: string | null = null;
   if (workflow.transition === "started") {
     effects.push({
@@ -442,4 +491,52 @@ function workflowDecision(
     payload: null,
     eventReducers: workflowReducerRegistry(observation.configuration),
   };
+}
+
+function invalidCriteriaDocument(observation: Observation): Decision {
+  const document = observation.acceptanceCriteria.document;
+  const reasonCode =
+    document.kind === "missing"
+      ? "gate.ac_document_missing"
+      : document.kind === "duplicate"
+        ? "gate.ac_identifier_duplicate"
+        : "gate.ac_identifier_malformed";
+  const detail =
+    document.kind === "duplicate"
+      ? `Duplicate acceptance criterion identifier: ${document.criterionId}.`
+      : document.kind === "malformed"
+        ? `Malformed acceptance criterion declaration at line ${String(document.line)}.`
+        : "The task document contains no identified acceptance criteria.";
+  return {
+    result: resultFor(reasonCode, {
+      why: [detail],
+      evidence: [
+        { kind: "artifact", ref: observation.acceptanceCriteria.documentRef },
+      ],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function observationRunRoot(observation: Observation): string {
+  return `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}`;
+}
+
+function snapshotDeclarations(
+  declarations: Observation["acceptanceCriteria"]["currentDeclarations"],
+): AcceptanceCriteriaSnapshotV1["declarations"] | null {
+  const frozen = declarations.map(
+    ({ criterionId, workUnit, task, kind, ordinal, declarationDigest }) => ({
+      criterionId,
+      workUnit,
+      task,
+      kind,
+      ordinal,
+      declarationDigest,
+    }),
+  );
+  const [first, ...rest] = frozen;
+  return first === undefined ? null : [first, ...rest];
 }
