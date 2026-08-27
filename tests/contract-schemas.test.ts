@@ -14,6 +14,16 @@ const artifacts = [
   ["state/snapshot.v1.schema.json", "snapshot.json", "state"],
   ["state/event.v1.schema.json", "event.json", "state"],
   ["state/approval.v1.schema.json", "approval.json", "state"],
+  [
+    "state/acceptance-criteria-snapshot.v1.schema.json",
+    "acceptance-criteria-snapshot.json",
+    "state",
+  ],
+  [
+    "state/acceptance-verdict.v1.schema.json",
+    "acceptance-verdict.json",
+    "state",
+  ],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
   ["state/feature.v1.schema.json", "feature.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
@@ -47,6 +57,7 @@ async function readJson(path: string): Promise<JsonObject> {
 }
 
 let resultSchema: JsonObject;
+let acceptanceCriterionIdSchema: JsonObject;
 let loaded: {
   readonly schema: JsonObject;
   readonly fixture: JsonObject;
@@ -55,7 +66,12 @@ let loaded: {
 }[];
 
 beforeAll(async () => {
-  resultSchema = await readJson(join(schemaRoot, "result.v1.schema.json"));
+  [resultSchema, acceptanceCriterionIdSchema] = await Promise.all([
+    readJson(join(schemaRoot, "result.v1.schema.json")),
+    readJson(
+      join(schemaRoot, "contracts/acceptance-criterion-id.v1.schema.json"),
+    ),
+  ]);
   loaded = await Promise.all(
     artifacts.map(async ([schemaName, fixtureName, family]) => ({
       schema: await readJson(join(schemaRoot, schemaName)),
@@ -66,10 +82,16 @@ beforeAll(async () => {
   );
 });
 
+function contractAjv(): Ajv2020 {
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addSchema(resultSchema);
+  ajv.addSchema(acceptanceCriterionIdSchema);
+  return ajv;
+}
+
 describe("versioned state and host schemas", () => {
   it("strictly compiles every closed schema and accepts its fixture", () => {
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
-    ajv.addSchema(resultSchema);
+    const ajv = contractAjv();
 
     for (const { schema, fixture, fixtureName } of loaded) {
       expect(schema.$schema, fixtureName).toBe(
@@ -116,8 +138,7 @@ describe("versioned state and host schemas", () => {
   });
 
   it("requires exact family versions as the leading identity fields", () => {
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
-    ajv.addSchema(resultSchema);
+    const ajv = contractAjv();
 
     for (const { schema, fixture, family, fixtureName } of loaded) {
       const validate = ajv.compile(schema);
@@ -151,8 +172,7 @@ describe("versioned state and host schemas", () => {
   it.each(["\\Windows\\secret", "..\\secret", "foo\\..\\secret"])(
     "rejects Windows-rooted and backslash-traversal reference %s",
     (unsafeReference) => {
-      const ajv = new Ajv2020({ allErrors: true, strict: true });
-      ajv.addSchema(resultSchema);
+      const ajv = contractAjv();
       for (const { schema, fixture, fixtureName } of loaded.filter(
         ({ fixtureName }) =>
           [
@@ -191,8 +211,7 @@ describe("versioned state and host schemas", () => {
       ...(candidate.observedIdentity as JsonObject),
       adapterVersion: "1.0.0-01",
     };
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
-    ajv.addSchema(resultSchema);
+    const ajv = contractAjv();
     const validate = ajv.compile(adapter.schema);
     expect(validate(candidate)).toBe(false);
   });
@@ -201,7 +220,7 @@ describe("versioned state and host schemas", () => {
     for (const { schema, fixtureName } of loaded.filter(
       ({ schema }) => (schema.$defs as JsonObject | undefined)?.timestamp,
     )) {
-      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      const ajv = contractAjv();
       ajv.addSchema(schema);
       const validate = ajv.compile({
         $ref: `${String(schema.$id)}#/$defs/timestamp`,
@@ -220,8 +239,7 @@ describe("versioned state and host schemas", () => {
       } else {
         candidate.resultingRevision = Number.MAX_SAFE_INTEGER + 1;
       }
-      const ajv = new Ajv2020({ allErrors: true, strict: true });
-      ajv.addSchema(resultSchema);
+      const ajv = contractAjv();
       const validate = ajv.compile(artifact.schema);
       expect(validate(candidate), fixtureName).toBe(false);
     }
@@ -232,9 +250,7 @@ describe("versioned state and host schemas", () => {
       ({ fixtureName }) => fixtureName === "transaction-manifest.json",
     );
     if (artifact === undefined) throw new Error("missing transaction manifest");
-    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
-      artifact.schema,
-    );
+    const validate = contractAjv().compile(artifact.schema);
     const operation = (artifact.fixture.operations as JsonObject[])[0];
     if (operation === undefined)
       throw new Error("missing transaction operation");
@@ -363,9 +379,7 @@ describe("versioned state and host schemas", () => {
       ({ fixtureName }) => fixtureName === "transaction-progress.json",
     );
     if (artifact === undefined) throw new Error("missing transaction progress");
-    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
-      artifact.schema,
-    );
+    const validate = contractAjv().compile(artifact.schema);
 
     for (const phase of ["prepared", "publishing", "committed"]) {
       expect(

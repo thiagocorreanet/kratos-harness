@@ -8,6 +8,11 @@ import {
   type AgentOutputObservation,
 } from "../agent/index.js";
 import { planOf, type Effect } from "../effects.js";
+import {
+  compareCriteriaSnapshot,
+  decideAcceptanceVerdict,
+  renderCriterionCheckboxes,
+} from "../acceptance-criteria/index.js";
 import { resultFor, type Result } from "../result/index.js";
 import {
   decideRecordFact,
@@ -88,6 +93,47 @@ function decideRecord(observation: Observation): Decision {
     );
   }
 
+  const criteria = observation.acceptanceCriteria;
+  if (
+    criteria.snapshot === null &&
+    (phase === "code" || phase === "review" || phase === "acceptance") &&
+    criteria.bootstrapSnapshot === null
+  ) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      criteria.documentRef,
+      "The acceptance criterion baseline cannot be verified from exact plan lineage.",
+    );
+  }
+  if (criteria.snapshot !== null) {
+    if (!criteria.readable || criteria.document.kind !== "valid") {
+      return criterionRefusal(
+        "gate.ac_baseline_unverifiable",
+        criteria.documentRef,
+        "The acceptance criterion state could not be read safely.",
+      );
+    }
+    const latestOutcomes = new Map(
+      criteria.verdicts.map(({ criterionId, outcome }) => [
+        criterionId,
+        outcome,
+      ]),
+    );
+    const change = compareCriteriaSnapshot({
+      phase,
+      frozen: criteria.snapshot.declarations,
+      current: criteria.currentDeclarations,
+      latestOutcomes,
+    });
+    if (change.kind === "refused") {
+      return criterionRefusal(
+        change.reasonCode,
+        criteria.documentRef,
+        `Acceptance criterion ${change.criterionId} was changed without acceptance authority.`,
+      );
+    }
+  }
+
   const path = outputPath(observation, observed.value.agent);
   const recorded = observation.agentOutputs.find(
     (candidate) => candidate.agent === observed.value.agent,
@@ -102,9 +148,40 @@ function decideRecord(observation: Observation): Decision {
     );
   }
 
+  if (observed.value.agent === "acceptance") {
+    return recordAcceptance(observation, observed.value, path);
+  }
+
+  const bootstrapEffects: Effect[] =
+    criteria.snapshot === null &&
+    criteria.bootstrapSnapshot !== null &&
+    criteria.bootstrapSnapshotRef !== null &&
+    criteria.bootstrapSnapshotDigest !== null
+      ? [
+          {
+            kind: "write_file",
+            path: criteria.bootstrapSnapshotRef,
+            content: serializeValue(criteria.bootstrapSnapshot),
+          },
+        ]
+      : [];
+  const bootstrapRefs =
+    criteria.snapshot === null &&
+    criteria.bootstrapSnapshotRef !== null &&
+    criteria.bootstrapSnapshotDigest !== null
+      ? [
+          criteria.bootstrapSnapshotRef,
+          artifactDigestRef(
+            criteria.bootstrapSnapshotRef,
+            criteria.bootstrapSnapshotDigest,
+          ),
+        ]
+      : [];
+
   return commit(
     observation,
     [
+      ...bootstrapEffects,
       {
         kind: "write_file",
         path,
@@ -112,8 +189,158 @@ function decideRecord(observation: Observation): Decision {
       },
     ],
     `Recorded the ${observed.value.agent} agent output as ${observed.value.outcome.status}.`,
-    [path],
+    [path, ...bootstrapRefs],
   );
+}
+
+function recordAcceptance(
+  observation: Observation,
+  output: Extract<AgentOutputV1, { readonly agent: "acceptance" }>,
+  outputRef: string,
+): Decision {
+  const criteria = observation.acceptanceCriteria;
+  if (
+    !criteria.readable ||
+    criteria.document.kind !== "valid" ||
+    criteria.documentContent === null ||
+    (criteria.snapshot === null && criteria.bootstrapSnapshot === null)
+  ) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      criteria.documentRef,
+      "Acceptance criteria were not frozen from a valid task document.",
+    );
+  }
+  const baselineSnapshot = criteria.snapshot ?? criteria.bootstrapSnapshot;
+  const baselineSnapshotRef =
+    criteria.snapshotRef ?? criteria.bootstrapSnapshotRef;
+  const baselineSnapshotDigest =
+    criteria.snapshotDigest ?? criteria.bootstrapSnapshotDigest;
+  if (
+    baselineSnapshot === null ||
+    baselineSnapshotRef === null ||
+    baselineSnapshotDigest === null
+  ) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      criteria.documentRef,
+      "The acceptance criterion baseline is incomplete.",
+    );
+  }
+  const latestOutcomes = new Map(
+    criteria.verdicts.map(({ criterionId, outcome }) => [criterionId, outcome]),
+  );
+  const change = compareCriteriaSnapshot({
+    phase: "acceptance",
+    frozen: baselineSnapshot.declarations,
+    current: criteria.currentDeclarations,
+    latestOutcomes,
+  });
+  if (change.kind === "refused") {
+    return criterionRefusal(
+      change.reasonCode,
+      criteria.documentRef,
+      `Acceptance criterion ${change.criterionId} was refused.`,
+    );
+  }
+  const snapshot =
+    change.kind === "append" ? criteria.appendSnapshot : baselineSnapshot;
+  const snapshotRef =
+    change.kind === "append" ? criteria.appendSnapshotRef : baselineSnapshotRef;
+  const snapshotDigest =
+    change.kind === "append"
+      ? criteria.appendSnapshotDigest
+      : baselineSnapshotDigest;
+  if (snapshot === null || snapshotRef === null || snapshotDigest === null) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      criteria.documentRef,
+      "The appended acceptance criterion snapshot could not be prepared.",
+    );
+  }
+  const verdict = decideAcceptanceVerdict({
+    declarations: criteria.currentDeclarations,
+    globalVerdict: output.payload.verdict,
+    criteria: output.payload.criteria,
+    evidence: observation.evidence,
+    invalidEvidenceIds: observation.invalidEvidenceIds,
+  });
+  if (verdict.kind === "refused") {
+    return criterionRefusal(
+      verdict.reasonCode,
+      outputRef,
+      `Acceptance criterion ${verdict.criterionId} was refused.`,
+    );
+  }
+  const preparedById = new Map(
+    criteria.preparedVerdicts.map((prepared) => [
+      prepared.value.criterionId,
+      prepared,
+    ]),
+  );
+  if (
+    preparedById.size !== verdict.criteria.length ||
+    verdict.criteria.some(({ criterionId }) => !preparedById.has(criterionId))
+  ) {
+    return criterionRefusal(
+      "gate.ac_baseline_unverifiable",
+      outputRef,
+      "The digest-bound acceptance verdict artifacts could not be prepared.",
+    );
+  }
+  const preparedVerdicts = verdict.criteria.flatMap(({ criterionId }) => {
+    const prepared = preparedById.get(criterionId);
+    return prepared === undefined ? [] : [prepared];
+  });
+  const verdictEffects: Effect[] = preparedVerdicts.map(({ value, ref }) => ({
+    kind: "write_file" as const,
+    path: ref,
+    content: serializeValue(value),
+  }));
+  const snapshotNeedsWrite =
+    change.kind === "append" || criteria.snapshot === null;
+  const snapshotEffects: Effect[] = snapshotNeedsWrite
+    ? [
+        {
+          kind: "write_file",
+          path: snapshotRef,
+          content: serializeValue(snapshot),
+        },
+      ]
+    : [];
+  const verdictRefs = preparedVerdicts.flatMap(({ ref, digest }) => [
+    ref,
+    artifactDigestRef(ref, digest),
+  ]);
+  return commit(
+    observation,
+    [
+      ...snapshotEffects,
+      ...verdictEffects,
+      {
+        kind: "write_file",
+        path: criteria.documentRef,
+        content: renderCriterionCheckboxes(
+          criteria.documentContent,
+          verdict.checkboxOutcomes,
+        ),
+      },
+      { kind: "write_file", path: outputRef, content: serialize(output) },
+    ],
+    `Recorded acceptance verdicts for ${String(verdict.criteria.length)} criteria.`,
+    [
+      outputRef,
+      criteria.documentRef,
+      ...(snapshotNeedsWrite
+        ? [snapshotRef, artifactDigestRef(snapshotRef, snapshotDigest)]
+        : []),
+      ...verdictRefs,
+    ],
+  );
+}
+
+function artifactDigestRef(ref: string, digest: string): string {
+  return `${ref}#sha256=${digest}`;
 }
 
 /**
@@ -149,6 +376,10 @@ function refuseReply(
  * through the same contract yields the value the decision saw.
  */
 function serialize(value: AgentOutputV1): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function serializeValue(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
@@ -250,6 +481,26 @@ function invalidOutput(ref: string, why: string): Decision {
     resultFor("trail.output_invalido", {
       why: [why],
       evidence: [{ kind: "observation", ref }],
+    }),
+  );
+}
+
+function criterionRefusal(
+  reasonCode:
+    | "gate.ac_baseline_unverifiable"
+    | "gate.ac_declaration_changed"
+    | "gate.ac_append_forbidden"
+    | "gate.ac_checkbox_forbidden"
+    | "gate.ac_verdict_mismatch"
+    | "gate.ac_evidence_missing"
+    | "gate.ac_evidence_invalid",
+  ref: string,
+  why: string,
+): Decision {
+  return decisionOf(
+    resultFor(reasonCode, {
+      why: [why],
+      evidence: [{ kind: "artifact", ref }],
     }),
   );
 }

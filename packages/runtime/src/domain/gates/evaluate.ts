@@ -14,7 +14,8 @@ const PRIORITY: Readonly<Record<GateId, number>> = {
   "spec-approved": 40,
   "gaps-closed": 50,
   "partition-approved": 60,
-  "final-acceptance": 70,
+  "acceptance-criteria": 70,
+  "final-acceptance": 80,
 };
 
 function failure(
@@ -111,6 +112,25 @@ export function evaluateGates(context: GateContext): GateDecision {
       ]),
     );
   }
+  const criteria = Object.freeze(
+    (context.acceptanceCriteria ?? []).map((criterion) =>
+      Object.freeze({ ...criterion }),
+    ),
+  );
+  const incomplete = criteria.find(
+    ({ state, checked, evidenceValid }) =>
+      state !== "passed" || !checked || !evidenceValid,
+  );
+  if (context.phase === "acceptance" && incomplete !== undefined) {
+    failures.push(
+      failure(
+        "acceptance-criteria",
+        "gate.ac_incomplete",
+        [".brain/02-features/active"],
+        `Acceptance criterion ${incomplete.criterionId} is incomplete.`,
+      ),
+    );
+  }
   if (context.phase === "acceptance" && !context.finalAcceptance) {
     failures.push(
       failure("final-acceptance", "gate.aceitacao_final", [".brain/approvals"]),
@@ -134,5 +154,6 @@ export function evaluateGates(context: GateContext): GateDecision {
     primary: immutable[0] ?? null,
     failures: immutable,
     mode: context.mode,
+    criteria,
   };
 }

@@ -26,6 +26,7 @@
     "./domain/gates": "./src/domain/gates/index.ts",
     "./domain/approvals": "./src/domain/approvals/index.ts",
     "./domain/acceptance": "./src/domain/acceptance/index.ts",
+    "./domain/acceptance-criteria": "./src/domain/acceptance-criteria/index.ts",
     "./domain/host": "./src/domain/host/index.ts",
     "./domain/init": "./src/domain/init/index.ts",
     "./domain/locks": "./src/domain/locks/index.ts",

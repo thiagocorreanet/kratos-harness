@@ -3,7 +3,7 @@ export type FeatureDocumentId =
 
 interface SectionDefinition {
   readonly name: string;
-  readonly depth: 2 | 4;
+  readonly depth: 2 | 5;
   readonly guidance?: string;
   readonly scaffold?: readonly string[];
 }
@@ -175,27 +175,33 @@ const SOURCES = [
         name: "Ordered work",
         depth: 2,
         scaffold: [
-          "### 1. Work unit",
+          "### Work unit 1: Work unit",
           "",
           "<!-- State one concrete change. Add more numbered work units without renumbering approved items. -->",
+          "",
+          "#### Task 1.1: Task",
+          "",
+          "<!-- State one task inside this work unit. Preserve approved task coordinates. -->",
         ],
       },
       {
         name: "Files",
-        depth: 4,
+        depth: 5,
         guidance: "List every file this work unit may create or modify.",
       },
       {
         name: "Acceptance criteria",
-        depth: 4,
+        depth: 5,
         scaffold: [
-          "- [ ] State an observable outcome. SDD-13 defines criterion identifiers.",
+          "<!-- Declare main-path outcomes as: - [ ] AC-<work-unit>.<task>.<criterion>: Observable outcome. -->",
         ],
       },
       {
         name: "Edge cases",
-        depth: 4,
-        guidance: "List boundary and failure cases this work unit must handle.",
+        depth: 5,
+        scaffold: [
+          "<!-- Declare boundary and failure outcomes as: - [ ] AC-<work-unit>.<task>.E<criterion>: Observable outcome. -->",
+        ],
       },
       {
         name: "Out of scope",

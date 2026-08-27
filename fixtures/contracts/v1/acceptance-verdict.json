@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "runId": "run-01",
+  "eventId": "event-acceptance",
+  "criterionId": "AC-1.2.3",
+  "outcome": "passed",
+  "criteriaSnapshotRef": ".brain/02-features/refunds/runs/run-01/acceptance/criteria/event-plan.json",
+  "criteriaSnapshotDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "evidenceId": "evidence-ac-1-2-3",
+  "evidenceRef": ".brain/02-features/refunds/runs/run-01/evidence/ac-1-2-3.json",
+  "evidenceDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "recordedAt": "2026-08-27T12:05:00Z"
+}

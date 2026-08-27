@@ -127,6 +127,7 @@ describe("audit, repair, and static dashboard", () => {
         primary: null,
         failures: [],
         mode: "enforce",
+        criteria: [],
       },
       approvals: [],
       lineage: [],

@@ -14,7 +14,7 @@
     "verdict": "accepted",
     "criteria": [
       {
-        "criterionId": "criterion-refund-window",
+        "criterionId": "AC-1.1.1",
         "outcome": "passed",
         "evidenceRef": ".brain/02-features/refunds/runs/run-01/evidence/tests.json"
       }

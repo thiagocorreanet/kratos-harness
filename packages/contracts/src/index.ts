@@ -12,7 +12,14 @@ export type {
 } from "./compatibility.js";
 export { REASON_CATALOG, reasonPolicy } from "./reasons.js";
 export type { ReasonPolicy } from "./reasons.js";
+export {
+  ACCEPTANCE_CRITERION_ID_MAX_LENGTH,
+  ACCEPTANCE_CRITERION_ID_PATTERN,
+  isAcceptanceCriterionId,
+} from "./acceptance-criteria.js";
 export type {
+  AcceptanceCriteriaSnapshotV1,
+  AcceptanceVerdictV1,
   AdapterMessageV1,
   AgentOutputV1,
   ApprovalV1,

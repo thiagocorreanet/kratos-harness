@@ -1,4 +1,6 @@
 import type {
+  AcceptanceCriteriaSnapshotV1,
+  AcceptanceVerdictV1,
   ProjectConfigV1,
   RequirementDiscoveryV1,
   TransactionManifestV1,
@@ -24,6 +26,8 @@ describe("schema registry vocabulary", () => {
       "host.init-answers",
       "host.operation-message",
       "state.approval",
+      "state.acceptance-criteria-snapshot",
+      "state.acceptance-verdict",
       "state.event",
       "state.evidence",
       "state.feature",
@@ -37,7 +41,13 @@ describe("schema registry vocabulary", () => {
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(18);
+    expect(ids).toHaveLength(20);
+    expectTypeOf<
+      ContractValue<"state.acceptance-criteria-snapshot">
+    >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();
+    expectTypeOf<
+      ContractValue<"state.acceptance-verdict">
+    >().toEqualTypeOf<AcceptanceVerdictV1>();
     expectTypeOf<
       ContractValue<"state.project-config">
     >().toEqualTypeOf<ProjectConfigV1>();

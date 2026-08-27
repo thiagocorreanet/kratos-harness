@@ -2,7 +2,7 @@
   "contractVersion": "1.0.0",
   "pluginVersion": "0.0.0-development",
   "resultContract": "1.0.0",
-  "reasonCatalog": "1.4.0",
+  "reasonCatalog": "1.5.0",
   "stateContract": {
     "current": "1.0.0",
     "readable": ["1.0.0"],
@@ -52,6 +52,22 @@
       "path": "schemas/host/operation-message.v1.schema.json",
       "boundary": "cross-process",
       "typeName": "HostOperationMessageV1"
+    },
+    {
+      "id": "state.acceptance-criteria-snapshot",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/acceptance-criteria-snapshot.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "AcceptanceCriteriaSnapshotV1"
+    },
+    {
+      "id": "state.acceptance-verdict",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/acceptance-verdict.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "AcceptanceVerdictV1"
     },
     {
       "id": "state.approval",

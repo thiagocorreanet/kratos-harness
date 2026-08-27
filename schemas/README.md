@@ -17,7 +17,7 @@ The universal runtime-result family contains:
   which adds `runtime.node_unsupported`;
 - [`reason-codes.v1.3.json`](../packages/contracts/catalogs/reason-codes.v1.3.json),
   which adds `runtime.orientation_ok`;
-- [`reason-codes.v1.4.json`](../packages/contracts/catalogs/reason-codes.v1.4.json),
+- [`reason-codes.v1.5.json`](../packages/contracts/catalogs/reason-codes.v1.5.json),
   the current revision, which adds checkable PRD structure failures.
 
 The state family contains:
@@ -50,7 +50,7 @@ block one phase agent appends to its reply. See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 registry format is
-[`contract-manifest.v1.schema.json`](contracts/contract-manifest.v1.schema.json).
+[`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed
 [`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)

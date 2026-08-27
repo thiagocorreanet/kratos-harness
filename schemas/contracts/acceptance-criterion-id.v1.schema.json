@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1",
+  "title": "Kratos acceptance criterion identifier v1",
+  "type": "string",
+  "maxLength": 128,
+  "pattern": "^AC-\\d+\\.\\d+\\.E?\\d+$"
+}

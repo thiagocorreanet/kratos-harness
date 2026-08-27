@@ -6,6 +6,8 @@ import type {
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
   AgentOutputV1,
+  AcceptanceCriteriaSnapshotV1,
+  AcceptanceVerdictV1,
   ApprovalV1,
   EventV1,
   EvidenceV1,
@@ -32,6 +34,7 @@ import type { AgentOutputObservation } from "../agent/index.js";
 import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
+import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
 
 export interface FlagSpec {
   readonly name: string;
@@ -160,6 +163,42 @@ export type CommandObservation =
       /** Every agent output the run recorded, in agent order. */
       readonly agentOutputs: readonly AgentOutputV1[];
       readonly agentOutputsReadable: boolean;
+      /** Parsed task declarations and immutable acceptance history. */
+      readonly acceptanceCriteria: {
+        readonly readable: boolean;
+        readonly documentRef: string;
+        readonly documentContent: string | null;
+        readonly documentDigest: string | null;
+        readonly document: TaskDocumentObservation;
+        readonly currentDeclarations: readonly {
+          readonly criterionId: string;
+          readonly workUnit: string;
+          readonly task: string;
+          readonly kind: "main" | "edge";
+          readonly ordinal: number;
+          readonly declarationDigest: string;
+          readonly checked: boolean;
+        }[];
+        readonly snapshot: AcceptanceCriteriaSnapshotV1 | null;
+        readonly snapshotRef: string | null;
+        readonly snapshotDigest: string | null;
+        readonly verdicts: readonly AcceptanceVerdictV1[];
+        readonly appendSnapshot: AcceptanceCriteriaSnapshotV1 | null;
+        readonly appendSnapshotRef: string | null;
+        readonly appendSnapshotDigest: string | null;
+        readonly bootstrapSnapshot: AcceptanceCriteriaSnapshotV1 | null;
+        readonly bootstrapSnapshotRef: string | null;
+        readonly bootstrapSnapshotDigest: string | null;
+        readonly baselineRequired: boolean;
+        readonly initialSnapshot: AcceptanceCriteriaSnapshotV1 | null;
+        readonly initialSnapshotRef: string | null;
+        readonly initialSnapshotDigest: string | null;
+        readonly preparedVerdicts: readonly {
+          readonly value: AcceptanceVerdictV1;
+          readonly ref: string;
+          readonly digest: string;
+        }[];
+      };
       /** The gate facts exactly as recorded, before the approval boundary. */
       readonly gateFacts: {
         readonly readable: boolean;

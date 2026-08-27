@@ -24,7 +24,7 @@ Version 1 is owned by four checked artifact families:
   adds `runtime.node_unsupported`;
 - [`reason-codes.v1.3.json`](../../packages/contracts/catalogs/reason-codes.v1.3.json)
   adds `runtime.orientation_ok`;
-- [`reason-codes.v1.4.json`](../../packages/contracts/catalogs/reason-codes.v1.4.json)
+- [`reason-codes.v1.5.json`](../../packages/contracts/catalogs/reason-codes.v1.5.json)
   is the current revision and adds the two checkable PRD structure failures;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.

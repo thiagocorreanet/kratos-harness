@@ -98,10 +98,14 @@ them:
    agreements the schema cannot state: a path claimed as both artifact and
    changed file, a repeated question, option, or step identifier, a dependency
    on a step the plan does not contain, a review that passes while carrying a
-   high finding, and an acceptance that accepts while a criterion did not pass.
+   high finding, a repeated acceptance criterion identifier, and an acceptance
+   that accepts while a criterion did not pass. Acceptance identifiers use the
+   canonical `AC-<work-unit>.<task>.E?<criterion>` schema dependency.
 3. **Record.** The validated block is written verbatim to
    `runs/RUN/agent-output/AGENT.json` and one `run.agent.recorded` event is
-   appended. Recording a fact does not move the run through its phases.
+   appended. During acceptance the same atomic plan also writes one immutable
+   verdict per criterion and reconciles task-document checkboxes. Recording a
+   fact does not move the run through its phases.
 
 Every refusal reports `trail.output_invalido` and names its cause. A reply with
 no block, a malformed block, or a schema-invalid block all fail closed and

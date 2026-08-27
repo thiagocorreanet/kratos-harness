@@ -5,6 +5,8 @@ import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
+import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
+import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
@@ -88,6 +90,26 @@ const fixtures = [
     fixture: operationApproval,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "state.acceptance-criteria-snapshot",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "declarations",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: acceptanceCriteriaSnapshot,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.acceptance-verdict",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "criterionId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: acceptanceVerdict,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
     id: "state.approval",

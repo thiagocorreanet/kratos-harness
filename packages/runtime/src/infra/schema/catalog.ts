@@ -5,6 +5,9 @@ import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schem
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
+import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
+import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
+import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-verdict.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
@@ -70,6 +73,20 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/operation-message.v1.schema.json",
       schema: operationMessageSchema,
+    },
+    {
+      id: "state.acceptance-criteria-snapshot",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/acceptance-criteria-snapshot.v1.schema.json",
+      schema: acceptanceCriteriaSnapshotSchema,
+    },
+    {
+      id: "state.acceptance-verdict",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/acceptance-verdict.v1.schema.json",
+      schema: acceptanceVerdictSchema,
     },
     {
       id: "state.approval",
@@ -166,6 +183,7 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
 
 export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
   resultSchema,
+  acceptanceCriterionIdSchema,
 ] as const satisfies readonly object[]);
 
 const EXPECTED_SCHEMA_IDS = {
@@ -176,6 +194,10 @@ const EXPECTED_SCHEMA_IDS = {
   "host.operation-message":
     "https://kratos.dev/schemas/host/operation-message/v1",
   "state.approval": "https://kratos.dev/schemas/state/approval/v1",
+  "state.acceptance-criteria-snapshot":
+    "https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1",
+  "state.acceptance-verdict":
+    "https://kratos.dev/schemas/state/acceptance-verdict/v1",
   "state.event": "https://kratos.dev/schemas/state/event/v1",
   "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
   "state.feature": "https://kratos.dev/schemas/state/feature/v1",

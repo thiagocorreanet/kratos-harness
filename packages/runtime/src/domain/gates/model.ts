@@ -10,6 +10,7 @@ export const GATE_IDS = [
   "spec-approved",
   "gaps-closed",
   "partition-approved",
+  "acceptance-criteria",
   "final-acceptance",
 ] as const;
 
@@ -28,6 +29,14 @@ export interface GateContext {
   readonly partitionRequired: boolean;
   readonly partitionApproved: boolean;
   readonly finalAcceptance: boolean;
+  readonly acceptanceCriteria?: readonly AcceptanceCriterionGateState[];
+}
+
+export interface AcceptanceCriterionGateState {
+  readonly criterionId: string;
+  readonly state: "passed" | "failed" | "not-run" | "unreported";
+  readonly checked: boolean;
+  readonly evidenceValid: boolean;
 }
 
 export interface GateFailure {
@@ -37,6 +46,7 @@ export interface GateFailure {
     | "blocked.stop_loss_budget"
     | "blocked.stop_loss_flag"
     | "gate.aceitacao_final"
+    | "gate.ac_incomplete"
     | "gate.aprovacao_spec"
     | "gate.gaps_abertos"
     | "gate.particionamento"
@@ -53,4 +63,5 @@ export interface GateDecision {
   readonly primary: GateFailure | null;
   readonly failures: readonly GateFailure[];
   readonly mode: GateMode;
+  readonly criteria: readonly AcceptanceCriterionGateState[];
 }

@@ -1,5 +1,6 @@
 import { planOf, type Effect } from "../effects.js";
 import { decideDone } from "../acceptance/index.js";
+import { compareCriteriaSnapshot } from "../acceptance-criteria/index.js";
 import { resultFor } from "../result/index.js";
 import {
   decideContinueWorkflow,
@@ -135,13 +136,94 @@ export const continueCommand: CommandSpec = observingCommand(
     const artifactReadable =
       typeof artifact === "string" &&
       observation.referencedFiles.some(({ ref }) => ref === artifact);
+    const completingPlan =
+      invocation.flags.get("--complete") === true &&
+      observation.workflow.kind === "present" &&
+      observation.workflow.state.currentStep === "plan";
+    const criteria = observation.acceptanceCriteria;
+    const criteriaSnapshotRef = criteria.initialSnapshotRef;
+    const criteriaSnapshot =
+      completingPlan &&
+      artifact === criteria.documentRef &&
+      artifactReadable &&
+      criteria.readable &&
+      criteria.document.kind === "valid" &&
+      criteria.initialSnapshot !== null &&
+      criteriaSnapshotRef !== null &&
+      criteria.initialSnapshotDigest !== null &&
+      criteria.currentDeclarations.every(({ checked }) => !checked)
+        ? criteria.initialSnapshot
+        : null;
+    if (completingPlan && criteriaSnapshot === null) {
+      return invalidCriteriaDocument(observation);
+    }
+    const phase =
+      observation.workflow.kind === "present"
+        ? observation.workflow.state.currentStep
+        : null;
+    const enforcingFrozenCriteria = phase === "code" || phase === "review";
+    const baseline = criteria.snapshot ?? criteria.bootstrapSnapshot;
+    if (enforcingFrozenCriteria && baseline === null) {
+      return criteriaPolicyRefusal(
+        observation,
+        "gate.ac_baseline_unverifiable",
+        "The frozen acceptance criterion baseline cannot be verified.",
+      );
+    }
+    if (enforcingFrozenCriteria && baseline !== null) {
+      const latestOutcomes = new Map(
+        criteria.verdicts.map(({ criterionId, outcome }) => [
+          criterionId,
+          outcome,
+        ]),
+      );
+      const change = compareCriteriaSnapshot({
+        phase,
+        frozen: baseline.declarations,
+        current: criteria.currentDeclarations,
+        latestOutcomes,
+      });
+      if (change.kind === "refused") {
+        return criteriaPolicyRefusal(
+          observation,
+          change.reasonCode,
+          `Acceptance criterion ${change.criterionId} changed outside acceptance.`,
+        );
+      }
+    }
+    const bootstrapRef =
+      enforcingFrozenCriteria && criteria.snapshot === null
+        ? criteria.bootstrapSnapshotRef
+        : null;
+    const bootstrapDigest =
+      enforcingFrozenCriteria && criteria.snapshot === null
+        ? criteria.bootstrapSnapshotDigest
+        : null;
+    const criteriaArtifactRefs = [
+      ...(criteriaSnapshotRef !== null &&
+      criteriaSnapshot !== null &&
+      criteria.initialSnapshotDigest !== null
+        ? [
+            criteriaSnapshotRef,
+            artifactDigestRef(
+              criteriaSnapshotRef,
+              criteria.initialSnapshotDigest,
+            ),
+          ]
+        : []),
+      ...(bootstrapRef !== null && bootstrapDigest !== null
+        ? [bootstrapRef, artifactDigestRef(bootstrapRef, bootstrapDigest)]
+        : []),
+    ];
     const evidenceReadable =
       typeof evidence === "string" &&
       selectedEvidence !== undefined &&
       !observation.invalidEvidenceIds.includes(selectedEvidence.evidenceId);
     const refs = {
-      artifactRefs:
-        artifactReadable && typeof artifact === "string" ? [artifact] : [],
+      artifactRefs: [
+        ...(artifactReadable && typeof artifact === "string" ? [artifact] : []),
+        ...criteriaArtifactRefs,
+      ],
       evidenceRefs:
         evidenceReadable && typeof evidence === "string" ? [evidence] : [],
     };
@@ -165,6 +247,9 @@ export const continueCommand: CommandSpec = observingCommand(
                 ...(typeof evidence === "string" && !evidenceReadable
                   ? ["evidence-invalid"]
                   : []),
+                ...(completingPlan && criteriaSnapshot === null
+                  ? ["acceptance-criteria-invalid"]
+                  : []),
               ],
               allowFinalCompletion: false,
             } as const)
@@ -181,6 +266,26 @@ export const continueCommand: CommandSpec = observingCommand(
         action,
       }),
       observation,
+      [
+        ...(criteriaSnapshot === null || criteriaSnapshotRef === null
+          ? []
+          : ([
+              {
+                kind: "write_file",
+                path: criteriaSnapshotRef,
+                content: `${JSON.stringify(criteriaSnapshot, null, 2)}\n`,
+              },
+            ] as const)),
+        ...(bootstrapRef === null || criteria.bootstrapSnapshot === null
+          ? []
+          : [
+              {
+                kind: "write_file" as const,
+                path: bootstrapRef,
+                content: `${JSON.stringify(criteria.bootstrapSnapshot, null, 2)}\n`,
+              },
+            ]),
+      ],
     );
   },
 );
@@ -324,6 +429,7 @@ export const doneCommand: CommandSpec = observingCommand(
 function workflowDecision(
   workflow: WorkflowDecision,
   observation: Observation,
+  authorizedEffects: readonly Effect[] = [],
 ): Decision {
   if (workflow.kind === "refused") {
     const evidence =
@@ -362,7 +468,7 @@ function workflowDecision(
     };
   }
   const runRoot = `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}`;
-  const effects: Effect[] = [];
+  const effects: Effect[] = [...authorizedEffects];
   let lineageRef: string | null = null;
   if (workflow.transition === "started") {
     effects.push({
@@ -442,4 +548,57 @@ function workflowDecision(
     payload: null,
     eventReducers: workflowReducerRegistry(observation.configuration),
   };
+}
+
+function invalidCriteriaDocument(observation: Observation): Decision {
+  const document = observation.acceptanceCriteria.document;
+  const reasonCode =
+    document.kind === "missing"
+      ? "gate.ac_document_missing"
+      : document.kind === "duplicate"
+        ? "gate.ac_identifier_duplicate"
+        : "gate.ac_identifier_malformed";
+  const detail =
+    document.kind === "duplicate"
+      ? `Duplicate acceptance criterion identifier: ${document.criterionId}.`
+      : document.kind === "malformed"
+        ? `Malformed acceptance criterion declaration at line ${String(document.line)}.`
+        : "The task document contains no identified acceptance criteria.";
+  return {
+    result: resultFor(reasonCode, {
+      why: [detail],
+      evidence: [
+        { kind: "artifact", ref: observation.acceptanceCriteria.documentRef },
+      ],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function criteriaPolicyRefusal(
+  observation: Observation,
+  reasonCode:
+    | "gate.ac_baseline_unverifiable"
+    | "gate.ac_declaration_changed"
+    | "gate.ac_append_forbidden"
+    | "gate.ac_checkbox_forbidden",
+  detail: string,
+): Decision {
+  return {
+    result: resultFor(reasonCode, {
+      why: [detail],
+      evidence: [
+        { kind: "artifact", ref: observation.acceptanceCriteria.documentRef },
+      ],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function artifactDigestRef(ref: string, digest: string): string {
+  return `${ref}#sha256=${digest}`;
 }

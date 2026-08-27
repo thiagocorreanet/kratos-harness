@@ -9,8 +9,9 @@ runtime, migration, and adapter work must consume.
 
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
-manifest owns compatibility policy. Its format is checked by
-[`contract-manifest.v1.schema.json`](../../schemas/contracts/contract-manifest.v1.schema.json).
+manifest owns compatibility policy. Its current format is checked by
+[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json);
+the published v1 schema remains byte-preserved.
 The manifest registers every current payload schema, its generated type, and
 the metadata-only Go v3 migration profiles.
 
@@ -80,6 +81,13 @@ Revision `1.4.0` preserves those 84 entries and adds
 and `gate.prd_section_missing`. Both are additive, fail-closed gate outcomes;
 the latter carries the missing canonical section name in the gate failure
 detail.
+
+Revision `1.5.0` preserves all 86 entries from `1.4.0` and appends eleven
+fail-closed `gate.ac_*` reasons in
+[`reason-codes.v1.5.json`](../../packages/contracts/catalogs/reason-codes.v1.5.json)
+for identified acceptance criteria. State and host contract identities remain
+`1.0.0`; the two new persisted payload schemas are additive, while `EventV1`
+remains unchanged.
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,

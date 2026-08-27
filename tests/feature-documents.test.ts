@@ -121,21 +121,25 @@ KRATOS-END-REQUIREMENT-DISCOVERY-V1 -->
 
 ## Ordered work
 
-### 1. Work unit
+### Work unit 1: Work unit
 
 <!-- State one concrete change. Add more numbered work units without renumbering approved items. -->
 
-#### Files
+#### Task 1.1: Task
+
+<!-- State one task inside this work unit. Preserve approved task coordinates. -->
+
+##### Files
 
 <!-- List every file this work unit may create or modify. -->
 
-#### Acceptance criteria
+##### Acceptance criteria
 
-- [ ] State an observable outcome. SDD-13 defines criterion identifiers.
+<!-- Declare main-path outcomes as: - [ ] AC-<work-unit>.<task>.<criterion>: Observable outcome. -->
 
-#### Edge cases
+##### Edge cases
 
-<!-- List boundary and failure cases this work unit must handle. -->
+<!-- Declare boundary and failure outcomes as: - [ ] AC-<work-unit>.<task>.E<criterion>: Observable outcome. -->
 
 ## Out of scope
 

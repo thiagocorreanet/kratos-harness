@@ -14,6 +14,10 @@ const manifestPath = join(
   "packages/contracts/catalogs/contract-families.v1.json",
 );
 const resultSchemaPath = join(repositoryRoot, "schemas/result.v1.schema.json");
+const acceptanceCriterionIdSchemaPath = join(
+  repositoryRoot,
+  "schemas/contracts/acceptance-criterion-id.v1.schema.json",
+);
 export const generatedContractsPath = join(
   repositoryRoot,
   "packages/contracts/src/generated/contracts.ts",
@@ -175,10 +179,12 @@ function schemaForTypeGeneration(id, schema) {
 export async function generateContractTypes({
   outputPath = generatedContractsPath,
 } = {}) {
-  const [manifest, resultSchemaText] = await Promise.all([
-    readJson(manifestPath),
-    readFile(resultSchemaPath, "utf8"),
-  ]);
+  const [manifest, resultSchemaText, acceptanceCriterionIdSchemaText] =
+    await Promise.all([
+      readJson(manifestPath),
+      readFile(resultSchemaPath, "utf8"),
+      readFile(acceptanceCriterionIdSchemaPath, "utf8"),
+    ]);
   const headers = [];
   const declarations = [];
   const resultSchema = JSON.parse(resultSchemaText);
@@ -187,6 +193,7 @@ export async function generateContractTypes({
   );
   headers.push(
     `// dependency: ${resultSchema.$id} sha256:${createHash("sha256").update(resultSchemaText).digest("hex")}`,
+    `// dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:${createHash("sha256").update(acceptanceCriterionIdSchemaText).digest("hex")}`,
   );
 
   for (const entry of manifest.schemas) {
@@ -213,6 +220,12 @@ export async function generateContractTypes({
               order: 1,
               canRead: /^https:\/\/kratos\.dev\/schemas\/result\/v1$/u,
               read: generatedResultSchemaText,
+            },
+            acceptanceCriterionId: {
+              order: 2,
+              canRead:
+                /^https:\/\/kratos\.dev\/schemas\/contracts\/acceptance-criterion-id\/v1$/u,
+              read: acceptanceCriterionIdSchemaText,
             },
           },
         },

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/acceptance-verdict/v1",
+  "title": "Kratos acceptance criterion verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "runId",
+    "eventId",
+    "criterionId",
+    "outcome",
+    "criteriaSnapshotRef",
+    "criteriaSnapshotDigest",
+    "evidenceId",
+    "evidenceRef",
+    "evidenceDigest",
+    "recordedAt"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "stateContract": { "const": "1.0.0" },
+    "runId": { "$ref": "#/$defs/id" },
+    "eventId": { "$ref": "#/$defs/id" },
+    "criterionId": {
+      "$ref": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1"
+    },
+    "outcome": { "enum": ["passed", "failed", "not-run"] },
+    "criteriaSnapshotRef": { "$ref": "#/$defs/reference" },
+    "criteriaSnapshotDigest": { "$ref": "#/$defs/sha256" },
+    "evidenceId": { "$ref": "#/$defs/id" },
+    "evidenceRef": { "$ref": "#/$defs/reference" },
+    "evidenceDigest": { "$ref": "#/$defs/sha256" },
+    "recordedAt": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    }
+  }
+}
