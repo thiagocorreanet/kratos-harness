@@ -105,7 +105,7 @@ least-privilege controls regress.
 
 ## Current timeout bound
 
-The initial campaign below proved the original 15-minute bound. The quality
+The initial campaign above proved the original 15-minute bound. The quality
 pipeline later grew enough that valid Dependabot runs
 [`32696973676`](https://github.com/thiagocorreanet/kratos-harness/actions/runs/32696973676)
 and
