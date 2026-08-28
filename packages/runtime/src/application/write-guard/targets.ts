@@ -1,10 +1,14 @@
 import type { PreToolUseV1 } from "@kratos/contracts";
 
-import type { TargetInspector } from "../../ports/filesystem.js";
+import type {
+  TargetInspectionSession,
+  TargetInspector,
+} from "../../ports/filesystem.js";
 
 export interface CanonicalTarget {
   readonly ordinal: number;
-  readonly path: string;
+  readonly lexicalPath: string;
+  readonly canonicalPath: string;
 }
 
 export type InspectedTargets =
@@ -31,10 +35,20 @@ export async function inspectMutationTargets(
   request: PreToolUseV1,
   inspector: TargetInspector,
 ): Promise<InspectedTargets> {
+  let session: TargetInspectionSession;
+  try {
+    session = await inspector.capture();
+  } catch {
+    return {
+      kind: "refused",
+      reasonCode: "guard.target_uninspectable",
+      ordinal: 1,
+    };
+  }
   const targets: CanonicalTarget[] = [];
   for (const [index, target] of extractMutationTargets(request).entries()) {
     const ordinal = index + 1;
-    const inspected = await inspectMutationTarget(target, ordinal, inspector);
+    const inspected = await inspectMutationTarget(target, ordinal, session);
     if (inspected.kind === "refused") return inspected;
     targets.push(inspected.target);
   }
@@ -45,12 +59,12 @@ export async function inspectMutationTargets(
 export async function inspectMutationTarget(
   target: string,
   ordinal: number,
-  inspector: TargetInspector,
+  inspector: TargetInspectionSession,
 ): Promise<
   | { readonly kind: "inside"; readonly target: CanonicalTarget }
   | Extract<InspectedTargets, { readonly kind: "refused" }>
 > {
-  let inspection: Awaited<ReturnType<TargetInspector["inspect"]>>;
+  let inspection: Awaited<ReturnType<TargetInspectionSession["inspect"]>>;
   try {
     inspection = await inspector.inspect(target);
   } catch {
@@ -70,5 +84,12 @@ export async function inspectMutationTarget(
       ordinal,
     };
   }
-  return { kind: "inside", target: { ordinal, path: inspection.path } };
+  return {
+    kind: "inside",
+    target: {
+      ordinal,
+      lexicalPath: inspection.lexicalPath,
+      canonicalPath: inspection.canonicalPath,
+    },
+  };
 }

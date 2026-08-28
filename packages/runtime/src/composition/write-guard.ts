@@ -16,6 +16,7 @@ import {
 } from "../domain/schema/index.js";
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { Result } from "../domain/result/index.js";
+import type { TargetInspectionSession } from "../ports/filesystem.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
@@ -218,11 +219,17 @@ async function guardOutcome(
   }
 
   const inspector = ports.targetInspector;
+  let session: TargetInspectionSession;
+  try {
+    session = await inspector.capture();
+  } catch {
+    return targetRefusal("guard.target_uninspectable", 1);
+  }
   let state: PolicyState | undefined;
   for (const [index, target] of extractMutationTargets(
     request.value,
   ).entries()) {
-    const inspected = await inspectMutationTarget(target, index + 1, inspector);
+    const inspected = await inspectMutationTarget(target, index + 1, session);
     if (inspected.kind === "refused") {
       return targetRefusal(inspected.reasonCode, inspected.ordinal);
     }
@@ -294,11 +301,18 @@ async function scopeRecordOutcome(
   }
   const parsed = parseSummaryScope(summaryText);
   if (parsed.kind !== "valid") return scopeRefusal(summaryPath);
+  const translated = prepareContract(registry, {
+    id: "state.feature-scope",
+    version: "1.0.0",
+    value: parsed.scope,
+    structuralReasonCode: "guard.scope_corrupt",
+  });
+  if (translated.kind === "invalid") return scopeRefusal(summaryPath);
 
   const scopePath = `${featureRoot}/scope.json`;
   const scopeEntry = await ports.durableFileSystem.inspect(scopePath);
   if (scopeEntry.kind === "missing") {
-    return { kind: "record", path: scopePath, scope: parsed.scope };
+    return { kind: "record", path: scopePath, scope: translated.value };
   }
   if (scopeEntry.kind !== "file") return scopeRefusal(scopePath);
   let scopeText: string;
@@ -315,7 +329,7 @@ async function scopeRecordOutcome(
   });
   if (
     recorded.kind === "invalid" ||
-    !scopesAgree(recorded.value, parsed.scope)
+    !scopesAgree(recorded.value, translated.value)
   ) {
     return scopeRefusal(scopePath);
   }

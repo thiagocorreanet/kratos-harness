@@ -35,7 +35,13 @@ export type PolicyEvaluation =
     };
 
 function brainTarget(path: string): boolean {
-  return path === ".brain" || path.startsWith(".brain/");
+  return path.startsWith(".brain/");
+}
+
+function targetIdentities(target: CanonicalTarget): readonly string[] {
+  return target.lexicalPath === target.canonicalPath
+    ? [target.lexicalPath]
+    : [target.lexicalPath, target.canonicalPath];
 }
 
 /** Evaluate one atomic request from already canonicalized, ordered targets. */
@@ -45,43 +51,47 @@ export function evaluateWriteRequest(
 ): PolicyEvaluation {
   if (state.kind === "invalid") {
     for (const target of targets) {
-      const writeBlock = decideWriteTarget({
-        target: target.path,
-        guardrails: state.guardrails,
-        scope: null,
-        reviewerScope: null,
-      });
-      if (writeBlock.kind === "refused") {
-        return {
-          kind: "refused",
-          reasonCode: writeBlock.reasonCode,
-          evidenceRef: writeBlock.target,
-        };
-      }
-      if (!brainTarget(target.path)) {
-        return {
-          kind: "refused",
-          reasonCode: state.reasonCode,
-          evidenceRef: state.evidenceRef,
-        };
+      for (const identity of targetIdentities(target)) {
+        const writeBlock = decideWriteTarget({
+          target: identity,
+          guardrails: state.guardrails,
+          scope: null,
+          reviewerScope: null,
+        });
+        if (writeBlock.kind === "refused") {
+          return {
+            kind: "refused",
+            reasonCode: writeBlock.reasonCode,
+            evidenceRef: target.lexicalPath,
+          };
+        }
+        if (!brainTarget(identity)) {
+          return {
+            kind: "refused",
+            reasonCode: state.reasonCode,
+            evidenceRef: state.evidenceRef,
+          };
+        }
       }
     }
     return { kind: "allowed" };
   }
 
   for (const target of targets) {
-    const decision = decideWriteTarget({
-      target: target.path,
-      guardrails: state.guardrails,
-      scope: state.scope,
-      reviewerScope: state.reviewerScope,
-    });
-    if (decision.kind === "refused") {
-      return {
-        kind: "refused",
-        reasonCode: decision.reasonCode,
-        evidenceRef: decision.target,
-      };
+    for (const identity of targetIdentities(target)) {
+      const decision = decideWriteTarget({
+        target: identity,
+        guardrails: state.guardrails,
+        scope: state.scope,
+        reviewerScope: state.reviewerScope,
+      });
+      if (decision.kind === "refused") {
+        return {
+          kind: "refused",
+          reasonCode: decision.reasonCode,
+          evidenceRef: target.lexicalPath,
+        };
+      }
     }
   }
   return { kind: "allowed" };

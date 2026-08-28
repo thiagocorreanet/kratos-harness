@@ -13,7 +13,11 @@ export type {
   DurableEntry,
   DurableFileSystem,
 } from "./transactions.js";
-export type { TargetInspection, TargetInspector } from "./filesystem.js";
+export type {
+  TargetInspection,
+  TargetInspectionSession,
+  TargetInspector,
+} from "./filesystem.js";
 
 /**
  * Injected effect boundaries.

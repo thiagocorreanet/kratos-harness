@@ -147,3 +147,78 @@ remove, rename, or directory creation.
   compatibility ruling requires preservation of older published reason
   policies. Task 5 will document that exception and final review may decide
   whether a future catalog revision is warranted.
+
+## Fix round 1
+
+Accepted all review findings and preserved the original signed implementation
+commit. The follow-up fixes now retain the normalized lexical directory-entry
+identity and the canonical referent identity for each target, authorize both in
+that order, and always report policy evidence against the original lexical
+target. This closes final-symlink delete and move endpoint bypasses while
+preserving request and source-before-destination ordering.
+
+Invalid-policy repair now requires both identities of every target to be a
+strict `.brain/**` descendant; exact `.brain` is refused for delete and for
+either move endpoint. The scope recorder validates its translated reviewer
+scope through the registered `state.feature-scope@1.0.0` schema before it can
+produce a write plan, including the 256-item array bound.
+
+The Node adapter captures one canonical root device/inode/path identity per
+request using the durable filesystem's established capture routine. Each
+inspection revalidates that pinned identity without deriving a replacement
+root, and the focused seam proves two targets cause one capture. Capture and
+session-inspection exceptions both map to bounded
+`guard.target_uninspectable` observations without exposing thrown content.
+
+### Fix RED
+
+Before the fixes:
+
+```text
+npm test -- tests/write-guard-path-safety.test.ts tests/write-guard-operations.test.ts
+# 2 failed files; 9 failed | 30 passed tests
+```
+
+The failures were three final-symlink lexical-identity cases, canonical-deny
+evidence using the referent instead of the lexical target, two exact `.brain`
+repair cases, a non-`.brain` repair alias whose referent was under `.brain`, an
+oversized reviewer scope that was recorded, and the absent request-level root
+capture API. The allowed-source/forbidden-destination regression already
+passed, proving the initial endpoint extraction/order behavior.
+
+### Fix GREEN and verification
+
+Fresh verification after the follow-up:
+
+```text
+npm test -- tests/write-guard-path-safety.test.ts tests/write-guard-operations.test.ts tests/init-command.test.ts
+# 3 passed files; 61 passed tests
+
+npm run typecheck
+npm run lint
+npx prettier --write <follow-up Task 3 files>
+git diff --check
+# All exited 0 / no diagnostics.
+```
+
+A fresh full test run proves only the controller-designated Task 1 integration
+gap remains:
+
+```text
+npm test
+# 1 failed | 156 passed files; 1 failed | 4,171 passed tests
+```
+
+The exact failure remains `tests/contract-schemas.test.ts:438`: the fixture
+directory contains `feature-scope.json`, `guardrails.json`, and
+`pre-tool-use.json`, while the prior Task 1 expected enumeration omits them.
+That test remains untouched as directed.
+
+### Fix concerns
+
+- A synchronous preflight cannot eliminate a host-side time-of-check/time-of-use
+  race after Kratos returns its operation result. The adapter pins and
+  revalidates root identity during the request, but executing external host
+  mutations inside Kratos is outside this task's scope.
+- The published reason-policy compatibility exception recorded above remains
+  unchanged by this fix round.

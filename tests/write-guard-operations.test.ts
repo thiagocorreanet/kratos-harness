@@ -19,6 +19,7 @@ import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { renderSummaryScope } from "@kratos/runtime/domain/write-guard";
 import { createRuntimeAt } from "@kratos/runtime/composition";
 import { pipedInput, recordingOutput } from "@kratos/runtime/infra/fake";
+import type { RuntimePorts } from "@kratos/runtime/ports";
 
 const roots: string[] = [];
 const feature = "scope-guard";
@@ -82,11 +83,16 @@ async function project(
   return root;
 }
 
-async function runGuard(root: string, request: unknown) {
+async function runGuard(
+  root: string,
+  request: unknown,
+  overrides: Partial<RuntimePorts> = {},
+) {
   const output = recordingOutput();
   const exitCode = await runCommandLine(
     ["--json", "guard", "write"],
     createRuntimeAt(root, {
+      ...overrides,
       output,
       standardInput: pipedInput(JSON.stringify(request)),
     }),
@@ -235,6 +241,87 @@ describe("guard write operation", () => {
     ]);
   });
 
+  it("inspects and refuses a forbidden move destination after an allowed source", async () => {
+    const activeScope = scope(["allowed/**"], ["forbidden/**"]);
+    const root = await project({ scope: activeScope, summary: activeScope });
+
+    const result = await runGuard(
+      root,
+      request([
+        {
+          kind: "move",
+          source: "allowed/source.ts",
+          destination: "forbidden/destination.ts",
+        },
+      ]),
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.scope_deny",
+      evidence: [{ kind: "artifact", ref: "forbidden/destination.ts" }],
+    });
+  });
+
+  it.each([
+    ["delete", [{ kind: "delete", path: "links/final.ts" }]],
+    [
+      "move source",
+      [
+        {
+          kind: "move",
+          source: "links/final.ts",
+          destination: "allowed/destination.ts",
+        },
+      ],
+    ],
+    [
+      "move destination",
+      [
+        {
+          kind: "move",
+          source: "allowed/source.ts",
+          destination: "links/final.ts",
+        },
+      ],
+    ],
+  ] as const)(
+    "authorizes the lexical directory entry for %s",
+    async (_label, mutations) => {
+      const activeScope = scope(["allowed/**"], ["links/**"]);
+      const root = await project({ scope: activeScope, summary: activeScope });
+      await mkdir(join(root, "allowed"));
+      await mkdir(join(root, "links"));
+      await writeFile(join(root, "allowed/target.ts"), "target\n");
+      await symlink("../allowed/target.ts", join(root, "links/final.ts"));
+
+      const result = await runGuard(root, request([...mutations]));
+
+      expect(result.result).toMatchObject({
+        reasonCode: "guard.scope_deny",
+        evidence: [{ kind: "artifact", ref: "links/final.ts" }],
+      });
+    },
+  );
+
+  it("authorizes the canonical referent while keeping lexical evidence", async () => {
+    const activeScope = scope(["allowed/**"], ["forbidden/**"]);
+    const root = await project({ scope: activeScope, summary: activeScope });
+    await mkdir(join(root, "allowed"));
+    await mkdir(join(root, "forbidden"));
+    await writeFile(join(root, "forbidden/target.ts"), "target\n");
+    await symlink("../forbidden/target.ts", join(root, "allowed/link.ts"));
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "allowed/link.ts" }]),
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.scope_deny",
+      evidence: [{ kind: "artifact", ref: "allowed/link.ts" }],
+    });
+  });
+
   it("never mutates requested targets or any project state", async () => {
     const activeScope = scope(["src/**"]);
     const root = await project({ scope: activeScope, summary: activeScope });
@@ -254,8 +341,8 @@ describe("guard write operation", () => {
     expect(await tree(root)).toEqual(before);
   });
 
-  it("evaluates a new path under an in-root symlink by its canonical path", async () => {
-    const activeScope = scope(["canonical/**"]);
+  it("evaluates a new path under an in-root symlink by both path identities", async () => {
+    const activeScope = scope(["alias/**", "canonical/**"]);
     const root = await project({ scope: activeScope, summary: activeScope });
     await mkdir(join(root, "canonical"));
     await symlink("canonical", join(root, "alias"));
@@ -366,6 +453,99 @@ describe("guard write operation", () => {
     expect(result.result.reasonCode).toBe("runtime.orientation_ok");
   });
 
+  it.each([
+    ["delete", [{ kind: "delete", path: ".brain" }]],
+    [
+      "move source",
+      [
+        {
+          kind: "move",
+          source: ".brain",
+          destination: ".brain/repair.json",
+        },
+      ],
+    ],
+    [
+      "move destination",
+      [
+        {
+          kind: "move",
+          source: ".brain/repair.json",
+          destination: ".brain",
+        },
+      ],
+    ],
+  ] as const)(
+    "does not treat exact .brain as repairable for %s",
+    async (_label, mutations) => {
+      const root = await project({ guardrails: "{bad-json\n" });
+
+      const result = await runGuard(root, request([...mutations]));
+
+      expect(result.result.reasonCode).toBe("guard.guardrails_corrupt");
+    },
+  );
+
+  it("requires both lexical and canonical identities to be repair descendants", async () => {
+    const root = await project({ guardrails: "{bad-json\n" });
+    await mkdir(join(root, ".brain/repair"));
+    await symlink(".brain/repair", join(root, "repair-alias"));
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "repair-alias/state.json" }]),
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.guardrails_corrupt",
+      evidence: [{ kind: "artifact", ref: ".brain/guardrails.json" }],
+    });
+  });
+
+  it("maps a target-inspector exception to a bounded stable refusal", async () => {
+    const root = await project();
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "src/index.ts" }]),
+      {
+        targetInspector: {
+          capture: () => Promise.reject(new Error("/unsafe/private/target")),
+        },
+      },
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.target_uninspectable",
+      evidence: [{ kind: "observation", ref: "guard-target-0001" }],
+    });
+    expect(JSON.stringify(result.result)).not.toContain("unsafe/private");
+  });
+
+  it("maps an inspection-session exception to a bounded stable refusal", async () => {
+    const root = await project();
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "src/index.ts" }]),
+      {
+        targetInspector: {
+          capture: () =>
+            Promise.resolve({
+              inspect: () =>
+                Promise.reject(new Error("/unsafe/private/target")),
+            }),
+        },
+      },
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.target_uninspectable",
+      evidence: [{ kind: "observation", ref: "guard-target-0001" }],
+    });
+    expect(JSON.stringify(result.result)).not.toContain("unsafe/private");
+  });
+
   it("applies an explicit .brain deny once policy state is valid", async () => {
     const activeScope = scope(["src/**"], [".brain/**"]);
     const root = await project({ scope: activeScope, summary: activeScope });
@@ -469,5 +649,32 @@ describe("scope record operation", () => {
       stateChanged: false,
     });
     expect(await readFile(path, "utf8")).toBe(before);
+  });
+
+  it("refuses reviewer scope arrays larger than the persisted schema limit", async () => {
+    const root = await project({
+      summary: scope(
+        Array.from(
+          { length: 257 },
+          (_value, index) => `src/file-${String(index)}.ts`,
+        ),
+      ),
+    });
+    const path = join(root, `.brain/02-features/${feature}/scope.json`);
+    const output = recordingOutput();
+
+    const exitCode = await runCommandLine(
+      ["--json", "scope", "record"],
+      createRuntimeAt(root, { output }),
+    );
+
+    expect(exitCode).not.toBe(0);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      reasonCode: "guard.scope_corrupt",
+      stateChanged: false,
+    });
+    await expect(readFile(path, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 });
