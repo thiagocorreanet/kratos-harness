@@ -1,4 +1,4 @@
-import { CONTRACT_IDENTITIES, type EventV1 } from "@kratos/contracts";
+import { type EventV1 } from "@kratos/contracts";
 
 import { canonicalizeJson } from "../schema/index.js";
 import {
@@ -34,7 +34,7 @@ export function sealEvent(
   };
   const validated = services.schemaRegistry.validate({
     id: "state.event",
-    version: CONTRACT_IDENTITIES.state,
+    version: event.stateContract,
     value: event,
     structuralReasonCode: "runtime.state_corrupt",
   });

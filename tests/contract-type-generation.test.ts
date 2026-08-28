@@ -169,6 +169,66 @@ describe("schema-derived contract declarations", () => {
     }
   });
 
+  it("rejects extra fields in generated 1.1 adapter-message variants", async () => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "invalid-adapter-v1.1.mts");
+      await writeFile(
+        source,
+        `
+          import type { AdapterMessageV1_1 } from "../packages/contracts/src/generated/contracts.js";
+
+          ({
+            contractVersion: "1.1.0",
+            hostContract: "1.1.0",
+            messageId: "message-01",
+            messageType: "phase-execution",
+            host: "codex",
+            operation: "phase.execute",
+            capabilities: [],
+            observedIdentity: {
+              adapterVersion: "1.1.0",
+              model: null,
+              effort: null,
+            },
+            payloadContract: "host.phase-execution@1.1.0",
+            payload: {
+              assignmentDigest: "${"a".repeat(64)}",
+              model: null,
+              effort: null,
+            },
+            correlationId: "correlation-01",
+            unexpected: true,
+          }) satisfies AdapterMessageV1_1;
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status, result.stdout).not.toBe(0);
+      expect(result.stdout).toContain("'unexpected' does not exist");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   it.each([
     [
       "a write operation without a staged payload",

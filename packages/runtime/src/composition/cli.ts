@@ -1,4 +1,4 @@
-import { CONTRACT_IDENTITIES } from "@kratos/contracts";
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 
 import {
   DEFAULT_REGISTRY,
@@ -65,9 +65,17 @@ function prepareAdapterPayload(
   payload: unknown,
   registry: SchemaRegistry,
 ): string {
+  const version =
+    typeof payload === "object" &&
+    payload !== null &&
+    !Array.isArray(payload) &&
+    typeof (payload as Readonly<Record<string, unknown>>).hostContract ===
+      "string"
+      ? (payload as Readonly<Record<string, unknown>>).hostContract
+      : CONTRACT_VERSIONS["host.adapter-message"];
   const prepared = prepareContract(registry, {
     id: "host.adapter-message",
-    version: CONTRACT_IDENTITIES.host,
+    version,
     value: payload,
     structuralReasonCode: "trail.output_invalido",
   });

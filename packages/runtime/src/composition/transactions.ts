@@ -1,5 +1,5 @@
 import {
-  CONTRACT_IDENTITIES,
+  CONTRACT_VERSIONS,
   type TransactionManifestV1,
   type TransactionProgressV1,
 } from "@kratos/contracts";
@@ -1857,7 +1857,7 @@ function validateManifest(
 ): TransactionManifestV1 {
   const result = services.schemaRegistry.validate({
     id: "state.transaction-manifest",
-    version: CONTRACT_IDENTITIES.state,
+    version: CONTRACT_VERSIONS["state.transaction-manifest"],
     value,
     structuralReasonCode: "runtime.state_corrupt",
   });
@@ -1873,7 +1873,7 @@ function validateProgress(
 ): TransactionProgressV1 {
   const result = services.schemaRegistry.validate({
     id: "state.transaction-progress",
-    version: CONTRACT_IDENTITIES.state,
+    version: CONTRACT_VERSIONS["state.transaction-progress"],
     value,
     structuralReasonCode: "runtime.state_corrupt",
   });

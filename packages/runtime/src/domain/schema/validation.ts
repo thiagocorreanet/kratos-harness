@@ -4,9 +4,9 @@ import type {
   StructuralReasonCode,
 } from "./contracts.js";
 
-export interface ContractRequest<I extends ContractId> {
+export interface ContractRequest<I extends ContractId, V = unknown> {
   readonly id: I;
-  readonly version: unknown;
+  readonly version: V;
   readonly value: unknown;
   readonly structuralReasonCode: StructuralReasonCode;
 }
@@ -28,7 +28,7 @@ export type ValidationResult<T> =
     };
 
 export interface SchemaRegistry {
-  validate<I extends ContractId>(
-    request: ContractRequest<I>,
-  ): ValidationResult<ContractValue<I>>;
+  validate<I extends ContractId, V>(
+    request: ContractRequest<I, V>,
+  ): ValidationResult<ContractValue<I, V>>;
 }

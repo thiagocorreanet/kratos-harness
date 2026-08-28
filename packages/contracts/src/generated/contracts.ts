@@ -129,22 +129,63 @@ export namespace AdapterMessageV1Contract {
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
 export namespace AdapterMessageV1_1Contract {
   export type AdapterMessageV1_1 =
-    RequestMessage | ResponseMessage | CatalogMessage | PhaseExecutionMessage;
-  export type RequestMessage = Common & {
-    messageType?: "request";
-    payload?: RequestPayload;
-    [k: string]: unknown | undefined;
-  };
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "request";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: PayloadContract;
+        payload: RequestPayload;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "response";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: PayloadContract;
+        payload: KratosUniversalResultV1;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "model-catalog";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: "host.model-catalog@1.1.0";
+        payload: ModelCatalog;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "phase-execution";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: "host.phase-execution@1.1.0";
+        payload: PhaseExecution;
+        correlationId: Id;
+      };
   export type Id = string;
   export type Semver = string;
   export type PayloadContract = string;
   export type Reference = string;
   export type Sha256 = string;
-  export type ResponseMessage = Common & {
-    messageType?: "response";
-    payload?: KratosUniversalResultV1;
-    [k: string]: unknown | undefined;
-  };
   export type KratosUniversalResultV1 =
     | {
         contractVersion: "1.0.0";
@@ -188,32 +229,7 @@ export namespace AdapterMessageV1_1Contract {
         retryable: boolean;
         recovery: string;
       };
-  export type CatalogMessage = Common & {
-    messageType?: "model-catalog";
-    payloadContract?: "host.model-catalog@1.1.0";
-    payload?: ModelCatalog;
-    [k: string]: unknown | undefined;
-  };
-  export type PhaseExecutionMessage = Common & {
-    messageType?: "phase-execution";
-    payloadContract?: "host.phase-execution@1.1.0";
-    payload?: PhaseExecution;
-    [k: string]: unknown | undefined;
-  };
 
-  export interface Common {
-    contractVersion: "1.1.0";
-    hostContract: "1.1.0";
-    messageId: Id;
-    messageType: string;
-    host: "claude" | "codex";
-    operation: Id;
-    capabilities: Id[];
-    observedIdentity: ObservedIdentity;
-    payloadContract: PayloadContract;
-    payload: unknown;
-    correlationId: Id;
-  }
   export interface ObservedIdentity {
     adapterVersion: Semver;
     model: Id | null;

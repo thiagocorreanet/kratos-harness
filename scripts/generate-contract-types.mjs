@@ -163,6 +163,30 @@ function agentOutputTypeSchema(schema) {
   };
 }
 
+function adapterMessageV1_1TypeSchema(schema) {
+  const common = schema.$defs?.common;
+  const variants = [
+    "requestMessage",
+    "responseMessage",
+    "catalogMessage",
+    "phaseExecutionMessage",
+  ].map((name) => {
+    const rule = schema.$defs?.[name];
+    const constraints = rule?.allOf?.[1]?.properties;
+    if (constraints === undefined) {
+      throw new Error("adapter message variant is incomplete");
+    }
+    return closedObjectVariant(common, constraints);
+  });
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: variants,
+    $defs: schema.$defs,
+  };
+}
+
 function schemaForTypeGeneration(id, schema) {
   if (id === "host.agent-output") {
     return agentOutputTypeSchema(schema);
@@ -172,6 +196,12 @@ function schemaForTypeGeneration(id, schema) {
   }
   if (id === "state.transaction-progress") {
     return transactionProgressTypeSchema(schema);
+  }
+  if (
+    id === "host.adapter-message" &&
+    schema.$id === "https://kratos.dev/schemas/host/adapter-message/v1.1"
+  ) {
+    return adapterMessageV1_1TypeSchema(schema);
   }
   return schema;
 }
