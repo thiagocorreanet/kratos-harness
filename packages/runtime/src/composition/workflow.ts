@@ -1277,6 +1277,28 @@ async function observePhaseAssignment(input: {
     );
   }
 
+  const selectedBeforeReplay = await activeRunId(input.feature, input.ports);
+  if (selectedBeforeReplay !== input.runId) {
+    return refusedAssignment("model.assignment_stale", "selection");
+  }
+  const currentRun = await observeRun(
+    { feature: input.feature, runId: selectedBeforeReplay },
+    input.ports,
+    input.registry,
+  );
+  const selectedAfterReplay = await activeRunId(input.feature, input.ports);
+  if (
+    currentRun.workflow.kind !== "present" ||
+    selectedAfterReplay !== selectedBeforeReplay ||
+    currentRun.workflow.state.feature !== input.feature ||
+    currentRun.workflow.state.runId !== input.runId ||
+    currentRun.workflow.state.revision !== input.revision ||
+    (currentRun.workflow.state.currentStep ?? "acceptance") !== input.phase
+  ) {
+    return refusedAssignment("model.assignment_stale", "run");
+  }
+  // This is deliberately the final await: a read-only handoff can only bind
+  // the exact configuration bytes observed immediately before construction.
   const currentConfiguration = await observeConfigurationSnapshot(
     input.ports,
     input.registry,
@@ -1284,18 +1306,6 @@ async function observePhaseAssignment(input: {
   if (currentConfiguration.kind === "refused") return currentConfiguration;
   if (currentConfiguration.digest !== configuration.digest) {
     return refusedAssignment("model.assignment_stale", "configuration");
-  }
-  const currentRun = await observeRun(
-    { feature: input.feature, runId: input.runId },
-    input.ports,
-    input.registry,
-  );
-  if (
-    currentRun.workflow.kind !== "present" ||
-    currentRun.workflow.state.revision !== input.revision ||
-    (currentRun.workflow.state.currentStep ?? "acceptance") !== input.phase
-  ) {
-    return refusedAssignment("model.assignment_stale", "run");
   }
 
   const value: PhaseHandoffV1_1 = {

@@ -47,6 +47,27 @@ npm run typecheck
 exit 0
 ```
 
+## Fix round 2/5
+
+### RED
+
+Added controlled handoff tests that mutate `.brain/config.json` during the
+final run replay and substitute the selected-run pointer during that replay.
+Both initially published a successful handoff because configuration was checked
+before replay and selection was never revalidated.
+
+### GREEN
+
+- Final validation captures the selected run before replay, rechecks that
+  selection after replay, and compares feature, run id, revision, and phase.
+- Exact configuration bytes are re-read after all final run awaits and compared
+  with the bytes used for resolution. This is the final await before synchronous
+  handoff construction.
+- Both drift paths return `model.assignment_stale` with no handoff-side writes.
+
+Verification passed: 9 focused suites / 330 tests, `contracts:check`,
+typecheck, lint, and Prettier for changed code files.
+
 ## Self-review
 
 - No fallback model, effort, host, or prompt policy was introduced.

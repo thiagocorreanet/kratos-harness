@@ -561,6 +561,86 @@ describe("read-only model-role handoffs", () => {
     expect(run.storage.snapshot()).toEqual(afterExternalChange);
   });
 
+  it("refuses when configuration changes during the final run replay", async () => {
+    const run = await started();
+    const replacementText = JSON.stringify({
+      ...roleConfig("codex", {
+        planner: "planner",
+        implementer: "implementer",
+        judge: "judge",
+      }),
+      policyMode: "standard" as const,
+    });
+    const events = ".brain/02-features/ship-handoff/runs/run-01/events.jsonl";
+    const original = run.ports.durableFileSystem;
+    let eventReads = 0;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...original,
+        readText: async (path) => {
+          const text = await original.readText(path);
+          if (path === events && ++eventReads === 2) {
+            await run.ports.fileSystem.write(
+              ".brain/config.json",
+              replacementText,
+            );
+          }
+          return text;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(await runCommandLine(["--json", "handoff"], ports)).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[".brain/config.json"]).toBe(
+      replacementText,
+    );
+    expect(run.storage.snapshot().files).toMatchObject({
+      [events]: before.files[events],
+      [".brain/02-features/ship-handoff/runs/run-01/state.json"]:
+        before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    });
+  });
+
+  it("refuses when selected run identity changes during the final replay", async () => {
+    const run = await started();
+    const events = ".brain/02-features/ship-handoff/runs/run-01/events.jsonl";
+    const activeRun = ".brain/02-features/ship-handoff/active-run";
+    const original = run.ports.durableFileSystem;
+    let eventReads = 0;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...original,
+        readText: async (path) => {
+          const text = await original.readText(path);
+          if (path === events && ++eventReads === 2) {
+            await run.ports.fileSystem.write(activeRun, "run-replaced\n");
+          }
+          return text;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(await runCommandLine(["--json", "handoff"], ports)).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[activeRun]).toBe("run-replaced\n");
+    expect(run.storage.snapshot().files).toMatchObject({
+      [events]: before.files[events],
+      [".brain/02-features/ship-handoff/runs/run-01/state.json"]:
+        before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    });
+  });
+
   it.each([
     [
       "an unknown alias",
