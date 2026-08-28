@@ -42,6 +42,11 @@ function stringValue(value: unknown, label: string): string {
   return value;
 }
 
+function numberValue(value: unknown, label: string): number {
+  if (typeof value !== "number") throw new Error(`expected ${label}`);
+  return value;
+}
+
 function contractVersion(schema: unknown): string {
   const properties = record(record(schema).properties);
   const version = record(properties.contractVersion).const;
@@ -58,10 +63,10 @@ function mutationBounds(schema: unknown): readonly [number, number] {
   const mutations = record(record(schema).properties).mutations;
   const minimum = record(mutations).minItems;
   const maximum = record(mutations).maxItems;
-  if (typeof minimum !== "number" || typeof maximum !== "number") {
-    throw new Error("expected mutation bounds");
-  }
-  return [minimum, maximum];
+  return [
+    numberValue(minimum, "minimum mutation count"),
+    numberValue(maximum, "maximum mutation count"),
+  ];
 }
 
 function reason(code: string): Readonly<Record<string, unknown>> {
@@ -295,6 +300,10 @@ describe("pre-write scope guard documentation", () => {
       pathEscape.status,
       "path escape status",
     );
+    const pathEscapeExitCode = numberValue(
+      pathEscape.exitCode,
+      "path escape exit code",
+    );
     const outsideAllowCode = stringValue(
       outsideAllow.code,
       "outside allow code",
@@ -302,6 +311,10 @@ describe("pre-write scope guard documentation", () => {
     const outsideAllowStatus = stringValue(
       outsideAllow.status,
       "outside allow status",
+    );
+    const outsideAllowExitCode = numberValue(
+      outsideAllow.exitCode,
+      "outside allow exit code",
     );
     const reasonCatalogVersion = stringValue(
       record(contractFamilies).reasonCatalog,
@@ -365,11 +378,11 @@ describe("pre-write scope guard documentation", () => {
     );
     expect(resultContract).toContain(`\`${pathEscapeCode}\``);
     expect(resultContract).toContain(
-      `as ${pathEscapeStatus} / exit ${String(pathEscape.exitCode)}`,
+      `as ${pathEscapeStatus} / exit ${String(pathEscapeExitCode)}`,
     );
     expect(resultContract).toContain(`\`${outsideAllowCode}\``);
     expect(resultContract).toContain(
-      `${outsideAllowStatus} / exit ${String(outsideAllow.exitCode)}`,
+      `${outsideAllowStatus} / exit ${String(outsideAllowExitCode)}`,
     );
     expect(resultContract).toContain(
       "Every non-success result is denied by the host relay",
