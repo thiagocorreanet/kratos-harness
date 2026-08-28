@@ -7,16 +7,24 @@
   "required": [
     "contractVersion",
     "hostContract",
+    "feature",
     "runId",
     "revision",
     "phase",
     "host",
     "assignment",
-    "assignmentDigest"
+    "assignmentDigest",
+    "objectiveDigest",
+    "status",
+    "gateOutcome",
+    "blockers",
+    "openGaps",
+    "nextAction"
   ],
   "properties": {
     "contractVersion": { "const": "1.1.0" },
     "hostContract": { "const": "1.1.0" },
+    "feature": { "$ref": "#/$defs/id" },
     "runId": { "$ref": "#/$defs/id" },
     "revision": {
       "type": "integer",
@@ -28,7 +36,20 @@
     },
     "host": { "enum": ["claude", "codex"] },
     "assignment": { "$ref": "#/$defs/assignment" },
-    "assignmentDigest": { "$ref": "#/$defs/sha256" }
+    "assignmentDigest": { "$ref": "#/$defs/sha256" },
+    "objectiveDigest": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["idle", "active", "blocked", "completed"] },
+    "gateOutcome": { "enum": ["pass", "warn", "block"] },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "openGaps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nextAction": { "type": "string", "minLength": 1 }
   },
   "$defs": {
     "id": {

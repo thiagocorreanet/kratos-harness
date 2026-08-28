@@ -21,6 +21,8 @@ import type {
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
+import type { PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
@@ -77,7 +79,8 @@ export interface FlagSpec {
   readonly summary: string;
 }
 
-export type JsonContractId = "result@1.0.0" | "adapter-message@1.0.0";
+export type JsonContractId =
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.1.0";
 
 export interface Decision {
   readonly result: Result;
@@ -200,6 +203,19 @@ export type CommandObservation =
        * `spec` phases is to change them.
        */
       readonly observedLineage: RunLineage;
+      readonly phaseAssignment:
+        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+        | {
+            readonly kind: "refused";
+            readonly reasonCode:
+              | ModelRoleRefusal
+              | "model.config_migration_required"
+              | "guard.config_missing"
+              | "guard.config_corrupt"
+              | "contract.state_version_invalid"
+              | "contract.state_version_unsupported";
+            readonly subject: string;
+          };
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectConfigV1, ReadableProjectConfig } from "@kratos/contracts";
+import type {
+  ProjectConfigV1_1,
+  ReadableProjectConfig,
+} from "@kratos/contracts";
+import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import {
   classifyConfiguration,
@@ -8,17 +12,24 @@ import {
   type ConfigurationValidator,
 } from "@kratos/runtime/domain/project";
 
-const validConfiguration: ProjectConfigV1 = {
-  contractVersion: "1.0.0",
-  stateContract: "1.0.0",
+const validConfiguration: ProjectConfigV1_1 = {
+  contractVersion: "1.1.0",
+  stateContract: "1.1.0",
   pluginVersion: "0.0.0-development",
-  hostContract: "1.0.0",
+  hostContract: "1.1.0",
   language: "en",
   policyMode: "strict",
   managedState: {
     directory: ".brain",
     eventLog: "events.jsonl",
     snapshots: true,
+  },
+  modelRoles: {
+    codex: {
+      planner: "planner",
+      implementer: "implementer",
+      judge: "judge",
+    },
   },
 };
 
@@ -38,6 +49,16 @@ function recordingValidator(result: "valid" | "invalid") {
 }
 
 describe("project configuration classification", () => {
+  it("requires migration instead of executing a readable 1.0 configuration", () => {
+    const { validator, values } = recordingValidator("valid");
+
+    expect(classifyConfiguration(file(projectConfigV1), validator)).toEqual({
+      kind: "migration-required",
+      reasonCode: "model.config_migration_required",
+    });
+    expect(values).toEqual([]);
+  });
+
   it("preserves a readable 1.1 configuration for later role-aware phases", () => {
     const validator: ConfigurationValidator = () => ({
       kind: "valid",
@@ -72,6 +93,11 @@ describe("project configuration classification", () => {
       "contract.state_version_invalid",
     ],
     [
+      "a non-current patch identity",
+      file({ stateContract: "1.0.1" }),
+      "contract.state_version_unsupported",
+    ],
+    [
       "a future identity",
       file({ stateContract: "2.0.0" }),
       "contract.state_version_unsupported",
@@ -94,7 +120,7 @@ describe("project configuration classification", () => {
     const secret = "/home/customer/token=private";
     const { validator } = recordingValidator("invalid");
     const result = classifyConfiguration(
-      file({ stateContract: "1.0.0", unexpected: secret }),
+      file({ stateContract: "1.1.0", unexpected: secret }),
       validator,
     );
     expect(result).toEqual({
@@ -105,7 +131,7 @@ describe("project configuration classification", () => {
   });
 
   it("returns only the value accepted by the validator", () => {
-    const parsed = { stateContract: "1.0.0", language: "pt-BR" };
+    const parsed = { stateContract: "1.1.0", language: "pt-BR" };
     const { validator, values } = recordingValidator("valid");
     expect(classifyConfiguration(file(parsed), validator)).toEqual({
       kind: "valid",
@@ -118,12 +144,12 @@ describe("project configuration classification", () => {
     const { validator, values } = recordingValidator("invalid");
     const input = {
       kind: "file",
-      text: '{"stateContract":"2.0.0","stateContract":"1.0.0"}',
+      text: '{"stateContract":"2.0.0","stateContract":"1.1.0"}',
     } as const;
     expect(classifyConfiguration(input, validator)).toEqual({
       kind: "failure",
       reasonCode: "guard.config_corrupt",
     });
-    expect(values).toEqual([{ stateContract: "1.0.0" }]);
+    expect(values).toEqual([{ stateContract: "1.1.0" }]);
   });
 });

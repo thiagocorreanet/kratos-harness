@@ -1,6 +1,10 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import type { ProjectConfigV1, ReadableProjectConfig } from "@kratos/contracts";
+import type {
+  ProjectConfigV1,
+  ProjectConfigV1_1,
+  ReadableProjectConfig,
+} from "@kratos/contracts";
 import type {
   ConfigurationValidator,
   DirectoryProbe,
@@ -66,7 +70,7 @@ describe("project discovery vocabulary", () => {
       {
         kind: "initialized",
         root: "/workspace/project",
-        configuration: {} as ProjectConfigV1,
+        configuration: {} as ProjectConfigV1_1,
       },
       { kind: "root-only", root: "/workspace/project" },
       {

@@ -8,6 +8,7 @@ import type {
   GapRecordV1,
   SnapshotV1,
 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -19,6 +20,13 @@ import {
 } from "../domain/approvals/index.js";
 
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
+import {
+  digestPhaseAssignment,
+  resolvePhaseAssignment,
+  roleForPhase,
+  type ModelRole,
+} from "../domain/model-roles/index.js";
+import { classifyConfiguration } from "../domain/project/index.js";
 import {
   replayEventStream,
   verifyEventStream,
@@ -43,7 +51,11 @@ import {
   type AgentOutputObservation,
 } from "../domain/agent/index.js";
 import type { GapProposalObservation } from "../domain/gaps/index.js";
-import { evaluateGates, type GateMode } from "../domain/gates/index.js";
+import {
+  evaluateGates,
+  type GateDecision,
+  type GateMode,
+} from "../domain/gates/index.js";
 import {
   inspectPrdDocument,
   type PrdDocumentObservation,
@@ -65,6 +77,7 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { configurationValidator } from "./schema.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -309,6 +322,23 @@ export async function observeWorkflow(
     ),
     acceptanceCriteria: acceptanceCriterionStates,
   });
+  const phaseAssignment = await observePhaseAssignment({
+    phase,
+    runId,
+    revision: run.workflow.kind === "present" ? run.workflow.state.revision : 0,
+    feature: configuration.feature,
+    status:
+      run.workflow.kind === "present" ? run.workflow.state.status : "idle",
+    objectiveDigest,
+    gateDecision,
+    openGaps,
+    launcherHost:
+      typeof invocation.flags.get("--host") === "string"
+        ? (invocation.flags.get("--host") as string)
+        : anchored.environment.get("KRATOS_HOST"),
+    ports: anchored,
+    registry,
+  });
   const integrityAudit =
     run.workflow.kind === "corrupt"
       ? ({
@@ -360,6 +390,7 @@ export async function observeWorkflow(
       workflow: run.workflow,
       configuration,
       observedLineage,
+      phaseAssignment,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId,
@@ -1180,6 +1211,143 @@ function frozenDeclarationTuple(
   return first === undefined ? null : [first, ...rest];
 }
 
+type PhaseAssignmentReason =
+  | "model.role_missing"
+  | "model.host_missing"
+  | "model.resolution_unavailable"
+  | "model.effort_unsupported"
+  | "model.independence_violation"
+  | "model.config_migration_required"
+  | "guard.config_missing"
+  | "guard.config_corrupt"
+  | "contract.state_version_invalid"
+  | "contract.state_version_unsupported";
+
+type PhaseAssignmentObservation =
+  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode: PhaseAssignmentReason;
+      readonly subject: string;
+    };
+
+async function observePhaseAssignment(input: {
+  readonly phase: (typeof RUN_PHASES)[number];
+  readonly runId: string;
+  readonly revision: number;
+  readonly feature: string;
+  readonly status: PhaseHandoffV1_1["status"];
+  readonly objectiveDigest: string;
+  readonly gateDecision: GateDecision;
+  readonly openGaps: number;
+  readonly launcherHost: string | undefined;
+  readonly ports: RuntimePorts;
+  readonly registry: SchemaRegistry;
+}): Promise<PhaseAssignmentObservation> {
+  const host = configurationHost(input.launcherHost);
+  if (host === null) return refusedAssignment("model.host_missing", "launcher");
+
+  const path = ".brain/config.json";
+  const entry = await input.ports.durableFileSystem.inspect(path);
+  const observed =
+    entry.kind === "missing"
+      ? { kind: "absent" as const }
+      : entry.kind === "file"
+        ? {
+            kind: "file" as const,
+            text: await input.ports.durableFileSystem.readText(path),
+          }
+        : { kind: "other" as const };
+  const configuration = classifyConfiguration(
+    observed,
+    configurationValidator(input.registry),
+  );
+  if (configuration.kind !== "valid") {
+    return refusedAssignment(configuration.reasonCode, "configuration");
+  }
+
+  const roles = configuration.value.modelRoles[host];
+  if (roles === undefined) return refusedAssignment("model.host_missing", host);
+  const required = requiredRoles(input.phase);
+  const missing = required.find((role) => roles[role] === undefined);
+  if (missing !== undefined) {
+    return refusedAssignment("model.role_missing", missing);
+  }
+
+  const catalog = await input.ports.modelRouting.observe(host);
+  if (catalog === null) {
+    return refusedAssignment("model.resolution_unavailable", host);
+  }
+  const resolved = resolvePhaseAssignment({
+    phase: input.phase,
+    host,
+    configuration: configuration.value,
+    catalog,
+  });
+  if (resolved.kind === "refused") {
+    return refusedAssignment(
+      resolved.reasonCode,
+      resolved.reasonCode === "model.independence_violation"
+        ? host
+        : roleForPhase(input.phase),
+    );
+  }
+
+  const configDigest = entry.kind === "file" ? entry.sha256 : EMPTY_DIGEST;
+  const value: PhaseHandoffV1_1 = {
+    contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
+    hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
+    runId: input.runId,
+    revision: input.revision,
+    phase: input.phase,
+    host,
+    assignment: resolved.assignment,
+    assignmentDigest: digestPhaseAssignment(
+      {
+        configDigest,
+        runId: input.runId,
+        revision: input.revision,
+        host,
+        assignment: resolved.assignment,
+      },
+      (canonical) => input.ports.digests.sha256(canonical),
+    ),
+    feature: input.feature,
+    objectiveDigest: input.objectiveDigest,
+    status: input.status,
+    gateOutcome: input.gateDecision.outcome,
+    blockers: input.gateDecision.failures.map(({ gateId }) => gateId),
+    openGaps: input.openGaps,
+    nextAction:
+      input.gateDecision.outcome === "block"
+        ? "Resolve the reported gate blockers and rerun kratos doctor."
+        : input.phase === "acceptance"
+          ? "Review the evidence bundle, record final approval, and run kratos done."
+          : `Complete the ${input.phase} phase and run kratos continue.`,
+  };
+  return { kind: "resolved", value };
+}
+
+function configurationHost(
+  launcherHost: string | undefined,
+): "claude" | "codex" | null {
+  if (launcherHost === "claude-code") return "claude";
+  return launcherHost === "codex" ? "codex" : null;
+}
+
+function requiredRoles(
+  phase: (typeof RUN_PHASES)[number],
+): readonly ModelRole[] {
+  return [...new Set<ModelRole>([roleForPhase(phase), "implementer", "judge"])];
+}
+
+function refusedAssignment(
+  reasonCode: PhaseAssignmentReason,
+  subject: string,
+): PhaseAssignmentObservation {
+  return { kind: "refused", reasonCode, subject };
+}
+
 async function observePolicy(
   ports: RuntimePorts,
   registry: SchemaRegistry,
@@ -1188,20 +1356,19 @@ async function observePolicy(
   const entry = await ports.durableFileSystem.inspect(path);
   if (entry.kind !== "file") return { readable: false, mode: "enforce" };
   try {
-    const validated = registry.validate({
-      id: "state.project-config",
-      version: "1.0.0",
-      value: JSON.parse(
-        await ports.durableFileSystem.readText(path),
-      ) as unknown,
-      structuralReasonCode: "runtime.state_corrupt",
-    });
-    if (validated.kind !== "valid") {
+    const classified = classifyConfiguration(
+      {
+        kind: "file",
+        text: await ports.durableFileSystem.readText(path),
+      },
+      configurationValidator(registry),
+    );
+    if (classified.kind !== "valid") {
       return { readable: false, mode: "enforce" };
     }
     return {
       readable: true,
-      mode: validated.value.policyMode === "strict" ? "enforce" : "warn",
+      mode: classified.value.policyMode === "strict" ? "enforce" : "warn",
     };
   } catch {
     return { readable: false, mode: "enforce" };

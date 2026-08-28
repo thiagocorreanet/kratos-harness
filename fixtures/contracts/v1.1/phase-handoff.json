@@ -1,6 +1,7 @@
 {
   "contractVersion": "1.1.0",
   "hostContract": "1.1.0",
+  "feature": "review-feature",
   "runId": "run-01",
   "revision": 12,
   "phase": "review",
@@ -11,5 +12,11 @@
     "model": "gpt-5-review",
     "effort": "medium"
   },
-  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "objectiveDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "active",
+  "gateOutcome": "pass",
+  "blockers": [],
+  "openGaps": 0,
+  "nextAction": "Complete the review phase and run kratos continue."
 }

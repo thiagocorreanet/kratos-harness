@@ -29,6 +29,7 @@ import { observeStopLossUnlock } from "./unlock.js";
 import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
+import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
@@ -82,6 +83,31 @@ function prepareAdapterPayload(
   }
   validatePublicText(prepared.canonical);
   return `${prepared.canonical}\n`;
+}
+
+function preparePhaseHandoffPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): {
+  readonly canonical: string;
+  readonly value: Parameters<typeof renderPhaseHandoffHuman>[0];
+} {
+  const version = declaredContractVersion(
+    payload,
+    "hostContract",
+    CONTRACT_VERSIONS["host.phase-handoff"],
+  );
+  const prepared = prepareContract(registry, {
+    id: "host.phase-handoff",
+    version,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicText(prepared.canonical);
+  return { canonical: prepared.canonical, value: prepared.value };
 }
 
 /** Parse, validate, apply, and publish one command line. */
@@ -155,6 +181,17 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
+    } else if (invocation.command.jsonContract === "phase-handoff@1.1.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const handoff = preparePhaseHandoffPayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${handoff.canonical}\n`
+        : renderPhaseHandoffHuman(handoff.value);
     } else if (!json) {
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);

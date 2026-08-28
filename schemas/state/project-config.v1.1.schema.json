@@ -55,7 +55,6 @@
     "roleMap": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["planner", "implementer", "judge"],
       "properties": {
         "planner": { "$ref": "#/$defs/assignment" },
         "implementer": { "$ref": "#/$defs/assignment" },
