@@ -123,6 +123,40 @@ describe("event sealing", () => {
     },
   );
 
+  it.each([
+    ["eventType", { eventType: "decision" }],
+    ["effect", { effect: "artifact" }],
+  ])(
+    "rejects a forged phase semantic %s before hashing",
+    (_field, replacement) => {
+      expect(integrityKind({ ...draft(), ...replacement })).toBe(
+        "invalid_event",
+      );
+    },
+  );
+
+  it.each([
+    ["eventType", { eventType: "recovery" }],
+    ["effect", { effect: "artifact" }],
+  ])(
+    "rejects a forged infrastructure semantic %s before hashing",
+    (_field, replacement) => {
+      const { resolvedAssignment, ...base } = draft();
+      void resolvedAssignment;
+      expect(
+        integrityKind({
+          ...base,
+          eventType: "operation",
+          operation: `lock.acquire.t1.d${"a".repeat(64)}`,
+          policyVersion: "locks-v1",
+          reasonCode: "trail.ok",
+          effect: "state",
+          ...replacement,
+        }),
+      ).toBe("invalid_event");
+    },
+  );
+
   it("does not fabricate an assignment for a start event", () => {
     const { resolvedAssignment, ...base } = draft();
     void resolvedAssignment;

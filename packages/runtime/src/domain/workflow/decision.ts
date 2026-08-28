@@ -1,7 +1,10 @@
-import type { EventDraftV1 } from "../events/index.js";
+import type { CurrentEventDraft } from "../events/index.js";
+import {
+  WORKFLOW_OPERATION_FACTS,
+  WORKFLOW_TRANSITION_FACTS,
+} from "../events/semantics.js";
 
 import {
-  FACT_EVENT_REASONS,
   RUN_PHASES,
   WORKFLOW_POLICY_VERSION,
   type ContinueWorkflowRequest,
@@ -9,6 +12,7 @@ import {
   type StartWorkflowRequest,
   type WorkflowDecision,
   type WorkflowIdentity,
+  type WorkflowAssignment,
   type WorkflowObservation,
 } from "./model.js";
 
@@ -83,29 +87,25 @@ function event(
   transition: MovingTransition,
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
-): EventDraftV1 {
-  const reasonCode: Readonly<Record<MovingTransition, string>> = {
-    accepted: "run.transition.accepted",
-    completed: "run.completed",
-    rejected: "run.transition.rejected",
-    resumed: "run.resumed",
-    started: "run.started",
-  };
+  resolvedAssignment?: WorkflowAssignment,
+): CurrentEventDraft {
+  const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: input.eventId,
-    eventType: transition === "rejected" ? "decision" : "transition",
+    eventType: fact.eventType,
     occurredAt: input.occurredAt,
     operation: input.operation,
     policyVersion: WORKFLOW_POLICY_VERSION,
     priorRevision: input.revision,
     resultingRevision: input.revision + 1,
-    reasonCode: reasonCode[transition],
-    effect: "state",
+    reasonCode: fact.reasonCode,
+    effect: fact.effect,
     artifactRefs: [...artifactRefs],
     evidenceRefs: [...evidenceRefs],
-    observedIdentity: input.identity,
+    observedIdentity: { ...input.identity, effort: null },
+    ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
   };
 }
 
@@ -242,6 +242,9 @@ export function decideContinueWorkflow(
       ["final-completion-not-allowed"],
     );
   }
+  if (request.resolvedAssignment === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
   return recorded(
     request,
     operation,
@@ -297,6 +300,9 @@ function recorded(
       transition,
       artifactRefs,
       evidenceRefs,
+      transition === "accepted" || transition === "completed"
+        ? request.resolvedAssignment
+        : undefined,
     ),
     ...(why === undefined ? {} : { why: [...why] }),
   };
@@ -312,6 +318,7 @@ export interface RecordFactRequest {
   readonly operation: FactOperation;
   readonly artifactRefs: readonly string[];
   readonly observedIdentity: WorkflowIdentity;
+  readonly resolvedAssignment?: WorkflowAssignment;
 }
 
 /**
@@ -363,24 +370,34 @@ export function decideRecordFact(
   if (request.expectedRevision !== state.revision) {
     return { kind: "refused", reasonCode: "runtime.revision_conflict" };
   }
+  const requiresAssignment = request.operation === "agent.record";
+  if (requiresAssignment && request.resolvedAssignment === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (!requiresAssignment && request.resolvedAssignment !== undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
   return {
     kind: "recorded",
     transition: "observed",
     event: {
-      contractVersion: "1.0.0",
-      stateContract: "1.0.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: request.eventId,
-      eventType: "decision",
+      eventType: WORKFLOW_OPERATION_FACTS[request.operation].eventType,
       occurredAt: request.occurredAt,
       operation,
       policyVersion: WORKFLOW_POLICY_VERSION,
       priorRevision: state.revision,
       resultingRevision: state.revision + 1,
-      reasonCode: FACT_EVENT_REASONS[request.operation],
-      effect: "state-and-artifact",
+      reasonCode: WORKFLOW_OPERATION_FACTS[request.operation].reasonCode,
+      effect: WORKFLOW_OPERATION_FACTS[request.operation].effect,
       artifactRefs: [...request.artifactRefs],
       evidenceRefs: [],
-      observedIdentity: request.observedIdentity,
+      observedIdentity: { ...request.observedIdentity, effort: null },
+      ...(request.resolvedAssignment === undefined
+        ? {}
+        : { resolvedAssignment: request.resolvedAssignment }),
     },
   };
 }

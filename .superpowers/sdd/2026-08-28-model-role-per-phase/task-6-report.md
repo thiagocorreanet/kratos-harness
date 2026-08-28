@@ -14,10 +14,9 @@ both revisions through the existing reducer policies. New seals emit only 1.1.
 - Current draft snapshotting copies nullable observed effort and all resolved
   assignment fields before hashing. Sealing rejects legacy drafts and emits a
   validated `EventV1_1`.
-- Assignment policy uses exact operation/reason pairs. Phase-output and
-  accepted/completed phase transitions require assignment, explicit rejected
-  transitions may carry it, and infrastructure/start events cannot fabricate
-  it.
+- Assignment policy uses exact operation/reason/event-type/effect tuples.
+  Phase-output and accepted/completed phase transitions require assignment;
+  rejected, recovery, infrastructure, start, gap, and gate facts forbid it.
 - Verification, opaque verified streams, reducers, event-store append, workflow
   observation, diagnostics, and evidence views accept readable mixed history
   without treating audit metadata as transition authority.
@@ -109,5 +108,89 @@ task scoped. All Task 6 files pass Prettier.
   rejected before replay.
 - Reducers still branch only on their existing workflow facts; metadata is
   available as immutable audit history but grants no transition authority.
-- Outside event plumbing, changes are limited to readable-event type propagation
-  and the one direct infrastructure sealing caller.
+- Outside event plumbing, changes are limited to readable-event type
+  propagation and the minimum workflow/CLI producer plumbing required to pass
+  already-observed assignments into current event drafts.
+
+## Review fix round 1/5
+
+### RED
+
+The review findings were reproduced before their implementation fixes:
+
+```text
+workflow producer cases: 5 failed
+- start/gaps/gates drafts were rejected by snapshotEventDraft
+- accepted and agent-output facts could not carry the resolved assignment
+- missing required assignments did not fail closed
+
+forged workflow semantics: 2 failed
+- eventType and effect mutations sealed successfully
+
+hostile inherited stateContract getter: 1 failed
+- getterCalls was 1 instead of 0
+
+reducer type fixture:
+- typecheck reported an unused @ts-expect-error because the bivariance hack
+  still admitted an EventV1-only callback
+
+forged lock/recovery semantics: 2 failed
+- eventType and effect mutations sealed successfully
+```
+
+### Fix
+
+- Start, resume, rejection, gaps, gates, and lock infrastructure now emit 1.1
+  observed identity with nullable effort and no assignment.
+- Accepted/completed transitions and `agent.record` receive only the assignment
+  already resolved in the Task 5 command observation. If it is unavailable,
+  the decision refuses before constructing an append effect; no assignment is
+  inferred or fabricated.
+- One shared fact table binds workflow and lock operation families to their
+  exact reason, event type, effect, and assignment requirement before hashing.
+  Workflow and lock producers consume the same constants as the validator.
+- Reducer callbacks now accept `ReadableEvent` invariantly, and built-in
+  reducers use common fields without narrowing to the legacy revision.
+- Exact contract dispatch reads only an own data-property descriptor from the
+  inert JSON object. It never invokes inherited or accessor properties.
+- Actual workflow, agent, gaps, and gates command fixtures now use the current
+  initialization contract and observed launcher host, so they exercise
+  snapshot, seal, append, verify, and replay end to end.
+
+### GREEN
+
+```text
+focused review tests:
+Test Files 5 passed
+Tests 177 passed
+
+workflow/agent/gaps/gates command suites:
+Test Files 3 passed
+Tests 43 passed
+
+required event, workflow, CLI, and lock matrix:
+Test Files 24 passed
+Tests 1661 passed
+
+npm run lint
+exit 0
+
+npm run typecheck
+exit 0
+
+Task 6 changed/new files: Prettier clean
+git diff --check
+exit 0
+```
+
+The repository-wide Prettier check still reports only the same two untouched
+pre-existing files: `tests/model-role-resolution.test.ts` and
+`tests/support/model-routing.ts`.
+
+### Legacy fixture recheck
+
+```text
+working tree SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
+HEAD fixture SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
+canonical event hash: c6f58e1d3427cfee3331856b509b0bbbc67b5d4d8cc3549ed026029fb47826b1
+```

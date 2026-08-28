@@ -263,6 +263,11 @@ export const continueCommand: CommandSpec = observingCommand(
         occurredAt: observation.occurredAt,
         expectedRevision,
         observedIdentity: observation.observedIdentity,
+        ...(observation.phaseAssignment.kind === "resolved"
+          ? {
+              resolvedAssignment: observation.phaseAssignment.value.assignment,
+            }
+          : {}),
         action,
       }),
       observation,
@@ -406,6 +411,11 @@ export const doneCommand: CommandSpec = observingCommand(
         expectedRevision:
           typeof expected === "string" ? Number(expected) : revision,
         observedIdentity: observation.observedIdentity,
+        ...(observation.phaseAssignment.kind === "resolved"
+          ? {
+              resolvedAssignment: observation.phaseAssignment.value.assignment,
+            }
+          : {}),
         action: {
           kind: "complete-phase",
           artifactRefs:

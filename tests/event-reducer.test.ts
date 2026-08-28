@@ -118,6 +118,19 @@ const registry: EventReducerRegistry<TestState> = {
   materialize,
 };
 
+const legacyOnlyRegistry: EventReducerRegistry<TestState> = {
+  seed,
+  reducers: {
+    // @ts-expect-error Reducers must consume every readable event revision.
+    "policy-01": (state: TestState, event: EventV1) => {
+      void event;
+      return state;
+    },
+  },
+  materialize: (state, cursor) => registry.materialize(state, cursor),
+};
+void legacyOnlyRegistry;
+
 function errorKind(run: () => unknown): EventIntegrityError["kind"] {
   try {
     run();

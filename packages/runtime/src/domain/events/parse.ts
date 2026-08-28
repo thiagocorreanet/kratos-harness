@@ -4,7 +4,7 @@ import {
   type EventContractFailure,
   type ReadableEvent,
 } from "./model.js";
-import { assertEventAssignmentPolicy } from "./redaction.js";
+import { assertEventPolicy } from "./redaction.js";
 import type { SchemaRegistry } from "../schema/index.js";
 
 export const EVENT_RECORD_BYTES = 64 * 1024;
@@ -17,7 +17,10 @@ function contractVersion(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
   }
-  return (value as Readonly<Record<string, unknown>>).stateContract;
+  const descriptor = Object.getOwnPropertyDescriptor(value, "stateContract");
+  return descriptor !== undefined && "value" in descriptor
+    ? descriptor.value
+    : undefined;
 }
 
 function contractFailure(reasonCode: string): EventContractFailure | null {
@@ -42,7 +45,7 @@ function validateEvent(
   });
   if (validated.kind === "valid") {
     const event = validated.value;
-    assertEventAssignmentPolicy(event);
+    assertEventPolicy(event);
     return event;
   }
 

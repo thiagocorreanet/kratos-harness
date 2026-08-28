@@ -1,6 +1,8 @@
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, SnapshotV1 } from "@kratos/contracts";
 
-import type { EventDraftV1 } from "../events/index.js";
+import type { CurrentEventDraft } from "../events/index.js";
+import { FACT_EVENT_REASONS, type FactOperation } from "../events/semantics.js";
+export { FACT_EVENT_REASONS, type FactOperation };
 
 export const WORKFLOW_POLICY_VERSION = "workflow-v1";
 
@@ -50,6 +52,8 @@ export interface WorkflowIdentity {
   readonly model: string | null;
 }
 
+export type WorkflowAssignment = NonNullable<EventV1_1["resolvedAssignment"]>;
+
 export interface StartWorkflowRequest {
   readonly projectId: string;
   readonly feature: string;
@@ -71,6 +75,7 @@ export interface ContinueWorkflowRequest {
   readonly occurredAt: string;
   readonly expectedRevision: number;
   readonly observedIdentity: WorkflowIdentity;
+  readonly resolvedAssignment?: WorkflowAssignment;
   readonly action:
     | {
         readonly kind: "complete-phase";
@@ -103,16 +108,6 @@ export type WorkflowRefusal =
  * advanced" from "what the run knows changed"; collapsing them would make a
  * recorded gap look like a phase transition in the history.
  */
-export const FACT_EVENT_REASONS = {
-  "agent.record": "run.agent.recorded",
-  "gaps.record": "run.gap.recorded",
-  "gaps.resolve": "run.gap.resolved",
-  "gaps.waive": "run.gap.waived",
-  "gates.record": "run.gates.recorded",
-} as const;
-
-export type FactOperation = keyof typeof FACT_EVENT_REASONS;
-
 export type FactEventReason = (typeof FACT_EVENT_REASONS)[FactOperation];
 
 export type WorkflowDecision =
@@ -125,7 +120,7 @@ export type WorkflowDecision =
         | "rejected"
         | "completed"
         | "observed";
-      readonly event: EventDraftV1;
+      readonly event: CurrentEventDraft;
       /** Stable identifiers explaining why a transition was rejected. */
       readonly why?: readonly string[];
     }

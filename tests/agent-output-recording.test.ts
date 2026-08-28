@@ -13,6 +13,7 @@ import {
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   memoryWorkspace,
@@ -23,6 +24,7 @@ import {
 } from "@kratos/runtime/infra/fake";
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { beforeAll, describe, expect, it } from "vitest";
+import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const replyRoot = join(repositoryRoot, "fixtures/agent-output/v1/replies");
@@ -93,8 +95,9 @@ function subject(
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
       fileSystem: memoryFileSystem({}),
-      environment: fixedEnvironment({}, ROOT),
+      environment: fixedEnvironment({ KRATOS_HOST: "claude-code" }, ROOT),
       git: stubGit(),
+      modelRouting: fixedModelRouting([claudeCatalog(), codexCatalog()]),
       output,
       standardInput: pipedInput(piped),
       workspace: memoryWorkspace({ directories: [ROOT] }),
@@ -126,9 +129,9 @@ async function startedRun(): Promise<Subject> {
     {},
     [".brain", ".brain/transactions"],
     JSON.stringify({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
-      hosts: ["claude"],
+      contractVersion: "1.1.0",
+      hostContract: "1.1.0",
+      hosts: ["claude", "codex"],
       language: "en",
       policyMode: "standard",
       snapshots: true,

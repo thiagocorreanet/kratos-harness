@@ -410,6 +410,11 @@ function commit(
     operation: "agent.record",
     artifactRefs,
     observedIdentity: observation.observedIdentity,
+    ...(observation.phaseAssignment.kind === "resolved"
+      ? {
+          resolvedAssignment: observation.phaseAssignment.value.assignment,
+        }
+      : {}),
   });
   if (workflow.kind === "refused") return refused(workflow, observation);
   if (workflow.kind === "unchanged") {

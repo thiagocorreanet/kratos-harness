@@ -10,7 +10,6 @@ import {
   snapshotEventDraft,
   snapshotEventReducerRegistry,
   verifyEventStream,
-  type EventDraftV1,
   type CurrentEventDraft,
   type EventReducerRegistry,
   type EventServices,
@@ -148,7 +147,7 @@ export async function prepareEventAppend<State = JsonState>(
   input: {
     readonly feature: string;
     readonly runId: string;
-    readonly event: EventDraftV1;
+    readonly event: CurrentEventDraft;
   },
   services: EventAppendServices<State>,
 ): Promise<PreparedEventAppend> {

@@ -421,6 +421,38 @@ describe("event hash-chain verification", () => {
     expect(error).toMatchObject({ kind: "invalid_event", reasonCode: null });
   });
 
+  it("does not read an inherited stateContract accessor", () => {
+    let getterCalls = 0;
+    let observedVersion: unknown = "not called";
+    Object.defineProperty(Object.prototype, "stateContract", {
+      configurable: true,
+      get: () => {
+        getterCalls += 1;
+        return "1.1.0";
+      },
+    });
+    const registry: SchemaRegistry = {
+      validate: (request) => {
+        observedVersion = request.version;
+        return {
+          kind: "invalid",
+          diagnostics: [],
+        } as never;
+      },
+    };
+
+    try {
+      expect(() => parseEventLines("{}\n", registry)).toThrow(
+        "Event stream integrity validation failed",
+      );
+    } finally {
+      Reflect.deleteProperty(Object.prototype, "stateContract");
+    }
+
+    expect(getterCalls).toBe(0);
+    expect(observedVersion).toBeUndefined();
+  });
+
   it("sanitizes a canonicalizer failure after a registry claims validity", () => {
     const circular: Record<string, unknown> = {};
     circular.self = circular;

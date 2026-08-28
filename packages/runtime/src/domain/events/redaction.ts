@@ -4,6 +4,7 @@ import {
   type EventServices,
   type ReadableEvent,
 } from "./model.js";
+import { assertEventSemanticPolicy } from "./semantics.js";
 
 const DRAFT_KEYS = [
   "contractVersion",
@@ -154,37 +155,10 @@ function copyResolvedAssignment(
   };
 }
 
-const phaseOperation =
-  /^sdd\.(agent\.record|continue):[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
-
-function assignmentPolicy(event: {
-  readonly operation: string;
-  readonly reasonCode: string;
-}): "forbidden" | "optional" | "required" {
-  const operation = phaseOperation.exec(event.operation)?.[1];
-  if (operation === "agent.record") {
-    return event.reasonCode === "run.agent.recorded" ? "required" : "forbidden";
-  }
-  if (operation !== "continue") return "forbidden";
-  if (
-    event.reasonCode === "run.transition.accepted" ||
-    event.reasonCode === "run.completed"
-  ) {
-    return "required";
-  }
-  return event.reasonCode === "run.transition.rejected"
-    ? "optional"
-    : "forbidden";
-}
-
-export function assertEventAssignmentPolicy(event: ReadableEvent): void {
-  if (event.stateContract === "1.0.0") return;
-  const hasAssignment = Object.hasOwn(event, "resolvedAssignment");
-  const policy = assignmentPolicy(event);
-  if (
-    (policy === "required" && !hasAssignment) ||
-    (policy === "forbidden" && hasAssignment)
-  ) {
+export function assertEventPolicy(event: ReadableEvent): void {
+  try {
+    assertEventSemanticPolicy(event);
+  } catch {
     invalidEvent();
   }
 }
@@ -236,7 +210,7 @@ export function snapshotEventDraft(
       ),
       ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
     } as CurrentEventDraft;
-    assertEventAssignmentPolicy({
+    assertEventPolicy({
       ...snapshot,
       previousHash: null,
       eventHash: "0".repeat(64),

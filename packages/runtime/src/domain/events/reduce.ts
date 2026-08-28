@@ -26,9 +26,7 @@ export interface EventReducerRegistry<State = JsonState> {
   materialize(state: State, cursor: EventChainCursor): SnapshotV1;
 }
 
-type EventReducer<State> = {
-  bivarianceHack(state: State, event: ReadableEvent): State;
-}["bivarianceHack"];
+type EventReducer<State> = (state: State, event: ReadableEvent) => State;
 
 export interface ReplayResult<State = JsonState> {
   readonly state: State;

@@ -12,7 +12,6 @@ import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { TransactionFailure } from "@kratos/runtime/composition";
 import type {
   CurrentEventDraft,
-  EventDraftV1,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { EventIntegrityError } from "@kratos/runtime/domain/events";
@@ -953,7 +952,7 @@ describe("event-store append preparation", () => {
   it("snapshots an in-flight draft mutation before the first read", async () => {
     const files = await firstFiles();
     const storage = persistedStorage(files);
-    const mutable = draft(2) as EventDraftV1 & { operation: string };
+    const mutable = draft(2) as CurrentEventDraft & { operation: string };
     let release: (() => void) | undefined;
     const wait = new Promise<void>((resolve) => {
       release = resolve;

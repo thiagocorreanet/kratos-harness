@@ -17,7 +17,7 @@ import {
   sequentialIds,
 } from "@kratos/runtime/infra/fake";
 import type {
-  EventDraftV1,
+  CurrentEventDraft,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import {
@@ -31,10 +31,10 @@ import type {
 } from "@kratos/runtime/ports";
 import { describe, expect, it, vi } from "vitest";
 
-function eventDraft(index: number): EventDraftV1 {
+function eventDraft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
     eventType: "transition",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -46,7 +46,7 @@ function eventDraft(index: number): EventDraftV1 {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: null },
   };
 }
 

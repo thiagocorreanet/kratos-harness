@@ -7,6 +7,7 @@ import {
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   memoryWorkspace,
@@ -17,6 +18,7 @@ import {
 } from "@kratos/runtime/infra/fake";
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
+import { claudeCatalog } from "./support/model-routing.js";
 
 const ROOT = "/project";
 const NOW = "2026-08-14T12:00:00.000Z";
@@ -56,8 +58,8 @@ const TASK_DOCUMENT = [
   "",
 ].join("\n");
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.0.0",
-  hostContract: "1.0.0",
+  contractVersion: "1.1.0",
+  hostContract: "1.1.0",
   hosts: ["claude"],
   language: "en",
   policyMode: "standard",
@@ -88,8 +90,9 @@ function subject(
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
       fileSystem: memoryFileSystem({}),
-      environment: fixedEnvironment({}, ROOT),
+      environment: fixedEnvironment({ KRATOS_HOST: "claude-code" }, ROOT),
       git: stubGit(),
+      modelRouting: fixedModelRouting([claudeCatalog()]),
       output,
       standardInput: pipedInput(answers),
       workspace: memoryWorkspace({ directories: [ROOT] }),

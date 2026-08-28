@@ -20,6 +20,7 @@ export {
   type RunPhase,
   type StartWorkflowRequest,
   type WorkflowDecision,
+  type WorkflowAssignment,
   type WorkflowIdentity,
   type WorkflowObservation,
   type WorkflowReducerConfiguration,
