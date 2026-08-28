@@ -1,3 +1,8 @@
+# Valid PRD Reply
+
+The requirements are grounded in the observed refund-window problem. The PRD contains no design or implementation decisions.
+
+===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
@@ -16,3 +21,4 @@
     "gapIds": []
   }
 }
+===END-KRATOS-AGENT-OUTPUT-V1===

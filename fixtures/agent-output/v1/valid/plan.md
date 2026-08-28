@@ -1,3 +1,8 @@
+# Valid Plan Reply
+
+The specification audit closed every evidence-resolvable gap and produced the reviewer contract before implementation.
+
+===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
@@ -8,7 +13,7 @@
     "questions": [],
     "blockers": []
   },
-  "artifacts": [".brain/02-features/refunds/02-plan.md"],
+  "artifacts": [".brain/02-features/refunds/03-summa.md"],
   "changedFiles": [],
   "payload": {
     "steps": [
@@ -25,3 +30,4 @@
     ]
   }
 }
+===END-KRATOS-AGENT-OUTPUT-V1===

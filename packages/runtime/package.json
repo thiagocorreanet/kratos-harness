@@ -35,6 +35,7 @@
     "./domain/objective": "./src/domain/objective/index.ts",
     "./domain/observability": "./src/domain/observability/index.ts",
     "./domain/project": "./src/domain/project/index.ts",
+    "./domain/phase-agents": "./src/domain/phase-agents/index.ts",
     "./domain/requirement-discovery": "./src/domain/requirement-discovery/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
     "./domain/schema": "./src/domain/schema/index.ts",

@@ -1,3 +1,8 @@
+# Valid Specification Reply
+
+Two owner decisions block the design. No specification file was written.
+
+===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
@@ -24,7 +29,7 @@
     ],
     "blockers": []
   },
-  "artifacts": [".brain/02-features/refunds/01-design.md"],
+  "artifacts": [],
   "changedFiles": [],
   "payload": {
     "requirementIds": ["req-refund-window"],
@@ -32,3 +37,4 @@
     "approvalRequired": true
   }
 }
+===END-KRATOS-AGENT-OUTPUT-V1===

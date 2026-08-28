@@ -9,6 +9,14 @@ const repositoryRoot = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
 );
 
+const PHASE_AGENT_IDS = [
+  "code-implementer",
+  "implementation-evaluator",
+  "prd-researcher",
+  "spec-planner",
+  "spec-reviewer",
+];
+
 function option(name) {
   const at = process.argv.indexOf(name);
   return at === -1 ? null : (process.argv[at + 1] ?? null);
@@ -88,6 +96,14 @@ async function verifyArtifact(root, host) {
       file.endsWith(".map"),
   );
   if (forbidden.length > 0) fail(`${host} contains ${forbidden.join(", ")}`);
+  if (host === "claude-code") {
+    const missingAgents = PHASE_AGENT_IDS.map((id) => `agents/${id}.md`).filter(
+      (file) => !relativeFiles.includes(file),
+    );
+    if (missingAgents.length > 0) {
+      fail(`claude-code phase agents are absent: ${missingAgents.join(", ")}`);
+    }
+  }
   const hostFiles = artifactFiles.filter(
     (file) => !relative(root, file).startsWith(`runtime${sep}`),
   );
@@ -173,6 +189,16 @@ async function verifyProjectFlow(runtime, host, workRoot) {
     fail(`project received engine files: ${leaked.join(", ")}`);
   if (host === "codex" && !projectFiles.includes("AGENTS.md")) {
     fail("Codex project instructions are absent");
+  }
+  if (host === "codex") {
+    for (const id of PHASE_AGENT_IDS) {
+      const path = `.codex/agents/${id}.toml`;
+      if (!projectFiles.includes(path)) fail(`Codex project lacks ${path}`);
+      const definition = await readFile(join(project, path), "utf8");
+      if (!definition.includes("developer_instructions = ")) {
+        fail(`Codex project agent ${id} has no instructions`);
+      }
+    }
   }
   if (host === "claude-code" && !projectFiles.includes("CLAUDE.md")) {
     fail("Claude Code project instructions are absent");

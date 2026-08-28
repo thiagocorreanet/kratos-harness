@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { PHASE_AGENT_PROMPTS } from "@kratos/runtime/domain/phase-agents";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -102,5 +103,34 @@ describe("runtime distribution", () => {
     expect(entry).toContain("runtime.node_unsupported");
     expect(entry).toContain('import("./kratos.core.mjs")');
     expect(entry.startsWith("#!/usr/bin/env node\n")).toBe(true);
+  });
+
+  it("stages every Claude phase agent from the canonical body", async () => {
+    const root = hostPackage("claude-code");
+    for (const definition of PHASE_AGENT_PROMPTS) {
+      const content = await readFile(
+        join(root, "agents", `${definition.id}.md`),
+        "utf8",
+      );
+      const body = /^---\n[\s\S]*?\n---\n\n([\s\S]+)$/u.exec(content)?.[1];
+      expect(body, definition.id).toBe(definition.instructions);
+    }
+  });
+
+  it("keeps the Claude orchestrator unchanged while adding phase agents", async () => {
+    const [source, staged] = await Promise.all([
+      readFile(
+        join(
+          repositoryRoot,
+          "distribution/claude-code/agents/kratos-orchestrator.md",
+        ),
+        "utf8",
+      ),
+      readFile(
+        join(hostPackage("claude-code"), "agents/kratos-orchestrator.md"),
+        "utf8",
+      ),
+    ]);
+    expect(staged).toBe(source);
   });
 });

@@ -1,3 +1,8 @@
+# Valid Acceptance Reply
+
+Accepted AC-1.1.1 from the recorded test evidence. No implementation or specification file was changed.
+
+===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
@@ -8,7 +13,7 @@
     "questions": [],
     "blockers": []
   },
-  "artifacts": [".brain/02-features/refunds/05-acceptance.md"],
+  "artifacts": [],
   "changedFiles": [],
   "payload": {
     "verdict": "accepted",
@@ -21,3 +26,4 @@
     ]
   }
 }
+===END-KRATOS-AGENT-OUTPUT-V1===

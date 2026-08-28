@@ -39,6 +39,28 @@ That list is the allowlist. The test reads it from the inventory rather than
 from a copy, so a path that drifts from the oracle fails there instead of
 shipping.
 
+## Shared phase-agent prompts
+
+`PHASE_AGENT_PROMPTS` is the one behavioral source for the researcher,
+planner, reviewer, implementer, and evaluator. Codex initialization renders
+the canonical body into `developer_instructions` in each project-local TOML
+definition. Claude Code package staging renders the same body below native
+agent front matter. A conformance test decodes the installed formats and
+requires exact body equality; the host wrappers cannot acquire separate
+behavior.
+
+The five installed roles cover the six runtime outputs without changing the
+workflow order: researcher emits `prd`, planner emits `spec`, reviewer emits
+`plan`, implementer emits `code`, and evaluator emits `review` or `acceptance`
+according to the runtime-selected phase. Every body names the four canonical
+feature documents from `FEATURE_DOCUMENTS`, stops before writing when a
+blocking question is unanswered, and appends the published machine block.
+
+Prompts report observations and non-authoritative routing hints. They do not
+carry stable reason-code strings, gate decisions, or transition policy. The
+runtime remains the only component that decides workflow state and translates
+the reviewer's `03-summa.md` declarations into `scope.json`.
+
 Where content would have to be invented, it is not. The Claude settings grant
 nothing, because deciding what a host may do is `ADP-02`. The guardrails record
 what this runtime enforces today and leave the ported workflow gates to

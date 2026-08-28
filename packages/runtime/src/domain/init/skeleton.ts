@@ -6,6 +6,10 @@ import {
 
 import type { Effect } from "../effects.js";
 import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
+import {
+  PHASE_AGENT_PROMPTS,
+  type PhaseAgentDefinition,
+} from "../phase-agents/index.js";
 
 import {
   MANAGED_SECTION_BEGIN,
@@ -137,11 +141,11 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
     {
       roots: [".codex", "AGENTS.md"],
       files: (answers) => [
-        ...CODEX_AGENTS.map(
-          ([name, description]) =>
+        ...PHASE_AGENT_PROMPTS.map(
+          (definition) =>
             [
-              `.codex/agents/${name}.toml`,
-              agentDefinition(name, description),
+              `.codex/agents/${definition.id}.toml`,
+              agentDefinition(definition),
             ] as const,
         ),
         [".codex/config.toml", codexConfiguration(answers)],
@@ -156,29 +160,6 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
         ],
       ],
     },
-  ],
-];
-
-const CODEX_AGENTS: readonly (readonly [string, string])[] = [
-  [
-    "code-implementer",
-    "Implements one planned task and reports exactly what it changed.",
-  ],
-  [
-    "implementation-evaluator",
-    "Judges a finished implementation against its plan and its acceptance criteria.",
-  ],
-  [
-    "prd-researcher",
-    "Researches a feature and drafts the requirements it has to satisfy.",
-  ],
-  [
-    "spec-planner",
-    "Turns an approved requirement into an ordered, reviewable implementation plan.",
-  ],
-  [
-    "spec-reviewer",
-    "Reviews a specification for gaps, contradictions, and unstated assumptions.",
   ],
 ];
 
@@ -330,13 +311,14 @@ function codexConfiguration(answers: Answers): string {
   );
 }
 
-function agentDefinition(name: string, description: string): string {
+function agentDefinition(definition: PhaseAgentDefinition): string {
   return lines(
     `# Managed by Kratos ${KRATOS_VERSION}.`,
     "",
-    `name = "${name}"`,
-    `description = "${description}"`,
+    `name = ${JSON.stringify(definition.id)}`,
+    `description = ${JSON.stringify(definition.description)}`,
     'state = ".brain"',
+    `developer_instructions = ${JSON.stringify(definition.instructions)}`,
   );
 }
 
