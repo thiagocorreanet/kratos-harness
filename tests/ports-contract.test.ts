@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   recordingOutput,
@@ -26,6 +27,7 @@ import {
   nodeGitRunner,
   nodeIds,
   nodeOutput,
+  unavailableModelRouting,
   nodeDurableFileSystem,
   sha256Digests,
 } from "@kratos/runtime/infra/node";
@@ -33,12 +35,15 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { composeGit } from "../packages/runtime/src/composition/git.js";
 
+import { codexCatalog } from "./support/model-routing.js";
+
 import {
   describeClockContract,
   describeEnvironmentContract,
   describeFileSystemContract,
   describeGitContract,
   describeIdsContract,
+  describeModelRoutingContract,
   describeOutputContract,
 } from "./support/port-contracts.js";
 import {
@@ -91,6 +96,25 @@ describeEnvironmentContract("fixed", () =>
   fixedEnvironment({ EXAMPLE: "value" }, "/project"),
 );
 describeOutputContract("recording", () => recordingOutput());
+describeModelRoutingContract("fixed without catalogs", () =>
+  fixedModelRouting([]),
+);
+describeModelRoutingContract(
+  "unavailable node catalog",
+  unavailableModelRouting,
+);
+
+describe("fixed model routing", () => {
+  it("returns a closed snapshot only for the host that supplied it", async () => {
+    const catalog = codexCatalog();
+    const routing = fixedModelRouting([catalog]);
+    const observed = await routing.observe("codex");
+    expect(observed).not.toBe(catalog);
+    expect(observed).not.toBeNull();
+    expect(Object.isFrozen(observed)).toBe(true);
+    expect(await routing.observe("claude")).toBeNull();
+  });
+});
 describeGitContract("stub", () =>
   Promise.resolve({ port: stubGit(), dispose: noDispose }),
 );

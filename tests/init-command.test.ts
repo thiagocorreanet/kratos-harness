@@ -9,6 +9,7 @@ import { profileStack } from "@kratos/runtime/domain/init";
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   memoryWorkspace,
@@ -56,6 +57,7 @@ function subject(
       fileSystem: memoryFileSystem({ "package.json": "{}", ...projectFiles }),
       git: { observe: () => Promise.reject(new Error("unused")) },
       locks: {} as RuntimePorts["locks"],
+      modelRouting: fixedModelRouting([]),
       environment: fixedEnvironment({}, ROOT),
       output,
       standardInput: pipedInput(answers),

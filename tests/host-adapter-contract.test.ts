@@ -9,6 +9,7 @@ import {
 } from "@kratos/adapters";
 
 import { fakeHostAdapter } from "./support/fake-host-adapter.js";
+import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
 import {
   conformanceInvocation,
   conformanceResponse,
@@ -25,8 +26,12 @@ describeHostAdapterContract("fake with capabilities", () =>
     model: "gpt-5",
   }),
 );
-describeHostAdapterContract("Codex", () => codexAdapter());
-describeHostAdapterContract("Claude Code", () => claudeCodeAdapter());
+describeHostAdapterContract("Codex", () =>
+  codexAdapter({ modelRouting: codexCatalog() }),
+);
+describeHostAdapterContract("Claude Code", () =>
+  claudeCodeAdapter({ modelRouting: claudeCatalog() }),
+);
 
 describe("the host adapter conformance suite", () => {
   it("is addressed by a factory returning one adapter", () => {
@@ -41,6 +46,59 @@ describe("the host adapter conformance suite", () => {
       "relay",
       "translate",
     ]);
+  });
+
+  it("publishes a closed model catalog and nullable observed execution", () => {
+    const catalog = codexCatalog();
+    const adapter = codexAdapter({ modelRouting: catalog });
+    const descriptor = adapter.describe();
+    expect(descriptor).toMatchObject({
+      configurationHost: "codex",
+      observedIdentity: { model: null, effort: null },
+    });
+    expect(Object.keys(descriptor.modelRouting.defaults).sort()).toEqual([
+      "implementer",
+      "judge",
+      "planner",
+    ]);
+    expect(descriptor.modelRouting.defaults.planner).toEqual({
+      model: "planner-canonical",
+      effort: "medium",
+    });
+    expect(Object.isFrozen(descriptor.modelRouting)).toBe(true);
+    expect(Object.isFrozen(descriptor.modelRouting.models)).toBe(true);
+    expect(descriptor.modelRouting).not.toBe(catalog);
+  });
+
+  it("maps Claude Code to the Claude configuration catalog", () => {
+    expect(
+      claudeCodeAdapter({ modelRouting: claudeCatalog() }).describe()
+        .configurationHost,
+    ).toBe("claude");
+  });
+
+  it("rejects a catalog for a different configuration host", () => {
+    expect(() => codexAdapter({ modelRouting: claudeCatalog() })).toThrow(
+      "does not match",
+    );
+  });
+
+  it("keeps the adapter method surface relay-only", () => {
+    const adapter = codexAdapter({ modelRouting: codexCatalog() });
+    expect(Object.keys(adapter).sort()).toEqual([
+      "describe",
+      "name",
+      "relay",
+      "translate",
+    ]);
+  });
+
+  it.each([
+    ["Codex", () => codexAdapter({ modelRouting: codexCatalog() })],
+    ["Claude Code", () => claudeCodeAdapter({ modelRouting: claudeCatalog() })],
+  ])("keeps %s implementer and judge defaults distinct", (_, factory) => {
+    const { defaults } = factory().describe().modelRouting;
+    expect(defaults.implementer.model).not.toBe(defaults.judge.model);
   });
 
   it("catches an adapter that decides its own verdict", () => {

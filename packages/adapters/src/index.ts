@@ -1,4 +1,9 @@
-import { KRATOS_VERSION, type AdapterMessageV1 } from "@kratos/contracts";
+import {
+  CONTRACT_VERSIONS,
+  KRATOS_VERSION,
+  type AdapterMessageV1_1,
+} from "@kratos/contracts";
+import type { HostModelCatalog } from "@kratos/runtime/domain/model-roles";
 
 /**
  * What a host is and what it can do, as explicit data.
@@ -11,10 +16,14 @@ import { KRATOS_VERSION, type AdapterMessageV1 } from "@kratos/contracts";
 export interface HostDescriptor {
   /** The host identity carried on every message this adapter sends. */
   readonly host: string;
+  /** The configuration key to which this host's catalog belongs. */
+  readonly configurationHost: "claude" | "codex";
   /** The host contract revision this adapter speaks. */
   readonly hostContract: string;
   /** Every capability this host offers, as declared. */
   readonly capabilities: readonly string[];
+  /** Immutable host-native facts used by the runtime to resolve assignments. */
+  readonly modelRouting: HostModelCatalog;
   /**
    * Who is running, so far as the host can honestly say.
    *
@@ -24,6 +33,7 @@ export interface HostDescriptor {
   readonly observedIdentity: {
     readonly adapterVersion: string;
     readonly model: string | null;
+    readonly effort: string | null;
   };
 }
 
@@ -62,9 +72,9 @@ export interface HostAdapter {
   /** State this host's identity, contract, and capabilities. */
   describe(): HostDescriptor;
   /** Turn one host invocation into a request message for the runtime. */
-  translate(invocation: HostInvocation): AdapterMessageV1;
+  translate(invocation: HostInvocation): AdapterMessageV1_1;
   /** Publish one runtime response without reinterpreting it. */
-  relay(response: AdapterMessageV1): HostRendering;
+  relay(response: AdapterMessageV1_1): HostRendering;
 }
 
 /** Every method a conforming adapter exposes, and nothing else. */
@@ -106,9 +116,36 @@ export function hostInstallManifest(host: SupportedHost): HostInstallManifest {
 }
 
 export interface HostAdapterOptions {
+  readonly modelRouting: HostModelCatalog;
   readonly model?: string | null;
+  readonly effort?: string | null;
   readonly adapterVersion?: string;
   readonly capabilities?: readonly string[];
+}
+
+function configurationHostFor(host: SupportedHost): "claude" | "codex" {
+  return host === "claude-code" ? "claude" : "codex";
+}
+
+/** Copy only the catalog contract fields so host-supplied extras cannot leak. */
+function snapshotCatalog(catalog: HostModelCatalog): HostModelCatalog {
+  return Object.freeze({
+    host: catalog.host,
+    defaults: Object.freeze({
+      planner: Object.freeze({ ...catalog.defaults.planner }),
+      implementer: Object.freeze({ ...catalog.defaults.implementer }),
+      judge: Object.freeze({ ...catalog.defaults.judge }),
+    }),
+    models: Object.freeze(
+      catalog.models.map(({ canonicalModel, aliases, efforts }) =>
+        Object.freeze({
+          canonicalModel,
+          aliases: Object.freeze([...aliases]),
+          efforts: Object.freeze([...efforts]),
+        }),
+      ),
+    ),
+  });
 }
 
 function normalized(values: readonly string[]): readonly string[] {
@@ -126,26 +163,33 @@ function normalized(values: readonly string[]): readonly string[] {
  */
 export function createHostAdapter(
   host: SupportedHost,
-  options: HostAdapterOptions = {},
+  options: HostAdapterOptions,
 ): HostAdapter {
+  const configurationHost = configurationHostFor(host);
+  if (options.modelRouting.host !== configurationHost) {
+    throw new Error("Host model catalog does not match the adapter host");
+  }
   const descriptor: HostDescriptor = Object.freeze({
     host,
-    hostContract: "1.0.0",
+    configurationHost,
+    hostContract: CONTRACT_VERSIONS["host.adapter-message"],
     capabilities: normalized(options.capabilities ?? CAPABILITIES),
+    modelRouting: snapshotCatalog(options.modelRouting),
     observedIdentity: Object.freeze({
       adapterVersion: options.adapterVersion ?? KRATOS_VERSION,
       model: options.model ?? null,
+      effort: options.effort ?? null,
     }),
   });
   return Object.freeze({
     name: host,
     describe: () => descriptor,
-    translate: (invocation: HostInvocation): AdapterMessageV1 => ({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    translate: (invocation: HostInvocation): AdapterMessageV1_1 => ({
+      contractVersion: CONTRACT_VERSIONS["host.adapter-message"],
+      hostContract: CONTRACT_VERSIONS["host.adapter-message"],
       messageId: invocation.messageId,
       messageType: "request",
-      host: descriptor.host,
+      host: descriptor.configurationHost,
       operation: invocation.operation,
       capabilities: [...descriptor.capabilities],
       observedIdentity: descriptor.observedIdentity,
@@ -153,7 +197,7 @@ export function createHostAdapter(
       payload: invocation.payload,
       correlationId: invocation.correlationId,
     }),
-    relay: (response: AdapterMessageV1): HostRendering => {
+    relay: (response: AdapterMessageV1_1): HostRendering => {
       if (response.messageType !== "response") {
         throw new Error("Expected a runtime response message");
       }
@@ -166,12 +210,11 @@ export function createHostAdapter(
   });
 }
 
-export const codexAdapter = (options: HostAdapterOptions = {}): HostAdapter =>
+export const codexAdapter = (options: HostAdapterOptions): HostAdapter =>
   createHostAdapter("codex", options);
 
-export const claudeCodeAdapter = (
-  options: HostAdapterOptions = {},
-): HostAdapter => createHostAdapter("claude-code", options);
+export const claudeCodeAdapter = (options: HostAdapterOptions): HostAdapter =>
+  createHostAdapter("claude-code", options);
 
 export {
   type GuardExecution,

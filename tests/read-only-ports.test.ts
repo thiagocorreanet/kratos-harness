@@ -11,6 +11,7 @@ import {
   nodeFileSystem,
   nodeIds,
   nodeOutput,
+  unavailableModelRouting,
   nodeTargetInspector,
   sha256Digests,
 } from "@kratos/runtime/infra/node";
@@ -31,6 +32,7 @@ async function temporaryProject<T>(
       durableFileSystem: nodeDurableFileSystem(root),
       fileSystem: nodeFileSystem(root),
       git: { observe: () => Promise.reject(new Error("unused")) },
+      modelRouting: unavailableModelRouting(),
       standardInput: pipedInput("unused"),
       targetInspector: nodeTargetInspector(root),
       workspace: memoryWorkspace(),

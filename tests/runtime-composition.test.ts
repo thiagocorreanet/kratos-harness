@@ -84,11 +84,12 @@ describe("composition root", () => {
     });
   });
 
-  it("uses Node implementations when nothing is overridden", () => {
+  it("uses Node implementations when nothing is overridden", async () => {
     const ports = createRuntime();
 
     expect(ports.environment.workingDirectory()).toBe(process.cwd());
     expect(Number.isNaN(ports.clock.now().getTime())).toBe(false);
+    expect(await ports.modelRouting.observe("codex")).toBeNull();
   });
 
   it("replaces exactly the overridden ports and nothing else", () => {
@@ -117,6 +118,7 @@ describe("composition root", () => {
       "git",
       "ids",
       "locks",
+      "modelRouting",
       "output",
       "standardInput",
       "targetInspector",

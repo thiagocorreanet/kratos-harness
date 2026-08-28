@@ -230,6 +230,7 @@ function sharedPorts(ports: RuntimePorts): Partial<RuntimePorts> {
     output: ports.output,
     standardInput: ports.standardInput,
     workspace: ports.workspace,
+    modelRouting: ports.modelRouting,
   };
 }
 

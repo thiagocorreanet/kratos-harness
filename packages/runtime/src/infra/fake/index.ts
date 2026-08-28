@@ -17,6 +17,7 @@ import type {
 } from "../../ports/index.js";
 
 export { stubGit } from "./git.js";
+export { fixedModelRouting } from "./model-routing.js";
 export {
   memoryTransactionStorage,
   type DurableOperation,
