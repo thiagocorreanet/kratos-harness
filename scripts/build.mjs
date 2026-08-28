@@ -102,6 +102,11 @@ async function buildRuntime(runtimeDirectory) {
       contractsIndex,
     ),
     compileTree(
+      join(repositoryRoot, "packages/adapters/src"),
+      sourceOutput,
+      contractsIndex,
+    ),
+    compileTree(
       join(repositoryRoot, "packages/runtime/src"),
       sourceOutput,
       contractsIndex,

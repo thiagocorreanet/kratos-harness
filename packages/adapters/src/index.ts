@@ -172,3 +172,18 @@ export const codexAdapter = (options: HostAdapterOptions = {}): HostAdapter =>
 export const claudeCodeAdapter = (
   options: HostAdapterOptions = {},
 ): HostAdapter => createHostAdapter("claude-code", options);
+
+export {
+  type GuardExecution,
+  type GuardExecutor,
+  type GuardOperationResult,
+  type PreToolRelayResult,
+} from "./pre-tool-use.js";
+export {
+  normalizeClaudeCodePreToolUse,
+  relayClaudeCodePreToolUse,
+} from "./claude-code/pre-tool-use.js";
+export {
+  normalizeCodexPreToolUse,
+  relayCodexPreToolUse,
+} from "./codex/pre-tool-use.js";
