@@ -34,26 +34,26 @@ Out of scope:
 
 ## 3. Acceptance criteria
 
-- [ ] Every hook exits zero and leaves no output or filesystem change when no
+- [x] Every hook exits zero and leaves no output or filesystem change when no
   Kratos state is discoverable.
-- [ ] Both hosts render their hook sets from one declarative catalogue.
-- [ ] Every native event is normalized and digest-pinned in the published host
+- [x] Both hosts render their hook sets from one declarative catalogue.
+- [x] Every native event is normalized and digest-pinned in the published host
   operation contract before runtime policy receives it.
-- [ ] Gross usage accumulates across restarted and concurrent sessions for one
+- [x] Gross usage accumulates across restarted and concurrent sessions for one
   active run without double-counting cached input or reasoning.
-- [ ] Reaching the allocation latches the stop-loss gate, and retrying the same
+- [x] Reaching the allocation latches the stop-loss gate, and retrying the same
   command or sample does not clear it.
-- [ ] Missing or malformed measurement under a configured budget latches a
+- [x] Missing or malformed measurement under a configured budget latches a
   measurement fault instead of assuming zero usage.
-- [ ] Only confirmed `unlock stop-loss --run <id>` starts a new budget epoch and
+- [x] Only confirmed `unlock stop-loss --run <id>` starts a new budget epoch and
   clears the latch.
-- [ ] A refused structured write never reaches the filesystem.
-- [ ] An identical tool failure produces one immutable sanitized candidate.
-- [ ] Session end finalizes telemetry once and clears cache only after commit.
-- [ ] Hooks call neither a model nor the network.
-- [ ] Claude Code and Codex fixtures produce equivalent normalized operation
+- [x] A refused structured write never reaches the filesystem.
+- [x] An identical tool failure produces one immutable sanitized candidate.
+- [x] Session end finalizes telemetry once and clears cache only after commit.
+- [x] Hooks call neither a model nor the network.
+- [x] Claude Code and Codex fixtures produce equivalent normalized operation
   messages for equivalent events.
-- [ ] Focused verification and `npm run verify` pass.
+- [x] Focused verification and `npm run verify` pass.
 
 ## 4. Test strategy and failure modes
 

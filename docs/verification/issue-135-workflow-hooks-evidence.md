@@ -42,5 +42,10 @@ npx vitest run tests/workflow-hooks-contracts.test.ts tests/workflow-hook-domain
 npm run verify
 ```
 
+Final verification passed on 2026-08-28: 168 test files and 4,330 tests passed;
+statement coverage was 93.5%, branch coverage was 89.17%, the mutation score
+was 100%, all 27 contracts verified, and both packaged hosts passed package
+verification.
+
 The pull request should use the title `feat: ship host-neutral workflow hooks`,
 link `Closes #135`, and include this document as its acceptance evidence.
