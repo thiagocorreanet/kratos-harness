@@ -54,15 +54,15 @@ describe("schema registry vocabulary", () => {
     expectTypeOf<
       ContractValue<"state.acceptance-verdict">
     >().toEqualTypeOf<AcceptanceVerdictV1>();
-    expectTypeOf<ContractValue<"state.feature-scope">>().toEqualTypeOf<
-      FeatureScopeV1
-    >();
-    expectTypeOf<ContractValue<"state.guardrails">>().toEqualTypeOf<
-      GuardrailsV1
-    >();
-    expectTypeOf<ContractValue<"host.pre-tool-use">>().toEqualTypeOf<
-      PreToolUseV1
-    >();
+    expectTypeOf<
+      ContractValue<"state.feature-scope">
+    >().toEqualTypeOf<FeatureScopeV1>();
+    expectTypeOf<
+      ContractValue<"state.guardrails">
+    >().toEqualTypeOf<GuardrailsV1>();
+    expectTypeOf<
+      ContractValue<"host.pre-tool-use">
+    >().toEqualTypeOf<PreToolUseV1>();
     expectTypeOf<
       ContractValue<"state.project-config">
     >().toEqualTypeOf<ProjectConfigV1>();

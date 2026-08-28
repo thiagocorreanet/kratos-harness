@@ -30,43 +30,29 @@
     "stateContract": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "current",
-        "readable",
-        "migrationOnly"
-      ],
+      "required": ["current", "readable", "migrationOnly"],
       "properties": {
         "current": {
           "const": "1.0.0"
         },
         "readable": {
-          "const": [
-            "1.0.0"
-          ]
+          "const": ["1.0.0"]
         },
         "migrationOnly": {
-          "const": [
-            "0.9.0",
-            "go-v3@0.6.5"
-          ]
+          "const": ["0.9.0", "go-v3@0.6.5"]
         }
       }
     },
     "hostContract": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "current",
-        "accepted"
-      ],
+      "required": ["current", "accepted"],
       "properties": {
         "current": {
           "const": "1.0.0"
         },
         "accepted": {
-          "const": [
-            "1.0.0"
-          ]
+          "const": ["1.0.0"]
         }
       }
     },
@@ -93,24 +79,14 @@
     "schemaEntry": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "family",
-        "version",
-        "path",
-        "boundary",
-        "typeName"
-      ],
+      "required": ["id", "family", "version", "path", "boundary", "typeName"],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^(?:state|host)\\.[a-z][a-z-]*$"
         },
         "family": {
-          "enum": [
-            "state",
-            "host"
-          ]
+          "enum": ["state", "host"]
         },
         "version": {
           "const": "1.0.0"
@@ -120,10 +96,7 @@
           "pattern": "^schemas/(?:state|host)/[a-z-]+\\.v1\\.schema\\.json$"
         },
         "boundary": {
-          "enum": [
-            "persisted",
-            "cross-process"
-          ]
+          "enum": ["persisted", "cross-process"]
         },
         "typeName": {
           "type": "string",
@@ -138,9 +111,7 @@
                 "const": "state"
               }
             },
-            "required": [
-              "family"
-            ]
+            "required": ["family"]
           },
           "then": {
             "properties": {
@@ -165,9 +136,7 @@
                 "const": "host"
               }
             },
-            "required": [
-              "family"
-            ]
+            "required": ["family"]
           },
           "then": {
             "properties": {
@@ -240,14 +209,10 @@
                 "const": "prd-output.schema.json"
               }
             },
-            "required": [
-              "name"
-            ]
+            "required": ["name"]
           },
           "then": {
-            "required": [
-              "sha256"
-            ],
+            "required": ["sha256"],
             "properties": {
               "payloadContract": {
                 "const": "go-v3.prd-output@1"
@@ -262,9 +227,7 @@
           },
           "else": {
             "not": {
-              "required": [
-                "sha256"
-              ]
+              "required": ["sha256"]
             },
             "properties": {
               "parityRow": {

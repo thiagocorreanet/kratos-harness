@@ -226,8 +226,7 @@ const EXPECTED_SCHEMA_IDS = {
   "state.event": "https://kratos.dev/schemas/state/event/v1",
   "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
   "state.feature": "https://kratos.dev/schemas/state/feature/v1",
-  "state.feature-scope":
-    "https://kratos.dev/schemas/state/feature-scope/v1",
+  "state.feature-scope": "https://kratos.dev/schemas/state/feature-scope/v1",
   "state.gap": "https://kratos.dev/schemas/state/gap/v1",
   "state.gates": "https://kratos.dev/schemas/state/gates/v1",
   "state.guardrails": "https://kratos.dev/schemas/state/guardrails/v1",

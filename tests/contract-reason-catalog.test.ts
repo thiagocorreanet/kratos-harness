@@ -264,7 +264,9 @@ describe("contract reason catalog revision", () => {
         .map(({ code }) => code),
     ).toEqual(codes);
     for (const code of codes) {
-      expect(catalogV16.reasons.find((reason) => reason.code === code)).toMatchObject({
+      expect(
+        catalogV16.reasons.find((reason) => reason.code === code),
+      ).toMatchObject({
         status: "blocked",
         exitCode: 3,
         evidence: "required",
