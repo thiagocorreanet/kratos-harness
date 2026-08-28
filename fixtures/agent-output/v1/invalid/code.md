@@ -1,3 +1,5 @@
+# Invalid Code Reply
+
 This code reply reports an impossible negative test count.
 
 ===KRATOS-AGENT-OUTPUT-V1===

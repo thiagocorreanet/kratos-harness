@@ -1,3 +1,5 @@
+# Invalid Specification Reply
+
 This awaiting-input reply omits its required questions.
 
 ===KRATOS-AGENT-OUTPUT-V1===

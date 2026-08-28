@@ -1,3 +1,5 @@
+# Valid Specification Reply
+
 Two owner decisions block the design. No specification file was written.
 
 ===KRATOS-AGENT-OUTPUT-V1===

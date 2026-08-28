@@ -1,3 +1,5 @@
+# Invalid Plan Reply
+
 This plan reply contains no audited step.
 
 ===KRATOS-AGENT-OUTPUT-V1===

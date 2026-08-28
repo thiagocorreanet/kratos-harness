@@ -1,3 +1,5 @@
+# Valid Acceptance Reply
+
 Accepted AC-1.1.1 from the recorded test evidence. No implementation or specification file was changed.
 
 ===KRATOS-AGENT-OUTPUT-V1===

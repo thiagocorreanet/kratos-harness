@@ -1,3 +1,5 @@
+# Valid Plan Reply
+
 The specification audit closed every evidence-resolvable gap and produced the reviewer contract before implementation.
 
 ===KRATOS-AGENT-OUTPUT-V1===

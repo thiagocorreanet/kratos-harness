@@ -23,12 +23,14 @@
 ### Task 1: Publish the canonical phase-agent catalog
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/phase-agents/model.ts`
 - Create: `packages/runtime/src/domain/phase-agents/index.ts`
 - Modify: `packages/runtime/package.json`
 - Test: `tests/phase-agent-prompts.test.ts`
 
 **Interfaces:**
+
 - Consumes: `FEATURE_DOCUMENTS` and the `Agent` output discriminator type.
 - Produces: `PHASE_AGENT_PROMPTS`, `PhaseAgentDefinition`, `PhaseAgentId`, and `MAX_PHASE_AGENT_PROMPT_BYTES`.
 
@@ -75,6 +77,7 @@
 ### Task 2: Render Codex definitions and Claude package agents
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/init/skeleton.ts`
 - Modify: `scripts/build.mjs`
 - Test: `tests/phase-agent-prompts.test.ts`
@@ -82,6 +85,7 @@
 - Test: `tests/runtime-distribution.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PHASE_AGENT_PROMPTS` from Task 1.
 - Produces: Codex `developer_instructions` values and Claude Code Markdown agent files with byte-identical decoded bodies.
 
@@ -112,12 +116,14 @@
 ### Task 3: Convert agent-output fixtures into complete replies
 
 **Files:**
+
 - Replace: `fixtures/agent-output/v1/valid/*.json` with `fixtures/agent-output/v1/valid/*.md`
 - Replace: `fixtures/agent-output/v1/invalid/*.json` with `fixtures/agent-output/v1/invalid/*.md`
 - Modify: `tests/agent-output-contract.test.ts`
 - Modify: `fixtures/README.md`
 
 **Interfaces:**
+
 - Consumes: existing machine-block delimiters and `host.agent-output@1.0.0` validation.
 - Produces: six valid and six schema-invalid complete Markdown reply fixtures.
 
@@ -144,6 +150,7 @@
 ### Task 4: Prove policy isolation, packaging, and public behavior
 
 **Files:**
+
 - Modify: `tests/phase-agent-prompts.test.ts`
 - Modify: `scripts/verify-package.mjs`
 - Modify: `docs/architecture/project-initialization.md`
@@ -152,6 +159,7 @@
 - Create: `docs/verification/issue-134-phase-agent-prompts-evidence.md`
 
 **Interfaces:**
+
 - Consumes: the built Claude package, initialized Codex project, reason catalog, and prompt catalog.
 - Produces: release-blocking conformance checks and acceptance-criterion evidence.
 

@@ -1,3 +1,5 @@
+# Valid Code Reply
+
 Implemented only step-window. The three mapped tests pass; completion remains for the evaluator to judge.
 
 ===KRATOS-AGENT-OUTPUT-V1===
