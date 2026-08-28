@@ -45,3 +45,11 @@ export type ModelRoleRefusal =
 export type ModelRoleResolution =
   | { readonly kind: "resolved"; readonly assignment: ResolvedPhaseAssignment }
   | { readonly kind: "refused"; readonly reasonCode: ModelRoleRefusal };
+
+/** One canonical role assignment before a workflow phase is selected. */
+export type ModelRoleAssignmentResolution =
+  | {
+      readonly kind: "resolved";
+      readonly assignment: NormalizedModelAssignment;
+    }
+  | { readonly kind: "refused"; readonly reasonCode: ModelRoleRefusal };

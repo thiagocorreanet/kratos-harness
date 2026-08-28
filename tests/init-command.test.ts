@@ -238,6 +238,54 @@ describe("the init command", () => {
     expect(run.storage.snapshot().files).toEqual({});
   });
 
+  it("names the host and role for distinct model-routing refusals", async () => {
+    const unavailable = subject(
+      JSON.stringify({
+        contractVersion: "1.1.0",
+        hostContract: "1.1.0",
+        hosts: ["claude", "codex"],
+      }),
+      {},
+      {},
+      [],
+      [],
+      fixedModelRouting([claudeCatalog()]),
+    );
+    const unsupportedEffort = subject(
+      JSON.stringify({
+        contractVersion: "1.1.0",
+        hostContract: "1.1.0",
+        hosts: ["claude", "codex"],
+        modelRoles: {
+          codex: {
+            planner: "planner",
+            implementer: "implementer",
+            judge: { model: "judge", effort: "xhigh" },
+          },
+        },
+      }),
+      {},
+      {},
+      [],
+      [],
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+
+    expect(
+      await runCommandLine(["--json", "init"], unavailable.ports),
+    ).not.toBe(0);
+    expect(JSON.parse(unavailable.output.structured_.join(""))).toMatchObject({
+      why: [expect.stringContaining("codex")],
+    });
+
+    expect(
+      await runCommandLine(["--json", "init"], unsupportedEffort.ports),
+    ).not.toBe(0);
+    expect(
+      JSON.parse(unsupportedEffort.output.structured_.join("")),
+    ).toMatchObject({ why: [expect.stringContaining("judge")] });
+  });
+
   it("refuses when no answers document arrives at all", async () => {
     const run = subject(null);
 

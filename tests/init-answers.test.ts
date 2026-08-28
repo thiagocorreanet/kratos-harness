@@ -1,5 +1,9 @@
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
-import { resolveInitAnswers } from "@kratos/runtime/domain/init";
+import {
+  resolveInitAnswers,
+  skeletonEffects,
+  profileStack,
+} from "@kratos/runtime/domain/init";
 import { fixedModelRouting } from "@kratos/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +21,38 @@ function answers(overrides: Record<string, unknown> = {}) {
 }
 
 describe("initialization answers", () => {
+  it("produces identical configuration bytes for inverse enabled-host order", async () => {
+    const forward = await resolveInitAnswers(
+      answers({ hosts: ["claude", "codex"] }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+    const reverse = await resolveInitAnswers(
+      answers({ hosts: ["codex", "claude"] }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+    if (forward.kind !== "resolved" || reverse.kind !== "resolved") {
+      throw new Error("expected both answer documents to resolve");
+    }
+    const config = (resolved: typeof forward): string => {
+      const effect = skeletonEffects(
+        resolved.answers,
+        profileStack({ rootEntries: ["package.json"] }),
+      ).find(
+        (candidate) =>
+          candidate.kind === "write_file" &&
+          candidate.path === ".brain/config.json",
+      );
+      if (effect?.kind !== "write_file") {
+        throw new Error("expected generated configuration");
+      }
+      return effect.content;
+    };
+
+    expect(config(forward)).toBe(config(reverse));
+  });
+
   it("resolves adapter defaults into canonical closed role assignments", async () => {
     const resolved = await resolveInitAnswers(
       answers({ hosts: ["codex"] }),
@@ -175,6 +211,37 @@ describe("initialization answers", () => {
       });
     },
   );
+
+  it("keeps the host and role that made a model resolution fail", async () => {
+    const unavailable = await resolveInitAnswers(
+      answers({ hosts: ["claude", "codex"] }),
+      registry,
+      fixedModelRouting([claudeCatalog()]),
+    );
+    const unsupportedEffort = await resolveInitAnswers(
+      answers({
+        hosts: ["claude", "codex"],
+        modelRoles: {
+          codex: {
+            planner: "planner",
+            implementer: "implementer",
+            judge: { model: "judge", effort: "xhigh" },
+          },
+        },
+      }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+
+    expect(unavailable).toMatchObject({
+      kind: "invalid",
+      subject: { host: "codex" },
+    });
+    expect(unsupportedEffort).toMatchObject({
+      kind: "invalid",
+      subject: { host: "codex", role: "judge" },
+    });
+  });
 
   it.each([
     ["an unknown key", answers({ langauge: "en" })],

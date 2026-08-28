@@ -1,4 +1,5 @@
 import { planOf, type Effect } from "../effects.js";
+import type { ModelRoleRefusal } from "../model-roles/index.js";
 import {
   MANAGED_SECTION_BEGIN,
   planManagedFile,
@@ -84,6 +85,12 @@ function decide(
   observation: Observation,
 ): Decision {
   if (observation.answers.kind === "invalid") {
+    if (observation.answers.subject !== undefined) {
+      return modelRefusal(
+        observation.answers.reasonCode,
+        observation.answers.subject,
+      );
+    }
     return refusal(observation.answers.reasonCode, [
       "The answers document does not satisfy its contract.",
     ]);
@@ -150,6 +157,38 @@ function decide(
     humanStdout: null,
     payload: null,
     rootMode: "initialize",
+  };
+}
+
+function modelRefusal(
+  reasonCode: ModelRoleRefusal,
+  subject: { readonly host: "claude" | "codex"; readonly role?: string },
+): Decision {
+  const role = subject.role;
+  const why =
+    reasonCode === "model.effort_unsupported"
+      ? `The configured effort for role \`${role ?? "unknown"}\` on host \`${subject.host}\` is unsupported.`
+      : reasonCode === "model.independence_violation"
+        ? `The judge role for host \`${subject.host}\` must resolve to a model independent from implementer.`
+        : reasonCode === "model.resolution_unavailable" && role === undefined
+          ? `The model catalog for host \`${subject.host}\` is unavailable.`
+          : `The configured role \`${role ?? "unknown"}\` for host \`${subject.host}\` cannot be resolved.`;
+  return {
+    result: resultFor(reasonCode, {
+      why: [why],
+      evidence: [
+        {
+          kind: "observation",
+          ref:
+            role === undefined
+              ? `model-routing/${subject.host}`
+              : `model-routing/${subject.host}/${role}`,
+        },
+      ],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
   };
 }
 

@@ -84,3 +84,53 @@ exit 0
 - The result's default disclosures are deterministic and configuration stores
   only canonical object assignments, so a repeated run produces byte-identical
   state.
+
+## Fix round 1/5 — deterministic roles, closed skeleton input, and actionable refusals
+
+### RED
+
+Added the review cases before changing production code:
+
+```text
+npm test -- tests/init-answers.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts
+Test Files 2 failed | 1 passed
+Tests 3 failed | 52 passed
+```
+
+The inverse-host test showed `.brain/config.json` serialized `claude` and
+`codex` in supplied-input order. The semantic tests showed model refusals had
+no `subject`, and the CLI boundary rendered `runtime.internal_failure` because
+the model reason policy requires evidence. The initial negative type assertion
+also failed under `npm run typecheck` against the pre-fix public type.
+
+### GREEN
+
+- Resolution retains only normalized `{ model, effort }` objects in a closed
+  `ResolvedModelRoles` type. `skeletonEffects` therefore cannot receive raw
+  string/alias assignments through its public TypeScript boundary.
+- Catalogs are still observed in the caller's enabled-host order, but resolved
+  role maps are inserted into persisted state in canonical `claude`, `codex`
+  order. Inverse inputs now emit identical configuration bytes.
+- The model resolver returns a bounded subject: catalog absence has `host`;
+  role resolution, effort, and independence failures include `host` and a
+  role (independence names `judge`). The CLI turns that into catalog-owned,
+  model-ID-free prose and an observation evidence reference, satisfying the
+  result policy rather than being sanitized into an internal failure.
+
+```text
+npm test -- tests/init-answers.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/init-managed-section.test.ts
+Test Files 5 passed (5)
+Tests 73 passed (73)
+
+npm run typecheck
+exit 0
+```
+
+### Self-review
+
+- The public resolved type is separate from `ProjectConfigV1_1`'s permissive
+  input shape; no cast hides a raw assignment at the skeleton boundary.
+- Failure subjects contain only host and role labels. Neither invalid aliases
+  nor model IDs are echoed into public prose or evidence.
+- The helper used for init resolves each role directly, preserving the exact
+  failing role before the canonical implementer/judge independence check.

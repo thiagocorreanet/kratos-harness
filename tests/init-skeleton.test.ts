@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { KRATOS_VERSION, type InitAnswersV1_1 } from "@kratos/contracts";
+import { KRATOS_VERSION } from "@kratos/contracts";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import type { Effect } from "@kratos/runtime/domain/effects";
 import {
@@ -10,9 +10,10 @@ import {
   MANAGED_SECTION_END,
   destinationsOf,
   profileStack,
+  type ResolvedAnswers,
   skeletonEffects,
 } from "@kratos/runtime/domain/init";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 const discoveryPath = join(
   fileURLToPath(new URL("../", import.meta.url)),
@@ -47,9 +48,7 @@ beforeAll(async () => {
 const registry = createSchemaRegistry();
 const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
-function answers(
-  overrides: Partial<Required<InitAnswersV1_1>> = {},
-): Required<InitAnswersV1_1> {
+function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
     contractVersion: "1.1.0",
     hostContract: "1.1.0",
@@ -88,6 +87,28 @@ function underBrain(path: string): boolean {
 }
 
 describe("the generated skeleton", () => {
+  it("accepts resolved model-role objects but rejects raw assignments at its public boundary", () => {
+    interface RawAssignments {
+      readonly contractVersion: "1.1.0";
+      readonly hostContract: "1.1.0";
+      readonly hosts: readonly ["codex"];
+      readonly language: "en";
+      readonly policyMode: "standard";
+      readonly snapshots: true;
+      readonly modelRoles: {
+        readonly codex: {
+          readonly planner: "planner";
+          readonly implementer: "implementer";
+          readonly judge: "judge";
+        };
+      };
+    }
+
+    expectTypeOf<RawAssignments["modelRoles"]>().not.toExtend<
+      Parameters<typeof skeletonEffects>[0]["modelRoles"]
+    >();
+  });
+
   it("generates exactly the frozen initialization surface", () => {
     expect(destinationsOf(skeletonEffects(answers(), nodeProject))).toEqual(
       frozen,

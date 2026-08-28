@@ -1,9 +1,11 @@
-import type { InitAnswersV1_1, ProjectConfigV1_1 } from "@kratos/contracts";
+import type { InitAnswersV1_1 } from "@kratos/contracts";
 
 import {
-  resolvePhaseAssignment,
+  resolveModelRoleAssignment,
+  validateHostIndependence,
   type HostModelCatalog,
   type ModelRole,
+  type ModelRoleRefusal,
   type NormalizedModelAssignment,
 } from "../model-roles/index.js";
 import type { ModelRouting } from "../../ports/model-routing.js";
@@ -11,7 +13,7 @@ import type { SchemaRegistry } from "../schema/index.js";
 
 /** Answers after every default has been made visible and every model resolved. */
 export type ResolvedAnswers = Omit<Required<InitAnswersV1_1>, "modelRoles"> & {
-  readonly modelRoles: ProjectConfigV1_1["modelRoles"];
+  readonly modelRoles: ResolvedModelRoles;
 };
 
 const DEFAULTS = {
@@ -25,8 +27,24 @@ const HOSTS = ["claude", "codex"] as const;
 const ROLES = ["planner", "implementer", "judge"] as const;
 
 type Host = "claude" | "codex";
-type RoleMap = NonNullable<ProjectConfigV1_1["modelRoles"][Host]>;
 type ExplicitRoleMap = NonNullable<InitAnswersV1_1["modelRoles"]>[Host];
+
+/** The only model assignment shape a resolved initializer may persist. */
+export type ResolvedRoleMap = Readonly<
+  Record<ModelRole, NormalizedModelAssignment>
+>;
+export type ResolvedModelRoles = Partial<Record<Host, ResolvedRoleMap>>;
+
+export interface ModelResolutionSubject {
+  readonly host: Host;
+  readonly role?: ModelRole;
+}
+
+export interface ModelResolutionRefusal {
+  readonly kind: "invalid";
+  readonly reasonCode: ModelRoleRefusal;
+  readonly subject: ModelResolutionSubject;
+}
 
 export type ResolvedInitAnswers =
   | {
@@ -35,7 +53,12 @@ export type ResolvedInitAnswers =
       /** Which answers the caller did not supply, in documented order. */
       readonly defaulted: readonly string[];
     }
-  | { readonly kind: "invalid"; readonly reasonCode: string };
+  | {
+      readonly kind: "invalid";
+      readonly reasonCode: string;
+      readonly subject?: never;
+    }
+  | ModelResolutionRefusal;
 
 /**
  * Validate an answers document, resolve its host catalogs, and fill in every
@@ -69,19 +92,19 @@ export async function resolveInitAnswers(
   const defaulted: string[] = DEFAULTABLE.filter(
     (key) => supplied[key] === undefined,
   );
-  const modelRoles: ProjectConfigV1_1["modelRoles"] = {};
+  const resolvedByHost = new Map<Host, ResolvedRoleMap>();
 
   // Catalog lookup is intentionally confined to enabled hosts. A role map for
   // a disabled host is not project state and is neither selected nor observed.
   for (const host of supplied.hosts) {
     const catalog = await modelRouting.observe(host);
     if (catalog === null) {
-      return { kind: "invalid", reasonCode: "model.resolution_unavailable" };
+      return modelRefusal("model.resolution_unavailable", { host });
     }
     const explicit = supplied.modelRoles?.[host];
     const resolved = resolveHostRoles(host, explicit, catalog);
     if (resolved.kind === "invalid") return resolved;
-    modelRoles[host] = resolved.roles;
+    resolvedByHost.set(host, resolved.roles);
   }
   for (const host of HOSTS) {
     if (
@@ -90,6 +113,11 @@ export async function resolveInitAnswers(
     ) {
       for (const role of ROLES) defaulted.push(`modelRoles.${host}.${role}`);
     }
+  }
+  const modelRoles: ResolvedModelRoles = {};
+  for (const host of HOSTS) {
+    const roles = resolvedByHost.get(host);
+    if (roles !== undefined) modelRoles[host] = roles;
   }
 
   return {
@@ -112,38 +140,20 @@ function resolveHostRoles(
   explicit: ExplicitRoleMap | undefined,
   catalog: HostModelCatalog,
 ):
-  | { readonly kind: "resolved"; readonly roles: RoleMap }
-  | { readonly kind: "invalid"; readonly reasonCode: string } {
+  | { readonly kind: "resolved"; readonly roles: ResolvedRoleMap }
+  | ModelResolutionRefusal {
   const selected = explicit ?? catalog.defaults;
-  const configuration: ProjectConfigV1_1 = {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
-    pluginVersion: "0.0.0-development",
-    hostContract: "1.1.0",
-    language: "en",
-    policyMode: "standard",
-    managedState: {
-      directory: ".brain",
-      eventLog: "events.jsonl",
-      snapshots: true,
-    },
-    modelRoles: { [host]: selected },
-  };
   const assignments = new Map<ModelRole, NormalizedModelAssignment>();
 
-  for (const [phase, role] of [
-    ["prd", "planner"],
-    ["code", "implementer"],
-    ["review", "judge"],
-  ] as const) {
-    const resolved = resolvePhaseAssignment({
-      phase,
+  for (const role of ROLES) {
+    const resolved = resolveModelRoleAssignment({
       host,
-      configuration,
+      role,
+      roles: selected,
       catalog,
     });
     if (resolved.kind === "refused") {
-      return { kind: "invalid", reasonCode: resolved.reasonCode };
+      return modelRefusal(resolved.reasonCode, { host, role });
     }
     assignments.set(role, {
       model: resolved.assignment.model,
@@ -160,10 +170,23 @@ function resolveHostRoles(
     implementer === undefined ||
     judge === undefined
   ) {
-    return { kind: "invalid", reasonCode: "model.role_missing" };
+    return modelRefusal("model.role_missing", { host, role: "planner" });
   }
   /* v8 ignore stop */
+  if (validateHostIndependence({ implementer, judge }) !== null) {
+    return modelRefusal("model.independence_violation", {
+      host,
+      role: "judge",
+    });
+  }
   return { kind: "resolved", roles: { planner, implementer, judge } };
+}
+
+function modelRefusal(
+  reasonCode: ModelRoleRefusal,
+  subject: ModelResolutionSubject,
+): ModelResolutionRefusal {
+  return { kind: "invalid", reasonCode, subject };
 }
 
 /** The host contract version the registry checks before the payload. */

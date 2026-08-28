@@ -4,21 +4,13 @@ import {
   PHASE_MODEL_ROLE,
   type HostModelCatalog,
   type ModelRole,
+  type ModelRoleAssignmentResolution,
   type ModelRoleRefusal,
   type ModelRoleResolution,
   type NormalizedModelAssignment,
   type ResolvedPhaseAssignment,
 } from "./model.js";
 import type { RunPhase } from "../workflow/index.js";
-
-interface ResolvedRoleAssignment {
-  readonly model: string;
-  readonly effort: string;
-}
-
-type RoleResolution =
-  | { readonly kind: "resolved"; readonly assignment: ResolvedRoleAssignment }
-  | { readonly kind: "refused"; readonly reasonCode: ModelRoleRefusal };
 
 /** Map a workflow phase to its runtime-owned model role. */
 export function roleForPhase(phase: RunPhase): ModelRole {
@@ -58,17 +50,34 @@ export function resolvePhaseAssignment(input: {
   }
 
   const role = roleForPhase(input.phase);
-  const selected = resolveRole(role, configuredRoles, input.catalog);
+  const selected = resolveModelRoleAssignment({
+    host: input.host,
+    role,
+    roles: configuredRoles,
+    catalog: input.catalog,
+  });
   if (selected.kind === "refused") return selected;
 
   const implementer =
     role === "implementer"
       ? selected
-      : resolveRole("implementer", configuredRoles, input.catalog);
+      : resolveModelRoleAssignment({
+          host: input.host,
+          role: "implementer",
+          roles: configuredRoles,
+          catalog: input.catalog,
+        });
   if (implementer.kind === "refused") return implementer;
 
   const judge =
-    role === "judge" ? selected : resolveRole("judge", configuredRoles, input.catalog);
+    role === "judge"
+      ? selected
+      : resolveModelRoleAssignment({
+          host: input.host,
+          role: "judge",
+          roles: configuredRoles,
+          catalog: input.catalog,
+        });
   if (judge.kind === "refused") return judge;
 
   if (
@@ -95,16 +104,21 @@ function refused(reasonCode: ModelRoleRefusal): ModelRoleResolution {
   return { kind: "refused", reasonCode };
 }
 
-function resolveRole(
-  role: ModelRole,
-  roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>,
-  catalog: HostModelCatalog,
-): RoleResolution {
-  const configured = roles[role];
+/** Resolve one configured role to its canonical, closed assignment. */
+export function resolveModelRoleAssignment(input: {
+  readonly host: "claude" | "codex";
+  readonly role: ModelRole;
+  readonly roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>;
+  readonly catalog: HostModelCatalog;
+}): ModelRoleAssignmentResolution {
+  if (input.catalog.host !== input.host) {
+    return refused("model.resolution_unavailable");
+  }
+  const configured = input.roles[input.role];
   if (configured === undefined) return refused("model.role_missing");
 
   const assignment = normalizeModelAssignment(configured);
-  const candidates = catalog.models.filter((model) =>
+  const candidates = input.catalog.models.filter((model) =>
     modelNames(model).includes(assignment.model),
   );
   if (candidates.length !== 1) return refused("model.resolution_unavailable");
@@ -123,7 +137,9 @@ function resolveRole(
   };
 }
 
-function modelNames(model: HostModelCatalog["models"][number]): readonly string[] {
+function modelNames(
+  model: HostModelCatalog["models"][number],
+): readonly string[] {
   return sortedUnique([model.canonicalModel, ...model.aliases]);
 }
 
