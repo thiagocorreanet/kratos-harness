@@ -271,3 +271,54 @@ exit 0
 
 The repository-wide Prettier check continues to name only the two untouched
 pre-existing files recorded in round 1.
+
+## Review fix round 3/5
+
+### RED
+
+Two literal fallback cases were added without importing production constants:
+
+```text
+npm test -- tests/event-sealing.test.ts -t "literal semantic matrix"
+Test Files 1 failed
+Tests 2 failed | 14 passed | 59 skipped
+
+unexpectedly sealed:
+- runtime.cache:refresh with reason trail.ok
+- runtime.cache:refresh with reason trail.accepted
+```
+
+The same run proved the ordinary nonreserved fallback remained valid and real
+lock acquire/takeover tuples remained valid.
+
+### Fix
+
+- Added one exhaustive lock reason vocabulary containing `trail.accepted` and
+  `trail.ok`.
+- Current lock tuple definitions reference that vocabulary instead of copying
+  reason literals, preserving the existing `trail.ok` event bytes.
+- The fallback reserved-reason set is now derived from workflow transition
+  facts, workflow operation facts, and the exhaustive lock reason vocabulary.
+  No lock reason can be omitted by a workflow-only derivation.
+
+### GREEN
+
+```text
+literal semantic matrix:
+Test Files 1 passed
+Tests 16 passed | 59 skipped
+
+core event and lock producer/lifecycle suites:
+Test Files 19 passed
+Tests 1595 passed
+
+npm run typecheck
+exit 0
+
+npm run lint
+exit 0
+
+round 3 changed files: Prettier clean
+git diff --check
+exit 0
+```

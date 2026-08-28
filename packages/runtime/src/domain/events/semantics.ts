@@ -82,27 +82,32 @@ export type LockLifecycleAction = "acquire" | "renew" | "release" | "takeover";
 export const LOCK_OPERATION_PATTERN =
   /^lock\.(acquire|renew|release|takeover)\.t(0|[1-9][0-9]*)\.d([a-f0-9]{64})$/u;
 
+export const LOCK_EVENT_REASONS = {
+  accepted: "trail.accepted",
+  ok: "trail.ok",
+} as const;
+
 export const LOCK_EVENT_FACTS = {
   acquire: {
-    reasonCode: "trail.ok",
+    reasonCode: LOCK_EVENT_REASONS.ok,
     eventType: "operation",
     effect: "state",
     assignment: "forbidden",
   },
   renew: {
-    reasonCode: "trail.ok",
+    reasonCode: LOCK_EVENT_REASONS.ok,
     eventType: "operation",
     effect: "state",
     assignment: "forbidden",
   },
   release: {
-    reasonCode: "trail.ok",
+    reasonCode: LOCK_EVENT_REASONS.ok,
     eventType: "operation",
     effect: "state",
     assignment: "forbidden",
   },
   takeover: {
-    reasonCode: "trail.ok",
+    reasonCode: LOCK_EVENT_REASONS.ok,
     eventType: "recovery",
     effect: "state",
     assignment: "forbidden",
@@ -139,12 +144,15 @@ const policiesByOperation = {
   Record<WorkflowOperationFamily, readonly EventFactPolicy[]>
 >;
 
-const reservedReasons = new Set<string>(
-  [
-    ...Object.values(WORKFLOW_TRANSITION_FACTS),
-    ...Object.values(WORKFLOW_OPERATION_FACTS),
-  ].map(({ reasonCode }) => reasonCode),
-);
+const reservedReasons = new Set<string>([
+  ...Object.values(WORKFLOW_TRANSITION_FACTS).map(
+    ({ reasonCode }) => reasonCode,
+  ),
+  ...Object.values(WORKFLOW_OPERATION_FACTS).map(
+    ({ reasonCode }) => reasonCode,
+  ),
+  ...Object.values(LOCK_EVENT_REASONS),
+]);
 
 function matchesPolicy(
   event: ReadableEvent,

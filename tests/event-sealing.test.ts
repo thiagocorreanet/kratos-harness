@@ -193,6 +193,54 @@ describe("event sealing", () => {
       },
       valid: false,
     },
+    {
+      name: "unreserved infrastructure borrowing lock reason trail.ok",
+      event: {
+        ...unassignedDraft(),
+        operation: "runtime.cache:refresh-05",
+        policyVersion: "runtime-v1",
+        reasonCode: "trail.ok",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "unreserved infrastructure borrowing lock reason trail.accepted",
+      event: {
+        ...unassignedDraft(),
+        operation: "runtime.cache:refresh-06",
+        policyVersion: "runtime-v1",
+        reasonCode: "trail.accepted",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "real lock acquire tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: `lock.acquire.t1.d${"b".repeat(64)}`,
+        policyVersion: "locks-v1",
+        reasonCode: "trail.ok",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: true,
+    },
+    {
+      name: "real lock takeover tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: `lock.takeover.t2.d${"c".repeat(64)}`,
+        policyVersion: "locks-v1",
+        reasonCode: "trail.ok",
+        eventType: "recovery",
+        effect: "state",
+      },
+      valid: true,
+    },
   ] satisfies readonly {
     readonly name: string;
     readonly event: CurrentEventDraft;
