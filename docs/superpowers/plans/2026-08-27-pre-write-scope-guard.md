@@ -38,11 +38,11 @@
 
 **Interfaces:** Publish `state.feature-scope@1.0.0`, `host.pre-tool-use@1.0.0`, a backwards-compatible versioned guardrails payload, and stable `guard.path_escape` / `guard.target_uninspectable` refusal policies.
 
-- [ ] Write failing tests for valid/invalid scope globs, normalized mutation requests, old/new guardrails files, immutable reason prefix, and generated type registration.
-- [ ] Run the focused tests and capture expected RED output.
-- [ ] Add schemas, registry entries, types, optional project write-block configuration, and reason policies without changing old schema bytes.
-- [ ] Regenerate contracts and make focused tests plus `npm run contracts:check` pass.
-- [ ] Commit with sign-off.
+- [x] Write failing tests for valid/invalid scope globs, normalized mutation requests, old/new guardrails files, immutable reason prefix, and generated type registration.
+- [x] Run the focused tests and capture expected RED output.
+- [x] Add schemas, registry entries, types, optional project write-block configuration, and reason policies without changing old schema bytes.
+- [x] Regenerate contracts and make focused tests plus `npm run contracts:check` pass.
+- [x] Commit with sign-off.
 
 ### Task 2: Implement reviewer translation and pure glob policy
 
@@ -57,11 +57,11 @@
 
 **Interfaces:** Parse and render code-formatted allow/deny bullets in `03-summa.md`; construct `FeatureScopeV1`; evaluate ordered gitignore-style lists; return a pure allow/refuse decision with the stable rule code and target.
 
-- [ ] Write table-driven failing tests for `*`, `?`, `**`, character classes, nested paths, ordered `!` negation, empty allow, deny-over-allow, global defaults, `.brain/**`, and reviewer drift.
-- [ ] Run focused RED tests.
-- [ ] Implement the single prose parser/renderer, normalized glob matcher, immutable defaults, and precedence decision.
-- [ ] Make focused suites pass and refactor without widening behavior.
-- [ ] Commit with sign-off.
+- [x] Write table-driven failing tests for `*`, `?`, `**`, character classes, nested paths, ordered `!` negation, empty allow, deny-over-allow, global defaults, `.brain/**`, and reviewer drift.
+- [x] Run focused RED tests.
+- [x] Implement the single prose parser/renderer, normalized glob matcher, immutable defaults, and precedence decision.
+- [x] Make focused suites pass and refactor without widening behavior.
+- [x] Commit with sign-off.
 
 ### Task 3: Add canonical target inspection and runtime guard operations
 
@@ -75,11 +75,11 @@
 
 **Interfaces:** `kratos scope record` translates the active feature's reviewer document into `scope.json`; `kratos guard write` validates `host.pre-tool-use@1.0.0`, extracts every target, canonicalizes existing and nearest-existing ancestors, evaluates policy, and emits `host.operation-result@1.0.0` without mutating tool targets.
 
-- [ ] Write failing tests for outside-root paths, existing and dangling symlinks, missing ancestors, create/update/delete/move targets, deterministic multi-target refusal, corrupt policy repair, and zero filesystem mutation.
-- [ ] Run focused RED tests.
-- [ ] Extend the filesystem port with read-only canonical inspection and implement application/composition operations atomically.
-- [ ] Make focused integration tests pass, including scope record/agreement failures.
-- [ ] Commit with sign-off.
+- [x] Write failing tests for outside-root paths, existing and dangling symlinks, missing ancestors, create/update/delete/move targets, deterministic multi-target refusal, corrupt policy repair, and zero filesystem mutation.
+- [x] Run focused RED tests.
+- [x] Extend the filesystem port with read-only canonical inspection and implement application/composition operations atomically.
+- [x] Make focused integration tests pass, including scope record/agreement failures.
+- [x] Commit with sign-off.
 
 ### Task 4: Install identical Claude Code and Codex pre-tool relays
 
@@ -94,11 +94,11 @@
 
 **Interfaces:** Each host synchronously maps its native structured mutation payload to the shared request, invokes `kratos guard write`, allows on success, and renders the host-native deny response from the same blocked result. Unsupported/uninspectable mutation shapes fail closed; unrelated tools pass through unchanged.
 
-- [ ] Write the same failing conformance cases against both adapters: denied path, outside allow, allow, deny-over-allow, state/spec allow bypass, move targets, and malformed target.
-- [ ] Run both suites to prove RED.
-- [ ] Add thin host relays and install them in both distributions without embedding policy in prompts or scripts.
-- [ ] Make conformance, plugin smoke, checksum, and parity tests pass.
-- [ ] Commit with sign-off.
+- [x] Write the same failing conformance cases against both adapters: denied path, outside allow, allow, deny-over-allow, state/spec allow bypass, move targets, and malformed target.
+- [x] Run both suites to prove RED.
+- [x] Add thin host relays and install them in both distributions without embedding policy in prompts or scripts.
+- [x] Make conformance, plugin smoke, checksum, and parity tests pass.
+- [x] Commit with sign-off.
 
 ### Task 5: Document behavior and assemble acceptance evidence
 
@@ -111,15 +111,15 @@
 
 **Interfaces:** Document glob dialect, precedence, defaults, opt-out behavior, repair behavior, host-neutral boundary, compatibility/state/security impacts, and exact verification commands.
 
-- [ ] Write documentation assertions or fixture tests first where repository conventions support them.
-- [ ] Update public documentation and ensure no prompt claims decision authority.
-- [ ] Map every issue acceptance criterion to a concrete test/file and exact command; include `Closes #133`, compatibility, state, and security impact in prepared PR text.
-- [ ] Run focused documentation/fixture tests and commit with sign-off.
+- [x] Write documentation assertions or fixture tests first where repository conventions support them.
+- [x] Update public documentation and ensure no prompt claims decision authority.
+- [x] Map every issue acceptance criterion to a concrete test/file and exact command; include `Closes #133`, compatibility, state, and security impact in prepared PR text.
+- [x] Run focused documentation/fixture tests and commit with sign-off.
 
 ### Task 6: Whole-branch verification and independent review
 
-- [ ] Run all focused suites from Tasks 1-5 from a clean working tree.
-- [ ] Run `npm run verify` and retain untruncated exit/result evidence.
-- [ ] Run an independent whole-branch spec and code-quality review; fix every blocking finding with focused tests.
-- [ ] Re-run affected focused suites and `npm run verify` after the final fix.
-- [ ] Confirm no unfinished placeholder, uncommitted file, schema drift, checksum drift, or host parity difference remains.
+- [x] Run all focused suites from Tasks 1-5 from a clean working tree.
+- [x] Run `npm run verify` and retain untruncated exit/result evidence.
+- [x] Run an independent whole-branch spec and code-quality review; fix every blocking finding with focused tests.
+- [x] Re-run affected focused suites and `npm run verify` after the final fix.
+- [x] Confirm no unfinished placeholder, uncommitted file, schema drift, checksum drift, or host parity difference remains.

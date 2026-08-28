@@ -112,8 +112,11 @@ Additional branch checks:
 - [x] `npm run build` and `npm run package:verify` — exit 0; clean-room package
   verification passed for Claude Code and Codex.
 - [x] `git diff --check 431112e..HEAD` — exit 0 after the signed fix commit.
-- [ ] `npm run verify` — intentionally not run in this correction; the
-  controller owns the fresh final gate after re-review.
+- [x] `npm run verify` — exit 0 after final re-review. It passed formatting,
+  spelling, English, lint, typecheck, 4,272 tests, coverage (93.48% statements,
+  89.33% branches, 94.42% functions, and 93.87% lines), mutation (3/3), gap
+  calibration, performance, oracle, parity, result, contracts, differential,
+  build, package verification for both hosts, and benchmark gates.
 
 ## Impact
 
@@ -188,5 +191,11 @@ npm run package:verify
 Built and clean-room verified both host packages; exit 0.
 ```
 
-The controller will run `npm run verify` after final re-review.
+```text
+npm run verify
+All chained release gates passed; exit 0.
+Coverage: 93.48% statements, 89.33% branches, 94.42% functions, 93.87% lines.
+Mutation: 3/3 (100%).
+Package verification: Codex and Claude Code passed.
+```
 ````
