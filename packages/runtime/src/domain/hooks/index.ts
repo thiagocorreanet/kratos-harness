@@ -108,9 +108,8 @@ export function unlockStopLoss(current: RunUsageV1, now: string): RunUsageV1 {
 
 export function sanitizeDiagnostic(value: string, projectRoot: string): string {
   const root = projectRoot.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return value
+  return stripControls(value)
     .replace(/\r\n?/gu, "\n")
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, "")
     .replace(new RegExp(root, "gu"), "<project>")
     .replace(/\b(authorization\s*:\s*bearer\s+)[^\s]+/giu, "$1<redacted>")
     .replace(
@@ -118,6 +117,16 @@ export function sanitizeDiagnostic(value: string, projectRoot: string): string {
       "$1=<redacted>",
     )
     .slice(0, 2048);
+}
+
+function stripControls(value: string): string {
+  return Array.from(value)
+    .filter((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code === 0x09 || code === 0x0a || code === 0x0d || code >= 0x20;
+    })
+    .filter((character) => character.codePointAt(0) !== 0x7f)
+    .join("");
 }
 
 export interface FailureObservation {

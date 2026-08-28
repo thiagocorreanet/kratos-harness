@@ -82,7 +82,7 @@ async function observeMatchingHookArtifact(
   registry: SchemaRegistry,
 ): Promise<HookObservationV1 | null> {
   const hook = await observeHookArtifact(message, ports, registry);
-  if (hook === null || hook.kind !== message.payload.hook) return null;
+  if (hook?.kind !== message.payload.hook) return null;
   const expectedPhase = hook.kind === "tool.before" ? "before" : "after";
   return message.payload.phase === expectedPhase ? hook : null;
 }
@@ -169,12 +169,9 @@ async function observeHookContext(
     feature,
     runId,
     budget,
-    usage: usage === null ? initialRunUsage(runId, hook.occurredAt) : usage,
+    usage: usage ?? initialRunUsage(runId, hook.occurredAt),
     usageExpected: precondition(usageEntry),
-    gates:
-      gates === null
-        ? emptyGates(runId, hook.occurredAt)
-        : (gates as GateFactsV1),
+    gates: gates ?? emptyGates(runId, hook.occurredAt),
     gatesExpected: precondition(gatesEntry),
     candidate,
     candidateExists:
@@ -252,14 +249,17 @@ async function tokenBudget(
   }
 }
 
+type StateRecord<I extends "state.run-usage" | "state.gates"> =
+  I extends "state.run-usage" ? RunUsageV1 : GateFactsV1;
+
 async function stateRecord<I extends "state.run-usage" | "state.gates">(
   path: string,
   id: I,
   entry: Awaited<ReturnType<RuntimePorts["durableFileSystem"]["inspect"]>>,
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<I extends "state.run-usage" ? RunUsageV1 : GateFactsV1 | null> {
-  if (entry.kind !== "file") return null as never;
+): Promise<StateRecord<I> | null> {
+  if (entry.kind !== "file") return null;
   try {
     const prepared = registry.validate({
       id,
@@ -269,9 +269,11 @@ async function stateRecord<I extends "state.run-usage" | "state.gates">(
       ) as unknown,
       structuralReasonCode: "runtime.state_corrupt",
     });
-    return (prepared.kind === "valid" ? prepared.value : null) as never;
+    return (
+      prepared.kind === "valid" ? prepared.value : null
+    ) as StateRecord<I> | null;
   } catch {
-    return null as never;
+    return null;
   }
 }
 

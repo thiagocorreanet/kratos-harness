@@ -11,7 +11,7 @@ try {
     { relayCodexPreToolUse, normalizeCodexHook },
   ] = await Promise.all([
     import("./pre-tool-use-runner.mjs"),
-      import("../runtime/source/packages/adapters/src/index.js"),
+    import("../runtime/source/packages/adapters/src/index.js"),
   ]);
   runPreToolUseProcess(
     relayCodexPreToolUse,

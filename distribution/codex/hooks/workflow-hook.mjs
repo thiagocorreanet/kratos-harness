@@ -17,5 +17,7 @@ try {
     normalize: normalizeCodexHook,
     runtimeEntry,
   });
-} catch {}
+} catch {
+  // Observational hooks never block the host session.
+}
 process.exitCode = 0;

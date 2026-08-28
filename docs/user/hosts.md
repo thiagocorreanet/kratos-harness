@@ -37,6 +37,34 @@ after Kratos returns, so this boundary has an honest time-of-check/time-of-use
 limitation. The synchronous relay narrows the window and refuses known unsafe
 targets; it is not a transaction or a filesystem lock around the host.
 
+## Workflow observations
+
+Both packages render four logical hooks from
+`distribution/shared/hooks.v1.json`: `tool.before`, `tool.failed`,
+`session.sample`, and `session.end`. A native event is normalized into
+`host.hook-observation@1.0.0`, staged beneath the session cache, and referenced
+by path and SHA-256 from `host.operation-message@1.0.0`. Raw host payloads never
+enter runtime policy or canonical state.
+
+Session usage is gross processed input plus output. Each session reports a
+monotonic cumulative value; the runtime adds only its increase to the active
+run. Reaching the configured allocation latches the gate, and a missing sample
+under a configured budget latches a measurement fault. Retrying or restarting
+does not clear either condition. The only release is
+`unlock stop-loss --run ID` with the exact `UNLOCK ID` confirmation on standard
+input, which preserves the total and starts a new budget epoch.
+
+Failed tools create immutable, digest-addressed candidate records containing a
+bounded sanitized diagnostic. Identical failures address the same record and
+do not duplicate it. `session.end` publishes the final session telemetry and
+clears its transient files in one managed transaction. Candidate promotion is
+not performed by hooks.
+
+Every hook exits zero outside initialized Kratos projects and creates nothing.
+Observation hooks are fail-open for the host action; the synchronous structured
+write guard remains fail-closed. Hook code calls neither a model nor the
+network.
+
 ## Claude Code
 
 The Claude Code package contains plugin metadata, the Kratos skill, an

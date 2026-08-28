@@ -59,12 +59,7 @@ function decide(
   }
 
   const hook = observation.hook;
-  const cumulativeGrossTokens =
-    hook.kind === "session.sample"
-      ? (hook.usage?.cumulativeGrossTokens ?? null)
-      : hook.kind === "tool.failed" || hook.kind === "session.end"
-        ? (hook.usage?.cumulativeGrossTokens ?? null)
-        : null;
+  const cumulativeGrossTokens = hook.usage?.cumulativeGrossTokens ?? null;
   const sampled = recordUsageSample(context.usage, {
     sessionId: hook.sessionId,
     cumulativeGrossTokens,
@@ -115,7 +110,7 @@ function decide(
     effects.push(write(cachePath, cache));
   } else if (hook.kind === "session.sample") {
     effects.push(write(cachePath, cache));
-  } else if (hook.kind === "session.end") {
+  } else {
     if (!context.telemetryExists) {
       effects.push(
         write(

@@ -52,6 +52,7 @@ describe("implemented commands", () => {
       "start",
       "stats",
       "status",
+      "unlock stop-loss",
       "version",
     ]);
   });

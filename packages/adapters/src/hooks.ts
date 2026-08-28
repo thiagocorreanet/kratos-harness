@@ -73,7 +73,7 @@ function normalize(kind: HookKind, input: unknown): HookObservationV1 | null {
     occurredAt,
   };
   if (kind === "session.sample" || kind === "session.end") {
-    return { ...common, kind, usage: usage(native.usage) } as HookObservationV1;
+    return { ...common, kind, usage: usage(native.usage) };
   }
   if (kind === "tool.failed") {
     const exitCode = native.exit_code;

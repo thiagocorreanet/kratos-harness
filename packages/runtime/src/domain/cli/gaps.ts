@@ -235,7 +235,7 @@ export const gatesRecordCommand: CommandSpec = observingCommand(
         tripped:
           stopLoss === undefined
             ? observation.gateFacts.stopLoss.tripped
-            : stopLoss === "tripped",
+            : true,
         exhausted:
           used === null
             ? observation.gateFacts.stopLoss.exhausted

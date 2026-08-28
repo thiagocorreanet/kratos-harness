@@ -17,7 +17,9 @@ function projectRoot(start) {
     try {
       const marker = lstatSync(join(cursor, ".brain"));
       if (marker.isDirectory() && !marker.isSymbolicLink()) return cursor;
-    } catch {}
+    } catch {
+      // Absence is the ordinary no-state case while walking ancestors.
+    }
     const parent = dirname(cursor);
     if (parent === cursor) return null;
     cursor = parent;
@@ -102,5 +104,7 @@ export function runWorkflowHookProcess(options) {
       ...options,
       nativeInput: JSON.parse(raw.toString("utf8")),
     });
-  } catch {}
+  } catch {
+    // Observational hooks are fail-open by contract.
+  }
 }

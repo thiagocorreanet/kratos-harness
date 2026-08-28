@@ -63,10 +63,10 @@ export async function observeStopLossUnlock(
 async function line(path: string, ports: RuntimePorts): Promise<string | null> {
   if ((await ports.durableFileSystem.inspect(path)).kind !== "file")
     return null;
-  return (
-    (await ports.durableFileSystem.readText(path)).split("\n")[0]?.trim() ||
-    null
-  );
+  const value = (await ports.durableFileSystem.readText(path))
+    .split("\n")[0]
+    ?.trim();
+  return value === undefined || value.length === 0 ? null : value;
 }
 
 async function validated<T>(
