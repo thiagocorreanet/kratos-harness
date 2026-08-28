@@ -316,7 +316,7 @@ describe("packaged synchronous pre-tool relays", () => {
     )) as PackagedRunner;
     const execution = runner.createRuntimeGuardExecutor(
       "/missing/kratos-runtime.mjs",
-      25,
+      5_000,
     )({}, root);
 
     expect(execution).toEqual({ exitCode: 1, stdout: "" });
