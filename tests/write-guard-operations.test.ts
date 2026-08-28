@@ -11,7 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -432,6 +432,46 @@ describe("guard write operation", () => {
     const result = await runGuard(root, request([{ kind: "update", path }]));
 
     expect(result.result.reasonCode).toBe("guard.write_block");
+  });
+
+  it.each([
+    ["immutable", ".env", "immutable-alias"],
+    ["project", "private/secret.txt", "project-alias"],
+  ])(
+    "applies a canonical %s block before rejecting a non-repair lexical alias",
+    async (_label, referent, alias) => {
+      const root = await project({
+        scope: scope(["src/**"]),
+        summary: scope(["docs/**"]),
+      });
+      await mkdir(dirname(join(root, referent)), { recursive: true });
+      await writeFile(join(root, referent), "blocked\n");
+      await symlink(referent, join(root, alias));
+
+      const result = await runGuard(
+        root,
+        request([{ kind: "update", path: alias }]),
+      );
+
+      expect(result.result).toMatchObject({
+        reasonCode: "guard.write_block",
+        evidence: [{ kind: "artifact", ref: alias }],
+      });
+    },
+  );
+
+  it("still rejects an ordinary non-brain target for corrupt scope", async () => {
+    const root = await project({
+      scope: scope(["src/**"]),
+      summary: scope(["docs/**"]),
+    });
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "src/index.ts" }]),
+    );
+
+    expect(result.result.reasonCode).toBe("guard.scope_corrupt");
   });
 
   it("allows an all-.brain request to repair invalid policy state", async () => {

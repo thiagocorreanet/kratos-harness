@@ -51,7 +51,8 @@ export function evaluateWriteRequest(
 ): PolicyEvaluation {
   if (state.kind === "invalid") {
     for (const target of targets) {
-      for (const identity of targetIdentities(target)) {
+      const identities = targetIdentities(target);
+      for (const identity of identities) {
         const writeBlock = decideWriteTarget({
           target: identity,
           guardrails: state.guardrails,
@@ -65,13 +66,13 @@ export function evaluateWriteRequest(
             evidenceRef: target.lexicalPath,
           };
         }
-        if (!brainTarget(identity)) {
-          return {
-            kind: "refused",
-            reasonCode: state.reasonCode,
-            evidenceRef: state.evidenceRef,
-          };
-        }
+      }
+      if (!identities.every(brainTarget)) {
+        return {
+          kind: "refused",
+          reasonCode: state.reasonCode,
+          evidenceRef: state.evidenceRef,
+        };
       }
     }
     return { kind: "allowed" };

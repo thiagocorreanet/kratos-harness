@@ -222,3 +222,46 @@ That test remains untouched as directed.
   mutations inside Kratos is outside this task's scope.
 - The published reason-policy compatibility exception recorded above remains
   unchanged by this fix round.
+
+## Fix round 2
+
+The remaining precedence defect was in invalid-policy evaluation: the strict
+repair-location predicate ran immediately after each identity's write-block
+check. A non-`.brain` lexical alias therefore returned the corrupt-state reason
+before its canonical referent could receive the higher-priority immutable or
+validated project write-block decision.
+
+The regression was captured before production changes:
+
+```text
+npm test -- tests/write-guard-operations.test.ts
+# 1 failed file; 2 failed | 36 passed tests
+```
+
+Both the immutable-referent and project-blocked-referent alias cases received
+`guard.scope_corrupt` with reviewer evidence instead of `guard.write_block`
+with lexical-target evidence. An adjacent ordinary non-brain target case
+continued to establish the intended corrupt-state refusal.
+
+The minimal correction now completes the ordered lexical/canonical global and
+project block pass for each original target before evaluating whether every
+identity is a strict `.brain/**` repair descendant. Valid-policy allow/deny
+ordering and original multi-target ordering are unchanged. Immediate GREEN:
+
+```text
+npm test -- tests/write-guard-operations.test.ts
+# 1 passed file; 38 passed tests
+```
+
+Fresh final verification:
+
+```text
+npm test -- tests/write-guard-path-safety.test.ts tests/write-guard-operations.test.ts tests/init-command.test.ts
+# 3 passed files; 64 passed tests
+
+npm run typecheck
+npm run lint
+npx prettier --check <fix-round-2 files>
+git diff --check
+# All exited 0 / no diagnostics.
+```
