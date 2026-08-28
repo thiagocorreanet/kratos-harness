@@ -40,16 +40,24 @@ targets; it is not a transaction or a filesystem lock around the host.
 ## Claude Code
 
 The Claude Code package contains plugin metadata, the Kratos skill, an
-orchestrator agent, hooks, templates, schemas, and the shared runtime. Hooks
-submit versioned operation messages; the adapter renders the runtime result
-without changing reason codes.
+orchestrator agent, five phase agents, hooks, templates, schemas, and the shared
+runtime. The phase-agent Markdown bodies come from the runtime's canonical
+catalog during package staging. Hooks submit versioned operation messages; the
+adapter renders the runtime result without changing reason codes.
 
 ## Codex
 
 The Codex package contains plugin metadata, a Kratos skill, project
 instructions, an orchestrator definition, templates, schemas, and the same
-runtime bytes. Generated instructions use managed sections so repeated setup is
-idempotent.
+runtime bytes. Project initialization renders five `.codex/agents/*.toml`
+definitions from the same canonical prompt catalog used by Claude Code.
+Generated instructions use managed sections so repeated setup is idempotent.
+
+Both hosts install a researcher, planner, reviewer, implementer, and evaluator.
+Their shared instructions require unanswered blocking questions to stop before
+any write. The implementer cannot mark acceptance criteria complete, and the
+evaluator must cite file-and-line or named-test evidence for every judgment.
+Host syntax differs; role behavior does not.
 
 ## Capability differences
 

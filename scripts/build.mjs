@@ -11,7 +11,7 @@ import {
 import { stripTypeScriptTypes } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
@@ -203,6 +203,26 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
     join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
     join(artifact, "hooks/pre-tool-use-runner.mjs"),
   );
+  if (host === "claude-code") {
+    const agentDirectory = join(artifact, "agents");
+    await mkdir(agentDirectory, { recursive: true });
+    await Promise.all(
+      runtimeMetadata.phaseAgents.map((definition) =>
+        writeFile(
+          join(agentDirectory, `${definition.id}.md`),
+          [
+            "---",
+            `name: ${JSON.stringify(definition.id)}`,
+            `description: ${JSON.stringify(definition.description)}`,
+            "---",
+            "",
+            definition.instructions,
+          ].join("\n"),
+          "utf8",
+        ),
+      ),
+    );
+  }
   const hostFiles = (await files(artifact)).filter(
     (file) => !relative(artifact, file).startsWith(`runtime${sep}`),
   );
@@ -308,6 +328,15 @@ await mkdir(output, { recursive: true });
 const runtimeTemplate = join(output, ".runtime-template");
 await mkdir(runtimeTemplate, { recursive: true });
 const runtimeMetadata = await buildRuntime(runtimeTemplate);
+const phaseAgentModule = await import(
+  pathToFileURL(
+    join(
+      runtimeTemplate,
+      "source/packages/runtime/src/domain/phase-agents/index.js",
+    ),
+  ).href
+);
+runtimeMetadata.phaseAgents = phaseAgentModule.PHASE_AGENT_PROMPTS;
 const artifacts = await Promise.all(
   ["claude-code", "codex"].map((host) =>
     buildHost(output, host, runtimeTemplate, runtimeMetadata),

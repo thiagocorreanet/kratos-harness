@@ -44,17 +44,6 @@ async function readDirectory(
   return Object.fromEntries(pairs);
 }
 
-async function readJsonDirectory(
-  name: string,
-): Promise<Readonly<Record<string, unknown>>> {
-  return Object.fromEntries(
-    Object.entries(await readDirectory(name)).map(([key, text]) => [
-      key,
-      JSON.parse(text) as unknown,
-    ]),
-  );
-}
-
 function validate(value: unknown) {
   return registry.validate({
     id: "host.agent-output",
@@ -62,6 +51,14 @@ function validate(value: unknown) {
     value,
     structuralReasonCode: "trail.output_invalido",
   });
+}
+
+function extractedValue(reply: string): unknown {
+  const extracted = extractAgentBlock(reply);
+  if (extracted.kind !== "extracted") {
+    throw new Error(`fixture extraction exited as ${extracted.kind}`);
+  }
+  return extracted.value;
 }
 
 /** The block a reply carries, or a failure naming which exit it took. */
@@ -88,15 +85,28 @@ function block(body: string, before = "", after = ""): string {
 }
 
 beforeAll(async () => {
-  [valid, invalid, replies] = await Promise.all([
-    readJsonDirectory("valid"),
-    readJsonDirectory("invalid"),
+  const [validReplies, invalidReplies, extractionReplies] = await Promise.all([
+    readDirectory("valid"),
+    readDirectory("invalid"),
     readDirectory("replies"),
   ]);
+  valid = Object.fromEntries(
+    Object.entries(validReplies).map(([agent, reply]) => [
+      agent,
+      accepted(reply),
+    ]),
+  );
+  invalid = Object.fromEntries(
+    Object.entries(invalidReplies).map(([agent, reply]) => [
+      agent,
+      extractedValue(reply),
+    ]),
+  );
+  replies = extractionReplies;
 });
 
 describe("the published agent output contract", () => {
-  it("accepts a valid payload for every phase agent", () => {
+  it("accepts a complete valid reply for every phase agent", () => {
     expect(Object.keys(valid).sort()).toEqual([...AGENTS].sort());
     for (const agent of AGENTS) {
       const result = validate(valid[agent]);
@@ -104,7 +114,7 @@ describe("the published agent output contract", () => {
     }
   });
 
-  it("refuses an invalid payload for every phase agent", () => {
+  it("refuses a complete invalid reply for every phase agent", () => {
     expect(Object.keys(invalid).sort()).toEqual([...AGENTS].sort());
     for (const agent of AGENTS) {
       const result = validate(invalid[agent]);
@@ -191,7 +201,12 @@ describe("the published agent output contract", () => {
     expect(
       validate({
         ...candidate,
-        outcome: { ...candidate.outcome, blockers: [] },
+        outcome: {
+          ...candidate.outcome,
+          status: "blocked",
+          next: "retry",
+          blockers: [],
+        },
       }).kind,
     ).toBe("invalid");
   });

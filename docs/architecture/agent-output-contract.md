@@ -85,6 +85,19 @@ the document root.
 | `review` | `verdict`, `findings` with severity and reference |
 | `acceptance` | `verdict`, `criteria` with outcome and evidence reference |
 
+Five installed role prompts produce those six payloads. The researcher owns
+`prd`; the planner owns `spec`; the pre-code reviewer owns `plan`; the
+implementer owns `code`; and the read-only evaluator owns both `review` and
+`acceptance`. The runtime selects the phase and validates the discriminator;
+an installed role never selects a later phase for itself.
+
+Every role uses the same uncertainty rule. It completes reading and analysis
+before its first write, and an unanswered blocking question produces
+`awaiting-input`, a `wait` hint, structured questions, and empty `artifacts`
+and `changedFiles`. A non-question obstacle uses the blocked shape instead of
+being rewritten as a question. In either case the prompt stops rather than
+inventing missing context.
+
 ## Extraction, validation, recording
 
 `kratos agent record REF` runs three steps in this order and never reorders
