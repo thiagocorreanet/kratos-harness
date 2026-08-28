@@ -168,6 +168,155 @@ describe("workflow start and continuation", () => {
     });
   });
 
+  it("refuses runtime-invalid provenance before recording a phase fact", () => {
+    const runtimeInput: unknown = {
+      assignmentDigest: digest,
+      model: "gpt-5",
+      effort: "medium",
+      provenance: "runtime-invalid",
+    };
+
+    const decision = decideRecordFact(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "agent-invalid-provenance",
+      eventId: "event-agent-invalid-provenance",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      operation: "agent.record",
+      artifactRefs: [".brain/agent-output/prd.json"],
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: runtimeInput as typeof phaseExecution,
+    });
+
+    expect(decision).toEqual({ kind: "refused", reasonCode: "trail.uso" });
+    expect(decision).not.toHaveProperty("event");
+    expect(JSON.stringify(decision)).not.toContain("user-declared-model");
+  });
+
+  it("refuses runtime-invalid provenance before recording a phase transition", () => {
+    const runtimeInput: unknown = {
+      assignmentDigest: digest,
+      model: "gpt-5",
+      effort: "medium",
+      provenance: "runtime-invalid",
+    };
+
+    const decision = decideContinueWorkflow(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "continue-invalid-provenance",
+      eventId: "event-continue-invalid-provenance",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: runtimeInput as typeof phaseExecution,
+      action: {
+        kind: "complete-phase",
+        artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+        evidenceRefs: [".brain/evidence/prd.json"],
+        gateFailures: [],
+        allowFinalCompletion: false,
+      },
+    });
+
+    expect(decision).toEqual({ kind: "refused", reasonCode: "trail.uso" });
+    expect(decision).not.toHaveProperty("event");
+    expect(JSON.stringify(decision)).not.toContain("user-declared-model");
+  });
+
+  it("normalizes every unknown execution field for a phase transition", () => {
+    const decision = decideContinueWorkflow(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "continue-unknown-execution",
+      eventId: "event-continue-unknown-execution",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: {
+        assignmentDigest: digest,
+        model: "gpt-5",
+        effort: "medium",
+        provenance: "unknown",
+      },
+      action: {
+        kind: "complete-phase",
+        artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+        evidenceRefs: [".brain/evidence/prd.json"],
+        gateFailures: [],
+        allowFinalCompletion: false,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      kind: "recorded",
+      event: {
+        observedIdentity: { host: "codex", model: null, effort: null },
+      },
+    });
+  });
+
+  it("keeps validated nullable host execution fields on phase events", () => {
+    const fact = decideRecordFact(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "agent-host-execution",
+      eventId: "event-agent-host-execution",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      operation: "agent.record",
+      artifactRefs: [".brain/agent-output/prd.json"],
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: {
+        assignmentDigest: digest,
+        model: "gpt-5",
+        effort: null,
+        provenance: "host-reported",
+      },
+    });
+    const transition = decideContinueWorkflow(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "continue-host-execution",
+      eventId: "event-continue-host-execution",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: {
+        assignmentDigest: digest,
+        model: null,
+        effort: "medium",
+        provenance: "host-reported",
+      },
+      action: {
+        kind: "complete-phase",
+        artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+        evidenceRefs: [".brain/evidence/prd.json"],
+        gateFailures: [],
+        allowFinalCompletion: false,
+      },
+    });
+
+    expect(fact).toMatchObject({
+      kind: "recorded",
+      event: {
+        observedIdentity: { host: "codex", model: "gpt-5", effort: null },
+      },
+    });
+    expect(transition).toMatchObject({
+      kind: "recorded",
+      event: {
+        observedIdentity: { host: "codex", model: null, effort: "medium" },
+      },
+    });
+  });
+
   it("fails closed when an accepted transition or phase output lacks assignment", () => {
     const continued = decideContinueWorkflow(present(), {
       feature: "workflow",

@@ -65,8 +65,14 @@ function validContinueRequest(request: ContinueWorkflowRequest): boolean {
   );
 }
 
-function validPhaseExecution(execution: PhaseExecutionObservation): boolean {
+type RuntimePhaseExecution = Omit<PhaseExecutionObservation, "provenance"> & {
+  readonly provenance: unknown;
+};
+
+function validPhaseExecution(execution: RuntimePhaseExecution): boolean {
   return (
+    (execution.provenance === "host-reported" ||
+      execution.provenance === "unknown") &&
     sha256.test(execution.assignmentDigest) &&
     (execution.model === null || id.test(execution.model)) &&
     (execution.effort === null || id.test(execution.effort))
@@ -88,17 +94,26 @@ function phaseIdentity(
   identity: WorkflowIdentity,
   execution: PhaseExecutionObservation | undefined,
 ): CurrentEventDraft["observedIdentity"] {
-  if (execution?.provenance === "host-reported") {
-    return {
-      host: identity.host,
-      model: execution.model,
-      effort: execution.effort,
-    };
+  if (execution === undefined) {
+    return { ...identity, effort: null };
   }
-  if (execution?.provenance === "unknown") {
-    return { host: identity.host, model: null, effort: null };
+  const provenance = execution.provenance;
+  switch (provenance) {
+    case "host-reported":
+      return {
+        host: identity.host,
+        model: execution.model,
+        effort: execution.effort,
+      };
+    case "unknown":
+      return { host: identity.host, model: null, effort: null };
   }
-  return { ...identity, effort: null };
+  return unreachablePhaseProvenance(provenance);
+}
+
+function unreachablePhaseProvenance(provenance: never): never {
+  void provenance;
+  throw new Error("Unvalidated phase execution provenance");
 }
 
 function hasOperation(

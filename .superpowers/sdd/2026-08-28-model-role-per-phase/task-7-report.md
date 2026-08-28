@@ -93,14 +93,14 @@ git diff --check
 exit 0
 ```
 
-An additional repository-wide `npm test` run exposed six failures inherited
-from the received HEAD, outside this task: two architecture inventory/rule
-failures, two stale distribution-manifest expectations, and two legacy init
-fixtures without the now-required 1.1 model routing. A focused reproduction
-reported 135 passing and 6 failing tests. The two affected fixtures inside the
-requested workflow/CLI matrix were updated to 1.1 and are included here; the
-unrelated architecture, distribution, objective, and package-verifier files
-were left unchanged.
+An additional repository-wide `npm test` run exposed six failures that are
+load-bearing branch debt inherited from the received HEAD: two architecture
+inventory/rule failures, two stale distribution-manifest expectations, and two
+legacy init fixtures without the now-required 1.1 model routing. A focused
+reproduction reported 135 passing and 6 failing tests. The two affected
+fixtures inside the requested workflow/CLI matrix were updated to 1.1 and are
+included here; the remaining architecture, distribution, objective, and
+package-verifier debt was explicitly deferred.
 
 ## Trust-boundary self-review
 
@@ -117,3 +117,53 @@ were left unchanged.
   rejects `resolvedAssignment`, `observedIdentity`, and `phaseExecution`.
 - Search confirmed there are no duplicate `observedModel` or `observedEffort`
   DTO fields, and the diff contains no prompt-policy changes.
+
+## Review fix round 1/5
+
+### RED
+
+Runtime-invalid provenance was passed through the typed decision boundaries as
+unknown test input. Both entry points recorded events and leaked the declared
+model through the old fallback:
+
+```text
+npx vitest run tests/workflow-state-machine.test.ts \
+  -t "runtime-invalid provenance|normalizes every unknown|keeps validated"
+Test Files 1 failed
+Tests 2 failed | 2 passed | 12 skipped
+
+decideRecordFact: received recorded/observed with user-declared-model
+decideContinueWorkflow: received recorded/accepted with user-declared-model
+```
+
+### Fix
+
+- `validPhaseExecution` now treats provenance as runtime `unknown` and accepts
+  exactly `host-reported` or `unknown` before any event can be constructed.
+- `phaseIdentity` distinguishes the legitimate no-execution path, exhaustively
+  switches over both valid provenance values, and terminates through a `never`
+  guard instead of falling back to caller-declared identity.
+- Decision tests cover both invalid entry points, unknown normalization of both
+  observed fields, and nullable host-reported model/effort projection.
+
+### GREEN
+
+```text
+focused provenance matrix
+Test Files 1 passed
+Tests 4 passed | 12 skipped
+
+workflow state machine, model-role workflow, and agent-output contract
+Test Files 3 passed
+Tests 98 passed
+
+npm run typecheck
+exit 0
+
+npm run lint -- --quiet
+exit 0
+
+changed files: Prettier clean
+git diff --check
+exit 0
+```
