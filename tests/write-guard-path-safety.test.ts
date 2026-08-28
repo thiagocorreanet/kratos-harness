@@ -72,6 +72,45 @@ describe("canonical write-target inspection", () => {
     });
   });
 
+  it("treats ENOTDIR below an existing file as uninspectable", async () => {
+    const root = await temporaryRoot("guard-root");
+    await writeFile(join(root, "file"), "not a directory\n");
+
+    await expect(inspectTarget(root, "file/child.ts")).resolves.toEqual({
+      kind: "uninspectable",
+    });
+  });
+
+  it("requires a nearest existing ancestor with a suffix to be a directory", async () => {
+    const root = await temporaryRoot("guard-root");
+    const file = join(root, "file");
+    const child = join(file, "child.ts");
+    await writeFile(file, "not a directory\n");
+    const inspector = nodeTargetInspector(root, {
+      captureRoot: (path) => {
+        const details = lstatSync(path);
+        return {
+          path: realpathSync(path),
+          device: details.dev,
+          inode: details.ino,
+        };
+      },
+      lstat: (path) => {
+        if (path === child) {
+          return Promise.reject(
+            Object.assign(new Error("missing"), { code: "ENOENT" }),
+          );
+        }
+        return lstat(path);
+      },
+      realpath,
+    });
+
+    await expect(
+      (await inspector.capture()).inspect("file/child.ts"),
+    ).resolves.toEqual({ kind: "uninspectable" });
+  });
+
   it("reattaches missing suffixes to the nearest canonical in-root ancestor", async () => {
     const root = await temporaryRoot("guard-root");
     await mkdir(join(root, "canonical"));

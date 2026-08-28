@@ -66,7 +66,7 @@ function missingPath(error: unknown): boolean {
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    (error.code === "ENOENT" || error.code === "ENOTDIR")
+    error.code === "ENOENT"
   );
 }
 
@@ -128,6 +128,15 @@ async function inspect(
     return { kind: "uninspectable" };
   }
   if (!inside(canonicalRoot, canonicalAncestor)) return { kind: "escape" };
+  if (suffix.length > 0) {
+    try {
+      if (!(await operations.lstat(canonicalAncestor)).isDirectory()) {
+        return { kind: "uninspectable" };
+      }
+    } catch {
+      return { kind: "uninspectable" };
+    }
+  }
 
   const canonicalTarget = resolve(canonicalAncestor, ...suffix);
   if (!inside(canonicalRoot, canonicalTarget)) return { kind: "escape" };

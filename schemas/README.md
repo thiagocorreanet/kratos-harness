@@ -60,7 +60,9 @@ block one phase agent appends to its reply, plus
 structured file mutations. See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
-registry format is
+current registry format is
+[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json).
+The immutable predecessor remains
 [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed

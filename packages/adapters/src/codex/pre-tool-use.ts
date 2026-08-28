@@ -101,8 +101,6 @@ function parsePatch(command: string): readonly Mutation[] | null {
     mode: "started",
     update: null,
   };
-  let sawEnvironment = false;
-
   const updateIsComplete = (): boolean =>
     state.update !== null &&
     state.update.chunks.length > 0 &&
@@ -110,10 +108,7 @@ function parsePatch(command: string): readonly Mutation[] | null {
 
   const startHunk = (line: string): "handled" | "not-handled" | "invalid" => {
     if (state.mode === "started" && line.startsWith(environmentId)) {
-      const id = rustTrim(line.slice(environmentId.length));
-      if (sawEnvironment || id.length === 0) return "invalid";
-      sawEnvironment = true;
-      return "handled";
+      return "invalid";
     }
     if (line === endPatch) {
       if (state.mode === "update" && !updateIsComplete()) return "invalid";

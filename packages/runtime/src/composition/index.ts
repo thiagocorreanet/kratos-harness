@@ -4,6 +4,7 @@ import type {
   AppendEventEffect,
   Effect,
   EffectPlan,
+  WriteFilePrecondition,
 } from "../domain/effects.js";
 import {
   isRecognizedReducerRegistryFailure,
@@ -315,6 +316,7 @@ async function decideMutation<State = JsonState>(
     ports,
     prepared?.expected,
   );
+  assertWritePreconditions(expandedPlan, observations);
   let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
   try {
     normalized = normalizeManagedMutationPlan(
@@ -550,7 +552,10 @@ function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
       if (typeof path !== "string" || typeof content !== "string") {
         throw invalidApplyInput();
       }
-      return { kind, path, content };
+      const expected = snapshotWritePrecondition(value);
+      return expected === undefined
+        ? { kind, path, content }
+        : { kind, path, content, expected };
     }
     case "delete_file":
     case "create_directory": {
@@ -574,6 +579,45 @@ function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
     default:
       throw invalidApplyInput();
   }
+}
+
+function snapshotWritePrecondition(
+  value: Record<string, unknown>,
+): WriteFilePrecondition | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(value, "expected");
+  if (descriptor === undefined) return undefined;
+  if (!("value" in descriptor) || !isSafeRecord(descriptor.value)) {
+    throw invalidApplyInput();
+  }
+  const expected = descriptor.value;
+  const kind = ownData(expected, "kind");
+  const keys = Reflect.ownKeys(expected);
+  if (kind === "missing") {
+    if (keys.length !== 1 || keys[0] !== "kind") throw invalidApplyInput();
+    return { kind };
+  }
+  if (kind !== "file") throw invalidApplyInput();
+  if (
+    keys.length !== 3 ||
+    keys.some(
+      (key) =>
+        typeof key !== "string" || !["kind", "size", "sha256"].includes(key),
+    )
+  ) {
+    throw invalidApplyInput();
+  }
+  const size = ownData(expected, "size");
+  const sha256 = ownData(expected, "sha256");
+  if (
+    typeof size !== "number" ||
+    !Number.isSafeInteger(size) ||
+    size < 0 ||
+    typeof sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(sha256)
+  ) {
+    throw invalidApplyInput();
+  }
+  return { kind, size, sha256 };
 }
 
 function isSafeRecord(value: unknown): value is Record<string, unknown> {
@@ -829,6 +873,22 @@ async function assertPreparedAppendIsFresh(
 function freshFingerprint(entry: DurableEntry): PathFingerprint | undefined {
   if (entry.kind === "special" || entry.kind === "symlink") return undefined;
   return durableEntryFingerprint(entry, "");
+}
+
+/** Bind decision-time file observations to the managed transaction decision. */
+function assertWritePreconditions(
+  plan: EffectPlan,
+  observations: ReadonlyMap<string, PathFingerprint>,
+): void {
+  for (const effect of plan.effects) {
+    if (effect.kind !== "write_file" || effect.expected === undefined) continue;
+    const observed = observations.get(effect.path);
+    if (observed === undefined || !sameFingerprint(effect.expected, observed)) {
+      throw new TransactionFailure("runtime.revision_conflict", [
+        { kind: "artifact", ref: effect.path },
+      ]);
+    }
+  }
 }
 
 function sameFingerprint(

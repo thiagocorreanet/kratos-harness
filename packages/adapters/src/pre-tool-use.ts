@@ -89,9 +89,22 @@ function denial(reason: string): string {
   })}\n`;
 }
 
-function projectRoot(input: unknown): string {
+function absoluteNativePath(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) return false;
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (codePoint <= 0x1f || codePoint === 0x7f) return false;
+  }
+  return (
+    value.startsWith("/") ||
+    /^[A-Za-z]:[\\/]/u.test(value) ||
+    /^(?:\\\\|\/\/)[^\\/]+[\\/][^\\/]+/u.test(value)
+  );
+}
+
+function projectRoot(input: unknown): string | null {
   const cwd = record(input)?.cwd;
-  return typeof cwd === "string" && cwd.length > 0 ? cwd : ".";
+  return absoluteNativePath(cwd) ? cwd : null;
 }
 
 export function relayPreToolUse(
@@ -109,9 +122,22 @@ export function relayPreToolUse(
     };
   }
 
+  const root = projectRoot(input);
+  if (root === null) {
+    return {
+      kind: "deny",
+      guardRequest: normalized.request,
+      operationResult: null,
+      stdout: denial(
+        "Kratos write guard did not return a valid operation result.",
+      ),
+      hostExitCode: 0,
+    };
+  }
+
   let execution: GuardExecution;
   try {
-    execution = execute(normalized.request, projectRoot(input));
+    execution = execute(normalized.request, root);
   } catch {
     return {
       kind: "deny",

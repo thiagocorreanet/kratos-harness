@@ -10,8 +10,10 @@ runtime, migration, and adapter work must consume.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json);
-the published v1 schema remains byte-preserved.
+[`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json);
+the published
+[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json)
+predecessor and v1 schema remain byte-preserved.
 The manifest registers every current payload schema, its generated type, and
 the metadata-only Go v3 migration profiles.
 

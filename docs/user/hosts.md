@@ -24,6 +24,13 @@ contract because their file targets cannot be deterministically inspected at
 this boundary; they are passed through rather than treated as guarded file
 mutations.
 
+A recognized mutation also needs a non-empty absolute native `cwd`. A missing,
+relative, control-bearing, or otherwise malformed root is denied before the
+runtime can evaluate policy; neither adapter substitutes the process working
+directory. Codex patch preambles that identify an environment without exposing
+an effective root the relay can inspect are likewise denied. The packaged relay
+requires the supported Node.js runtime documented in the quickstart.
+
 The guard decides before the host invokes its filesystem tool, but it does not
 own the subsequent host operation. An external host can change the filesystem
 after Kratos returns, so this boundary has an honest time-of-check/time-of-use

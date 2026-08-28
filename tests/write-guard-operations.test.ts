@@ -110,6 +110,25 @@ async function runGuard(
   };
 }
 
+async function runScopeRecord(
+  root: string,
+  overrides: Partial<RuntimePorts> = {},
+) {
+  const output = recordingOutput();
+  const exitCode = await runCommandLine(
+    ["--json", "scope", "record"],
+    createRuntimeAt(root, { ...overrides, output }),
+  );
+  return {
+    exitCode,
+    result: JSON.parse(output.structured_.join("")) as {
+      readonly reasonCode: string;
+      readonly stateChanged: boolean;
+      readonly summary: string;
+    },
+  };
+}
+
 function request(mutations: PreToolUseV1["mutations"]): PreToolUseV1 {
   return {
     contractVersion: "1.0.0",
@@ -435,6 +454,41 @@ describe("guard write operation", () => {
   });
 
   it.each([
+    ["an unmatched character class", "private/[abc"],
+    ["a reversed character range", "private/[z-a].txt"],
+    ["a range crossing a path separator", "private/[--0].txt"],
+    ["an unsafe backtick", "private/`secret`.txt"],
+  ])("fails closed for %s in project writeBlocks", async (_label, pattern) => {
+    const root = await project({
+      guardrails: `${JSON.stringify(
+        {
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          policyMode: "standard",
+          snapshots: true,
+          managedPaths: [".brain"],
+          writeBlocks: [pattern],
+        },
+        null,
+        2,
+      )}\n`,
+    });
+    const before = await tree(root);
+
+    const result = await runGuard(
+      root,
+      request([{ kind: "update", path: "src/index.ts" }]),
+    );
+
+    expect(result.result).toMatchObject({
+      reasonCode: "guard.guardrails_corrupt",
+      stateChanged: false,
+      evidence: [{ kind: "artifact", ref: ".brain/guardrails.json" }],
+    });
+    expect(await tree(root)).toEqual(before);
+  });
+
+  it.each([
     ["immutable", ".env", "immutable-alias"],
     ["project", "private/secret.txt", "project-alias"],
   ])(
@@ -523,6 +577,44 @@ describe("guard write operation", () => {
       const result = await runGuard(root, request([...mutations]));
 
       expect(result.result.reasonCode).toBe("guard.guardrails_corrupt");
+    },
+  );
+
+  it.each([
+    ["delete", [{ kind: "delete", path: ".brain" }]],
+    [
+      "move source",
+      [
+        {
+          kind: "move",
+          source: ".brain",
+          destination: ".brain/repair.json",
+        },
+      ],
+    ],
+    [
+      "move destination",
+      [
+        {
+          kind: "move",
+          source: ".brain/repair.json",
+          destination: ".brain",
+        },
+      ],
+    ],
+  ] as const)(
+    "does not bypass a valid non-empty allowlist for exact .brain %s",
+    async (_label, mutations) => {
+      const activeScope = scope(["src/**"]);
+      const root = await project({ scope: activeScope, summary: activeScope });
+
+      const result = await runGuard(root, request([...mutations]));
+
+      expect(result.result).toMatchObject({
+        reasonCode: "guard.outside_allow",
+        stateChanged: false,
+        evidence: [{ kind: "artifact", ref: ".brain" }],
+      });
     },
   );
 
@@ -716,5 +808,97 @@ describe("scope record operation", () => {
     await expect(readFile(path, "utf8")).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it.each([
+    ["different", `${JSON.stringify(scope(["raced/**"]), null, 2)}\n`],
+    ["agreeing", `${JSON.stringify(scope(["src/**"]), null, 2)}\n`],
+  ])(
+    "refuses when an %s scope file appears after a missing observation",
+    async (_label, racedContent) => {
+      const declared = scope(["src/**"]);
+      const root = await project({ summary: declared });
+      const relativePath = `.brain/02-features/${feature}/scope.json`;
+      const path = join(root, relativePath);
+      const runtime = createRuntimeAt(root);
+      const durable = runtime.durableFileSystem;
+      let raced = false;
+
+      const result = await runScopeRecord(root, {
+        durableFileSystem: {
+          ...durable,
+          inspect: async (candidate) => {
+            const observed = await durable.inspect(candidate);
+            if (candidate === relativePath && !raced) {
+              raced = true;
+              await writeFile(path, racedContent);
+            }
+            return observed;
+          },
+        },
+      });
+
+      expect(result).toMatchObject({
+        exitCode: 5,
+        result: {
+          reasonCode: "runtime.revision_conflict",
+          stateChanged: false,
+        },
+      });
+      expect(await readFile(path, "utf8")).toBe(racedContent);
+    },
+  );
+
+  it("revalidates an agreeing scope file and refuses a concurrent change", async () => {
+    const declared = scope(["src/**"]);
+    const root = await project({ scope: declared, summary: declared });
+    const relativePath = `.brain/02-features/${feature}/scope.json`;
+    const path = join(root, relativePath);
+    const racedContent = `${JSON.stringify(scope(["raced/**"]), null, 2)}\n`;
+    const runtime = createRuntimeAt(root);
+    const durable = runtime.durableFileSystem;
+    let raced = false;
+
+    const result = await runScopeRecord(root, {
+      durableFileSystem: {
+        ...durable,
+        readText: async (candidate) => {
+          const observed = await durable.readText(candidate);
+          if (candidate === relativePath && !raced) {
+            raced = true;
+            await writeFile(path, racedContent);
+          }
+          return observed;
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      exitCode: 5,
+      result: {
+        reasonCode: "runtime.revision_conflict",
+        stateChanged: false,
+      },
+    });
+    expect(await readFile(path, "utf8")).toBe(racedContent);
+  });
+
+  it("returns unchanged only after an agreeing scope remains current", async () => {
+    const declared = scope(["src/**"]);
+    const root = await project({ scope: declared, summary: declared });
+    const path = join(root, `.brain/02-features/${feature}/scope.json`);
+    const before = await readFile(path, "utf8");
+
+    const result = await runScopeRecord(root);
+
+    expect(result).toMatchObject({
+      exitCode: 0,
+      result: {
+        reasonCode: "trail.ok",
+        stateChanged: false,
+        summary: "The active feature scope already agrees with reviewer prose.",
+      },
+    });
+    expect(await readFile(path, "utf8")).toBe(before);
   });
 });

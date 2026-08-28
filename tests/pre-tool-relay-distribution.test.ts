@@ -32,9 +32,10 @@ interface PackagedRunner {
 
 let root = "";
 
-async function project(): Promise<string> {
+async function project(persistScope = true): Promise<string> {
   const projectRoot = await mkdtemp(join(tmpdir(), "kratos-hook-package-"));
   const featureRoot = join(projectRoot, ".brain/02-features/relay");
+  await mkdir(join(projectRoot, ".brain/transactions"), { recursive: true });
   await mkdir(featureRoot, { recursive: true });
   await writeFile(join(projectRoot, ".brain/02-features/active"), "relay\n");
   await writeFile(
@@ -54,10 +55,12 @@ async function project(): Promise<string> {
     allow: ["allowed/**"],
     deny: [] as string[],
   };
-  await writeFile(
-    join(featureRoot, "scope.json"),
-    `${JSON.stringify(scope)}\n`,
-  );
+  if (persistScope) {
+    await writeFile(
+      join(featureRoot, "scope.json"),
+      `${JSON.stringify(scope)}\n`,
+    );
+  }
   await writeFile(join(featureRoot, "03-summa.md"), renderSummaryScope(scope));
   return projectRoot;
 }
@@ -100,6 +103,89 @@ afterAll(async () => {
 });
 
 describe("packaged synchronous pre-tool relays", () => {
+  it("ships one identical reviewer-to-code scope activation step", async () => {
+    const sections = await Promise.all(
+      (["claude-code", "codex"] as const).map(async (host) => {
+        const skill = await readFile(
+          join(hostPackage(host), "skills/kratos/SKILL.md"),
+          "utf8",
+        );
+        const section = /## Scope activation\n\n([\s\S]+?)(?=\n## |\s*$)/u.exec(
+          skill,
+        )?.[1];
+        expect(section, host).toBeDefined();
+        return section;
+      }),
+    );
+
+    expect(sections[0]).toBe(sections[1]);
+    expect(sections[0]).toContain(
+      "`node scripts/kratos.mjs scope record --root <absolute-project-root>`",
+    );
+    expect(sections[0]).toMatch(
+      /after valid reviewer prose[\s\S]+before any implementation/iu,
+    );
+    expect(sections[0]).toContain("The runtime alone");
+  });
+
+  it.each(["claude-code", "codex"] as const)(
+    "records packaged %s reviewer scope before guarding code",
+    async (host) => {
+      const projectRoot = await project(false);
+      try {
+        const pluginRoot = hostPackage(host);
+        const bridge = join(pluginRoot, "skills/kratos/scripts/kratos.mjs");
+        const recorded = spawnSync(
+          process.execPath,
+          [bridge, "--json", "scope", "record", "--root", projectRoot],
+          { cwd: join(pluginRoot, "skills/kratos"), encoding: "utf8" },
+        );
+        expect(recorded.status, `${recorded.stdout}${recorded.stderr}`).toBe(0);
+        expect(JSON.parse(recorded.stdout)).toMatchObject({
+          reasonCode: "trail.ok",
+          stateChanged: true,
+        });
+        expect(
+          JSON.parse(
+            await readFile(
+              join(projectRoot, ".brain/02-features/relay/scope.json"),
+              "utf8",
+            ),
+          ),
+        ).toMatchObject({ allow: ["allowed/**"], deny: [] });
+
+        const target = join(projectRoot, "outside/change.ts");
+        await expect(readFile(target, "utf8")).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+        const guarded = spawnSync(
+          process.execPath,
+          [join(pluginRoot, "hooks/pre-tool-use.mjs")],
+          {
+            cwd: projectRoot,
+            encoding: "utf8",
+            input: JSON.stringify(invocation(host, projectRoot)),
+          },
+        );
+        expect(guarded.status).toBe(0);
+        expect(
+          JSON.parse(
+            (
+              JSON.parse(guarded.stdout) as {
+                hookSpecificOutput: { permissionDecisionReason: string };
+              }
+            ).hookSpecificOutput.permissionDecisionReason,
+          ),
+        ).toMatchObject({ reasonCode: "guard.outside_allow" });
+        await expect(readFile(target, "utf8")).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      } finally {
+        await rm(projectRoot, { force: true, recursive: true });
+      }
+    },
+  );
+
   it.each([
     ["claude-code", "Write|Edit|MultiEdit"],
     ["codex", "^apply_patch$"],

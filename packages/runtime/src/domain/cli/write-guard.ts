@@ -66,9 +66,15 @@ function scopeDecision(
     return {
       result: resultFor("trail.ok", {
         summary: "The active feature scope already agrees with reviewer prose.",
+        stateChanged: true,
         evidence: [{ kind: "artifact", ref: outcome.path }],
       }),
-      plan: planOf(),
+      plan: planOf({
+        kind: "write_file",
+        path: outcome.path,
+        content: outcome.content,
+        expected: outcome.expected,
+      }),
       humanStdout: null,
       payload: null,
     };
@@ -83,6 +89,7 @@ function scopeDecision(
       kind: "write_file",
       path: outcome.path,
       content: `${JSON.stringify(outcome.scope, null, 2)}\n`,
+      expected: outcome.expected,
     }),
     humanStdout: null,
     payload: null,

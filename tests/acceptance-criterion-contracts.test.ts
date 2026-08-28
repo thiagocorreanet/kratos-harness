@@ -52,8 +52,8 @@ const verdict = {
 } as const;
 
 describe("acceptance criterion contracts", () => {
-  it("preserves the published host and manifest v1 schema bytes", async () => {
-    const [agentOutput, manifestV1] = await Promise.all([
+  it("preserves the published host and predecessor manifest schema bytes", async () => {
+    const [agentOutput, manifestV1, manifestV11] = await Promise.all([
       readFile(
         join(repositoryRoot, "schemas/host/agent-output.v1.schema.json"),
         "utf8",
@@ -65,12 +65,22 @@ describe("acceptance criterion contracts", () => {
         ),
         "utf8",
       ),
+      readFile(
+        join(
+          repositoryRoot,
+          "schemas/contracts/contract-manifest.v1.1.schema.json",
+        ),
+        "utf8",
+      ),
     ]);
     expect(createHash("sha256").update(agentOutput).digest("hex")).toBe(
       "7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a",
     );
     expect(createHash("sha256").update(manifestV1).digest("hex")).toBe(
       "0de8cb9096adbe984b729cb511d57f8c9aa0e3f50f6ec09b9bc39cf5b022cff6",
+    );
+    expect(createHash("sha256").update(manifestV11).digest("hex")).toBe(
+      "7693411838fa4629ca524fd0053de08372201d2d3ffd44e9e2e3c69f5d91d9bf",
     );
   });
 

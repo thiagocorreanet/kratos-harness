@@ -30,10 +30,9 @@ function claude(toolName: string, toolInput: unknown): unknown {
 }
 
 describe("Codex native apply_patch normalization", () => {
-  it("accepts native boundary whitespace, CRLF, and an environment preamble", () => {
+  it("accepts native boundary whitespace and CRLF", () => {
     const native = [
       "  *** Begin Patch  ",
-      "*** Environment ID: environment-17",
       "  *** Add File: src/file with spaces.ts  ",
       "+content",
       " *** End Patch ",
@@ -313,6 +312,23 @@ describe("complete operation-result validation before host allow", () => {
       }),
     ).toMatchObject({ kind: "deny", operationResult: null, hostExitCode: 0 });
   });
+
+  it.each(relays)(
+    "denies a recognized %s mutation without an absolute native cwd",
+    (_host, relay, input) => {
+      for (const cwd of [undefined, "", "relative/project", "bad\0root"]) {
+        const native = { ...(input as Record<string, unknown>), cwd };
+        const execute = vi.fn<GuardExecutor>(resultExecutor(validSuccess));
+
+        expect(relay(native, execute)).toMatchObject({
+          kind: "deny",
+          operationResult: null,
+          hostExitCode: 0,
+        });
+        expect(execute).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it.each([
     ["Claude Code", relayClaudeCodePreToolUse, claude("Read", {})],

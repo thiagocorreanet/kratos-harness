@@ -53,6 +53,10 @@ closed. Nested headings do not end the active section. One parser and one
 renderer own this grammar. The command creates the scope only when absent;
 when a scope file already differs from the ordered reviewer declarations, or
 the reviewer prose is malformed, it refuses without replacing that file.
+Creation is create-only, and an agreeing existing file is accepted only if its
+exact bytes still match the observed content at the managed transaction
+boundary. A file that appears or changes during the operation produces a
+revision conflict and is never overwritten.
 
 ### Glob dialect
 

@@ -89,6 +89,12 @@ mutations when a present scope cannot be parsed or does not agree with the
 reviewer contract; a missing scope preserves projects that have not adopted
 feature scope yet.
 
+The shipped reviewer-to-code skills invoke `scope record` immediately after
+valid reviewer prose and before implementation. They do not parse scope or
+decide policy. The runtime carries a missing-file or exact-content observation
+into the managed mutation boundary, so concurrent creation or change is a
+revision conflict rather than an overwrite or a stale unchanged result.
+
 The PRD's discovery sections implement the
 [requirement discovery contract](requirement-discovery.md). Their guidance
 classifies every demand, makes 5 Whys adaptive, keeps 5W2H after discovery, and

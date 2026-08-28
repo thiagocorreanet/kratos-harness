@@ -201,6 +201,13 @@ describe("write scope decisions", () => {
       "allowed",
     ],
     [
+      "does not let exact .brain bypass non-empty allow membership",
+      scope(["src/**"]),
+      guardrails(),
+      ".brain",
+      "guard.outside_allow",
+    ],
+    [
       "does not let .brain bypass an explicit deny",
       scope(["src/**"], [".brain/**"]),
       guardrails(),

@@ -9,7 +9,11 @@ import {
   type ScopeRecordOutcome,
 } from "../application/write-guard/index.js";
 import { ACTIVE_FEATURE_PATH } from "../domain/objective/index.js";
-import { parseSummaryScope, scopesAgree } from "../domain/write-guard/index.js";
+import {
+  isPathGlob,
+  parseSummaryScope,
+  scopesAgree,
+} from "../domain/write-guard/index.js";
 import {
   prepareContract,
   type SchemaRegistry,
@@ -30,6 +34,7 @@ type Observed =
     };
 
 const guardrailsPath = ".brain/guardrails.json";
+const utf8 = new TextEncoder();
 
 function guardObservation(ordinal: number): string {
   return `guard-target-${String(ordinal).padStart(4, "0")}`;
@@ -111,6 +116,14 @@ async function policyState(
     structuralReasonCode: "guard.guardrails_corrupt",
   });
   if (guardrails.kind === "invalid") {
+    return {
+      kind: "invalid",
+      guardrails: null,
+      reasonCode: "guard.guardrails_corrupt",
+      evidenceRef: guardrailsPath,
+    };
+  }
+  if (!(guardrails.value.writeBlocks ?? []).every(isPathGlob)) {
     return {
       kind: "invalid",
       guardrails: null,
@@ -312,7 +325,12 @@ async function scopeRecordOutcome(
   const scopePath = `${featureRoot}/scope.json`;
   const scopeEntry = await ports.durableFileSystem.inspect(scopePath);
   if (scopeEntry.kind === "missing") {
-    return { kind: "record", path: scopePath, scope: translated.value };
+    return {
+      kind: "record",
+      path: scopePath,
+      scope: translated.value,
+      expected: { kind: "missing" },
+    };
   }
   if (scopeEntry.kind !== "file") return scopeRefusal(scopePath);
   let scopeText: string;
@@ -333,7 +351,16 @@ async function scopeRecordOutcome(
   ) {
     return scopeRefusal(scopePath);
   }
-  return { kind: "unchanged", path: scopePath };
+  return {
+    kind: "unchanged",
+    path: scopePath,
+    content: scopeText,
+    expected: {
+      kind: "file",
+      size: utf8.encode(scopeText).byteLength,
+      sha256: ports.digests.sha256(scopeText),
+    },
+  };
 }
 
 function scopeRefusal(path: string): ScopeRecordOutcome {

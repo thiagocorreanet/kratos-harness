@@ -1,4 +1,4 @@
-import type { EffectPlan } from "../effects.js";
+import type { EffectPlan, WriteFilePrecondition } from "../effects.js";
 import type {
   ManagedFileObservation,
   ResolvedInitAnswers,
@@ -51,8 +51,14 @@ export type ScopeRecordOutcome =
       readonly kind: "record";
       readonly path: string;
       readonly scope: FeatureScopeV1;
+      readonly expected: Extract<WriteFilePrecondition, { kind: "missing" }>;
     }
-  | { readonly kind: "unchanged"; readonly path: string }
+  | {
+      readonly kind: "unchanged";
+      readonly path: string;
+      readonly content: string;
+      readonly expected: Extract<WriteFilePrecondition, { kind: "file" }>;
+    }
   | {
       readonly kind: "refused";
       readonly reasonCode:

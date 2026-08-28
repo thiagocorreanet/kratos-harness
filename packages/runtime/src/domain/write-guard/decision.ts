@@ -91,5 +91,5 @@ function isRealEnvironmentFile(basename: string): boolean {
 }
 
 function isBrainTarget(target: string): boolean {
-  return target === ".brain" || target.startsWith(".brain/");
+  return target.startsWith(".brain/");
 }

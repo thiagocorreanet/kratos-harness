@@ -256,6 +256,7 @@ describe("contract versioning documentation", () => {
       "agent-output.v1.schema.json",
       "operation-message.v1.schema.json",
       "pre-tool-use.v1.schema.json",
+      "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",

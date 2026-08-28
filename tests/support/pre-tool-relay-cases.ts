@@ -353,6 +353,26 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
     expectedReasonCode: "guard.target_uninspectable",
   },
   {
+    name: "environment-scoped patch remains uninspectable",
+    allow: ["allowed/**"],
+    claudeCode: null,
+    codex: {
+      toolName: "apply_patch",
+      toolInput: {
+        command: [
+          "*** Begin Patch",
+          "*** Environment ID: environment-17",
+          "*** Add File: allowed/remote.ts",
+          "+remote",
+          "*** End Patch",
+        ].join("\n"),
+      },
+    },
+    expectedRequest: () => request([]),
+    expectedKind: "deny",
+    expectedReasonCode: "guard.target_uninspectable",
+  },
+  {
     name: "unrelated tool passes through without invoking runtime",
     allow: [],
     claudeCode: { toolName: "Bash", toolInput: { command: "printf safe" } },
