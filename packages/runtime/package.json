@@ -51,6 +51,7 @@
     "./ports": "./src/ports/index.ts"
   },
   "dependencies": {
+    "@kratos/adapters": "0.0.0-development",
     "@kratos/contracts": "0.0.0-development",
     "ajv": "8.20.0"
   }

@@ -96,6 +96,7 @@ describe("import extraction", () => {
       "../../domain/project/index.js",
       "../../ports/index.js",
       "./git.js",
+      "./model-routing.js",
       "./transactions.js",
     ]);
 
@@ -105,6 +106,7 @@ describe("import extraction", () => {
       ),
     ).toEqual([
       "node:util",
+      "@kratos/adapters",
       "../domain/effects.js",
       "../domain/events/index.js",
       "../domain/transactions/index.js",

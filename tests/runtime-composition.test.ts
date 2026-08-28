@@ -84,12 +84,28 @@ describe("composition root", () => {
     });
   });
 
-  it("uses Node implementations when nothing is overridden", async () => {
+  it("uses Node implementations when nothing is overridden", () => {
     const ports = createRuntime();
 
     expect(ports.environment.workingDirectory()).toBe(process.cwd());
     expect(Number.isNaN(ports.clock.now().getTime())).toBe(false);
-    expect(await ports.modelRouting.observe("codex")).toBeNull();
+  });
+
+  it("publishes complete independent host defaults without an override", async () => {
+    const routing = createRuntime().modelRouting;
+    for (const host of ["claude", "codex"] as const) {
+      const catalog = await routing.observe(host);
+      expect(catalog).not.toBeNull();
+      expect(catalog?.host).toBe(host);
+      expect(Object.keys(catalog?.defaults ?? {}).sort()).toEqual([
+        "implementer",
+        "judge",
+        "planner",
+      ]);
+      expect(catalog?.defaults.implementer.model).not.toBe(
+        catalog?.defaults.judge.model,
+      );
+    }
   });
 
   it("replaces exactly the overridden ports and nothing else", () => {

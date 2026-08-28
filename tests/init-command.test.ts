@@ -303,6 +303,9 @@ describe("the init command", () => {
         standardInput: pipedInput(ANSWERS),
       });
 
+      expect(await ports.modelRouting.observe("claude")).not.toBeNull();
+      expect(await ports.modelRouting.observe("codex")).not.toBeNull();
+
       // Ports are composed where the process started; the run has to write
       // where it was told instead.
       expect(await runCommandLine(["init", "--root", target], ports)).toBe(0);

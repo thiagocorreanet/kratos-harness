@@ -3,7 +3,97 @@ import {
   KRATOS_VERSION,
   type AdapterMessageV1_1,
 } from "@kratos/contracts";
-import type { HostModelCatalog } from "@kratos/runtime/domain/model-roles";
+
+export interface HostModelAssignment {
+  readonly model: string;
+  readonly effort: string;
+}
+
+/** Host-owned, versioned capability facts; never a runtime policy choice. */
+export interface HostModelCatalog {
+  readonly host: "claude" | "codex";
+  readonly defaults: Readonly<
+    Record<"planner" | "implementer" | "judge", HostModelAssignment>
+  >;
+  readonly models: readonly {
+    readonly canonicalModel: string;
+    readonly aliases: readonly string[];
+    readonly efforts: readonly string[];
+  }[];
+}
+
+/** The read-only capability shape the runtime composition consumes structurally. */
+export interface HostModelRouting {
+  observe(host: "claude" | "codex"): Promise<HostModelCatalog | null>;
+}
+
+function frozenCatalog(catalog: HostModelCatalog): HostModelCatalog {
+  return Object.freeze({
+    host: catalog.host,
+    defaults: Object.freeze({
+      planner: Object.freeze({ ...catalog.defaults.planner }),
+      implementer: Object.freeze({ ...catalog.defaults.implementer }),
+      judge: Object.freeze({ ...catalog.defaults.judge }),
+    }),
+    models: Object.freeze(
+      catalog.models.map(({ canonicalModel, aliases, efforts }) =>
+        Object.freeze({
+          canonicalModel,
+          aliases: Object.freeze([...aliases]),
+          efforts: Object.freeze([...efforts]),
+        }),
+      ),
+    ),
+  });
+}
+
+const DEFAULT_CATALOGS: Readonly<Record<"claude" | "codex", HostModelCatalog>> =
+  Object.freeze({
+    claude: frozenCatalog({
+      host: "claude",
+      defaults: {
+        planner: { model: "sonnet", effort: "medium" },
+        implementer: { model: "opus", effort: "medium" },
+        judge: { model: "sonnet", effort: "medium" },
+      },
+      models: [
+        { canonicalModel: "opus", aliases: ["opus"], efforts: ["medium"] },
+        {
+          canonicalModel: "sonnet",
+          aliases: ["sonnet"],
+          efforts: ["medium"],
+        },
+      ],
+    }),
+    codex: frozenCatalog({
+      host: "codex",
+      defaults: {
+        planner: { model: "gpt-5.6-terra", effort: "medium" },
+        implementer: { model: "gpt-5.6-sol", effort: "high" },
+        judge: { model: "gpt-5.6-terra", effort: "medium" },
+      },
+      models: [
+        {
+          canonicalModel: "gpt-5.6-sol",
+          aliases: ["gpt-5.6", "gpt-5.6-sol"],
+          efforts: ["low", "medium", "high", "xhigh"],
+        },
+        {
+          canonicalModel: "gpt-5.6-terra",
+          aliases: ["gpt-5.6-terra"],
+          efforts: ["low", "medium", "high"],
+        },
+      ],
+    }),
+  });
+
+/** Current host capability catalogs bundled with this adapter revision. */
+export function defaultModelRouting(): HostModelRouting {
+  return Object.freeze({
+    observe: (host: "claude" | "codex") =>
+      Promise.resolve(DEFAULT_CATALOGS[host]),
+  });
+}
 
 /**
  * What a host is and what it can do, as explicit data.
@@ -129,23 +219,7 @@ function configurationHostFor(host: SupportedHost): "claude" | "codex" {
 
 /** Copy only the catalog contract fields so host-supplied extras cannot leak. */
 function snapshotCatalog(catalog: HostModelCatalog): HostModelCatalog {
-  return Object.freeze({
-    host: catalog.host,
-    defaults: Object.freeze({
-      planner: Object.freeze({ ...catalog.defaults.planner }),
-      implementer: Object.freeze({ ...catalog.defaults.implementer }),
-      judge: Object.freeze({ ...catalog.defaults.judge }),
-    }),
-    models: Object.freeze(
-      catalog.models.map(({ canonicalModel, aliases, efforts }) =>
-        Object.freeze({
-          canonicalModel,
-          aliases: Object.freeze([...aliases]),
-          efforts: Object.freeze([...efforts]),
-        }),
-      ),
-    ),
-  });
+  return frozenCatalog(catalog);
 }
 
 function normalized(values: readonly string[]): readonly string[] {
