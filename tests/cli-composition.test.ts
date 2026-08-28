@@ -770,6 +770,84 @@ describe("composed command line", () => {
     });
   });
 
+  it.each([
+    [
+      "accessor",
+      () => {
+        let accessed = false;
+        const payload = Object.defineProperty(
+          structuredClone(adapterMessage),
+          "hostContract",
+          {
+            enumerable: true,
+            get() {
+              accessed = true;
+              throw new Error("hostile accessor invoked");
+            },
+          },
+        );
+        return { payload, wasAccessed: () => accessed };
+      },
+    ],
+    [
+      "Proxy",
+      () => {
+        let accessed = false;
+        const payload = new Proxy(structuredClone(adapterMessage), {
+          get() {
+            accessed = true;
+            throw new Error("hostile Proxy trap invoked");
+          },
+        });
+        return { payload, wasAccessed: () => accessed };
+      },
+    ],
+  ])(
+    "rejects an adapter payload with a hostile %s before effects or output",
+    async (_, hostile) => {
+      const output = recordingOutput();
+      const fileSystem = memoryFileSystem();
+      const { payload, wasAccessed } = hostile();
+      const hostileAdapter = [
+        {
+          path: ["hostile-adapter"],
+          summary: "Return a hostile adapter payload.",
+          flags: [],
+          positionals: { min: 0, max: 0 },
+          jsonContract: "adapter-message@1.0.0" as const,
+          prerequisite: "none" as const,
+          handler: () => ({
+            result: resultFor("trail.ok", {
+              evidence: [
+                { kind: "event" as const, ref: ".brain/events.jsonl" },
+              ],
+            }),
+            plan: planOf({
+              kind: "write_file" as const,
+              path: "must-not-change.txt",
+              content: "forbidden",
+            }),
+            humanStdout: null,
+            payload,
+          }),
+        },
+      ];
+
+      const exitCode = await runCommandLine(
+        ["--json", "hostile-adapter"],
+        createRuntime({ fileSystem, output }),
+        hostileAdapter,
+      );
+
+      expect(exitCode).toBe(2);
+      expect(wasAccessed()).toBe(false);
+      expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
+      expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+        reasonCode: "runtime.internal_failure",
+      });
+    },
+  );
+
   it("prepares adapter output before applying effects and publishing", async () => {
     const events: string[] = [];
     const output = recordingOutput();

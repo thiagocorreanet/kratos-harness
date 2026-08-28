@@ -4,7 +4,10 @@ import {
 } from "@kratos/contracts";
 
 import type { ConfigurationValidator } from "../domain/project/index.js";
-import type { SchemaRegistry } from "../domain/schema/index.js";
+import {
+  declaredContractVersion,
+  type SchemaRegistry,
+} from "../domain/schema/index.js";
 import { ajvSchemaRegistry } from "../infra/schema/index.js";
 
 const productionSchemaRegistry = ajvSchemaRegistry();
@@ -17,14 +20,11 @@ export function configurationValidator(
   registry: SchemaRegistry,
 ): ConfigurationValidator {
   return (value) => {
-    const version =
-      typeof value === "object" &&
-      value !== null &&
-      !Array.isArray(value) &&
-      typeof (value as Readonly<Record<string, unknown>>).stateContract ===
-        "string"
-        ? (value as Readonly<Record<string, unknown>>).stateContract
-        : CONTRACT_VERSIONS["state.project-config"];
+    const version = declaredContractVersion(
+      value,
+      "stateContract",
+      CONTRACT_VERSIONS["state.project-config"],
+    );
     const result = registry.validate({
       id: "state.project-config",
       version,

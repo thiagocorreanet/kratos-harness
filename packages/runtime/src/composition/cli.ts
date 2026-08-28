@@ -16,6 +16,7 @@ import {
   type Result,
 } from "../domain/result/index.js";
 import {
+  declaredContractVersion,
   prepareContract,
   type SchemaRegistry,
 } from "../domain/schema/index.js";
@@ -65,14 +66,11 @@ function prepareAdapterPayload(
   payload: unknown,
   registry: SchemaRegistry,
 ): string {
-  const version =
-    typeof payload === "object" &&
-    payload !== null &&
-    !Array.isArray(payload) &&
-    typeof (payload as Readonly<Record<string, unknown>>).hostContract ===
-      "string"
-      ? (payload as Readonly<Record<string, unknown>>).hostContract
-      : CONTRACT_VERSIONS["host.adapter-message"];
+  const version = declaredContractVersion(
+    payload,
+    "hostContract",
+    CONTRACT_VERSIONS["host.adapter-message"],
+  );
   const prepared = prepareContract(registry, {
     id: "host.adapter-message",
     version,
