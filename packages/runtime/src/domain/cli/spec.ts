@@ -14,7 +14,11 @@ import type {
   FeatureScopeV1,
   GapRecordV1,
   HostOperationMessageV1,
+  HookObservationV1,
+  FailureCandidateV1,
+  GateFactsV1,
   MigrationV1,
+  RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
 import type { ProjectResolution } from "../project/index.js";
@@ -150,6 +154,36 @@ export type CommandObservation =
   | {
       readonly kind: "host-operation";
       readonly message: HostOperationMessageV1;
+      readonly hook: HookObservationV1 | null;
+      readonly context: {
+        readonly feature: string;
+        readonly runId: string;
+        readonly budget: number | null;
+        readonly usage: RunUsageV1;
+        readonly usageExpected: WriteFilePrecondition;
+        readonly gates: GateFactsV1;
+        readonly gatesExpected: WriteFilePrecondition;
+        readonly candidate: FailureCandidateV1 | null;
+        readonly candidateExists: boolean;
+        readonly cache: {
+          readonly startedAt: string;
+          readonly grossTokens: number;
+          readonly toolFailures: number;
+        } | null;
+        readonly telemetryExists: boolean;
+        readonly transientFiles: readonly string[];
+      } | null;
+    }
+  | {
+      readonly kind: "stop-loss-unlock";
+      readonly feature: string;
+      readonly runId: string;
+      readonly now: string;
+      readonly confirmation: string | null;
+      readonly usage: RunUsageV1;
+      readonly usageExpected: WriteFilePrecondition;
+      readonly gates: GateFactsV1;
+      readonly gatesExpected: WriteFilePrecondition;
     }
   | {
       readonly kind: "workflow";

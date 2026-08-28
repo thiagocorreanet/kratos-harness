@@ -1,0 +1,33 @@
+{
+  "contractVersion": "1.0.0",
+  "description": "Relay normalized workflow observations and refuse out-of-scope structured writes.",
+  "hooks": [
+    {
+      "id": "tool.before",
+      "event": "PreToolUse",
+      "kind": "guard",
+      "matchers": {
+        "claude-code": "Write|Edit|MultiEdit",
+        "codex": "^apply_patch$"
+      }
+    },
+    {
+      "id": "tool.failed",
+      "event": "PostToolUseFailure",
+      "kind": "observe",
+      "matchers": { "claude-code": "*", "codex": ".*" }
+    },
+    {
+      "id": "session.sample",
+      "event": "Stop",
+      "kind": "observe",
+      "matchers": { "claude-code": "*", "codex": ".*" }
+    },
+    {
+      "id": "session.end",
+      "event": "SessionEnd",
+      "kind": "observe",
+      "matchers": { "claude-code": "*", "codex": ".*" }
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
-// source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:8a455a0553106d123dd7a2b0850bb8b6f44d8d1e20e74100236816d86b872cbb
+// source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
@@ -341,7 +341,7 @@ export namespace HookObservationV1Contract {
     SessionSample | ToolBefore | ToolFailed | SessionEnd;
   export type SessionSample = Common & {
     kind?: "session.sample";
-    usage: Usage;
+    usage: Usage | null;
     [k: string]: unknown | undefined;
   };
   export type Id = string;

@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+import { relayWorkflowObservation } from "./workflow-hook-runner.mjs";
+
 export const RUNTIME_GUARD_TIMEOUT_MS = 20_000;
 
 export function createRuntimeGuardExecutor(
@@ -32,7 +34,7 @@ export function createRuntimeGuardExecutor(
   };
 }
 
-export function runPreToolUseProcess(relay, runtimeEntry) {
+export function runPreToolUseProcess(relay, runtimeEntry, host, normalizeHook) {
   const input = (() => {
     try {
       return JSON.parse(readFileSync(0, "utf8"));
@@ -40,6 +42,13 @@ export function runPreToolUseProcess(relay, runtimeEntry) {
       return null;
     }
   })();
+  relayWorkflowObservation({
+    host,
+    kind: "tool.before",
+    normalize: normalizeHook,
+    runtimeEntry,
+    nativeInput: input,
+  });
   const result = relay(input, createRuntimeGuardExecutor(runtimeEntry));
   if (result.stdout.length > 0) process.stdout.write(result.stdout);
   process.exitCode = result.hostExitCode;

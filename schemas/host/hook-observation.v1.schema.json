@@ -82,7 +82,9 @@
           "type": "object",
           "properties": {
             "kind": { "const": "session.sample" },
-            "usage": { "$ref": "#/$defs/usage" }
+            "usage": {
+              "oneOf": [{ "$ref": "#/$defs/usage" }, { "type": "null" }]
+            }
           },
           "required": ["usage"]
         }
