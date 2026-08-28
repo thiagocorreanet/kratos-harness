@@ -367,9 +367,10 @@ type Relay = (input: unknown, execute: GuardExecutor) => PreToolRelayResult;
 
 const roots: string[] = [];
 
-async function project(testCase: PreToolRelayCase): Promise<string> {
+export async function createPreToolRelayProject(
+  testCase: PreToolRelayCase,
+): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "kratos-host-relay-"));
-  roots.push(root);
   const featureRoot = join(root, ".brain/02-features/relay");
   await mkdir(featureRoot, { recursive: true });
   await writeFile(join(root, ".brain/02-features/active"), "relay\n");
@@ -398,7 +399,7 @@ async function project(testCase: PreToolRelayCase): Promise<string> {
   return root;
 }
 
-function nativeInput(
+export function nativePreToolRelayInput(
   host: RelayHost,
   root: string,
   toolCall: NativeToolCall,
@@ -469,10 +470,20 @@ export function describePreToolRelayConformance(
       if (toolCall === null) continue;
 
       it(testCase.name, async () => {
-        const root = await project(testCase);
-        const result = relay(nativeInput(host, root, toolCall), execute);
+        const root = await createPreToolRelayProject(testCase);
+        roots.push(root);
+        let executionCount = 0;
+        const countedExecution: GuardExecutor = (guardRequest, projectRoot) => {
+          executionCount += 1;
+          return execute(guardRequest, projectRoot);
+        };
+        const result = relay(
+          nativePreToolRelayInput(host, root, toolCall),
+          countedExecution,
+        );
 
         expect(result.kind).toBe(testCase.expectedKind);
+        expect(executionCount).toBe(testCase.expectedKind === "pass" ? 0 : 1);
         expect(result.hostExitCode).toBe(0);
         expect(result.guardRequest).toEqual(
           testCase.expectedRequest?.(host, root) ?? null,

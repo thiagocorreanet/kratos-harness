@@ -199,6 +199,10 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
       recursive: true,
     }),
   ]);
+  await cp(
+    join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
+    join(artifact, "hooks/pre-tool-use-runner.mjs"),
+  );
   const hostFiles = (await files(artifact)).filter(
     (file) => !relative(artifact, file).startsWith(`runtime${sep}`),
   );

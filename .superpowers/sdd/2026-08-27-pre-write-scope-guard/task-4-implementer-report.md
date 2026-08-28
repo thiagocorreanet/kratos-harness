@@ -187,3 +187,159 @@ records the required self-review instead.
 - Node prints its established `stripTypeScriptTypes` experimental warning
   during `npm run build`; the build and package-verification commands still
   exit 0 and all generated digests verify.
+
+## Fix round 1
+
+### Status and review disposition
+
+Accepted and resolved every Critical and Important finding from the first
+review. Codex target extraction now follows the current native streaming parser
+states; Claude Code validates complete recognized mutation payloads; both
+relays reuse the complete contract-owned operation-result validator; startup,
+spawn, child-error, and timeout paths deny; and the complete shared table now
+drives cross-host runtime-result parity.
+
+### Fix-round RED/GREEN evidence
+
+The first independent adapter hardening run was RED:
+
+```text
+npx vitest run tests/pre-tool-relay-hardening.test.ts
+# 1 failed file; 19 failed and 17 passed tests
+```
+
+Failures covered native marker and preamble parsing, empty updates, moves after
+content, incomplete Claude payloads, extra or reason-inconsistent result fields,
+unknown reasons, and executor exceptions.
+
+The independent packaged-launcher run was also RED:
+
+```text
+npx vitest run tests/pre-tool-relay-distribution.test.ts
+# 1 failed file; 4 failed and 3 passed tests
+```
+
+The missing behaviors were the inner deadline, child failure conversion, and
+catchable adapter startup for both hosts.
+
+After implementation, the focused hardening, conformance, architecture, and
+package boundary set was GREEN:
+
+```text
+npx vitest run tests/pre-tool-relay-hardening.test.ts tests/pre-tool-relay-distribution.test.ts tests/claude-code-pre-tool-relay.test.ts tests/codex-pre-tool-relay.test.ts tests/pre-tool-relay-parity.test.ts tests/result-validation.test.ts tests/architecture.test.ts tests/package-boundaries.test.ts
+# 8 passed files; 221 passed tests
+```
+
+The broader plugin and distribution set was also GREEN:
+
+```text
+npx vitest run tests/pre-tool-relay-hardening.test.ts tests/pre-tool-relay-distribution.test.ts tests/claude-code-pre-tool-relay.test.ts tests/codex-pre-tool-relay.test.ts tests/pre-tool-relay-parity.test.ts tests/result-validation.test.ts tests/architecture.test.ts tests/package-boundaries.test.ts tests/host-adapter-contract.test.ts tests/runtime-distribution.test.ts tests/plugin-install.test.ts tests/package-verifier.test.ts tests/bundle-smoke.test.ts
+# 13 passed files; 277 passed tests
+```
+
+The final full run passed:
+
+```text
+npm test
+# 162 passed files; 4,251 passed tests; 225.98s
+```
+
+### Official parser and host protocol evidence
+
+The Codex parser behavior was pinned on 2026-08-27 to official OpenAI Codex
+commit `f1bb4c168d7b7bcfab8083d8cb34996bf2332c3a`:
+
+- [`parser.rs`](https://github.com/openai/codex/blob/f1bb4c168d7b7bcfab8083d8cb34996bf2332c3a/codex-rs/apply-patch/src/parser.rs)
+  defines the formal add, delete, update, move, context, end-of-file, and
+  optional environment identifier grammar. Its active lenient mode trims the
+  outer patch, accepts the three documented `EOF` wrapper spellings, and trims
+  only boundary marker lines.
+- [`streaming_parser.rs`](https://github.com/openai/codex/blob/f1bb4c168d7b7bcfab8083d8cb34996bf2332c3a/codex-rs/apply-patch/src/streaming_parser.rs)
+  establishes the state-dependent detail: add, delete, and initial action
+  headers are fully trimmed; update headers are trailing-trimmed so an indented
+  action marker remains context; a move is permitted only before update chunks;
+  empty update chunks fail; carriage-return line endings are accepted; and an
+  environment identifier is valid only before the first hunk.
+- [Official apply-patch instructions](https://github.com/openai/codex/blob/f1bb4c168d7b7bcfab8083d8cb34996bf2332c3a/codex-rs/prompts/templates/apply_patch_tool_instructions.md)
+  confirm the outer markers and ordered action sections.
+
+Fixtures use independent literal native patch strings. They cover carriage
+returns, exact Rust whitespace rather than JavaScript's broader byte-order-mark
+trimming, outer marker whitespace, `EOF` wrapping, an environment identifier,
+quoted-looking and space-containing paths, body lines resembling actions,
+truncation, empty updates and chunks, mixed sections, and move headers. An
+unknown action-looking line or a target that cannot be extracted becomes the
+empty invalid host request so the runtime returns
+`guard.target_uninspectable`.
+
+The Claude protocol choice remains the documented synchronous `PreToolUse`
+command protocol from the
+[official hooks reference](https://code.claude.com/docs/en/hooks): one JSON
+object on standard input and a structured
+`hookSpecificOutput.permissionDecision: "deny"` response. The same reference
+states that Write and Edit paths are absolute. The
+[official tools reference](https://code.claude.com/docs/en/tools-reference)
+documents Write's full content and Edit's `old_string`, `new_string`, and
+optional boolean `replace_all`. The retained legacy MultiEdit matcher now
+requires a non-empty `edits` array whose entries have the same complete edit
+shape.
+
+### Contract and packaging changes
+
+- `packages/contracts/src/operation-result.ts` now owns the complete closed
+  schema, canonical key and evidence order, safe publication checks, reason
+  catalog relationship checks, evidence policy, retry, recovery, exit, status,
+  and state-change validation. Runtime validation wraps this same function to
+  preserve its public error type, while adapters call it directly before any
+  allow decision.
+- `distribution/shared/pre-tool-use-runner.mjs` owns identical synchronous
+  process execution for both hosts. The inner runtime deadline is 20 seconds;
+  both host configurations retain a 30-second outer deadline, leaving a
+  10-second denial-rendering margin.
+- Both entry points dynamically import the packaged runner and native adapter.
+  Import failure is caught and rendered as a native structured denial. Runtime
+  timeout, child error, spawn exception, executor exception, malformed JSON,
+  and non-contract output all deny before the outer deadline.
+- `scripts/build.mjs` copies the common runner into each host before computing
+  the host asset digest. Package verification recomputed and verified both host
+  assets and the embedded source-tree digest.
+- The shared table now proves exactly one runtime execution for recognized
+  calls and zero for unrelated tools. Equivalent allow, feature deny, outside
+  allow, deny-over-allow, state and specification bypass, malformed, and
+  pass-through cases compare the complete result across both hosts.
+
+### Fix-round verification
+
+All commands exited zero:
+
+```text
+npm run contracts:check
+# 23 schemas; 14 legacy profiles; generated types current
+npm run result:check
+# 76 reasons; exits 0,1,2,3,4,5; 6 examples
+npm run parity:check
+# Discovery verified; parity inventory unchanged
+npm run build && npm run package:verify
+# Both Codex and Claude Code artifacts verified
+npm run lint
+npm run typecheck
+npm run format:check
+npm run english:check
+npm run spellcheck
+git diff --check
+# No diagnostics
+```
+
+### Fix-round self-review and concerns
+
+Reviewed the complete diff against every round-one finding. The adapters still
+contain no glob, allow/deny, exception, reason selection, shell parsing, or MCP
+policy. Mutation order and one-call atomicity are preserved. A valid operation
+result is returned only after the same validator used by the runtime proves its
+entire contract and reason policy. Both host launchers share the exact executor
+and differ only in their adapter import.
+
+The unavoidable prerequisite remains that no JavaScript program can render a
+denial if the operating system cannot launch Node at all. The package manifest
+and preflight require the supported Node 24 runtime; every failure after Node
+starts is caught and fails closed. No subagent was dispatched.

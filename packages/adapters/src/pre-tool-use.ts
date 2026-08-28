@@ -1,21 +1,10 @@
-import type { PreToolUseV1 } from "@kratos/contracts";
+import {
+  validateOperationResult,
+  type OperationResultV1,
+  type PreToolUseV1,
+} from "@kratos/contracts";
 
-export interface GuardOperationResult {
-  readonly contractVersion: "1.0.0";
-  readonly status: "success" | "failure" | "blocked";
-  readonly exitCode: number;
-  readonly reasonCode: string;
-  readonly summary: string;
-  readonly why: readonly string[];
-  readonly evidence: readonly {
-    readonly kind: string;
-    readonly ref: string;
-    readonly sha256?: string;
-  }[];
-  readonly stateChanged: boolean;
-  readonly retryable: boolean;
-  readonly recovery: string | null;
-}
+export type GuardOperationResult = OperationResultV1;
 
 export interface GuardExecution {
   readonly exitCode: number | null;
@@ -82,48 +71,12 @@ export function record(
     : null;
 }
 
-function strings(value: unknown): value is readonly string[] {
-  return (
-    Array.isArray(value) && value.every((entry) => typeof entry === "string")
-  );
-}
-
-function evidence(value: unknown): value is GuardOperationResult["evidence"] {
-  return (
-    Array.isArray(value) &&
-    value.every((entry) => {
-      const item = record(entry);
-      return (
-        item !== null &&
-        typeof item.kind === "string" &&
-        typeof item.ref === "string" &&
-        (item.sha256 === undefined || typeof item.sha256 === "string")
-      );
-    })
-  );
-}
-
 function operationResult(value: unknown): GuardOperationResult | null {
-  const candidate = record(value);
-  if (candidate === null) return null;
-  if (
-    candidate.contractVersion !== "1.0.0" ||
-    (candidate.status !== "success" &&
-      candidate.status !== "failure" &&
-      candidate.status !== "blocked") ||
-    typeof candidate.exitCode !== "number" ||
-    !Number.isInteger(candidate.exitCode) ||
-    typeof candidate.reasonCode !== "string" ||
-    typeof candidate.summary !== "string" ||
-    !strings(candidate.why) ||
-    !evidence(candidate.evidence) ||
-    typeof candidate.stateChanged !== "boolean" ||
-    typeof candidate.retryable !== "boolean" ||
-    (candidate.recovery !== null && typeof candidate.recovery !== "string")
-  ) {
+  try {
+    return validateOperationResult(value);
+  } catch {
     return null;
   }
-  return candidate as unknown as GuardOperationResult;
 }
 
 function denial(reason: string): string {
@@ -156,7 +109,20 @@ export function relayPreToolUse(
     };
   }
 
-  const execution = execute(normalized.request, projectRoot(input));
+  let execution: GuardExecution;
+  try {
+    execution = execute(normalized.request, projectRoot(input));
+  } catch {
+    return {
+      kind: "deny",
+      guardRequest: normalized.request,
+      operationResult: null,
+      stdout: denial(
+        "Kratos write guard did not return a valid operation result.",
+      ),
+      hostExitCode: 0,
+    };
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(execution.stdout) as unknown;

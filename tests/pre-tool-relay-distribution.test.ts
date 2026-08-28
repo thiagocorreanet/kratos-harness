@@ -1,13 +1,34 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { relayCodexPreToolUse } from "@kratos/adapters";
 import { renderSummaryScope } from "@kratos/runtime/domain/write-guard";
 
-import { buildPlugin, hostPackage } from "./support/built-plugin.js";
+import {
+  buildPlugin,
+  hostPackage,
+  repositoryRoot,
+} from "./support/built-plugin.js";
+
+interface PackagedRunner {
+  readonly RUNTIME_GUARD_TIMEOUT_MS: number;
+  readonly createRuntimeGuardExecutor: (
+    runtimeEntry: string,
+    timeoutMs?: number,
+    spawnRuntime?: () => never,
+  ) => (
+    request: unknown,
+    root: string,
+  ) => {
+    readonly exitCode: number | null;
+    readonly stdout: string;
+  };
+}
 
 let root = "";
 
@@ -112,20 +133,21 @@ describe("packaged synchronous pre-tool relays", () => {
         },
       ]);
 
-      const result = spawnSync(
-        process.execPath,
-        [join(pluginRoot, "hooks/pre-tool-use.mjs")],
-        {
-          cwd: root,
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            CLAUDE_PLUGIN_ROOT: pluginRoot,
-            PLUGIN_ROOT: pluginRoot,
-          },
-          input: JSON.stringify(invocation(host, root)),
+      const installedCommand = handler?.hooks?.[0]?.command;
+      if (typeof installedCommand !== "string") {
+        throw new Error("Packaged hook command is absent");
+      }
+      const result = spawnSync(installedCommand, {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CLAUDE_PLUGIN_ROOT: pluginRoot,
+          PLUGIN_ROOT: pluginRoot,
         },
-      );
+        input: JSON.stringify(invocation(host, root)),
+        shell: true,
+      });
 
       expect(result.status).toBe(0);
       expect(result.stderr).toBe("");
@@ -159,4 +181,104 @@ describe("packaged synchronous pre-tool relays", () => {
 
     expect(manifest.hooks).toBe("./hooks/hooks.json");
   });
+
+  it("gives the runtime a hard deadline below the outer host timeout", async () => {
+    const runner = (await import(
+      pathToFileURL(
+        join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
+      ).href
+    )) as PackagedRunner;
+    const directory = await mkdtemp(join(tmpdir(), "kratos-hook-timeout-"));
+    try {
+      const hangingRuntime = join(directory, "hang.mjs");
+      await writeFile(hangingRuntime, "setInterval(() => {}, 1000);\n");
+      const started = Date.now();
+      const execution = runner.createRuntimeGuardExecutor(hangingRuntime, 25)(
+        {},
+        directory,
+      );
+
+      expect(Date.now() - started).toBeLessThan(1_000);
+      expect(execution.exitCode).toBeNull();
+      expect(runner.RUNTIME_GUARD_TIMEOUT_MS).toBe(20_000);
+      expect(30_000 - runner.RUNTIME_GUARD_TIMEOUT_MS).toBeGreaterThanOrEqual(
+        10_000,
+      );
+
+      const denial = relayCodexPreToolUse(
+        invocation("codex", directory),
+        runner.createRuntimeGuardExecutor(hangingRuntime, 25),
+      );
+      expect(denial).toMatchObject({
+        kind: "deny",
+        operationResult: null,
+        hostExitCode: 0,
+      });
+      expect(JSON.parse(denial.stdout)).toMatchObject({
+        hookSpecificOutput: { permissionDecision: "deny" },
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("returns a non-contract execution for a runtime spawn error", async () => {
+    const runner = (await import(
+      pathToFileURL(
+        join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
+      ).href
+    )) as PackagedRunner;
+    const execution = runner.createRuntimeGuardExecutor(
+      "/missing/kratos-runtime.mjs",
+      25,
+    )({}, root);
+
+    expect(execution).toEqual({ exitCode: 1, stdout: "" });
+
+    const spawnFailure = runner.createRuntimeGuardExecutor(
+      "/unused/runtime.mjs",
+      25,
+      () => {
+        throw new Error("spawn failed");
+      },
+    )({}, root);
+    expect(spawnFailure).toEqual({ exitCode: null, stdout: "" });
+  });
+
+  it.each(["claude-code", "codex"] as const)(
+    "renders a native denial when the %s adapter cannot import",
+    async (host) => {
+      const temporary = await mkdtemp(join(tmpdir(), "kratos-hook-import-"));
+      try {
+        const packageRoot = join(temporary, host);
+        await cp(hostPackage(host), packageRoot, { recursive: true });
+        const adapter = join(
+          packageRoot,
+          "runtime/source/packages/adapters/src",
+          host,
+          "pre-tool-use.js",
+        );
+        await rm(adapter);
+
+        const result = spawnSync(
+          process.execPath,
+          [join(packageRoot, "hooks/pre-tool-use.mjs")],
+          {
+            cwd: root,
+            encoding: "utf8",
+            input: JSON.stringify(invocation(host, root)),
+          },
+        );
+        expect(result.status).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "deny",
+          },
+        });
+      } finally {
+        await rm(temporary, { force: true, recursive: true });
+      }
+    },
+  );
 });
