@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import contractFamilies from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
+import reasonCatalogV16 from "../packages/contracts/catalogs/reason-codes.v1.6.json" with { type: "json" };
+import preToolUseSchema from "../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
+import featureScopeSchema from "../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
+import guardrailsSchema from "../schemas/state/guardrails.v1.schema.json" with { type: "json" };
 import { beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -16,6 +21,60 @@ let runtimeBoundaries: string;
 let concurrencyLocks: string;
 let reasonCatalog: string;
 let agentOutput: string;
+let configuration: string;
+let projectInitialization: string;
+let hosts: string;
+
+function record(value: unknown): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("expected a contract record");
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function unknownArray(value: unknown): readonly unknown[] {
+  if (!Array.isArray(value)) throw new Error("expected a contract array");
+  return value as readonly unknown[];
+}
+
+function stringValue(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new Error(`expected ${label}`);
+  return value;
+}
+
+function numberValue(value: unknown, label: string): number {
+  if (typeof value !== "number") throw new Error(`expected ${label}`);
+  return value;
+}
+
+function contractVersion(schema: unknown): string {
+  const properties = record(record(schema).properties);
+  const version = record(properties.contractVersion).const;
+  return stringValue(version, "contract version");
+}
+
+function requiredProperties(schema: unknown): readonly string[] {
+  return unknownArray(record(schema).required).map((value) =>
+    stringValue(value, "required contract property"),
+  );
+}
+
+function mutationBounds(schema: unknown): readonly [number, number] {
+  const mutations = record(record(schema).properties).mutations;
+  const minimum = record(mutations).minItems;
+  const maximum = record(mutations).maxItems;
+  return [
+    numberValue(minimum, "minimum mutation count"),
+    numberValue(maximum, "maximum mutation count"),
+  ];
+}
+
+function reason(code: string): Readonly<Record<string, unknown>> {
+  const reasons = unknownArray(record(reasonCatalogV16).reasons);
+  const entry = reasons.find((candidate) => record(candidate).code === code);
+  if (entry === undefined) throw new Error(`missing reason ${code}`);
+  return record(entry);
+}
 
 beforeAll(async () => {
   [
@@ -29,6 +88,9 @@ beforeAll(async () => {
     concurrencyLocks,
     reasonCatalog,
     agentOutput,
+    configuration,
+    projectInitialization,
+    hosts,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -64,6 +126,15 @@ beforeAll(async () => {
       join(repositoryRoot, "docs/architecture/agent-output-contract.md"),
       "utf8",
     ),
+    readFile(
+      join(repositoryRoot, "docs/user/configuration-and-state.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/project-initialization.md"),
+      "utf8",
+    ),
+    readFile(join(repositoryRoot, "docs/user/hosts.md"), "utf8"),
   ]);
 });
 
@@ -118,6 +189,7 @@ describe("contract versioning documentation", () => {
     expect(guide).toContain("reason-codes.v1.2.json");
     expect(guide).toContain("reason-codes.v1.3.json");
     expect(guide).toContain("reason-codes.v1.5.json");
+    expect(guide).toContain("reason-codes.v1.6.json");
     expect(guide).toContain("runtime.node_unsupported");
     expect(resultContract).toContain("reason-codes.v1.5.json");
     expect(resultContract).toContain("runtime.orientation_ok");
@@ -174,6 +246,8 @@ describe("contract versioning documentation", () => {
       "approval.v1.schema.json",
       "evidence.v1.schema.json",
       "feature.v1.schema.json",
+      "feature-scope.v1.schema.json",
+      "guardrails.v1.schema.json",
       "lock.v1.schema.json",
       "migration.v1.schema.json",
       "transaction-manifest.v1.schema.json",
@@ -181,6 +255,8 @@ describe("contract versioning documentation", () => {
       "adapter-message.v1.schema.json",
       "agent-output.v1.schema.json",
       "operation-message.v1.schema.json",
+      "pre-tool-use.v1.schema.json",
+      "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",
@@ -208,5 +284,109 @@ describe("contract versioning documentation", () => {
     ]) {
       expect(fixtureIndex).toContain(token);
     }
+  });
+});
+
+describe("pre-write scope guard documentation", () => {
+  it("derives published scope, host, and result facts from the checked contracts", () => {
+    const scopeVersion = contractVersion(featureScopeSchema);
+    const guardrailsProperties = record(guardrailsSchema).properties;
+    const preToolVersion = contractVersion(preToolUseSchema);
+    const [minimumMutations, maximumMutations] =
+      mutationBounds(preToolUseSchema);
+    const pathEscape = reason("guard.path_escape");
+    const outsideAllow = reason("guard.outside_allow");
+    const pathEscapeCode = stringValue(pathEscape.code, "path escape code");
+    const pathEscapeStatus = stringValue(
+      pathEscape.status,
+      "path escape status",
+    );
+    const pathEscapeExitCode = numberValue(
+      pathEscape.exitCode,
+      "path escape exit code",
+    );
+    const outsideAllowCode = stringValue(
+      outsideAllow.code,
+      "outside allow code",
+    );
+    const outsideAllowStatus = stringValue(
+      outsideAllow.status,
+      "outside allow status",
+    );
+    const outsideAllowExitCode = numberValue(
+      outsideAllow.exitCode,
+      "outside allow exit code",
+    );
+    const reasonCatalogVersion = stringValue(
+      record(contractFamilies).reasonCatalog,
+      "reason catalog version",
+    );
+
+    for (const token of [
+      "`.brain/02-features/<active-feature>/scope.json`",
+      `\`state.feature-scope@${scopeVersion}\``,
+      "`kratos scope record`",
+      "`## File allowlist`",
+      "`## File denylist`",
+      "code-formatted bullet",
+      "ordered, project-relative, slash-separated, and case-sensitive",
+      "`*`, `?`, `**`, character classes, and a leading `!`",
+      "`.brain/**`",
+      "`.env.example`",
+      "`.codex/**` and `.claude/**`",
+    ]) {
+      expect(configuration).toContain(token);
+    }
+    for (const property of requiredProperties(featureScopeSchema)) {
+      expect(configuration).toContain(`\`${property}\``);
+    }
+    expect(guardrailsProperties).toHaveProperty("writeBlocks");
+    expect(configuration).toContain("`writeBlocks`");
+    expect(configuration).toMatch(/exact `\.brain` root is not\s+repairable/u);
+
+    for (const token of [
+      "one parser and one renderer",
+      "scope file that already differs",
+      "malformed reviewer prose",
+    ]) {
+      expect(projectInitialization).toContain(token);
+    }
+
+    for (const token of [
+      "synchronous `PreToolUse`",
+      "`Write`",
+      "`Edit`",
+      "legacy `MultiEdit`",
+      "`apply_patch`",
+      "Bash and arbitrary MCP tools",
+      "no decision authority",
+      "time-of-check/time-of-use",
+    ]) {
+      expect(hosts).toContain(token);
+    }
+    expect(hosts).toContain(`\`host.pre-tool-use@${preToolVersion}\``);
+    for (const property of requiredProperties(preToolUseSchema)) {
+      expect(hosts).toContain(`\`${property}\``);
+    }
+    expect(hosts).toContain(
+      `${String(minimumMutations)}\u2013${String(maximumMutations)}`,
+    );
+    expect(hosts).toContain("closed record");
+
+    expect(guide).toContain(`Revision \`${reasonCatalogVersion}\``);
+    expect(schemaIndex).toContain(
+      `reason-codes.v${reasonCatalogVersion.replace(/\.0$/u, "")}.json`,
+    );
+    expect(resultContract).toContain(`\`${pathEscapeCode}\``);
+    expect(resultContract).toContain(
+      `as ${pathEscapeStatus} / exit ${String(pathEscapeExitCode)}`,
+    );
+    expect(resultContract).toContain(`\`${outsideAllowCode}\``);
+    expect(resultContract).toContain(
+      `${outsideAllowStatus} / exit ${String(outsideAllowExitCode)}`,
+    );
+    expect(resultContract).toContain(
+      "Every non-success result is denied by the host relay",
+    );
   });
 });

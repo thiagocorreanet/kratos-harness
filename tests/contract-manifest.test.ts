@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.1.schema.json",
+        "schemas/contracts/contract-manifest.v1.2.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -108,7 +108,7 @@ describe("contract family manifest", () => {
       contractVersion: "1.0.0",
       pluginVersion: "0.0.0-development",
       resultContract: "1.0.0",
-      reasonCatalog: "1.5.0",
+      reasonCatalog: "1.6.0",
       stateContract: {
         current: "1.0.0",
         readable: ["1.0.0"],
@@ -123,7 +123,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every current payload schema once with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(20);
+    expect(manifest.schemas).toHaveLength(23);
     const ids = manifest.schemas.map(({ id }) => id);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(ids).toEqual([...ids].sort());

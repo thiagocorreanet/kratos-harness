@@ -3,6 +3,7 @@ export { DEFAULT_REGISTRY } from "./commands.js";
 export { dispatch } from "./dispatch.js";
 export { initCommand } from "./init.js";
 export { hookCommand } from "./hook.js";
+export { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 export { objectiveCommand } from "./objective.js";
 export { adaptersCommand } from "./adapters.js";
 export { agentRecordCommand } from "./agent.js";
@@ -54,4 +55,6 @@ export type {
   Globals,
   Invocation,
   JsonContractId,
+  GuardWriteOutcome,
+  ScopeRecordOutcome,
 } from "./spec.js";

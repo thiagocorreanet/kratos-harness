@@ -50,7 +50,7 @@ async function verifyArtifacts() {
   const manifestSchema = await readJson(
     join(
       repositoryRoot,
-      "schemas/contracts/contract-manifest.v1.1.schema.json",
+      "schemas/contracts/contract-manifest.v1.2.schema.json",
     ),
   );
   const resultSchema = await readJson(

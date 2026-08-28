@@ -10,6 +10,16 @@ Resolve this skill's own directory and invoke
 bridge to the installed runtime. Never copy it into the project, require a
 global `kratos` binary, or reproduce a gate decision in the prompt.
 
+## Scope activation
+
+Immediately after valid reviewer prose is available, invoke
+`node scripts/kratos.mjs scope record --root <absolute-project-root>` from this
+skill directory before any implementation begins. The runtime alone translates
+reviewer prose, validates scope, and decides whether recording may proceed;
+stop and relay any refusal unchanged.
+
+## Runtime workflow
+
 1. Run `node scripts/kratos.mjs handshake --json` from this skill directory
    before the first stateful command.
 2. Pass `--root` explicitly for every project operation.

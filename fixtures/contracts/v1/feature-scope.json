@@ -1,0 +1,6 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "allow": ["src/**"],
+  "deny": ["src/generated/**"]
+}

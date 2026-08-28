@@ -25,7 +25,9 @@ Version 1 is owned by four checked artifact families:
 - [`reason-codes.v1.3.json`](../../packages/contracts/catalogs/reason-codes.v1.3.json)
   adds `runtime.orientation_ok`;
 - [`reason-codes.v1.5.json`](../../packages/contracts/catalogs/reason-codes.v1.5.json)
-  is the current revision and adds the two checkable PRD structure failures;
+  adds the two checkable PRD structure failures;
+- [`reason-codes.v1.6.json`](../../packages/contracts/catalogs/reason-codes.v1.6.json)
+  is the current revision and adds the pre-write path-inspection refusals;
 - [`fixtures/result-contract/v1`](../../fixtures/result-contract/v1) provides
   one canonical example for every exit class.
 
@@ -122,6 +124,17 @@ Catalog revision 1.4 preserves those 84 entries byte-for-byte and adds
 `gate.prd_untouched` and `gate.prd_section_missing`. Both are additive,
 fail-closed gate outcomes. The latter carries the missing canonical section
 name in the gate failure detail.
+
+Catalog revision 1.6 preserves the published write and scope reasons as
+failure / exit 2: `guard.write_block`, `guard.scope_deny`,
+`guard.outside_allow`, `guard.scope_corrupt`, `guard.guardrails_corrupt`, and
+the related missing or active-feature policy failures. It adds
+`guard.path_escape` and `guard.target_uninspectable` as blocked / exit 3 path
+inspection refusals. This is a compatibility distinction: newer path-boundary
+reasons use the blocked policy category without changing older write/scope
+failure semantics. All of these non-success results claim `stateChanged: false`.
+Every non-success result is denied by the host relay; only a valid success with
+exit 0 permits the corresponding structured host mutation.
 
 ## Evidence references
 

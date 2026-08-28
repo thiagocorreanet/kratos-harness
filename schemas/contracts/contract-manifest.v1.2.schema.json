@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/contracts/contract-manifest/v1.2",
+  "title": "Kratos contract family manifest v1.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "pluginVersion",
+    "resultContract",
+    "reasonCatalog",
+    "stateContract",
+    "hostContract",
+    "schemas",
+    "legacyProfiles"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "pluginVersion": {
+      "const": "0.0.0-development"
+    },
+    "resultContract": {
+      "const": "1.0.0"
+    },
+    "reasonCatalog": {
+      "const": "1.6.0"
+    },
+    "stateContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "readable", "migrationOnly"],
+      "properties": {
+        "current": {
+          "const": "1.0.0"
+        },
+        "readable": {
+          "const": ["1.0.0"]
+        },
+        "migrationOnly": {
+          "const": ["0.9.0", "go-v3@0.6.5"]
+        }
+      }
+    },
+    "hostContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "accepted"],
+      "properties": {
+        "current": {
+          "const": "1.0.0"
+        },
+        "accepted": {
+          "const": ["1.0.0"]
+        }
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 23,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/schemaEntry"
+      }
+    },
+    "legacyProfiles": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/legacyProfile"
+      }
+    }
+  },
+  "$defs": {
+    "schemaEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family", "version", "path", "boundary", "typeName"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:state|host)\\.[a-z][a-z-]*$"
+        },
+        "family": {
+          "enum": ["state", "host"]
+        },
+        "version": {
+          "const": "1.0.0"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^schemas/(?:state|host)/[a-z-]+\\.v1\\.schema\\.json$"
+        },
+        "boundary": {
+          "enum": ["persisted", "cross-process"]
+        },
+        "typeName": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*V1$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "state"
+              }
+            },
+            "required": ["family"]
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^state\\."
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^schemas/state/"
+              },
+              "boundary": {
+                "const": "persisted"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "host"
+              }
+            },
+            "required": ["family"]
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^host\\."
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^schemas/host/"
+              },
+              "boundary": {
+                "const": "cross-process"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "legacyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "oracleId",
+        "payloadContract",
+        "schemaVersion",
+        "compatibility",
+        "parityRow"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z-]+\\.schema\\.json$"
+        },
+        "oracleId": {
+          "const": "go-v3-v0.6.5"
+        },
+        "payloadContract": {
+          "type": "string",
+          "pattern": "^go-v3\\.[a-z][a-z-]+@1$"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "compatibility": {
+          "const": "migration-only"
+        },
+        "parityRow": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^SCHEMA-[A-Z-]+-JSON$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "prd-output.schema.json"
+              }
+            },
+            "required": ["name"]
+          },
+          "then": {
+            "required": ["sha256"],
+            "properties": {
+              "payloadContract": {
+                "const": "go-v3.prd-output@1"
+              },
+              "parityRow": {
+                "type": "null"
+              },
+              "sha256": {
+                "const": "7fa4f468520fac2f2a0d3b766257e162d25f37520dd7507230616257f2fe503e"
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": ["sha256"]
+            },
+            "properties": {
+              "parityRow": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

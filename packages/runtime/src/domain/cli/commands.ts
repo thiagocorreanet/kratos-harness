@@ -28,6 +28,7 @@ import {
   gatesRecordCommand,
 } from "./gaps.js";
 import { migrateBrainCommand, migrateRollbackCommand } from "./migration.js";
+import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 import {
   auditCommand,
   dashboardCommand,
@@ -111,6 +112,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   gapsRecordCommand,
   gapsResolveCommand,
   gapsWaiveCommand,
+  guardWriteCommand,
   gatesRecordCommand,
   handoffCommand,
   handshakeCommand,
@@ -124,6 +126,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   startCommand,
   statsCommand,
   statusCommand,
+  scopeRecordCommand,
   versionCommand,
   ...RETIRED_COMMAND_SPECS,
 ];

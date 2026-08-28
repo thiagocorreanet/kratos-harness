@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/pre-tool-use/v1",
+  "title": "Kratos pre-tool use v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "mutations"],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "hostContract": { "const": "1.0.0" },
+    "mutations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/mutation" }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "mutation": {
+      "oneOf": [
+        { "$ref": "#/$defs/createMutation" },
+        { "$ref": "#/$defs/updateMutation" },
+        { "$ref": "#/$defs/deleteMutation" },
+        { "$ref": "#/$defs/moveMutation" }
+      ]
+    },
+    "createMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "create" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "updateMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "update" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "deleteMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "delete" },
+        "path": { "$ref": "#/$defs/target" }
+      }
+    },
+    "moveMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source", "destination"],
+      "properties": {
+        "kind": { "const": "move" },
+        "source": { "$ref": "#/$defs/target" },
+        "destination": { "$ref": "#/$defs/target" }
+      }
+    }
+  }
+}

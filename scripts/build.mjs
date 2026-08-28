@@ -102,6 +102,11 @@ async function buildRuntime(runtimeDirectory) {
       contractsIndex,
     ),
     compileTree(
+      join(repositoryRoot, "packages/adapters/src"),
+      sourceOutput,
+      contractsIndex,
+    ),
+    compileTree(
       join(repositoryRoot, "packages/runtime/src"),
       sourceOutput,
       contractsIndex,
@@ -132,7 +137,7 @@ async function buildRuntime(runtimeDirectory) {
       readFile(
         join(
           repositoryRoot,
-          "packages/contracts/catalogs/reason-codes.v1.5.json",
+          "packages/contracts/catalogs/reason-codes.v1.6.json",
         ),
         "utf8",
       ),
@@ -194,6 +199,10 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
       recursive: true,
     }),
   ]);
+  await cp(
+    join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
+    join(artifact, "hooks/pre-tool-use-runner.mjs"),
+  );
   const hostFiles = (await files(artifact)).filter(
     (file) => !relative(artifact, file).startsWith(`runtime${sep}`),
   );

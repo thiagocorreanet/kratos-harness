@@ -159,11 +159,11 @@ KRATOS-END-REQUIREMENT-DISCOVERY-V1 -->
 
 ## File allowlist
 
-<!-- List paths the implementation may change. -->
+<!-- List one project-relative glob per code-formatted bullet, for example: - \`packages/runtime/src/**\`. -->
 
 ## File denylist
 
-<!-- List paths the implementation must not change. -->
+<!-- List one project-relative glob per code-formatted bullet, for example: - \`packages/contracts/**\`. -->
 
 ## Definition of done
 

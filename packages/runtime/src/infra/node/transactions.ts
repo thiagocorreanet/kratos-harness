@@ -55,7 +55,7 @@ interface ScannedPath {
   readonly normalized: NormalizedPath;
 }
 
-interface CanonicalRootIdentity {
+export interface CanonicalRootIdentity {
   readonly path: string;
   readonly device: number;
   readonly inode: number;

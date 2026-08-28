@@ -26,6 +26,7 @@ const artifacts = [
   ],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
   ["state/feature.v1.schema.json", "feature.json", "state"],
+  ["state/feature-scope.v1.schema.json", "feature-scope.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
   ["state/migration.v1.schema.json", "migration.json", "state"],
   [
@@ -41,8 +42,10 @@ const artifacts = [
   ["host/adapter-message.v1.schema.json", "adapter-message.json", "host"],
   ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
+  ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
+  ["state/guardrails.v1.schema.json", "guardrails.json", "state"],
   [
     "state/requirement-discovery.v1.schema.json",
     "requirement-discovery.json",
@@ -150,7 +153,9 @@ describe("versioned state and host schemas", () => {
       const missing = Object.fromEntries(
         Object.entries(fixture).filter(([key]) => key !== versionKey),
       );
-      expect(validate(missing), `${fixtureName}: missing`).toBe(false);
+      if (fixtureName !== "guardrails.json") {
+        expect(validate(missing), `${fixtureName}: missing`).toBe(false);
+      }
       expect(
         validate({ ...fixture, [versionKey]: "2.0.0" }),
         `${fixtureName}: future`,

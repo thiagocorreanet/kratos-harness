@@ -200,6 +200,7 @@ describe("the generated skeleton", () => {
     );
 
     expect(guardrails).toMatchObject({ policyMode: "strict" });
+    expect(guardrails).toMatchObject({ stateContract: "1.0.0" });
   });
 
   it("records the detected stack and the evidence that decided it", () => {

@@ -29,6 +29,7 @@ import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
+import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
 
 function write(
   text: string,
@@ -101,11 +102,19 @@ export async function runCommandLine(
           ? await observeInitialization(invocation, ports, schemaRegistry)
           : invocation.command.prerequisite === "objective"
             ? await observeObjective(invocation, ports, schemaRegistry)
-            : invocation.command.prerequisite === "host-operation"
-              ? await observeHostOperation(invocation, ports, schemaRegistry)
-              : invocation.command.prerequisite === "migration"
-                ? await observeMigration(invocation, ports, schemaRegistry)
-                : await observeWorkflow(invocation, ports, schemaRegistry);
+            : invocation.command.prerequisite === "write-guard"
+              ? await observeGuardWrite(invocation, ports, schemaRegistry)
+              : invocation.command.prerequisite === "scope-record"
+                ? await observeScopeRecord(invocation, ports, schemaRegistry)
+                : invocation.command.prerequisite === "host-operation"
+                  ? await observeHostOperation(
+                      invocation,
+                      ports,
+                      schemaRegistry,
+                    )
+                  : invocation.command.prerequisite === "migration"
+                    ? await observeMigration(invocation, ports, schemaRegistry)
+                    : await observeWorkflow(invocation, ports, schemaRegistry);
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }

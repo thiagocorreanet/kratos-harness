@@ -5,6 +5,7 @@
   "license": "MIT",
   "keywords": ["sdd", "workflow", "evidence", "development"],
   "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Kratos",
     "shortDescription": "Deterministic development workflow",

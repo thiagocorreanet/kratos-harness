@@ -1,0 +1,17 @@
+{
+  "description": "Refuse out-of-scope structured file mutations before execution.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

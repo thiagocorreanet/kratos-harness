@@ -20,11 +20,22 @@ export interface AppendEventEffect {
   readonly event: EventDraftV1;
 }
 
+/** The file identity a write decision observed before it built its plan. */
+export type WriteFilePrecondition =
+  | { readonly kind: "missing" }
+  | {
+      readonly kind: "file";
+      readonly size: number;
+      readonly sha256: string;
+    };
+
 export type Effect =
   | {
       readonly kind: "write_file";
       readonly path: string;
       readonly content: string;
+      /** Refuse if the destination no longer has this exact identity. */
+      readonly expected?: WriteFilePrecondition;
     }
   | { readonly kind: "delete_file"; readonly path: string }
   | { readonly kind: "create_directory"; readonly path: string }

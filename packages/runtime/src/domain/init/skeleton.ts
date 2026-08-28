@@ -211,6 +211,7 @@ function guardrails(answers: Answers): string {
   }
   return json({
     contractVersion: "1.0.0",
+    stateContract: "1.0.0",
     policyMode: answers.policyMode,
     snapshots: answers.snapshots,
     managedPaths: roots.sort(compare),

@@ -13,6 +13,15 @@ export type {
 export { REASON_CATALOG, reasonPolicy } from "./reasons.js";
 export type { ReasonPolicy } from "./reasons.js";
 export {
+  OperationResultContractError,
+  validateOperationPublicText,
+  validateOperationResult,
+} from "./operation-result.js";
+export type {
+  OperationResultEvidenceV1,
+  OperationResultV1,
+} from "./operation-result.js";
+export {
   ACCEPTANCE_CRITERION_ID_MAX_LENGTH,
   ACCEPTANCE_CRITERION_ID_PATTERN,
   isAcceptanceCriterionId,
@@ -28,12 +37,15 @@ export type {
   EventV1,
   EvidenceV1,
   FeatureStateV1,
+  FeatureScopeV1,
   GapProposalV1,
   GapRecordV1,
   GateFactsV1,
+  GuardrailsV1,
   LockLeaseV1,
   MigrationV1,
   ProjectConfigV1,
+  PreToolUseV1,
   RequirementDiscoveryV1,
   SnapshotV1,
   TransactionManifestV1,

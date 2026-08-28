@@ -1,0 +1,10 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "mutations": [
+    {
+      "kind": "update",
+      "path": "src/index.ts"
+    }
+  ]
+}

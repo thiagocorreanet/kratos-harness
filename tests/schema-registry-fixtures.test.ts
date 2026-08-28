@@ -11,11 +11,14 @@ import approval from "../fixtures/contracts/v1/approval.json" with { type: "json
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
+import featureScope from "../fixtures/contracts/v1/feature-scope.json" with { type: "json" };
 import gap from "../fixtures/contracts/v1/gap.json" with { type: "json" };
 import gates from "../fixtures/contracts/v1/gates.json" with { type: "json" };
+import guardrails from "../fixtures/contracts/v1/guardrails.json" with { type: "json" };
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import snapshot from "../fixtures/contracts/v1/snapshot.json" with { type: "json" };
 import transactionManifest from "../fixtures/contracts/v1/transaction-manifest.json" with { type: "json" };
@@ -92,6 +95,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.pre-tool-use",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "operation",
+    structuralReasonCode: "guard.target_uninspectable",
+    fixture: preToolUse,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "state.acceptance-criteria-snapshot",
     version: "1.0.0",
     versionField: "stateContract",
@@ -152,6 +165,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.feature-scope",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "allow",
+    structuralReasonCode: "guard.scope_corrupt",
+    fixture: featureScope,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.gap",
     version: "1.0.0",
     versionField: "stateContract",
@@ -168,6 +191,16 @@ const fixtures = [
     requiredField: "openGaps",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: gates,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.guardrails",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "managedPaths",
+    structuralReasonCode: "guard.guardrails_corrupt",
+    fixture: guardrails,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

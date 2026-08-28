@@ -1,4 +1,4 @@
-import type { EffectPlan } from "../effects.js";
+import type { EffectPlan, WriteFilePrecondition } from "../effects.js";
 import type {
   ManagedFileObservation,
   ResolvedInitAnswers,
@@ -11,6 +11,7 @@ import type {
   ApprovalV1,
   EventV1,
   EvidenceV1,
+  FeatureScopeV1,
   GapRecordV1,
   HostOperationMessageV1,
   MigrationV1,
@@ -35,6 +36,35 @@ import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
+
+export type GuardWriteOutcome =
+  | { readonly kind: "allowed" }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode: string;
+      readonly evidenceKind: "artifact" | "observation";
+      readonly evidenceRef: string;
+    };
+
+export type ScopeRecordOutcome =
+  | {
+      readonly kind: "record";
+      readonly path: string;
+      readonly scope: FeatureScopeV1;
+      readonly expected: Extract<WriteFilePrecondition, { kind: "missing" }>;
+    }
+  | {
+      readonly kind: "unchanged";
+      readonly path: string;
+      readonly content: string;
+      readonly expected: Extract<WriteFilePrecondition, { kind: "file" }>;
+    }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode:
+        "guard.active_feature_corrupt" | "guard.scope_corrupt";
+      readonly evidenceRef: string;
+    };
 
 export interface FlagSpec {
   readonly name: string;
@@ -80,6 +110,8 @@ export interface Globals {
  */
 export type CommandObservation =
   | { readonly kind: "none" }
+  | { readonly kind: "write-guard"; readonly outcome: GuardWriteOutcome }
+  | { readonly kind: "scope-record"; readonly outcome: ScopeRecordOutcome }
   | {
       readonly kind: "initialization";
       /** How discovery classified the target, or null when there is none. */
