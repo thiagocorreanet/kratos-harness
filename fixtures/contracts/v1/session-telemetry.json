@@ -1,0 +1,10 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "sessionId": "session-123",
+  "runId": "run-123",
+  "startedAt": "2026-08-28T11:00:00Z",
+  "endedAt": "2026-08-28T12:00:00Z",
+  "grossTokens": 1200,
+  "toolFailures": 1
+}

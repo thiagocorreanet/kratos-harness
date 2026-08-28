@@ -3,6 +3,7 @@ import versionCases from "../fixtures/contracts/v1/version-cases.json" with { ty
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
+import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
@@ -10,6 +11,7 @@ import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json"
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
+import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
 import featureScope from "../fixtures/contracts/v1/feature-scope.json" with { type: "json" };
 import gap from "../fixtures/contracts/v1/gap.json" with { type: "json" };
@@ -20,6 +22,8 @@ import migration from "../fixtures/contracts/v1/migration.json" with { type: "js
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
+import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
+import sessionTelemetry from "../fixtures/contracts/v1/session-telemetry.json" with { type: "json" };
 import snapshot from "../fixtures/contracts/v1/snapshot.json" with { type: "json" };
 import transactionManifest from "../fixtures/contracts/v1/transaction-manifest.json" with { type: "json" };
 import transactionProgress from "../fixtures/contracts/v1/transaction-progress.json" with { type: "json" };
@@ -71,6 +75,16 @@ const fixtures = [
     requiredField: "gaps",
     structuralReasonCode: "trail.uso",
     fixture: gapProposal,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.hook-observation",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "kind",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: hookObservation,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -151,6 +165,16 @@ const fixtures = [
     requiredField: "evidenceId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: evidence,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.failure-candidate",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "candidateId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: failureCandidate,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -241,6 +265,26 @@ const fixtures = [
     requiredField: "classification",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: requirementDiscovery,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.run-usage",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "runId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: runUsage,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.session-telemetry",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "sessionId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: sessionTelemetry,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

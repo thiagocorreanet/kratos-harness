@@ -38,6 +38,14 @@
       "typeName": "GapProposalV1"
     },
     {
+      "id": "host.hook-observation",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/hook-observation.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "HookObservationV1"
+    },
+    {
       "id": "host.init-answers",
       "family": "host",
       "version": "1.0.0",
@@ -100,6 +108,14 @@
       "path": "schemas/state/evidence.v1.schema.json",
       "boundary": "persisted",
       "typeName": "EvidenceV1"
+    },
+    {
+      "id": "state.failure-candidate",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/failure-candidate.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "FailureCandidateV1"
     },
     {
       "id": "state.feature",
@@ -172,6 +188,22 @@
       "path": "schemas/state/requirement-discovery.v1.schema.json",
       "boundary": "persisted",
       "typeName": "RequirementDiscoveryV1"
+    },
+    {
+      "id": "state.run-usage",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/run-usage.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "RunUsageV1"
+    },
+    {
+      "id": "state.session-telemetry",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/session-telemetry.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "SessionTelemetryV1"
     },
     {
       "id": "state.snapshot",

@@ -1,0 +1,8 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "kind": "session.sample",
+  "sessionId": "session-123",
+  "occurredAt": "2026-08-28T12:00:00Z",
+  "usage": { "cumulativeGrossTokens": 1200 }
+}

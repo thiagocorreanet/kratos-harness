@@ -12,6 +12,7 @@ import type {
   FeatureScopeV1,
   GapProposalV1,
   GapRecordV1,
+  HookObservationV1,
   GateFactsV1,
   GuardrailsV1,
   LockLeaseV1,
@@ -19,15 +20,19 @@ import type {
   ProjectConfigV1,
   PreToolUseV1,
   RequirementDiscoveryV1,
+  RunUsageV1,
+  SessionTelemetryV1,
   SnapshotV1,
   TransactionManifestV1,
   TransactionProgressV1,
+  FailureCandidateV1,
 } from "@kratos/contracts";
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1;
   readonly "host.agent-output": AgentOutputV1;
   readonly "host.gap-proposal": GapProposalV1;
+  readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "host.pre-tool-use": PreToolUseV1;
@@ -36,6 +41,7 @@ export interface ContractValues {
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.event": EventV1;
   readonly "state.evidence": EvidenceV1;
+  readonly "state.failure-candidate": FailureCandidateV1;
   readonly "state.feature": FeatureStateV1;
   readonly "state.feature-scope": FeatureScopeV1;
   readonly "state.gap": GapRecordV1;
@@ -45,6 +51,8 @@ export interface ContractValues {
   readonly "state.migration": MigrationV1;
   readonly "state.project-config": ProjectConfigV1;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
+  readonly "state.run-usage": RunUsageV1;
+  readonly "state.session-telemetry": SessionTelemetryV1;
   readonly "state.snapshot": SnapshotV1;
   readonly "state.transaction-manifest": TransactionManifestV1;
   readonly "state.transaction-progress": TransactionProgressV1;

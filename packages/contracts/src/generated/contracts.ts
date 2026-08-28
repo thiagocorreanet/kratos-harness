@@ -4,6 +4,7 @@
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
+// source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:8a455a0553106d123dd7a2b0850bb8b6f44d8d1e20e74100236816d86b872cbb
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
@@ -12,6 +13,7 @@
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
+// source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
 // source: https://kratos.dev/schemas/state/feature-scope/v1 sha256:22cd993ba7cd6f434799fbf4163cb5ff597d2ee195d9737009291ca5ef63df0f
 // source: https://kratos.dev/schemas/state/gap/v1 sha256:cff06bc219cb2dc4005680230a936e20e47374fe05b12f3ced21108d0ee55591
@@ -21,6 +23,8 @@
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
+// source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
+// source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
 // source: https://kratos.dev/schemas/state/snapshot/v1 sha256:d69b9106ce76a395900012d65a507355aa45d19c4f52e21407e95ced233877e8
 // source: https://kratos.dev/schemas/state/transaction-manifest/v1 sha256:451cddd26a731a556f2a6cd764f9076b7c697ed640432a3145f2c56afd762eaa
 // source: https://kratos.dev/schemas/state/transaction-progress/v1 sha256:87c50f21dd68caafe3044fc2cba589a5505e289b9eabf591628480e2ec64acc4
@@ -332,6 +336,66 @@ export namespace GapProposalV1Contract {
   }
 }
 export type GapProposalV1 = GapProposalV1Contract.GapProposalV1;
+export namespace HookObservationV1Contract {
+  export type HookObservationV1 =
+    SessionSample | ToolBefore | ToolFailed | SessionEnd;
+  export type SessionSample = Common & {
+    kind?: "session.sample";
+    usage: Usage;
+    [k: string]: unknown | undefined;
+  };
+  export type Id = string;
+  export type Timestamp = string;
+  export type ToolBefore = Common & {
+    kind?: "tool.before";
+    toolUseId: Id;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    mutations: [Mutation, ...Mutation[]];
+    [k: string]: unknown | undefined;
+  };
+  export type Mutation =
+    | {
+        kind: "create" | "update" | "delete";
+        path: string;
+      }
+    | {
+        kind: "move";
+        source: string;
+        destination: string;
+      };
+  export type ToolFailed = Common & {
+    kind?: "tool.failed";
+    toolUseId: Id;
+    toolFamily: "file" | "shell" | "mcp" | "search" | "other";
+    failureClass:
+      "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+    exitCode: number | null;
+    diagnostic: string;
+    usage: Usage | null;
+    [k: string]: unknown | undefined;
+  };
+  export type SessionEnd = Common & {
+    kind?: "session.end";
+    usage: Usage | null;
+    [k: string]: unknown | undefined;
+  };
+
+  export interface Common {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    kind: string;
+    sessionId: Id;
+    occurredAt: Timestamp;
+    [k: string]: unknown | undefined;
+  }
+  export interface Usage {
+    cumulativeGrossTokens: number;
+  }
+}
+export type HookObservationV1 = HookObservationV1Contract.HookObservationV1;
 export namespace InitAnswersV1Contract {
   export interface InitAnswersV1 {
     contractVersion: "1.0.0";
@@ -615,6 +679,20 @@ export namespace EvidenceV1Contract {
   }
 }
 export type EvidenceV1 = EvidenceV1Contract.EvidenceV1;
+export namespace FailureCandidateV1Contract {
+  export interface FailureCandidateV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    candidateId: string;
+    toolFamily: "file" | "shell" | "mcp" | "search" | "other";
+    failureClass:
+      "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+    exitCode: number | null;
+    diagnostic: string;
+    firstObservedAt: string;
+  }
+}
+export type FailureCandidateV1 = FailureCandidateV1Contract.FailureCandidateV1;
 export namespace FeatureStateV1Contract {
   export interface FeatureStateV1 {
     contractVersion: "1.0.0";
@@ -911,6 +989,49 @@ export namespace RequirementDiscoveryV1Contract {
 }
 export type RequirementDiscoveryV1 =
   RequirementDiscoveryV1Contract.RequirementDiscoveryV1;
+export namespace RunUsageV1Contract {
+  export type Id = string;
+  export type Count = number;
+  export type Timestamp = string;
+
+  export interface RunUsageV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    runId: Id;
+    totalGrossTokens: Count;
+    epoch: {
+      number: number;
+      baselineGrossTokens: Count;
+      exhaustedAt: Timestamp | null;
+    };
+    /**
+     * @maxItems 4096
+     */
+    sessions: {
+      sessionId: Id;
+      cumulativeGrossTokens: Count;
+    }[];
+    measurementFaultAt: Timestamp | null;
+    updatedAt: Timestamp;
+  }
+}
+export type RunUsageV1 = RunUsageV1Contract.RunUsageV1;
+export namespace SessionTelemetryV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+
+  export interface SessionTelemetryV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    sessionId: Id;
+    runId: Id;
+    startedAt: Timestamp;
+    endedAt: Timestamp;
+    grossTokens: number;
+    toolFailures: number;
+  }
+}
+export type SessionTelemetryV1 = SessionTelemetryV1Contract.SessionTelemetryV1;
 export namespace SnapshotV1Contract {
   export type Id = string;
   export type Sha256 = string;
