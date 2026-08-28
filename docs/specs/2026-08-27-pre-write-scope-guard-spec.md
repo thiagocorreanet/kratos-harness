@@ -104,4 +104,3 @@ project-relative when possible, and never echoes arbitrary tool content.
 - The same normalized cases pass both Claude Code and Codex adapter conformance
   suites.
 - Contract generation/checks, focused tests, and `npm run verify` pass.
-
