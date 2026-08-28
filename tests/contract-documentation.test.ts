@@ -16,6 +16,9 @@ let runtimeBoundaries: string;
 let concurrencyLocks: string;
 let reasonCatalog: string;
 let agentOutput: string;
+let configuration: string;
+let projectInitialization: string;
+let hosts: string;
 
 beforeAll(async () => {
   [
@@ -29,6 +32,9 @@ beforeAll(async () => {
     concurrencyLocks,
     reasonCatalog,
     agentOutput,
+    configuration,
+    projectInitialization,
+    hosts,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -64,6 +70,15 @@ beforeAll(async () => {
       join(repositoryRoot, "docs/architecture/agent-output-contract.md"),
       "utf8",
     ),
+    readFile(
+      join(repositoryRoot, "docs/user/configuration-and-state.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/project-initialization.md"),
+      "utf8",
+    ),
+    readFile(join(repositoryRoot, "docs/user/hosts.md"), "utf8"),
   ]);
 });
 
@@ -118,6 +133,7 @@ describe("contract versioning documentation", () => {
     expect(guide).toContain("reason-codes.v1.2.json");
     expect(guide).toContain("reason-codes.v1.3.json");
     expect(guide).toContain("reason-codes.v1.5.json");
+    expect(guide).toContain("reason-codes.v1.6.json");
     expect(guide).toContain("runtime.node_unsupported");
     expect(resultContract).toContain("reason-codes.v1.5.json");
     expect(resultContract).toContain("runtime.orientation_ok");
@@ -174,6 +190,8 @@ describe("contract versioning documentation", () => {
       "approval.v1.schema.json",
       "evidence.v1.schema.json",
       "feature.v1.schema.json",
+      "feature-scope.v1.schema.json",
+      "guardrails.v1.schema.json",
       "lock.v1.schema.json",
       "migration.v1.schema.json",
       "transaction-manifest.v1.schema.json",
@@ -181,6 +199,7 @@ describe("contract versioning documentation", () => {
       "adapter-message.v1.schema.json",
       "agent-output.v1.schema.json",
       "operation-message.v1.schema.json",
+      "pre-tool-use.v1.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",
@@ -207,6 +226,59 @@ describe("contract versioning documentation", () => {
       "version-cases.json",
     ]) {
       expect(fixtureIndex).toContain(token);
+    }
+  });
+});
+
+describe("pre-write scope guard documentation", () => {
+  it("publishes the scope grammar, policy order, host boundary, and result compatibility", () => {
+    for (const token of [
+      "`.brain/02-features/<active-feature>/scope.json`",
+      "`state.feature-scope@1.0.0`",
+      "`kratos scope record`",
+      "`## File allowlist`",
+      "`## File denylist`",
+      "code-formatted bullet",
+      "ordered, project-relative, slash-separated, and case-sensitive",
+      "`*`, `?`, `**`, character classes, and a leading `!`",
+      "`.brain/**`",
+      "`.env.example`",
+      "`.codex/**` and `.claude/**`",
+    ]) {
+      expect(configuration).toContain(token);
+    }
+    expect(configuration).toMatch(/exact `\.brain` root is not\s+repairable/u);
+
+    for (const token of [
+      "one parser and one renderer",
+      "scope file that already differs",
+      "malformed reviewer prose",
+    ]) {
+      expect(projectInitialization).toContain(token);
+    }
+
+    for (const token of [
+      "synchronous `PreToolUse`",
+      "`Write`",
+      "`Edit`",
+      "legacy `MultiEdit`",
+      "`apply_patch`",
+      "Bash and arbitrary MCP tools",
+      "no decision authority",
+      "time-of-check/time-of-use",
+    ]) {
+      expect(hosts).toContain(token);
+    }
+
+    for (const token of [
+      "reason-codes.v1.6.json",
+      "`guard.path_escape`",
+      "`guard.target_uninspectable`",
+      "exit 3",
+      "failure / exit 2",
+      "Every non-success result is denied by the host relay",
+    ]) {
+      expect(resultContract).toContain(token);
     }
   });
 });

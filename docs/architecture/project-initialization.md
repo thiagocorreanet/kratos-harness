@@ -71,6 +71,24 @@ The summary is the reviewer contract. After specification approval, changing
 its specification content is a failure. Flipping an acceptance checkbox in
 `02-tasks.md` is the sole exemption and does not count as a specification edit.
 
+### Reviewer scope translation
+
+The summary's `## File allowlist` and `## File denylist` sections also provide
+the exact source for the active feature's executable write scope. `kratos scope
+record` accepts only code-formatted glob bullets (`- \`path/**\``) under those
+two depth-two headings. It ignores comments and fenced examples, preserves
+declaration order, and uses one parser and one renderer so the stored
+`scope.json` and reviewer prose have one grammar. A missing heading, malformed
+bullet, invalid glob, or malformed comment/fence is malformed reviewer prose.
+
+The command writes `.brain/02-features/<active-feature>/scope.json` only if it
+does not already exist. If an existing scope file that already differs from the
+ordered declarations is found, the command refuses rather than overwriting the
+reviewer/state disagreement. The pre-write guard likewise refuses feature
+mutations when a present scope cannot be parsed or does not agree with the
+reviewer contract; a missing scope preserves projects that have not adopted
+feature scope yet.
+
 The PRD's discovery sections implement the
 [requirement discovery contract](requirement-discovery.md). Their guidance
 classifies every demand, makes 5 Whys adaptive, keeps 5W2H after discovery, and

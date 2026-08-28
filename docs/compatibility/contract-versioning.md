@@ -89,6 +89,14 @@ for identified acceptance criteria. State and host contract identities remain
 `1.0.0`; the two new persisted payload schemas are additive, while `EventV1`
 remains unchanged.
 
+Revision `1.6.0` preserves all 97 entries from `1.5.0` and appends
+[`guard.path_escape` and `guard.target_uninspectable`](../../packages/contracts/catalogs/reason-codes.v1.6.json).
+They are blocked / exit 3 inspection failures for a structured pre-write
+request. Existing write and scope reasons retain their published failure / exit
+2 policy. `state.feature-scope@1.0.0` and `host.pre-tool-use@1.0.0` are
+additive schemas, and the optional `writeBlocks` field keeps an existing
+`state.guardrails@1.0.0` record valid. No state migration is required.
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied
@@ -96,12 +104,13 @@ version value.
 
 ## Current payload schemas
 
-Thirteen persisted state schemas include project configuration, requirement
+Seventeen persisted state schemas include project configuration, requirement
 discovery, workflow facts, snapshots, events, approvals, evidence metadata,
-lock leases, migrations, and transaction records. Five host schemas cover
-adapter messages, phase-agent output, gap proposals, initialization answers,
-and operation delivery. All are JSON Schema 2020-12 documents with closed
-objects and exact family identities.
+feature scope, guardrails, lock leases, migrations, and transaction records.
+Six host schemas cover adapter messages, phase-agent output, gap proposals,
+initialization answers, operation delivery, and normalized pre-tool mutation
+requests. All are JSON Schema 2020-12 documents with closed objects and exact
+family identities.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.
