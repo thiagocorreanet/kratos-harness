@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectConfigV1 } from "@kratos/contracts";
+import type { ProjectConfigV1, ReadableProjectConfig } from "@kratos/contracts";
+import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import {
   classifyConfiguration,
   type ConfigurationObservation,
@@ -37,6 +38,18 @@ function recordingValidator(result: "valid" | "invalid") {
 }
 
 describe("project configuration classification", () => {
+  it("preserves a readable 1.1 configuration for later role-aware phases", () => {
+    const validator: ConfigurationValidator = () => ({
+      kind: "valid",
+      value: projectConfigV1_1 as ReadableProjectConfig,
+    });
+
+    expect(classifyConfiguration(file(projectConfigV1_1), validator)).toEqual({
+      kind: "valid",
+      value: projectConfigV1_1,
+    });
+  });
+
   it.each([
     ["an absent document", { kind: "absent" } as const, "guard.config_missing"],
     ["a non-file document", { kind: "other" } as const, "guard.config_corrupt"],

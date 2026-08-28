@@ -1,7 +1,4 @@
-import {
-  CONTRACT_VERSIONS,
-  type ReadableProjectConfig,
-} from "@kratos/contracts";
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 
 import type { ConfigurationValidator } from "../domain/project/index.js";
 import {
@@ -32,7 +29,7 @@ export function configurationValidator(
       structuralReasonCode: "guard.config_corrupt",
     });
     return result.kind === "valid"
-      ? { kind: "valid", value: result.value as ReadableProjectConfig }
+      ? { kind: "valid", value: result.value }
       : { kind: "invalid" };
   };
 }

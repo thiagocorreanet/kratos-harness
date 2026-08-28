@@ -37,7 +37,12 @@ function validateEvent(
     value,
     structuralReasonCode: "runtime.state_corrupt",
   });
-  if (validated.kind === "valid") return validated.value;
+  if (validated.kind === "valid") {
+    if (validated.value.contractVersion === "1.1.0") {
+      throw new EventIntegrityError("unsupported_policy");
+    }
+    return validated.value;
+  }
 
   const reasonCode = validated.diagnostics
     .filter((diagnostic) => diagnostic.keyword === "version")

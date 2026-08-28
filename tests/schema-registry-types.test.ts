@@ -114,9 +114,9 @@ describe("schema registry vocabulary", () => {
       ContractRequest<"state.project-config">["value"]
     >().toEqualTypeOf<unknown>();
     expectTypeOf<SchemaRegistry["validate"]>().toEqualTypeOf<
-      <I extends ContractId>(
-        candidate: ContractRequest<I>,
-      ) => ValidationResult<ContractValue<I>>
+      <I extends ContractId, V>(
+        candidate: ContractRequest<I, V>,
+      ) => ValidationResult<ContractValue<I, V>>
     >();
     expectTypeOf<ValidationDiagnostic>().toHaveProperty("pointer");
   });

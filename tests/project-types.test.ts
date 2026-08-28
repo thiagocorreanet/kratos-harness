@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import type { ProjectConfigV1 } from "@kratos/contracts";
+import type { ProjectConfigV1, ReadableProjectConfig } from "@kratos/contracts";
 import type {
   ConfigurationValidator,
   DirectoryProbe,
@@ -56,7 +56,7 @@ describe("project discovery vocabulary", () => {
 
     expect(validator(null)).toEqual({ kind: "invalid" });
     expectTypeOf(validator).returns.toEqualTypeOf<
-      | { readonly kind: "valid"; readonly value: ProjectConfigV1 }
+      | { readonly kind: "valid"; readonly value: ReadableProjectConfig }
       | { readonly kind: "invalid" }
     >();
   });

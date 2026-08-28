@@ -1,6 +1,6 @@
 import {
   classifyContractVersion,
-  type ProjectConfigV1,
+  type ReadableProjectConfig,
 } from "@kratos/contracts";
 
 import type { ConfigurationObservation } from "./observation.js";
@@ -13,7 +13,7 @@ type ConfigurationFailureReason =
   | "contract.state_version_unsupported";
 
 export type ConfigurationOutcome =
-  | { readonly kind: "valid"; readonly value: ProjectConfigV1 }
+  | { readonly kind: "valid"; readonly value: ReadableProjectConfig }
   | {
       readonly kind: "failure";
       readonly reasonCode: ConfigurationFailureReason;

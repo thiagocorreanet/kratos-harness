@@ -1,5 +1,6 @@
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { resolveInitAnswers } from "@kratos/runtime/domain/init";
+import answersV1_1 from "../fixtures/contracts/v1.1/init-answers.json" with { type: "json" };
 import { describe, expect, it } from "vitest";
 
 const registry = createSchemaRegistry();
@@ -50,6 +51,13 @@ describe("initialization answers", () => {
     expect(resolved).toMatchObject({
       kind: "resolved",
       answers: { hosts: ["codex", "claude"] },
+    });
+  });
+
+  it("refuses a readable revision the legacy initialization plan cannot preserve", () => {
+    expect(resolveInitAnswers(answersV1_1, registry)).toMatchObject({
+      kind: "invalid",
+      reasonCode: "trail.output_invalido",
     });
   });
 

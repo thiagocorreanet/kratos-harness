@@ -802,12 +802,31 @@ describe("composed command line", () => {
         return { payload, wasAccessed: () => accessed };
       },
     ],
+    [
+      "revoked Proxy",
+      () => {
+        const { proxy, revoke } = Proxy.revocable(
+          structuredClone(adapterMessage),
+          {},
+        );
+        revoke();
+        return { payload: proxy, wasAccessed: () => false };
+      },
+    ],
   ])(
     "rejects an adapter payload with a hostile %s before effects or output",
     async (_, hostile) => {
       const output = recordingOutput();
       const fileSystem = memoryFileSystem();
       const { payload, wasAccessed } = hostile();
+      const validationRequests: unknown[] = [];
+      const productionRegistry = createSchemaRegistry();
+      const schemaRegistry: SchemaRegistry = {
+        validate(request) {
+          validationRequests.push(request);
+          return productionRegistry.validate(request);
+        },
+      };
       const hostileAdapter = [
         {
           path: ["hostile-adapter"],
@@ -837,10 +856,12 @@ describe("composed command line", () => {
         ["--json", "hostile-adapter"],
         createRuntime({ fileSystem, output }),
         hostileAdapter,
+        schemaRegistry,
       );
 
       expect(exitCode).toBe(2);
       expect(wasAccessed()).toBe(false);
+      expect(validationRequests).toHaveLength(1);
       expect(await fileSystem.stat("must-not-change.txt")).toBeNull();
       expect(JSON.parse(output.structured_.join(""))).toMatchObject({
         reasonCode: "runtime.internal_failure",

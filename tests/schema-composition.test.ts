@@ -66,6 +66,17 @@ describe("schema composition", () => {
         return { value, wasAccessed: () => accessed };
       },
     ],
+    [
+      "revoked Proxy",
+      () => {
+        const { proxy, revoke } = Proxy.revocable(
+          structuredClone(projectConfig),
+          {},
+        );
+        revoke();
+        return { value: proxy, wasAccessed: () => false };
+      },
+    ],
   ])("rejects a project configuration with a hostile %s", (_, hostile) => {
     const validate = configurationValidator(createSchemaRegistry());
     const { value, wasAccessed } = hostile();

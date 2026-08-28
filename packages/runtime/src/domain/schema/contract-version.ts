@@ -13,13 +13,13 @@ export function declaredContractVersion(
   if (
     typeof value !== "object" ||
     value === null ||
-    Array.isArray(value) ||
-    types.isProxy(value)
+    types.isProxy(value) ||
+    Array.isArray(value)
   ) {
     return fallback;
   }
 
-  const prototype = Object.getPrototypeOf(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return fallback;
 
   const descriptor = Object.getOwnPropertyDescriptor(value, property);

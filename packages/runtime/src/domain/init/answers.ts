@@ -56,6 +56,9 @@ export function resolveInitAnswers(
       reasonCode: first?.reasonCode ?? "trail.output_invalido",
     };
   }
+  if (validated.value.contractVersion !== "1.0.0") {
+    return { kind: "invalid", reasonCode: "trail.output_invalido" };
+  }
   const supplied = validated.value;
   const defaulted = DEFAULTABLE.filter((key) => supplied[key] === undefined);
   return {

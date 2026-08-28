@@ -28,7 +28,7 @@ export type ValidationResult<T> =
     };
 
 export interface SchemaRegistry {
-  validate<I extends ContractId, V>(
+  validate<I extends ContractId, const V>(
     request: ContractRequest<I, V>,
   ): ValidationResult<ContractValue<I, V>>;
 }

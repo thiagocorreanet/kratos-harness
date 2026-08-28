@@ -1,6 +1,7 @@
 import { types } from "node:util";
 
 import type { EventV1 } from "@kratos/contracts";
+import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
 import {
   EVENT_RECORD_BYTES,
   EVENT_STREAM_BYTES,
@@ -90,6 +91,17 @@ interface VersionCase {
 }
 
 describe("event hash-chain verification", () => {
+  it("refuses a readable revision the legacy event chain cannot reduce", () => {
+    expect(
+      integrityError(() =>
+        parseEventLines(
+          `${canonicalizeJson(eventV1_1)}\n`,
+          services.schemaRegistry,
+        ),
+      ),
+    ).toMatchObject({ kind: "unsupported_policy" });
+  });
+
   it("returns canonical events and the final cursor", () => {
     const [first, second] = stream();
     const text = textOf([first, second]);
