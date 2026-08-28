@@ -9,6 +9,7 @@ import {
   WORKFLOW_POLICY_VERSION,
   type ContinueWorkflowRequest,
   type FactOperation,
+  type PhaseExecutionObservation,
   type StartWorkflowRequest,
   type WorkflowDecision,
   type WorkflowIdentity,
@@ -58,8 +59,46 @@ function validContinueRequest(request: ContinueWorkflowRequest): boolean {
     request.expectedRevision >= 0 &&
     id.test(request.observedIdentity.host) &&
     (request.observedIdentity.model === null ||
-      id.test(request.observedIdentity.model))
+      id.test(request.observedIdentity.model)) &&
+    (request.phaseExecution === undefined ||
+      validPhaseExecution(request.phaseExecution))
   );
+}
+
+function validPhaseExecution(execution: PhaseExecutionObservation): boolean {
+  return (
+    sha256.test(execution.assignmentDigest) &&
+    (execution.model === null || id.test(execution.model)) &&
+    (execution.effort === null || id.test(execution.effort))
+  );
+}
+
+function executionMismatch(
+  assignment: WorkflowAssignment,
+  execution: PhaseExecutionObservation,
+): boolean {
+  return (
+    execution.provenance === "host-reported" &&
+    ((execution.model !== null && execution.model !== assignment.model) ||
+      (execution.effort !== null && execution.effort !== assignment.effort))
+  );
+}
+
+function phaseIdentity(
+  identity: WorkflowIdentity,
+  execution: PhaseExecutionObservation | undefined,
+): CurrentEventDraft["observedIdentity"] {
+  if (execution?.provenance === "host-reported") {
+    return {
+      host: identity.host,
+      model: execution.model,
+      effort: execution.effort,
+    };
+  }
+  if (execution?.provenance === "unknown") {
+    return { host: identity.host, model: null, effort: null };
+  }
+  return { ...identity, effort: null };
 }
 
 function hasOperation(
@@ -88,6 +127,7 @@ function event(
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
   resolvedAssignment?: WorkflowAssignment,
+  phaseExecution?: PhaseExecutionObservation,
 ): CurrentEventDraft {
   const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
@@ -104,7 +144,7 @@ function event(
     effect: fact.effect,
     artifactRefs: [...artifactRefs],
     evidenceRefs: [...evidenceRefs],
-    observedIdentity: { ...input.identity, effort: null },
+    observedIdentity: phaseIdentity(input.identity, phaseExecution),
     ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
   };
 }
@@ -245,6 +285,12 @@ export function decideContinueWorkflow(
   if (request.resolvedAssignment === undefined) {
     return { kind: "refused", reasonCode: "trail.uso" };
   }
+  if (request.phaseExecution === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (executionMismatch(request.resolvedAssignment, request.phaseExecution)) {
+    return { kind: "refused", reasonCode: "model.execution_mismatch" };
+  }
   return recorded(
     request,
     operation,
@@ -303,6 +349,9 @@ function recorded(
       transition === "accepted" || transition === "completed"
         ? request.resolvedAssignment
         : undefined,
+      transition === "accepted" || transition === "completed"
+        ? request.phaseExecution
+        : undefined,
     ),
     ...(why === undefined ? {} : { why: [...why] }),
   };
@@ -319,6 +368,7 @@ export interface RecordFactRequest {
   readonly artifactRefs: readonly string[];
   readonly observedIdentity: WorkflowIdentity;
   readonly resolvedAssignment?: WorkflowAssignment;
+  readonly phaseExecution?: PhaseExecutionObservation;
 }
 
 /**
@@ -343,6 +393,8 @@ export function decideRecordFact(
     !id.test(request.observedIdentity.host) ||
     (request.observedIdentity.model !== null &&
       !id.test(request.observedIdentity.model)) ||
+    (request.phaseExecution !== undefined &&
+      !validPhaseExecution(request.phaseExecution)) ||
     !request.artifactRefs.every((ref) => ref.length > 0)
   ) {
     return { kind: "refused", reasonCode: "trail.uso" };
@@ -371,11 +423,26 @@ export function decideRecordFact(
     return { kind: "refused", reasonCode: "runtime.revision_conflict" };
   }
   const requiresAssignment = request.operation === "agent.record";
-  if (requiresAssignment && request.resolvedAssignment === undefined) {
+  if (
+    requiresAssignment &&
+    (request.resolvedAssignment === undefined ||
+      request.phaseExecution === undefined)
+  ) {
     return { kind: "refused", reasonCode: "trail.uso" };
   }
-  if (!requiresAssignment && request.resolvedAssignment !== undefined) {
+  if (
+    !requiresAssignment &&
+    (request.resolvedAssignment !== undefined ||
+      request.phaseExecution !== undefined)
+  ) {
     return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (
+    request.resolvedAssignment !== undefined &&
+    request.phaseExecution !== undefined &&
+    executionMismatch(request.resolvedAssignment, request.phaseExecution)
+  ) {
+    return { kind: "refused", reasonCode: "model.execution_mismatch" };
   }
   return {
     kind: "recorded",
@@ -394,7 +461,10 @@ export function decideRecordFact(
       effect: WORKFLOW_OPERATION_FACTS[request.operation].effect,
       artifactRefs: [...request.artifactRefs],
       evidenceRefs: [],
-      observedIdentity: { ...request.observedIdentity, effort: null },
+      observedIdentity: phaseIdentity(
+        request.observedIdentity,
+        request.phaseExecution,
+      ),
       ...(request.resolvedAssignment === undefined
         ? {}
         : { resolvedAssignment: request.resolvedAssignment }),

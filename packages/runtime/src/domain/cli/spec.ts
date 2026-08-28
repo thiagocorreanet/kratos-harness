@@ -26,6 +26,7 @@ import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
+  PhaseExecutionObservation,
   RunLineage,
   WorkflowReducerConfiguration,
   WorkflowState,
@@ -100,6 +101,8 @@ export interface Decision {
   readonly eventReducers?: EventReducerRegistry<WorkflowState>;
   /** Re-observe this authorized repair plan immediately before committing it. */
   readonly revalidateRepairDigest?: string;
+  /** Re-resolve this phase assignment immediately before appending its event. */
+  readonly revalidatePhaseAssignmentDigest?: string;
 }
 
 export interface Globals {
@@ -217,6 +220,8 @@ export type CommandObservation =
               | "model.assignment_stale";
             readonly subject: string;
           };
+      /** Host-observed execution validated against the current assignment. */
+      readonly phaseExecution: PhaseExecutionObservation | null;
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;

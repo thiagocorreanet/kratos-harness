@@ -27,6 +27,12 @@ const assignment = {
   model: "gpt-5",
   effort: "medium",
 };
+const phaseExecution = {
+  assignmentDigest: digest,
+  model: null,
+  effort: null,
+  provenance: "unknown" as const,
+};
 const configuration = {
   projectId: "project-01",
   feature: "workflow",
@@ -95,6 +101,7 @@ describe("workflow start and continuation", () => {
       expectedRevision: 1,
       observedIdentity: identity,
       resolvedAssignment: assignment,
+      phaseExecution,
       action: {
         kind: "complete-phase" as const,
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
@@ -123,11 +130,41 @@ describe("workflow start and continuation", () => {
       artifactRefs: [".brain/agent-output/prd.json"],
       observedIdentity: identity,
       resolvedAssignment: assignment,
+      phaseExecution,
     });
     if (recorded.kind !== "recorded") throw new Error("record refused");
     expect(snapshotEventDraft(recorded.event, () => false)).toMatchObject({
       stateContract: "1.1.0",
       resolvedAssignment: assignment,
+    });
+  });
+
+  it("constructs phase event identity from the execution observation", () => {
+    const decision = decideRecordFact(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "agent-runtime-owned",
+      eventId: "event-agent-runtime-owned",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      operation: "agent.record",
+      artifactRefs: [".brain/agent-output/prd.json"],
+      observedIdentity: { host: "codex", model: "user-declared-model" },
+      resolvedAssignment: assignment,
+      phaseExecution: {
+        assignmentDigest: digest,
+        model: null,
+        effort: null,
+        provenance: "unknown",
+      },
+    });
+
+    expect(decision).toMatchObject({
+      kind: "recorded",
+      event: {
+        resolvedAssignment: assignment,
+        observedIdentity: { host: "codex", model: null, effort: null },
+      },
     });
   });
 
@@ -313,6 +350,7 @@ describe("workflow start and continuation", () => {
       expectedRevision: 1,
       observedIdentity: identity,
       resolvedAssignment: assignment,
+      phaseExecution,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
@@ -366,6 +404,7 @@ describe("workflow start and continuation", () => {
           phase: "acceptance",
           role: "judge",
         },
+        phaseExecution,
         action: {
           kind: "complete-phase",
           artifactRefs: [".brain/02-features/workflow/03-summa.md"],

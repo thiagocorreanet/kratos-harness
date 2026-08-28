@@ -397,6 +397,15 @@ function commit(
   summary: string,
   artifactRefs: readonly string[],
 ): Decision {
+  const phaseExecution =
+    observation.phaseAssignment.kind === "resolved" &&
+    observation.phaseExecution !== null
+      ? {
+          assignment: observation.phaseAssignment.value.assignment,
+          host: observation.phaseAssignment.value.host,
+          execution: observation.phaseExecution,
+        }
+      : null;
   const workflow = decideRecordFact(observation.workflow, {
     feature: observation.configuration.feature,
     runId: observation.configuration.runId,
@@ -409,12 +418,16 @@ function commit(
         : 0,
     operation: "agent.record",
     artifactRefs,
-    observedIdentity: observation.observedIdentity,
-    ...(observation.phaseAssignment.kind === "resolved"
-      ? {
-          resolvedAssignment: observation.phaseAssignment.value.assignment,
-        }
-      : {}),
+    observedIdentity:
+      phaseExecution === null
+        ? observation.observedIdentity
+        : { host: phaseExecution.host, model: null },
+    ...(phaseExecution === null
+      ? {}
+      : {
+          resolvedAssignment: phaseExecution.assignment,
+          phaseExecution: phaseExecution.execution,
+        }),
   });
   if (workflow.kind === "refused") return refused(workflow, observation);
   if (workflow.kind === "unchanged") {
@@ -441,6 +454,12 @@ function commit(
     humanStdout: null,
     payload: null,
     eventReducers: workflowReducerRegistry(observation.configuration),
+    ...(phaseExecution === null
+      ? {}
+      : {
+          revalidatePhaseAssignmentDigest:
+            phaseExecution.execution.assignmentDigest,
+        }),
   };
 }
 

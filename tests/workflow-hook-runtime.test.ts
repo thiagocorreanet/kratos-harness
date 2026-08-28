@@ -3,6 +3,7 @@ import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   memoryWorkspace,
@@ -13,6 +14,8 @@ import {
 } from "@kratos/runtime/infra/fake";
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
+
+import { claudeCatalog } from "./support/model-routing.js";
 
 const ROOT = "/project";
 const NOW = "2026-08-28T12:00:00.000Z";
@@ -33,6 +36,7 @@ function subject(
       fileSystem: memoryFileSystem({}),
       environment: fixedEnvironment({}, ROOT),
       git: stubGit(),
+      modelRouting: fixedModelRouting([claudeCatalog()]),
       output: recordingOutput(),
       standardInput: pipedInput(piped),
       workspace: memoryWorkspace({ directories: [ROOT] }),
@@ -53,8 +57,8 @@ async function started() {
     {},
     [".brain", ".brain/transactions"],
     JSON.stringify({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+      contractVersion: "1.1.0",
+      hostContract: "1.1.0",
       hosts: ["claude"],
       language: "en",
       policyMode: "strict",

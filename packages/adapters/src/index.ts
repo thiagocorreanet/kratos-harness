@@ -140,6 +140,12 @@ export interface HostInvocation {
    * runtime reads the bytes it verifies instead of the bytes it was told about.
    */
   readonly payload: { readonly ref: string; readonly sha256: string };
+  /** Host-observed phase execution, bound to this exact referenced payload. */
+  readonly phaseExecution?: {
+    readonly assignmentDigest: string;
+    readonly model: string | null;
+    readonly effort: string | null;
+  };
 }
 
 /** What a host publishes for one runtime response. */
@@ -269,6 +275,9 @@ export function createHostAdapter(
       observedIdentity: descriptor.observedIdentity,
       payloadContract: invocation.payloadContract,
       payload: invocation.payload,
+      ...(invocation.phaseExecution === undefined
+        ? {}
+        : { phaseExecution: { ...invocation.phaseExecution } }),
       correlationId: invocation.correlationId,
     }),
     relay: (response: AdapterMessageV1_1): HostRendering => {

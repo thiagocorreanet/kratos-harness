@@ -277,6 +277,24 @@ describe("versioned state and host schemas", () => {
       }),
     ).toBe(false);
 
+    expect(
+      adapterValidate({
+        ...adapter.fixture,
+        messageType: "request",
+        operation: "sdd.agent.record:correlation-01",
+        payloadContract: "host.agent-output@1.0.0",
+        payload: {
+          ref: ".brain/agent-replies/prd.md",
+          sha256: "b".repeat(64),
+        },
+        phaseExecution: {
+          assignmentDigest: "a".repeat(64),
+          model: null,
+          effort: null,
+        },
+      }),
+    ).toBe(true);
+
     const handoffValidate = ajv.compile(handoff.schema);
     expect(
       handoffValidate({ ...handoff.fixture, assignmentDigest: "not-a-sha256" }),

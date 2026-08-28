@@ -54,6 +54,14 @@ export interface WorkflowIdentity {
 
 export type WorkflowAssignment = NonNullable<EventV1_1["resolvedAssignment"]>;
 
+/** Validated host observation for one runtime-resolved phase assignment. */
+export interface PhaseExecutionObservation {
+  readonly assignmentDigest: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly provenance: "host-reported" | "unknown";
+}
+
 export interface StartWorkflowRequest {
   readonly projectId: string;
   readonly feature: string;
@@ -76,6 +84,7 @@ export interface ContinueWorkflowRequest {
   readonly expectedRevision: number;
   readonly observedIdentity: WorkflowIdentity;
   readonly resolvedAssignment?: WorkflowAssignment;
+  readonly phaseExecution?: PhaseExecutionObservation;
   readonly action:
     | {
         readonly kind: "complete-phase";
@@ -97,6 +106,8 @@ export type WorkflowRefusal =
   | "blocked.feature_mismatch"
   | "blocked.runid_mismatch"
   | "blocked.state_unreadable"
+  | "model.assignment_stale"
+  | "model.execution_mismatch"
   | "runtime.revision_conflict"
   | "trail.uso"
   | "trail.worktree_dirty";

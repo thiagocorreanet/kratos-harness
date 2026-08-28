@@ -87,6 +87,9 @@ export function fakeHostAdapter(
       observedIdentity: descriptor.observedIdentity,
       payloadContract: invocation.payloadContract,
       payload: invocation.payload,
+      ...(invocation.phaseExecution === undefined
+        ? {}
+        : { phaseExecution: { ...invocation.phaseExecution } }),
       correlationId: invocation.correlationId,
     }),
     relay: (response: AdapterMessageV1_1): HostRendering => {

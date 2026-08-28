@@ -178,6 +178,25 @@ export function describeHostAdapterContract(
       expect(Object.keys(message.payload).sort()).toEqual(["ref", "sha256"]);
     });
 
+    it("binds phase execution to the referenced request", () => {
+      const phaseExecution = {
+        assignmentDigest: "b".repeat(64),
+        model: null,
+        effort: null,
+      };
+      const invocation = conformanceInvocation({
+        operation: "sdd.agent.record:conformance-01",
+        payloadContract: "host.agent-output@1.0.0",
+        phaseExecution,
+      });
+
+      expect(request(factory().translate(invocation))).toMatchObject({
+        operation: invocation.operation,
+        payload: invocation.payload,
+        phaseExecution,
+      });
+    });
+
     it("translates the same invocation into the same bytes", () => {
       const adapter = factory();
       const invocation = conformanceInvocation();

@@ -2,7 +2,7 @@
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
-// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:6376c4e3fa5d4f5138aeff9e139de7139c8e375a6c4a13ff22a3299cdbc0b525
+// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
@@ -140,6 +140,7 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: PayloadContract;
         payload: RequestPayload;
+        phaseExecution?: PhaseExecution;
         correlationId: Id;
       }
     | {
@@ -153,6 +154,7 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: PayloadContract;
         payload: KratosUniversalResultV1;
+        phaseExecution?: PhaseExecution;
         correlationId: Id;
       }
     | {
@@ -166,6 +168,7 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: "host.model-catalog@1.1.0";
         payload: ModelCatalog;
+        phaseExecution?: PhaseExecution;
         correlationId: Id;
       }
     | {
@@ -179,6 +182,7 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: "host.phase-execution@1.1.0";
         payload: PhaseExecution;
+        phaseExecution?: PhaseExecution;
         correlationId: Id;
       };
   export type Id = string;
@@ -239,6 +243,11 @@ export namespace AdapterMessageV1_1Contract {
     ref: Reference;
     sha256: Sha256;
   }
+  export interface PhaseExecution {
+    assignmentDigest: Sha256;
+    model: Id | null;
+    effort: Id | null;
+  }
   export interface Evidence {
     kind: "artifact" | "event" | "approval" | "test" | "observation";
     ref: string;
@@ -272,11 +281,6 @@ export namespace AdapterMessageV1_1Contract {
     planner: Id;
     implementer: Id;
     judge: Id;
-  }
-  export interface PhaseExecution {
-    assignmentDigest: Sha256;
-    model: Id | null;
-    effort: Id | null;
   }
 }
 export type AdapterMessageV1_1 = AdapterMessageV1_1Contract.AdapterMessageV1_1;

@@ -10,6 +10,7 @@ import {
   internalFailure,
   renderResultHuman,
   renderResultJson,
+  resultFor,
   transactionFailureResult,
   validatePublicText,
   validateResult,
@@ -197,6 +198,36 @@ export async function runCommandLine(
       validatePublicText(preparedOutput);
     }
     let expectedPreview: MutationPreview | undefined;
+    if (decision.revalidatePhaseAssignmentDigest !== undefined) {
+      const refreshed = await observeWorkflow(
+        invocation,
+        applyPorts,
+        schemaRegistry,
+      );
+      if (
+        refreshed.kind !== "observed" ||
+        refreshed.observation.kind !== "workflow" ||
+        refreshed.observation.phaseAssignment.kind !== "resolved" ||
+        refreshed.observation.phaseAssignment.value.assignmentDigest !==
+          decision.revalidatePhaseAssignmentDigest
+      ) {
+        return publish(
+          resultFor("model.assignment_stale", {
+            why: [
+              "The phase assignment changed before its event could be appended.",
+            ],
+            evidence: [
+              {
+                kind: "observation",
+                ref: "model-routing/phase-execution",
+              },
+            ],
+          }),
+          json,
+          ports,
+        );
+      }
+    }
     if (decision.revalidateRepairDigest !== undefined) {
       const refreshed = await observeWorkflow(
         invocation,

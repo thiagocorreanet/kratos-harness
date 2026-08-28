@@ -41,6 +41,17 @@ const SHARED_FLAGS: CommandSpec["flags"] = [
   },
 ];
 
+function currentPhaseExecution(observation: Observation) {
+  return observation.phaseAssignment.kind === "resolved" &&
+    observation.phaseExecution !== null
+    ? {
+        assignment: observation.phaseAssignment.value.assignment,
+        host: observation.phaseAssignment.value.host,
+        execution: observation.phaseExecution,
+      }
+    : null;
+}
+
 export const startCommand: CommandSpec = observingCommand(
   "workflow",
   {
@@ -254,6 +265,7 @@ export const continueCommand: CommandSpec = observingCommand(
               allowFinalCompletion: false,
             } as const)
           : ({ kind: "resume" } as const);
+    const phaseExecution = currentPhaseExecution(observation);
     return workflowDecision(
       decideContinueWorkflow(observation.workflow, {
         feature: observation.configuration.feature,
@@ -262,12 +274,16 @@ export const continueCommand: CommandSpec = observingCommand(
         eventId: observation.eventId,
         occurredAt: observation.occurredAt,
         expectedRevision,
-        observedIdentity: observation.observedIdentity,
-        ...(observation.phaseAssignment.kind === "resolved"
-          ? {
-              resolvedAssignment: observation.phaseAssignment.value.assignment,
-            }
-          : {}),
+        observedIdentity:
+          phaseExecution === null
+            ? observation.observedIdentity
+            : { host: phaseExecution.host, model: null },
+        ...(phaseExecution === null
+          ? {}
+          : {
+              resolvedAssignment: phaseExecution.assignment,
+              phaseExecution: phaseExecution.execution,
+            }),
         action,
       }),
       observation,
@@ -401,6 +417,7 @@ export const doneCommand: CommandSpec = observingCommand(
       invalidEvidenceIds: observation.invalidEvidenceIds,
       lineage,
     });
+    const phaseExecution = currentPhaseExecution(observation);
     return workflowDecision(
       decideContinueWorkflow(observation.workflow, {
         feature: observation.configuration.feature,
@@ -410,12 +427,16 @@ export const doneCommand: CommandSpec = observingCommand(
         occurredAt: observation.occurredAt,
         expectedRevision:
           typeof expected === "string" ? Number(expected) : revision,
-        observedIdentity: observation.observedIdentity,
-        ...(observation.phaseAssignment.kind === "resolved"
-          ? {
-              resolvedAssignment: observation.phaseAssignment.value.assignment,
-            }
-          : {}),
+        observedIdentity:
+          phaseExecution === null
+            ? observation.observedIdentity
+            : { host: phaseExecution.host, model: null },
+        ...(phaseExecution === null
+          ? {}
+          : {
+              resolvedAssignment: phaseExecution.assignment,
+              phaseExecution: phaseExecution.execution,
+            }),
         action: {
           kind: "complete-phase",
           artifactRefs:
@@ -557,6 +578,13 @@ function workflowDecision(
     humanStdout: null,
     payload: null,
     eventReducers: workflowReducerRegistry(observation.configuration),
+    ...(workflow.event.resolvedAssignment === undefined ||
+    observation.phaseAssignment.kind !== "resolved"
+      ? {}
+      : {
+          revalidatePhaseAssignmentDigest:
+            observation.phaseAssignment.value.assignmentDigest,
+        }),
   };
 }
 

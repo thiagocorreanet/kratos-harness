@@ -1,4 +1,9 @@
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import type {
+  EventV1_1,
+  OperationResultV1,
+  PhaseHandoffV1_1,
+} from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   digestPhaseAssignment,
@@ -60,6 +65,13 @@ interface WorkflowSubject {
   >;
 }
 
+interface PhaseExecutionObservation {
+  readonly assignmentDigest: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly provenance: "host-reported" | "unknown";
+}
+
 interface SubjectOptions {
   readonly launcherHost?: "claude-code" | "codex" | "unknown" | null;
   readonly configuration?: unknown;
@@ -70,6 +82,130 @@ interface SubjectOptions {
 function clearOutput(output: ReturnType<typeof recordingOutput>): void {
   (output.structured_ as string[]).splice(0);
   (output.human_ as string[]).splice(0);
+}
+
+function agentReplyWithExtraClaims(claims: Record<string, string>): string {
+  const prose = Object.entries(claims)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+  return `${prose}\n\n===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
+    {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      agent: "prd",
+      outcome: {
+        status: "completed",
+        next: "proceed",
+        questions: [],
+        blockers: [],
+      },
+      artifacts: [".brain/02-features/ship-handoff/00-prd.md"],
+      changedFiles: [],
+      payload: {
+        objective: "Ship one digest-bound phase result.",
+        requirementIds: ["phase-execution-boundary"],
+        gapIds: [],
+      },
+    },
+    null,
+    2,
+  )}\n===END-KRATOS-AGENT-OUTPUT-V1===\n`;
+}
+
+function eventPath(subject: WorkflowSubject): string {
+  const activeFeature =
+    subject.storage.snapshot().files[".brain/02-features/active"];
+  const feature = activeFeature?.trim() ?? "ship-handoff";
+  return `.brain/02-features/${feature}/runs/run-01/events.jsonl`;
+}
+
+function lastEvent(subject: WorkflowSubject): EventV1_1 {
+  const stream = subject.storage.snapshot().files[eventPath(subject)] ?? "";
+  const line = stream.trim().split("\n").at(-1);
+  if (line === undefined || line.length === 0) {
+    throw new Error("The workflow has no event to inspect");
+  }
+  return JSON.parse(line) as EventV1_1;
+}
+
+async function currentHandoff(
+  subject: WorkflowSubject,
+): Promise<PhaseHandoffV1_1> {
+  clearOutput(subject.output);
+  expect(await runCommandLine(["--json", "handoff"], subject.ports)).toBe(0);
+  const handoff = JSON.parse(
+    subject.output.structured_.join(""),
+  ) as PhaseHandoffV1_1;
+  clearOutput(subject.output);
+  return handoff;
+}
+
+function phaseResultRequest(
+  subject: WorkflowSubject,
+  handoff: PhaseHandoffV1_1,
+  ref: string,
+  reply: string,
+  execution: PhaseExecutionObservation,
+  overrides: Readonly<Record<string, unknown>> = {},
+): Readonly<Record<string, unknown>> {
+  const correlationId = "agent-record-01";
+  return {
+    contractVersion: "1.1.0",
+    hostContract: "1.1.0",
+    messageId: "phase-result-01",
+    messageType: "request",
+    host: handoff.host,
+    operation: `sdd.agent.record:${correlationId}`,
+    capabilities: [],
+    observedIdentity: {
+      adapterVersion: "1.1.0",
+      model: execution.model,
+      effort: execution.effort,
+    },
+    payloadContract: "host.agent-output@1.0.0",
+    payload: { ref, sha256: subject.ports.digests.sha256(reply) },
+    phaseExecution: {
+      assignmentDigest: execution.assignmentDigest,
+      model: execution.model,
+      effort: execution.effort,
+    },
+    correlationId,
+    ...overrides,
+  };
+}
+
+async function recordAgent(
+  subject: WorkflowSubject,
+  execution: Partial<PhaseExecutionObservation>,
+  reply = agentReplyWithExtraClaims({}),
+): Promise<OperationResultV1> {
+  const handoff = await currentHandoff(subject);
+  const ref = ".brain/agent-replies/prd.md";
+  await subject.ports.fileSystem.write(ref, reply);
+  const correlationId = "agent-record-01";
+  const phaseExecution: PhaseExecutionObservation = {
+    assignmentDigest: handoff.assignmentDigest,
+    model: null,
+    effort: null,
+    provenance: "host-reported",
+    ...execution,
+  };
+  const message = phaseResultRequest(
+    subject,
+    handoff,
+    ref,
+    reply,
+    phaseExecution,
+  );
+  clearOutput(subject.output);
+  await runCommandLine(
+    ["--json", "agent", "record", ref, "--correlation-id", correlationId],
+    {
+      ...subject.ports,
+      standardInput: pipedInput(`${JSON.stringify(message)}\n`),
+    },
+  );
+  return JSON.parse(subject.output.structured_.join("")) as OperationResultV1;
 }
 
 function subject(
@@ -352,15 +488,23 @@ describe("read-only model-role handoffs", () => {
     "requires planner even when the run has reached %s",
     async (_phase, completed) => {
       const run = await started({
-        configuration: {
+        configuration: roleConfig("codex", {
+          planner: "planner",
+          implementer: "implementer",
+          judge: "judge",
+        }),
+      });
+      await advanceToPhase(run, completed);
+      await run.ports.fileSystem.write(
+        ".brain/config.json",
+        JSON.stringify({
           ...roleConfig("codex", {
             implementer: "implementer",
             judge: "judge",
           }),
           policyMode: "standard",
-        },
-      });
-      await advanceToPhase(run, completed);
+        }),
+      );
       const before = run.storage.snapshot();
 
       expect(await runCommandLine(["handoff"], run.ports)).not.toBe(0);
@@ -688,5 +832,351 @@ describe("read-only model-role handoffs", () => {
       reasonCode: "model.independence_violation",
     });
     expect(run.storage.snapshot()).toEqual(run.before);
+  });
+});
+
+describe("phase execution trust boundary", () => {
+  it("writes runtime resolution and excludes forged agent prose", async () => {
+    const run = await started();
+    const reply = agentReplyWithExtraClaims({
+      role: "implementer",
+      model: "forged-model",
+      effort: "low",
+    });
+
+    expect(
+      await recordAgent(
+        run,
+        { model: null, effort: null, provenance: "host-reported" },
+        reply,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    expect(lastEvent(run)).toMatchObject({
+      resolvedAssignment: {
+        phase: "prd",
+        role: "planner",
+        model: "planner-canonical",
+        effort: "medium",
+      },
+      observedIdentity: { host: "codex", model: null, effort: null },
+    });
+    expect(run.storage.snapshot().files[eventPath(run)]).not.toContain(
+      "forged-model",
+    );
+  });
+
+  it("persists each host-reported canonical execution field", async () => {
+    const run = await started();
+
+    expect(
+      await recordAgent(run, {
+        model: "planner-canonical",
+        effort: "medium",
+        provenance: "host-reported",
+      }),
+    ).toMatchObject({ reasonCode: "trail.ok" });
+    expect(lastEvent(run)).toMatchObject({
+      observedIdentity: {
+        host: "codex",
+        model: "planner-canonical",
+        effort: "medium",
+      },
+    });
+  });
+
+  it.each([
+    [
+      "stale digest",
+      { assignmentDigest: "0".repeat(64) },
+      "model.assignment_stale",
+    ],
+    [
+      "wrong observed model",
+      { model: "other-model" },
+      "model.execution_mismatch",
+    ],
+    ["wrong observed effort", { effort: "low" }, "model.execution_mismatch"],
+  ] as const)(
+    "blocks %s without changing event or snapshot bytes",
+    async (_label, execution, reasonCode) => {
+      const run = await started();
+      const before = run.storage.snapshot();
+
+      expect(await recordAgent(run, execution)).toMatchObject({
+        reasonCode,
+        stateChanged: false,
+      });
+      expect(run.storage.snapshot().files[eventPath(run)]).toBe(
+        before.files[eventPath(run)],
+      );
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/ship-handoff/runs/run-01/state.json"
+        ],
+      ).toBe(
+        before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+      );
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/ship-handoff/runs/run-01/agent-output/prd.json"
+        ],
+      ).toBeUndefined();
+    },
+  );
+
+  it("keeps direct CLI --model diagnostic-only and records unknown execution", async () => {
+    const run = await started();
+    const ref = ".brain/agent-replies/prd.md";
+    await run.ports.fileSystem.write(ref, agentReplyWithExtraClaims({}));
+    clearOutput(run.output);
+
+    expect(
+      await runCommandLine(
+        [
+          "agent",
+          "record",
+          ref,
+          "--correlation-id",
+          "direct-agent-record",
+          "--host",
+          "codex",
+          "--model",
+          "user-declared-model",
+        ],
+        run.ports,
+      ),
+    ).toBe(0);
+    expect(lastEvent(run)).toMatchObject({
+      observedIdentity: { host: "codex", model: null, effort: null },
+    });
+    expect(run.storage.snapshot().files[eventPath(run)]).not.toContain(
+      "user-declared-model",
+    );
+  });
+
+  it("rejects malformed adapter stdin before reading agent content", async () => {
+    const run = await started();
+    const ref = ".brain/agent-replies/prd.md";
+    await run.ports.fileSystem.write(ref, agentReplyWithExtraClaims({}));
+    const original = run.ports.durableFileSystem;
+    let replyReads = 0;
+    const before = run.storage.snapshot();
+    clearOutput(run.output);
+
+    expect(
+      await runCommandLine(
+        [
+          "--json",
+          "agent",
+          "record",
+          ref,
+          "--correlation-id",
+          "malformed-envelope",
+        ],
+        {
+          ...run.ports,
+          standardInput: pipedInput("{not-json\n"),
+          durableFileSystem: {
+            ...original,
+            readText: async (path) => {
+              if (path === ref) replyReads += 1;
+              return original.readText(path);
+            },
+          },
+        },
+      ),
+    ).not.toBe(0);
+    expect(replyReads).toBe(0);
+    expect(run.storage.snapshot()).toEqual(before);
+  });
+
+  it.each([
+    ["operation", { operation: "sdd.agent.record:other" }],
+    ["correlation", { correlationId: "other-correlation" }],
+    [
+      "payload ref",
+      {
+        payload: {
+          ref: ".brain/agent-replies/other.md",
+          sha256: "a".repeat(64),
+        },
+      },
+    ],
+    [
+      "payload digest",
+      {
+        payload: {
+          ref: ".brain/agent-replies/prd.md",
+          sha256: "0".repeat(64),
+        },
+      },
+    ],
+  ] as const)(
+    "rejects a mismatched adapter %s before reading agent content",
+    async (_label, overrides) => {
+      const run = await started();
+      const handoff = await currentHandoff(run);
+      const ref = ".brain/agent-replies/prd.md";
+      const reply = agentReplyWithExtraClaims({});
+      await run.ports.fileSystem.write(ref, reply);
+      const execution: PhaseExecutionObservation = {
+        assignmentDigest: handoff.assignmentDigest,
+        model: null,
+        effort: null,
+        provenance: "host-reported",
+      };
+      const original = run.ports.durableFileSystem;
+      let replyReads = 0;
+      const before = run.storage.snapshot();
+      clearOutput(run.output);
+
+      expect(
+        await runCommandLine(
+          [
+            "--json",
+            "agent",
+            "record",
+            ref,
+            "--correlation-id",
+            "agent-record-01",
+          ],
+          {
+            ...run.ports,
+            standardInput: pipedInput(
+              JSON.stringify(
+                phaseResultRequest(
+                  run,
+                  handoff,
+                  ref,
+                  reply,
+                  execution,
+                  overrides,
+                ),
+              ),
+            ),
+            durableFileSystem: {
+              ...original,
+              readText: async (path) => {
+                if (path === ref) replyReads += 1;
+                return original.readText(path);
+              },
+            },
+          },
+        ),
+      ).not.toBe(0);
+      expect(
+        JSON.parse(run.output.structured_.join("")) as OperationResultV1,
+      ).toMatchObject({
+        reasonCode: "trail.output_invalido",
+        stateChanged: false,
+      });
+      expect(replyReads).toBe(0);
+      expect(run.storage.snapshot()).toEqual(before);
+    },
+  );
+
+  it("revalidates configuration after reading a digest-bound reply", async () => {
+    const run = await started();
+    const oldHandoff = await currentHandoff(run);
+    const replacement = JSON.stringify(
+      roleConfig("codex", {
+        planner: "planner",
+        implementer: "implementer",
+        judge: "judge",
+      }),
+    );
+    const ref = ".brain/agent-replies/prd.md";
+    const original = run.ports.durableFileSystem;
+    let replaced = false;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...original,
+        readText: async (path) => {
+          const content = await original.readText(path);
+          if (path === ref && !replaced) {
+            replaced = true;
+            await run.ports.fileSystem.write(".brain/config.json", replacement);
+          }
+          return content;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(
+      await recordAgent(
+        { ...run, ports },
+        { assignmentDigest: oldHandoff.assignmentDigest },
+      ),
+    ).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(replaced).toBe(true);
+    expect(run.storage.snapshot().files[eventPath(run)]).toBe(
+      before.files[eventPath(run)],
+    );
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/ship-handoff/runs/run-01/state.json"
+      ],
+    ).toBe(
+      before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    );
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/ship-handoff/runs/run-01/agent-output/prd.json"
+      ],
+    ).toBeUndefined();
+  });
+
+  it("revalidates the assignment digest immediately before append", async () => {
+    const run = await started();
+    const events = eventPath(run);
+    const original = run.ports.durableFileSystem;
+    const replacement = JSON.stringify(
+      roleConfig("codex", {
+        planner: "planner",
+        implementer: "implementer",
+        judge: "judge",
+      }),
+    );
+    let eventReads = 0;
+    let replaced = false;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...original,
+        readText: async (path) => {
+          const content = await original.readText(path);
+          if (path === events && ++eventReads === 6) {
+            replaced = true;
+            await run.ports.fileSystem.write(".brain/config.json", replacement);
+          }
+          return content;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(await recordAgent({ ...run, ports }, {})).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(replaced).toBe(true);
+    expect(run.storage.snapshot().files[events]).toBe(before.files[events]);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/ship-handoff/runs/run-01/state.json"
+      ],
+    ).toBe(
+      before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    );
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/ship-handoff/runs/run-01/agent-output/prd.json"
+      ],
+    ).toBeUndefined();
   });
 });

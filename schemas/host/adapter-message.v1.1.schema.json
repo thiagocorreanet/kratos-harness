@@ -78,6 +78,7 @@
         "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
         "payloadContract": { "$ref": "#/$defs/payloadContract" },
         "payload": {},
+        "phaseExecution": { "$ref": "#/$defs/phaseExecution" },
         "correlationId": { "$ref": "#/$defs/id" }
       }
     },
@@ -100,6 +101,7 @@
           "type": "object",
           "properties": {
             "messageType": { "const": "response" },
+            "phaseExecution": false,
             "payload": { "$ref": "https://kratos.dev/schemas/result/v1" }
           }
         }
@@ -150,6 +152,7 @@
           "type": "object",
           "properties": {
             "messageType": { "const": "model-catalog" },
+            "phaseExecution": false,
             "payloadContract": { "const": "host.model-catalog@1.1.0" },
             "payload": { "$ref": "#/$defs/modelCatalog" }
           }
@@ -173,6 +176,7 @@
           "type": "object",
           "properties": {
             "messageType": { "const": "phase-execution" },
+            "phaseExecution": false,
             "payloadContract": { "const": "host.phase-execution@1.1.0" },
             "payload": { "$ref": "#/$defs/phaseExecution" }
           }

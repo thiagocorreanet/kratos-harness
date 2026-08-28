@@ -1,4 +1,5 @@
 import type {
+  AdapterMessageV1_1,
   AgentOutputV1,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
@@ -34,11 +35,12 @@ import {
   ACTIVE_FEATURE_PATH,
   featurePaths,
 } from "../domain/objective/index.js";
-import type { Result } from "../domain/result/index.js";
+import { resultFor, type Result } from "../domain/result/index.js";
 import type { SchemaRegistry } from "../domain/schema/index.js";
 import {
   RUN_PHASES,
   workflowReducerRegistry,
+  type PhaseExecutionObservation,
   type RunLineage,
   type WorkflowObservation,
   type WorkflowReducerConfiguration,
@@ -80,6 +82,13 @@ import { configurationValidator } from "./schema.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const EMPTY_GATE_DECISION: GateDecision = Object.freeze({
+  outcome: "pass",
+  primary: null,
+  failures: Object.freeze([]),
+  mode: "enforce",
+  criteria: Object.freeze([]),
+});
 
 /**
  * Where a run's files live. The helpers that only read those paths take this
@@ -112,6 +121,12 @@ export async function observeWorkflow(
   const root = await resolveCommandRoot(invocation, ports, registry);
   if (root.kind === "failure") return root;
   const anchored = anchorPorts(root.target, ports);
+  const phaseResultRequest = await observePhaseResultRequest(
+    invocation,
+    anchored,
+    registry,
+  );
+  if (phaseResultRequest.kind === "failure") return phaseResultRequest;
   const feature = await activeFeature(anchored);
   const objectiveActive =
     feature !== null && (await hasActiveObjective(feature, anchored, registry));
@@ -174,6 +189,35 @@ export async function observeWorkflow(
     ...location,
     lineage: run.persistedSnapshot?.lineage ?? observedLineage,
   };
+  const phase =
+    run.workflow.kind === "present"
+      ? (run.workflow.state.currentStep ?? "acceptance")
+      : "prd";
+  if (phaseResultRequest.kind === "host-reported") {
+    const earlyAssignment = await observePhaseAssignment({
+      phase,
+      runId,
+      revision:
+        run.workflow.kind === "present" ? run.workflow.state.revision : 0,
+      feature: configuration.feature,
+      status:
+        run.workflow.kind === "present" ? run.workflow.state.status : "idle",
+      objectiveDigest,
+      gateDecision: EMPTY_GATE_DECISION,
+      openGaps: 0,
+      launcherHost:
+        typeof invocation.flags.get("--host") === "string"
+          ? (invocation.flags.get("--host") as string)
+          : anchored.environment.get("KRATOS_HOST"),
+      ports: anchored,
+      registry,
+    });
+    const earlyExecution = phaseExecutionFor(
+      phaseResultRequest,
+      earlyAssignment,
+    );
+    if (earlyExecution.kind === "failure") return earlyExecution;
+  }
   const approvals = await observeApprovals(configuration, anchored, registry);
   const correlation = invocation.flags.get("--correlation-id");
   const host = invocation.flags.get("--host");
@@ -186,7 +230,14 @@ export async function observeWorkflow(
   const gateFacts = await observeGateFacts(configuration, anchored, registry);
   const gaps = await observeGaps(configuration, anchored, registry);
   const gapProposal = await observeGapProposal(invocation, anchored, registry);
-  const agentOutput = await observeAgentReply(invocation, anchored, registry);
+  const agentOutput = await observeAgentReply(
+    invocation,
+    anchored,
+    registry,
+    phaseResultRequest.kind === "host-reported"
+      ? phaseResultRequest.payload.sha256
+      : null,
+  );
   const agentOutputs = await observeAgentOutputs(
     configuration,
     anchored,
@@ -256,10 +307,6 @@ export async function observeWorkflow(
    * after its last derivation honest.
    */
   const openGaps = specApproved ? 0 : gateFacts.openGaps;
-  const phase =
-    run.workflow.kind === "present"
-      ? (run.workflow.state.currentStep ?? "acceptance")
-      : "prd";
   const verdictByCriterion = new Map(
     acceptanceCriteria.verdicts.map((verdict) => [
       verdict.criterionId,
@@ -338,6 +385,13 @@ export async function observeWorkflow(
     ports: anchored,
     registry,
   });
+  const preparedPhaseExecution = phaseExecutionFor(
+    phaseResultRequest,
+    phaseAssignment,
+  );
+  if (preparedPhaseExecution.kind === "failure") {
+    return preparedPhaseExecution;
+  }
   const integrityAudit =
     run.workflow.kind === "corrupt"
       ? ({
@@ -390,6 +444,7 @@ export async function observeWorkflow(
       configuration,
       observedLineage,
       phaseAssignment,
+      phaseExecution: preparedPhaseExecution.value,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId,
@@ -683,6 +738,88 @@ async function observeGapProposal(
   }
 }
 
+type AdapterRequestV1_1 = Extract<
+  AdapterMessageV1_1,
+  { readonly messageType: "request" }
+>;
+
+type PhaseResultRequestObservation =
+  | { readonly kind: "direct" }
+  | {
+      readonly kind: "host-reported";
+      readonly host: AdapterRequestV1_1["host"];
+      readonly payload: AdapterRequestV1_1["payload"];
+      readonly execution: PhaseExecutionObservation;
+    }
+  | { readonly kind: "failure"; readonly result: Result };
+
+async function observePhaseResultRequest(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<PhaseResultRequestObservation> {
+  if (invocation.command.path.join(" ") !== "agent record") {
+    return { kind: "direct" };
+  }
+  const document = await ports.standardInput.read();
+  if (document === null) return { kind: "direct" };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(document) as unknown;
+  } catch {
+    return phaseResultInputFailure();
+  }
+  const validated = registry.validate({
+    id: "host.adapter-message",
+    version: "1.1.0",
+    value: parsed,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (validated.kind !== "valid") return phaseResultInputFailure();
+  const message = validated.value;
+  const ref = invocation.positionals[0];
+  const correlationId = invocation.flags.get("--correlation-id");
+  if (
+    message.messageType !== "request" ||
+    message.phaseExecution === undefined ||
+    message.payloadContract !== "host.agent-output@1.0.0" ||
+    ref === undefined ||
+    message.payload.ref !== ref ||
+    typeof correlationId !== "string" ||
+    message.correlationId !== correlationId ||
+    message.operation !== `sdd.agent.record:${correlationId}`
+  ) {
+    return phaseResultInputFailure();
+  }
+  const entry = await ports.durableFileSystem.inspect(ref);
+  if (entry.kind !== "file" || entry.sha256 !== message.payload.sha256) {
+    return phaseResultInputFailure();
+  }
+  return {
+    kind: "host-reported",
+    host: message.host,
+    payload: { ...message.payload },
+    execution: {
+      ...message.phaseExecution,
+      provenance: "host-reported",
+    },
+  };
+}
+
+function phaseResultInputFailure(): Extract<
+  PhaseResultRequestObservation,
+  { readonly kind: "failure" }
+> {
+  return {
+    kind: "failure",
+    result: resultFor("trail.output_invalido", {
+      why: ["The host phase-result envelope did not match this command."],
+      evidence: [{ kind: "observation", ref: "host.phase-execution/request" }],
+    }),
+  };
+}
+
 /**
  * Read the agent reply an output-recording command was pointed at.
  *
@@ -694,6 +831,7 @@ async function observeAgentReply(
   invocation: Invocation,
   ports: RuntimePorts,
   registry: SchemaRegistry,
+  expectedDigest: string | null,
 ): Promise<AgentOutputObservation> {
   if (invocation.command.path.join(" ") !== "agent record") {
     return { kind: "none" };
@@ -705,6 +843,12 @@ async function observeAgentReply(
     const entry = await ports.durableFileSystem.inspect(ref);
     if (entry.kind !== "file") return { kind: "unreadable", ref };
     reply = await ports.durableFileSystem.readText(ref);
+    if (
+      expectedDigest !== null &&
+      ports.digests.sha256(reply) !== expectedDigest
+    ) {
+      return { kind: "unreadable", ref };
+    }
   } catch {
     return { kind: "unreadable", ref };
   }
@@ -1235,6 +1379,76 @@ interface PhaseAssignmentRefusal {
   readonly subject: PhaseAssignmentSubject;
 }
 
+type PreparedPhaseExecution =
+  | {
+      readonly kind: "resolved";
+      readonly value: PhaseExecutionObservation | null;
+    }
+  | { readonly kind: "failure"; readonly result: Result };
+
+function phaseExecutionFor(
+  request: Exclude<PhaseResultRequestObservation, { readonly kind: "failure" }>,
+  assignment: PhaseAssignmentObservation,
+): PreparedPhaseExecution {
+  if (request.kind === "direct") {
+    return {
+      kind: "resolved",
+      value:
+        assignment.kind === "resolved"
+          ? {
+              assignmentDigest: assignment.value.assignmentDigest,
+              model: null,
+              effort: null,
+              provenance: "unknown",
+            }
+          : null,
+    };
+  }
+  if (assignment.kind === "refused") {
+    return phaseExecutionFailure(
+      assignment.reasonCode,
+      "The current phase assignment could not be resolved.",
+    );
+  }
+  if (
+    request.execution.assignmentDigest !== assignment.value.assignmentDigest
+  ) {
+    return phaseExecutionFailure(
+      "model.assignment_stale",
+      "The host phase result is bound to an obsolete assignment.",
+    );
+  }
+  if (
+    request.host !== assignment.value.host ||
+    (request.execution.model !== null &&
+      request.execution.model !== assignment.value.assignment.model) ||
+    (request.execution.effort !== null &&
+      request.execution.effort !== assignment.value.assignment.effort)
+  ) {
+    return phaseExecutionFailure(
+      "model.execution_mismatch",
+      "The host execution identity does not match the current assignment.",
+    );
+  }
+  return {
+    kind: "resolved",
+    value: { ...request.execution },
+  };
+}
+
+function phaseExecutionFailure(
+  reasonCode: PhaseAssignmentReason | "model.execution_mismatch",
+  why: string,
+): Extract<PreparedPhaseExecution, { readonly kind: "failure" }> {
+  return {
+    kind: "failure",
+    result: resultFor(reasonCode, {
+      why: [why],
+      evidence: [{ kind: "observation", ref: "model-routing/phase-execution" }],
+    }),
+  };
+}
+
 async function observePhaseAssignment(input: {
   readonly phase: (typeof RUN_PHASES)[number];
   readonly runId: string;
@@ -1297,14 +1511,41 @@ async function observePhaseAssignment(input: {
   ) {
     return refusedAssignment("model.assignment_stale", "run");
   }
-  // This is deliberately the final await: a read-only handoff can only bind
-  // the exact configuration bytes observed immediately before construction.
   const currentConfiguration = await observeConfigurationSnapshot(
     input.ports,
     input.registry,
   );
   if (currentConfiguration.kind === "refused") return currentConfiguration;
   if (currentConfiguration.digest !== configuration.digest) {
+    return refusedAssignment("model.assignment_stale", "configuration");
+  }
+  const currentCatalog = await input.ports.modelRouting.observe(host);
+  if (currentCatalog === null) {
+    return refusedAssignment("model.assignment_stale", "catalog");
+  }
+  const currentResolution = resolvePhaseAssignmentDetailed({
+    phase: input.phase,
+    host,
+    configuration: currentConfiguration.value,
+    catalog: currentCatalog,
+  });
+  if (
+    currentResolution.kind !== "resolved" ||
+    currentResolution.assignment.phase !== resolved.assignment.phase ||
+    currentResolution.assignment.role !== resolved.assignment.role ||
+    currentResolution.assignment.model !== resolved.assignment.model ||
+    currentResolution.assignment.effort !== resolved.assignment.effort
+  ) {
+    return refusedAssignment("model.assignment_stale", "catalog");
+  }
+  // This is deliberately the final await: resolution uses the catalog snapshot
+  // immediately above and binds the exact configuration bytes rechecked here.
+  const finalConfiguration = await observeConfigurationSnapshot(
+    input.ports,
+    input.registry,
+  );
+  if (finalConfiguration.kind === "refused") return finalConfiguration;
+  if (finalConfiguration.digest !== currentConfiguration.digest) {
     return refusedAssignment("model.assignment_stale", "configuration");
   }
 
@@ -1315,14 +1556,14 @@ async function observePhaseAssignment(input: {
     revision: input.revision,
     phase: input.phase,
     host,
-    assignment: resolved.assignment,
+    assignment: currentResolution.assignment,
     assignmentDigest: digestPhaseAssignment(
       {
-        configDigest: configuration.digest,
+        configDigest: finalConfiguration.digest,
         runId: input.runId,
         revision: input.revision,
         host,
-        assignment: resolved.assignment,
+        assignment: currentResolution.assignment,
       },
       (canonical) => input.ports.digests.sha256(canonical),
     ),

@@ -16,6 +16,7 @@ export {
   type ContinueWorkflowRequest,
   type FactEventReason,
   type FactOperation,
+  type PhaseExecutionObservation,
   type RunLineage,
   type RunPhase,
   type StartWorkflowRequest,
