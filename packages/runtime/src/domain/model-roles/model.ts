@@ -46,6 +46,18 @@ export type ModelRoleResolution =
   | { readonly kind: "resolved"; readonly assignment: ResolvedPhaseAssignment }
   | { readonly kind: "refused"; readonly reasonCode: ModelRoleRefusal };
 
+/** A refusal with the exact configured host and role that could not resolve. */
+export type DetailedModelRoleResolution =
+  | { readonly kind: "resolved"; readonly assignment: ResolvedPhaseAssignment }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode: ModelRoleRefusal;
+      readonly subject: {
+        readonly host: "claude" | "codex";
+        readonly role: ModelRole | null;
+      };
+    };
+
 /** One canonical role assignment before a workflow phase is selected. */
 export type ModelRoleAssignmentResolution =
   | {

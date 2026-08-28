@@ -288,6 +288,28 @@ function absentOrCorrupt(observation: Observation): Decision {
 }
 
 function handoffRefusal(reasonCode: string, subject: string): Decision {
+  if (subject === "launcher:absent" || subject === "launcher:unsupported") {
+    const missing = subject === "launcher:absent";
+    return {
+      result: resultFor(reasonCode, {
+        why: [
+          missing
+            ? "A launcher identity is required for handoff routing."
+            : "The launcher identity is unsupported for handoff routing.",
+          "Accepted launcher identities are claude-code and codex.",
+        ],
+        evidence: [
+          {
+            kind: "observation",
+            ref: "model-routing/launcher",
+          },
+        ],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   return {
     result: resultFor(reasonCode, {
       why: [`Model routing could not resolve the bounded subject ${subject}.`],

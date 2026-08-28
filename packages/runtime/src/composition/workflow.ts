@@ -6,6 +6,7 @@ import type {
   EventV1,
   EvidenceV1,
   GapRecordV1,
+  ProjectConfigV1_1,
   SnapshotV1,
 } from "@kratos/contracts";
 import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
@@ -22,9 +23,7 @@ import {
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import {
   digestPhaseAssignment,
-  resolvePhaseAssignment,
-  roleForPhase,
-  type ModelRole,
+  resolvePhaseAssignmentDetailed,
 } from "../domain/model-roles/index.js";
 import { classifyConfiguration } from "../domain/project/index.js";
 import {
@@ -1221,15 +1220,20 @@ type PhaseAssignmentReason =
   | "guard.config_missing"
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
-  | "contract.state_version_unsupported";
+  | "contract.state_version_unsupported"
+  | "model.assignment_stale";
+
+type PhaseAssignmentSubject = string;
 
 type PhaseAssignmentObservation =
   | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
-  | {
-      readonly kind: "refused";
-      readonly reasonCode: PhaseAssignmentReason;
-      readonly subject: string;
-    };
+  | PhaseAssignmentRefusal;
+
+interface PhaseAssignmentRefusal {
+  readonly kind: "refused";
+  readonly reasonCode: PhaseAssignmentReason;
+  readonly subject: PhaseAssignmentSubject;
+}
 
 async function observePhaseAssignment(input: {
   readonly phase: (typeof RUN_PHASES)[number];
@@ -1244,41 +1248,23 @@ async function observePhaseAssignment(input: {
   readonly ports: RuntimePorts;
   readonly registry: SchemaRegistry;
 }): Promise<PhaseAssignmentObservation> {
-  const host = configurationHost(input.launcherHost);
-  if (host === null) return refusedAssignment("model.host_missing", "launcher");
+  const launcher = configurationHost(input.launcherHost);
+  if (launcher.kind === "refused") {
+    return refusedAssignment("model.host_missing", launcher.subject);
+  }
+  const host = launcher.host;
 
-  const path = ".brain/config.json";
-  const entry = await input.ports.durableFileSystem.inspect(path);
-  const observed =
-    entry.kind === "missing"
-      ? { kind: "absent" as const }
-      : entry.kind === "file"
-        ? {
-            kind: "file" as const,
-            text: await input.ports.durableFileSystem.readText(path),
-          }
-        : { kind: "other" as const };
-  const configuration = classifyConfiguration(
-    observed,
-    configurationValidator(input.registry),
+  const configuration = await observeConfigurationSnapshot(
+    input.ports,
+    input.registry,
   );
-  if (configuration.kind !== "valid") {
-    return refusedAssignment(configuration.reasonCode, "configuration");
-  }
-
-  const roles = configuration.value.modelRoles[host];
-  if (roles === undefined) return refusedAssignment("model.host_missing", host);
-  const required = requiredRoles(input.phase);
-  const missing = required.find((role) => roles[role] === undefined);
-  if (missing !== undefined) {
-    return refusedAssignment("model.role_missing", missing);
-  }
+  if (configuration.kind === "refused") return configuration;
 
   const catalog = await input.ports.modelRouting.observe(host);
   if (catalog === null) {
     return refusedAssignment("model.resolution_unavailable", host);
   }
-  const resolved = resolvePhaseAssignment({
+  const resolved = resolvePhaseAssignmentDetailed({
     phase: input.phase,
     host,
     configuration: configuration.value,
@@ -1287,13 +1273,31 @@ async function observePhaseAssignment(input: {
   if (resolved.kind === "refused") {
     return refusedAssignment(
       resolved.reasonCode,
-      resolved.reasonCode === "model.independence_violation"
-        ? host
-        : roleForPhase(input.phase),
+      resolved.subject.role ?? resolved.subject.host,
     );
   }
 
-  const configDigest = entry.kind === "file" ? entry.sha256 : EMPTY_DIGEST;
+  const currentConfiguration = await observeConfigurationSnapshot(
+    input.ports,
+    input.registry,
+  );
+  if (currentConfiguration.kind === "refused") return currentConfiguration;
+  if (currentConfiguration.digest !== configuration.digest) {
+    return refusedAssignment("model.assignment_stale", "configuration");
+  }
+  const currentRun = await observeRun(
+    { feature: input.feature, runId: input.runId },
+    input.ports,
+    input.registry,
+  );
+  if (
+    currentRun.workflow.kind !== "present" ||
+    currentRun.workflow.state.revision !== input.revision ||
+    (currentRun.workflow.state.currentStep ?? "acceptance") !== input.phase
+  ) {
+    return refusedAssignment("model.assignment_stale", "run");
+  }
+
   const value: PhaseHandoffV1_1 = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
@@ -1304,7 +1308,7 @@ async function observePhaseAssignment(input: {
     assignment: resolved.assignment,
     assignmentDigest: digestPhaseAssignment(
       {
-        configDigest,
+        configDigest: configuration.digest,
         runId: input.runId,
         revision: input.revision,
         host,
@@ -1328,23 +1332,65 @@ async function observePhaseAssignment(input: {
   return { kind: "resolved", value };
 }
 
-function configurationHost(
-  launcherHost: string | undefined,
-): "claude" | "codex" | null {
-  if (launcherHost === "claude-code") return "claude";
-  return launcherHost === "codex" ? "codex" : null;
+function configurationHost(launcherHost: string | undefined):
+  | { readonly kind: "resolved"; readonly host: "claude" | "codex" }
+  | {
+      readonly kind: "refused";
+      readonly subject: "launcher:absent" | "launcher:unsupported";
+    } {
+  if (launcherHost === "claude-code") {
+    return { kind: "resolved", host: "claude" };
+  }
+  if (launcherHost === "codex") return { kind: "resolved", host: "codex" };
+  return {
+    kind: "refused",
+    subject:
+      launcherHost === undefined ? "launcher:absent" : "launcher:unsupported",
+  };
 }
 
-function requiredRoles(
-  phase: (typeof RUN_PHASES)[number],
-): readonly ModelRole[] {
-  return [...new Set<ModelRole>([roleForPhase(phase), "implementer", "judge"])];
+async function observeConfigurationSnapshot(
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | {
+      readonly kind: "valid";
+      readonly value: ProjectConfigV1_1;
+      readonly digest: string;
+    }
+  | PhaseAssignmentRefusal
+> {
+  const path = ".brain/config.json";
+  try {
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind === "missing") {
+      return refusedAssignment("guard.config_missing", "configuration");
+    }
+    if (entry.kind !== "file") {
+      return refusedAssignment("guard.config_corrupt", "configuration");
+    }
+    const text = await ports.durableFileSystem.readText(path);
+    const configuration = classifyConfiguration(
+      { kind: "file", text },
+      configurationValidator(registry),
+    );
+    if (configuration.kind !== "valid") {
+      return refusedAssignment(configuration.reasonCode, "configuration");
+    }
+    return {
+      kind: "valid",
+      value: configuration.value,
+      digest: ports.digests.sha256(text),
+    };
+  } catch {
+    return refusedAssignment("guard.config_missing", "configuration");
+  }
 }
 
 function refusedAssignment(
   reasonCode: PhaseAssignmentReason,
-  subject: string,
-): PhaseAssignmentObservation {
+  subject: PhaseAssignmentSubject,
+): PhaseAssignmentRefusal {
   return { kind: "refused", reasonCode, subject };
 }
 

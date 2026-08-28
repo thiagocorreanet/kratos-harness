@@ -53,3 +53,47 @@ exit 0
 - Handoff success and every covered refusal assert unchanged durable snapshots.
 - Assignment identity uses canonical catalog resolution; configured aliases are
   never used as security identity.
+
+## Fix round 1/5
+
+### RED
+
+Added controlled integration reproductions for a configuration replacement
+between inspection and read, deletion during catalog resolution, missing
+planner roles in code/review/acceptance, a bad judge dependency while the PRD
+phase selects planner, absent and unsupported launcher identities, and a
+phase/revision change while resolving a handoff. The first RED run failed all
+eight new assertions: late phases accepted a missing planner, dependency diagnostics
+named planner, launcher diagnostics were non-actionable, the digest used stale
+inspection metadata, and deletion/phase-revision drift still published a
+handoff.
+
+### GREEN
+
+- Handoff now hashes the exact configuration text it parses and resolves, then
+  re-reads it before publishing; deletion returns `guard.config_missing` and
+  changed bytes return `model.assignment_stale`.
+- The resolver validates planner, implementer, and judge in the stable
+  `MODEL_ROLES` order for every handoff and returns the exact `{ host, role }`
+  refusal subject.
+- Missing and unsupported launchers use bounded diagnostics that name only the
+  accepted identities (`claude-code`, `codex`).
+- The run is replayed immediately before payload publication; phase or revision
+  drift returns `model.assignment_stale`. All handoff paths remain read-only.
+
+Verification passed:
+
+```text
+npm test -- tests/model-role-workflow.test.ts tests/cli-composition.test.ts tests/project-configuration.test.ts tests/result-contract-rendering.test.ts tests/model-role-resolution.test.ts tests/workflow-state-machine.test.ts tests/event-store-transaction.test.ts
+Test Files 7 passed
+Tests 154 passed
+
+npm run contracts:check
+contract families v1.0.0: verified (33 schemas; 14 legacy profiles; generated types current)
+
+npm run lint -- --quiet
+exit 0
+
+npm run typecheck
+exit 0
+```

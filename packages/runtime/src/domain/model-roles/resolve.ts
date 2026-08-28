@@ -1,6 +1,8 @@
 import type { ModelAssignmentV1_1, ProjectConfigV1_1 } from "@kratos/contracts";
 
 import {
+  MODEL_ROLES,
+  type DetailedModelRoleResolution,
   PHASE_MODEL_ROLE,
   type HostModelCatalog,
   type ModelRole,
@@ -43,50 +45,60 @@ export function resolvePhaseAssignment(input: {
   readonly configuration: ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): ModelRoleResolution {
+  const resolved = resolvePhaseAssignmentDetailed(input);
+  return resolved.kind === "resolved" ? resolved : refused(resolved.reasonCode);
+}
+
+/**
+ * Resolve the complete, stable routing tuple and retain the exact refusal
+ * subject for callers that must diagnose configuration rather than a phase.
+ */
+export function resolvePhaseAssignmentDetailed(input: {
+  readonly phase: RunPhase;
+  readonly host: "claude" | "codex";
+  readonly configuration: ProjectConfigV1_1;
+  readonly catalog: HostModelCatalog;
+}): DetailedModelRoleResolution {
   const configuredRoles = input.configuration.modelRoles[input.host];
-  if (configuredRoles === undefined) return refused("model.host_missing");
+  if (configuredRoles === undefined) {
+    return detailedRefused("model.host_missing", input.host, null);
+  }
   if (input.catalog.host !== input.host) {
-    return refused("model.resolution_unavailable");
+    return detailedRefused("model.resolution_unavailable", input.host, null);
   }
 
   const role = roleForPhase(input.phase);
-  const selected = resolveModelRoleAssignment({
-    host: input.host,
-    role,
-    roles: configuredRoles,
-    catalog: input.catalog,
-  });
-  if (selected.kind === "refused") return selected;
-
-  const implementer =
-    role === "implementer"
-      ? selected
-      : resolveModelRoleAssignment({
-          host: input.host,
-          role: "implementer",
-          roles: configuredRoles,
-          catalog: input.catalog,
-        });
-  if (implementer.kind === "refused") return implementer;
-
-  const judge =
-    role === "judge"
-      ? selected
-      : resolveModelRoleAssignment({
-          host: input.host,
-          role: "judge",
-          roles: configuredRoles,
-          catalog: input.catalog,
-        });
-  if (judge.kind === "refused") return judge;
+  const resolved = new Map<ModelRole, NormalizedModelAssignment>();
+  for (const candidateRole of MODEL_ROLES) {
+    const candidate = resolveModelRoleAssignment({
+      host: input.host,
+      role: candidateRole,
+      roles: configuredRoles,
+      catalog: input.catalog,
+    });
+    if (candidate.kind === "refused") {
+      return detailedRefused(candidate.reasonCode, input.host, candidateRole);
+    }
+    resolved.set(candidateRole, candidate.assignment);
+  }
+  const selected = resolved.get(role);
+  const implementer = resolved.get("implementer");
+  const judge = resolved.get("judge");
+  if (
+    selected === undefined ||
+    implementer === undefined ||
+    judge === undefined
+  ) {
+    return detailedRefused("model.resolution_unavailable", input.host, null);
+  }
 
   if (
     validateHostIndependence({
-      implementer: implementer.assignment,
-      judge: judge.assignment,
+      implementer,
+      judge,
     }) !== null
   ) {
-    return refused("model.independence_violation");
+    return detailedRefused("model.independence_violation", input.host, null);
   }
 
   return {
@@ -94,10 +106,18 @@ export function resolvePhaseAssignment(input: {
     assignment: {
       phase: input.phase,
       role,
-      model: selected.assignment.model,
-      effort: selected.assignment.effort,
+      model: selected.model,
+      effort: selected.effort,
     },
   };
+}
+
+function detailedRefused(
+  reasonCode: ModelRoleRefusal,
+  host: "claude" | "codex",
+  role: ModelRole | null,
+): DetailedModelRoleResolution {
+  return { kind: "refused", reasonCode, subject: { host, role } };
 }
 
 function refused(reasonCode: ModelRoleRefusal): ModelRoleResolution {

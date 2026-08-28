@@ -1,6 +1,9 @@
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import { runCommandLine } from "@kratos/runtime/composition/cli";
-import type { HostModelCatalog } from "@kratos/runtime/domain/model-roles";
+import {
+  digestPhaseAssignment,
+  type HostModelCatalog,
+} from "@kratos/runtime/domain/model-roles";
 import {
   fixedClock,
   fixedEnvironment,
@@ -58,7 +61,7 @@ interface WorkflowSubject {
 }
 
 interface SubjectOptions {
-  readonly launcherHost?: "claude-code" | "codex" | "unknown";
+  readonly launcherHost?: "claude-code" | "codex" | "unknown" | null;
   readonly configuration?: unknown;
   readonly catalogs?: "default" | "missing";
   readonly modelCatalogs?: readonly HostModelCatalog[];
@@ -74,7 +77,8 @@ function subject(
   files: Readonly<Record<string, string>> = {},
   directories: readonly string[] = [".brain", ".brain/transactions"],
 ): WorkflowSubject {
-  const host = options.launcherHost ?? "codex";
+  const host =
+    options.launcherHost === undefined ? "codex" : options.launcherHost;
   const storage = memoryTransactionStorage({
     files: {
       ".brain/config.json": JSON.stringify(
@@ -104,7 +108,10 @@ function subject(
         : options.catalogs === "missing"
           ? fixedModelRouting([])
           : fixedModelRouting([claudeCatalog(), codexCatalog()]),
-    environment: fixedEnvironment({ KRATOS_HOST: host }, ROOT),
+    environment: fixedEnvironment(
+      host === null ? {} : { KRATOS_HOST: host },
+      ROOT,
+    ),
     output,
     standardInput: pipedInput(null),
     targetInspector: {
@@ -157,14 +164,18 @@ async function started(options: SubjectOptions = {}): Promise<WorkflowSubject> {
   return { ...run, before: run.storage.snapshot() };
 }
 
-async function advanceToReview(run: WorkflowSubject): Promise<void> {
+async function advanceToPhase(
+  run: WorkflowSubject,
+  completed: number,
+): Promise<void> {
   const phases = [
     [".brain/02-features/ship-handoff/00-prd.md", "# PRD\n"],
     [".brain/02-features/ship-handoff/01-design.md", "# Design\n"],
     [".brain/02-features/ship-handoff/02-tasks.md", TASKS],
     [".brain/02-features/ship-handoff/code-summary.md", "Code complete.\n"],
+    [".brain/02-features/ship-handoff/review-summary.md", "Review complete.\n"],
   ] as const;
-  for (const [index, [ref, content]] of phases.entries()) {
+  for (const [index, [ref, content]] of phases.slice(0, completed).entries()) {
     await run.ports.fileSystem.write(ref, content);
     expect(
       await runCommandLine(
@@ -195,6 +206,10 @@ async function advanceToReview(run: WorkflowSubject): Promise<void> {
     ).toBe(0);
   }
   clearOutput(run.output);
+}
+
+async function advanceToReview(run: WorkflowSubject): Promise<void> {
+  await advanceToPhase(run, 4);
 }
 
 describe("read-only model-role handoffs", () => {
@@ -327,6 +342,223 @@ describe("read-only model-role handoffs", () => {
     expect(await runCommandLine(["handoff"], run.ports)).not.toBe(0);
     expect(run.output.human_.join("")).toContain("implementer");
     expect(run.storage.snapshot()).toEqual(run.before);
+  });
+
+  it.each([
+    ["code", 3],
+    ["review", 4],
+    ["acceptance", 5],
+  ])(
+    "requires planner even when the run has reached %s",
+    async (_phase, completed) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            implementer: "implementer",
+            judge: "judge",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, completed);
+      const before = run.storage.snapshot();
+
+      expect(await runCommandLine(["handoff"], run.ports)).not.toBe(0);
+      expect(run.output.human_.join("")).toContain("planner");
+      expect(run.storage.snapshot()).toEqual(before);
+    },
+  );
+
+  it("names the invalid dependency role rather than the phase role", async () => {
+    const run = await started({
+      configuration: roleConfig("codex", {
+        planner: "planner",
+        implementer: "implementer",
+        judge: "unknown-judge-alias",
+      }),
+    });
+
+    expect(await runCommandLine(["handoff"], run.ports)).not.toBe(0);
+    expect(run.output.human_.join("")).toContain("judge");
+    expect(run.output.human_.join("")).not.toContain("model-routing/planner");
+    expect(run.storage.snapshot()).toEqual(run.before);
+  });
+
+  it.each([
+    ["an absent launcher", null, "required"],
+    ["an unsupported launcher", "unknown", "unsupported"],
+  ] as const)(
+    "reports %s with accepted launcher identities and no input echo",
+    async (_label, launcherHost, cue) => {
+      const run = await started({ launcherHost });
+
+      expect(await runCommandLine(["handoff"], run.ports)).not.toBe(0);
+      const rendered = run.output.human_.join("");
+      expect(rendered).toContain(cue);
+      expect(rendered).toContain("claude-code");
+      expect(rendered).toContain("codex");
+      expect(rendered).not.toContain("unknown");
+      expect(run.storage.snapshot()).toEqual(run.before);
+    },
+  );
+
+  it("binds the digest to the exact configuration bytes read after replacement", async () => {
+    const run = await started();
+    const replacement = {
+      ...roleConfig("codex", {
+        planner: "planner",
+        implementer: "implementer",
+        judge: "judge",
+      }),
+      policyMode: "standard" as const,
+    };
+    const replacementText = JSON.stringify(replacement);
+    const original = run.ports.durableFileSystem;
+    let configInspections = 0;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...original,
+        inspect: async (path) => {
+          const entry = await original.inspect(path);
+          if (path === ".brain/config.json" && ++configInspections === 2) {
+            await run.ports.fileSystem.write(path, replacementText);
+          }
+          return entry;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(await runCommandLine(["--json", "handoff"], ports)).toBe(0);
+    const payload = JSON.parse(run.output.structured_.join("")) as {
+      readonly assignmentDigest: string;
+    };
+    expect(payload.assignmentDigest).toBe(
+      digestPhaseAssignment(
+        {
+          configDigest: run.ports.digests.sha256(replacementText),
+          runId: "run-01",
+          revision: 1,
+          host: "codex",
+          assignment: {
+            phase: "prd",
+            role: "planner",
+            model: "planner-canonical",
+            effort: "medium",
+          },
+        },
+        (canonical) => run.ports.digests.sha256(canonical),
+      ),
+    );
+    expect(run.storage.snapshot().files[".brain/config.json"]).toBe(
+      replacementText,
+    );
+    expect(run.storage.snapshot().files).toMatchObject({
+      [".brain/02-features/ship-handoff/runs/run-01/events.jsonl"]:
+        before.files[
+          ".brain/02-features/ship-handoff/runs/run-01/events.jsonl"
+        ],
+      [".brain/02-features/ship-handoff/runs/run-01/state.json"]:
+        before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    });
+  });
+
+  it("refuses deterministically when configuration disappears during resolution", async () => {
+    const run = await started();
+    const routing = run.ports.modelRouting;
+    let deleted = false;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      modelRouting: {
+        observe: async (host) => {
+          const catalog = await routing.observe(host);
+          if (!deleted) {
+            deleted = true;
+            await run.ports.fileSystem.remove(".brain/config.json");
+          }
+          return catalog;
+        },
+      },
+    };
+    const before = run.storage.snapshot();
+
+    expect(await runCommandLine(["--json", "handoff"], ports)).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "guard.config_missing",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files).toMatchObject({
+      [".brain/02-features/ship-handoff/runs/run-01/events.jsonl"]:
+        before.files[
+          ".brain/02-features/ship-handoff/runs/run-01/events.jsonl"
+        ],
+      [".brain/02-features/ship-handoff/runs/run-01/state.json"]:
+        before.files[".brain/02-features/ship-handoff/runs/run-01/state.json"],
+    });
+  });
+
+  it("refuses a handoff when phase and revision change during resolution", async () => {
+    const run = await started();
+    const routing = run.ports.modelRouting;
+    let changed = false;
+    let afterExternalChange: ReturnType<typeof run.storage.snapshot> | null =
+      null;
+    const mutatorPorts: RuntimePorts = {
+      ...run.ports,
+      modelRouting: routing,
+    };
+    const ports: RuntimePorts = {
+      ...run.ports,
+      modelRouting: {
+        observe: async (host) => {
+          const catalog = await routing.observe(host);
+          if (!changed) {
+            changed = true;
+            const ref = ".brain/02-features/ship-handoff/00-prd.md";
+            await run.ports.fileSystem.write(ref, "# External PRD\n");
+            expect(
+              await runCommandLine(
+                [
+                  "evidence",
+                  "record",
+                  ref,
+                  "--correlation-id",
+                  "external-evidence",
+                ],
+                mutatorPorts,
+              ),
+            ).toBe(0);
+            expect(
+              await runCommandLine(
+                [
+                  "continue",
+                  "--complete",
+                  "--artifact",
+                  ref,
+                  "--evidence",
+                  ref,
+                  "--correlation-id",
+                  "external-change",
+                ],
+                mutatorPorts,
+              ),
+            ).toBe(0);
+            afterExternalChange = run.storage.snapshot();
+            clearOutput(run.output);
+          }
+          return catalog;
+        },
+      },
+    };
+
+    expect(await runCommandLine(["--json", "handoff"], ports)).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(afterExternalChange).not.toBeNull();
+    expect(run.storage.snapshot()).toEqual(afterExternalChange);
   });
 
   it.each([

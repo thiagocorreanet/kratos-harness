@@ -213,7 +213,8 @@ export type CommandObservation =
               | "guard.config_missing"
               | "guard.config_corrupt"
               | "contract.state_version_invalid"
-              | "contract.state_version_unsupported";
+              | "contract.state_version_unsupported"
+              | "model.assignment_stale";
             readonly subject: string;
           };
       readonly correlationId: string;
