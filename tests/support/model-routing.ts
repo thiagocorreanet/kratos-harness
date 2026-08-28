@@ -1,7 +1,4 @@
-import type {
-  ModelAssignmentV1_1,
-  ProjectConfigV1_1,
-} from "@kratos/contracts";
+import type { ModelAssignmentV1_1, ProjectConfigV1_1 } from "@kratos/contracts";
 import type {
   HostModelCatalog,
   ModelRole,

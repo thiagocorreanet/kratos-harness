@@ -18,6 +18,8 @@ import type {
   FailureCandidateV1,
   GateFactsV1,
   MigrationV1,
+  MigrationV1_1,
+  ProjectConfigV1_1,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -334,10 +336,40 @@ export type CommandObservation =
             }[];
           }
         | {
+            readonly kind: "config";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly destination: ProjectConfigV1_1;
+            readonly destinationDigest: string;
+            readonly planDigest: string;
+            readonly expected: WriteFilePrecondition;
+            readonly hosts: readonly ("claude" | "codex")[];
+            readonly defaulted: readonly string[];
+            readonly writes: readonly string[];
+          }
+        | {
+            readonly kind: "config-current";
+            readonly sha256: string;
+          }
+        | {
             readonly kind: "rollback";
             readonly migrationId: string;
-            readonly receipt: MigrationV1 | null;
+            readonly receipt: MigrationV1 | MigrationV1_1 | null;
             readonly targets: readonly string[];
+            readonly replacement: {
+              readonly destinationRef: string;
+              readonly content: string;
+              readonly expected: WriteFilePrecondition;
+              readonly backupRef: string;
+              readonly backupExpected: WriteFilePrecondition;
+              readonly receiptExpected: WriteFilePrecondition;
+              readonly backupDigest: string;
+              readonly destinationDigest: string;
+            } | null;
             readonly now: string;
           };
     };

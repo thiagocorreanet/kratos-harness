@@ -1,9 +1,13 @@
 import type { MigrationV1 } from "@kratos/contracts";
 
 import {
+  authorizeConfigMigration,
   authorizeMigration,
+  completeConfigMigration,
   completeMigration,
+  plannedConfigMigration,
   plannedMigration,
+  rollBackConfigMigration,
   rollBackMigration,
   type MigrationAction,
 } from "../migration/index.js";
@@ -52,6 +56,31 @@ export const migrateBrainCommand: CommandSpec = observingCommand(
     jsonContract: "result@1.0.0",
   },
   (invocation, observation) => migrateBrain(invocation, observation),
+);
+
+export const migrateConfigCommand: CommandSpec = observingCommand(
+  "migration",
+  {
+    path: ["migrate", "config"],
+    summary: "Preview or execute the project configuration upgrade.",
+    flags: [
+      ...ROOT_FLAG,
+      {
+        name: "--answers",
+        kind: "value",
+        valueLabel: "<path>",
+        summary: "Read explicit enabled hosts and role answers from a file.",
+      },
+      {
+        name: "--yes",
+        kind: "boolean",
+        summary: "Authorize the exact digest-bound configuration plan.",
+      },
+    ],
+    positionals: { min: 0, max: 0 },
+    jsonContract: "result@1.0.0",
+  },
+  (invocation, observation) => migrateConfig(invocation, observation),
 );
 
 export const migrateRollbackCommand: CommandSpec = observingCommand(
@@ -191,14 +220,258 @@ function migrateBrain(
   };
 }
 
+function migrateConfig(
+  invocation: Invocation,
+  observation: Observation,
+): Decision {
+  const operation = observation.operation;
+  if (operation.kind === "config-current") {
+    return orientation(
+      `Project configuration ${operation.sha256} is already current.`,
+    );
+  }
+  if (operation.kind !== "config") return corrupt();
+
+  const details = configPlanDetails(operation);
+  if (invocation.flags.get("--yes") !== true) {
+    return {
+      result: resultFor("runtime.orientation_ok", {
+        summary: `Configuration migration plan ${operation.planDigest} is ready.`,
+        why: details,
+      }),
+      plan: planOf(),
+      humanStdout: `${[
+        "Configuration migration preview",
+        `Plan digest: ${operation.planDigest}`,
+        ...details,
+        "Re-run with --yes to authorize this exact plan.",
+      ].join("\n")}\n`,
+      payload: null,
+    };
+  }
+
+  const root = `.brain/migrations/${operation.migrationId}`;
+  const authorizationRef = `${root}/authorization.json`;
+  const backupRef = `${root}/backup/config.json`;
+  const rollbackRef = `${root}/rollback.json`;
+  const receiptRef = `${root}/receipt.json`;
+  const verificationRef = `${root}/verification.json`;
+  if (
+    JSON.stringify(operation.writes) !==
+    JSON.stringify([
+      ".brain/config.json",
+      backupRef,
+      authorizationRef,
+      rollbackRef,
+      receiptRef,
+      verificationRef,
+    ])
+  ) {
+    return corrupt();
+  }
+  const planned = plannedConfigMigration({
+    migrationId: operation.migrationId,
+    planDigest: operation.planDigest,
+    authorizationRef,
+    backupRef,
+    backupDigest: operation.source.sha256,
+    destinationRef: ".brain/config.json",
+    destinationDigest: operation.destinationDigest,
+    verificationRef,
+    now: operation.now,
+  });
+  const authorized = authorizeConfigMigration(
+    planned,
+    operation.planDigest,
+    authorizationRef,
+    operation.now,
+  );
+  if (authorized === null) return corrupt();
+  const completed = completeConfigMigration(
+    authorized,
+    verificationRef,
+    operation.destinationDigest,
+    operation.now,
+  );
+  if (completed === null || completed.rollback.kind !== "replace") {
+    return corrupt();
+  }
+  const destinationContent = `${JSON.stringify(operation.destination, null, 2)}\n`;
+  const missing = { kind: "missing" } as const;
+  return {
+    result: resultFor("trail.ok", {
+      summary: `Completed configuration migration plan ${operation.planDigest}.`,
+      stateChanged: true,
+      evidence: operation.writes.map((ref) => ({
+        kind: "artifact" as const,
+        ref,
+      })),
+      why: operation.defaulted.map((path) => `defaulted: ${path}`),
+    }),
+    plan: planOf(
+      {
+        kind: "write_file",
+        path: ".brain/config.json",
+        content: destinationContent,
+        expected: operation.expected,
+      },
+      {
+        kind: "write_file",
+        path: backupRef,
+        content: operation.source.content,
+        expected: missing,
+      },
+      {
+        kind: "write_file",
+        path: authorizationRef,
+        content: json({
+          contractVersion: "1.1.0",
+          stateContract: "1.1.0",
+          migrationId: operation.migrationId,
+          planDigest: operation.planDigest,
+          source: {
+            ref: ".brain/config.json",
+            sha256: operation.source.sha256,
+          },
+          destination: {
+            ref: ".brain/config.json",
+            sha256: operation.destinationDigest,
+          },
+          authorizedAt: operation.now,
+        }),
+        expected: missing,
+      },
+      {
+        kind: "write_file",
+        path: rollbackRef,
+        content: json({
+          contractVersion: "1.1.0",
+          stateContract: "1.1.0",
+          migrationId: operation.migrationId,
+          planDigest: operation.planDigest,
+          rollback: completed.rollback,
+        }),
+        expected: missing,
+      },
+      {
+        kind: "write_file",
+        path: receiptRef,
+        content: json(completed),
+        expected: missing,
+      },
+      {
+        kind: "write_file",
+        path: verificationRef,
+        content: json({
+          contractVersion: "1.1.0",
+          stateContract: "1.1.0",
+          migrationId: operation.migrationId,
+          planDigest: operation.planDigest,
+          backup: {
+            ref: backupRef,
+            sha256: operation.source.sha256,
+          },
+          destination: {
+            ref: ".brain/config.json",
+            sha256: operation.destinationDigest,
+          },
+          verifiedAt: operation.now,
+        }),
+        expected: missing,
+      },
+    ),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function configPlanDetails(
+  operation: Extract<Observation["operation"], { readonly kind: "config" }>,
+): string[] {
+  const details = [
+    `Source SHA-256: ${operation.source.sha256}`,
+    `Destination SHA-256: ${operation.destinationDigest}`,
+    `Confirmed hosts: ${operation.hosts.join(", ")}`,
+    "Assignments:",
+  ];
+  const roles = ["planner", "implementer", "judge"] as const;
+  for (const host of operation.hosts) {
+    const assignments = operation.destination.modelRoles[host];
+    for (const role of roles) {
+      const assignment = assignments?.[role];
+      if (assignment === undefined) continue;
+      const value =
+        typeof assignment === "string"
+          ? assignment
+          : `${assignment.model}@${assignment.effort}`;
+      const defaulted = operation.defaulted.includes(
+        `modelRoles.${host}.${role}`,
+      );
+      details.push(
+        `${host}.${role} = ${value}${defaulted ? " (defaulted)" : ""}`,
+      );
+    }
+  }
+  details.push("Writes:", ...operation.writes.map((path) => `- ${path}`));
+  return details;
+}
+
+function json(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
 function migrateRollback(observation: Observation): Decision {
   const operation = observation.operation;
   if (
     operation.kind !== "rollback" ||
     operation.receipt === null ||
-    operation.targets.length === 0
+    (operation.targets.length === 0 && operation.replacement === null)
   ) {
     return corrupt();
+  }
+  if (operation.receipt.stateContract === "1.1.0") {
+    const replacement = operation.replacement;
+    if (replacement === null) return corrupt();
+    const rolledBack = rollBackConfigMigration(
+      operation.receipt,
+      replacement.backupDigest,
+      replacement.destinationDigest,
+      operation.now,
+    );
+    if (rolledBack === null) return corrupt();
+    const receiptRef = `.brain/migrations/${operation.migrationId}/receipt.json`;
+    return {
+      result: resultFor("trail.ok", {
+        summary: `Rolled back migration ${operation.migrationId}.`,
+        stateChanged: true,
+        evidence: [
+          { kind: "artifact", ref: receiptRef },
+          { kind: "artifact", ref: replacement.destinationRef },
+        ],
+      }),
+      plan: planOf(
+        {
+          kind: "write_file",
+          path: replacement.backupRef,
+          content: replacement.content,
+          expected: replacement.backupExpected,
+        },
+        {
+          kind: "write_file",
+          path: replacement.destinationRef,
+          content: replacement.content,
+          expected: replacement.expected,
+        },
+        {
+          kind: "write_file",
+          path: receiptRef,
+          content: json(rolledBack),
+          expected: replacement.receiptExpected,
+        },
+      ),
+      humanStdout: null,
+      payload: null,
+    };
   }
   const rolledBack = rollBackMigration(
     operation.receipt,

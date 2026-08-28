@@ -191,8 +191,14 @@ describe("model role resolution", () => {
     ["run id", { runId: "other-run" }],
     ["revision", { revision: 8 }],
     ["host", { host: "claude" as const }],
-    ["phase", { assignment: { ...resolvedReview, phase: "acceptance" as const } }],
-    ["role", { assignment: { ...resolvedReview, role: "implementer" as const } }],
+    [
+      "phase",
+      { assignment: { ...resolvedReview, phase: "acceptance" as const } },
+    ],
+    [
+      "role",
+      { assignment: { ...resolvedReview, role: "implementer" as const } },
+    ],
     ["model", { assignment: { ...resolvedReview, model: "other-model" } }],
     ["effort", { assignment: { ...resolvedReview, effort: "high" } }],
   ] as const)("changes the digest when %s changes", (_field, changed) => {

@@ -2,10 +2,15 @@ import { createHash } from "node:crypto";
 
 import type { SnapshotV1 } from "@kratos/contracts";
 import {
+  authorizeConfigMigration,
   authorizeMigration,
+  completeConfigMigration,
   completeMigration,
+  plannedConfigMigration,
   plannedMigration,
+  rollBackConfigMigration,
   rollBackMigration,
+  upgradeProjectConfiguration,
   upgradeState,
 } from "@kratos/runtime/domain/migration";
 import {
@@ -83,6 +88,100 @@ describe("transactional migration lifecycle", () => {
         },
       ]),
     ).toMatchObject({ kind: "upgraded", path: ["0.9.0", "1.0.0"] });
+  });
+
+  it("upgrades only the configuration contract and adds resolved roles", () => {
+    const upgraded = upgradeProjectConfiguration(
+      {
+        contractVersion: "1.0.0",
+        stateContract: "1.0.0",
+        pluginVersion: "0.0.0-development",
+        hostContract: "1.0.0",
+        language: "pt-BR",
+        policyMode: "strict",
+        managedState: {
+          directory: ".brain",
+          eventLog: "events.jsonl",
+          snapshots: false,
+        },
+      },
+      {
+        codex: {
+          planner: { model: "planner", effort: "medium" },
+          implementer: { model: "implementer", effort: "high" },
+          judge: { model: "judge", effort: "medium" },
+        },
+      },
+    );
+
+    expect(upgraded).toEqual({
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "pt-BR",
+      policyMode: "strict",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: false,
+      },
+      modelRoles: {
+        codex: {
+          planner: { model: "planner", effort: "medium" },
+          implementer: { model: "implementer", effort: "high" },
+          judge: { model: "judge", effort: "medium" },
+        },
+      },
+    });
+  });
+
+  it("binds replacement completion and rollback to exact digests", () => {
+    const root = ".brain/migrations/config-01";
+    const planned = plannedConfigMigration({
+      migrationId: "config-01",
+      planDigest: "1".repeat(64),
+      authorizationRef: `${root}/authorization.json`,
+      backupRef: `${root}/backup/config.json`,
+      backupDigest: "2".repeat(64),
+      destinationRef: ".brain/config.json",
+      destinationDigest: "3".repeat(64),
+      verificationRef: `${root}/verification.json`,
+      now: "2026-08-28T12:00:00.000Z",
+    });
+    const authorized = authorizeConfigMigration(
+      planned,
+      "1".repeat(64),
+      `${root}/authorization.json`,
+      "2026-08-28T12:00:00.000Z",
+    );
+    expect(authorized?.status).toBe("authorized");
+    if (authorized === null) return;
+    const completed = completeConfigMigration(
+      authorized,
+      `${root}/verification.json`,
+      "3".repeat(64),
+      "2026-08-28T12:00:00.000Z",
+    );
+    expect(completed?.status).toBe("completed");
+    if (completed === null) return;
+
+    expect(
+      rollBackConfigMigration(
+        completed,
+        "2".repeat(64),
+        "3".repeat(64),
+        "2026-08-28T12:01:00.000Z",
+      )?.status,
+    ).toBe("rolled-back");
+    expect(
+      rollBackConfigMigration(
+        completed,
+        "2".repeat(64),
+        "4".repeat(64),
+        "2026-08-28T12:01:00.000Z",
+      ),
+    ).toBeNull();
   });
 });
 

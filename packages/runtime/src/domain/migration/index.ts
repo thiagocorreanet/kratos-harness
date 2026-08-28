@@ -6,13 +6,19 @@ export type {
   MigrationPlan,
 } from "./plan.js";
 export {
+  authorizeConfigMigration,
   authorizeMigration,
+  completeConfigMigration,
   completeMigration,
+  plannedConfigMigration,
   plannedMigration,
+  rollBackConfigMigration,
   rollBackMigration,
+  type ConfigMigrationReceiptRequest,
   type MigrationReceiptRequest,
 } from "./receipt.js";
 export {
+  upgradeProjectConfiguration,
   upgradeState,
   type StateUpgrade,
   type UpgradeResult,

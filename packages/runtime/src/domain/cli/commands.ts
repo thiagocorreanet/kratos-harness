@@ -27,7 +27,11 @@ import {
   gapsWaiveCommand,
   gatesRecordCommand,
 } from "./gaps.js";
-import { migrateBrainCommand, migrateRollbackCommand } from "./migration.js";
+import {
+  migrateBrainCommand,
+  migrateConfigCommand,
+  migrateRollbackCommand,
+} from "./migration.js";
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 import { unlockStopLossCommand } from "./unlock.js";
 import {
@@ -121,6 +125,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   initCommand,
   hookCommand,
   migrateBrainCommand,
+  migrateConfigCommand,
   migrateRollbackCommand,
   objectiveCommand,
   repairCommand,
