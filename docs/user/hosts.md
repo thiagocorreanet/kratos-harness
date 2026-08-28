@@ -10,7 +10,9 @@ Each package installs a synchronous `PreToolUse` relay for structured file
 mutation only. Claude Code normalizes `Write`, `Edit`, and legacy `MultiEdit`;
 Codex normalizes `apply_patch`. Both adapters produce the same
 `host.pre-tool-use@1.0.0` request (`create`, `update`, `delete`, or ordered
-`move` endpoints), invoke the embedded runtime guard, and preserve the same
+`move` endpoints). It is a closed record with `contractVersion`, `hostContract`,
+and an ordered `mutations` array; version 1 accepts 1–256 mutations. The
+adapters invoke the embedded runtime guard and preserve the same
 `host.operation-result@1.0.0` identity, reason code, exit code, evidence, and
 state-change claim. Only the host-specific allow/deny rendering differs.
 

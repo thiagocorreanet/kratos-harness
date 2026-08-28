@@ -79,7 +79,7 @@ record` accepts only code-formatted glob bullets (`- \`path/**\``) under those
 two depth-two headings. It ignores comments and fenced examples, preserves
 declaration order, and uses one parser and one renderer so the stored
 `scope.json` and reviewer prose have one grammar. A missing heading, malformed
-bullet, invalid glob, or malformed comment/fence is malformed reviewer prose.
+bullet, invalid glob, or unterminated comment/fence is malformed reviewer prose.
 
 The command writes `.brain/02-features/<active-feature>/scope.json` only if it
 does not already exist. If an existing scope file that already differs from the

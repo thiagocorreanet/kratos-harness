@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import contractFamilies from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
+import reasonCatalogV16 from "../packages/contracts/catalogs/reason-codes.v1.6.json" with { type: "json" };
+import preToolUseSchema from "../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
+import featureScopeSchema from "../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
+import guardrailsSchema from "../schemas/state/guardrails.v1.schema.json" with { type: "json" };
 import { beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -19,6 +24,50 @@ let agentOutput: string;
 let configuration: string;
 let projectInitialization: string;
 let hosts: string;
+
+function record(value: unknown): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("expected a contract record");
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function contractVersion(schema: unknown): string {
+  const properties = record(record(schema).properties);
+  const version = record(properties.contractVersion).const;
+  if (typeof version !== "string") throw new Error("expected contract version");
+  return version;
+}
+
+function requiredProperties(schema: unknown): readonly string[] {
+  const required = record(schema).required;
+  if (
+    !Array.isArray(required) ||
+    !required.every((value) => typeof value === "string")
+  ) {
+    throw new Error("expected required contract properties");
+  }
+  return required;
+}
+
+function mutationBounds(schema: unknown): readonly [number, number] {
+  const mutations = record(record(schema).properties).mutations;
+  const minimum = record(mutations).minItems;
+  const maximum = record(mutations).maxItems;
+  if (typeof minimum !== "number" || typeof maximum !== "number") {
+    throw new Error("expected mutation bounds");
+  }
+  return [minimum, maximum];
+}
+
+function reason(code: string): Readonly<Record<string, unknown>> {
+  const reasons = record(reasonCatalogV16).reasons;
+  if (!Array.isArray(reasons))
+    throw new Error("expected reason catalog entries");
+  const entry = reasons.find((candidate) => record(candidate).code === code);
+  if (entry === undefined) throw new Error(`missing reason ${code}`);
+  return record(entry);
+}
 
 beforeAll(async () => {
   [
@@ -231,10 +280,22 @@ describe("contract versioning documentation", () => {
 });
 
 describe("pre-write scope guard documentation", () => {
-  it("publishes the scope grammar, policy order, host boundary, and result compatibility", () => {
+  it("derives published scope, host, and result facts from the checked contracts", () => {
+    const scopeVersion = contractVersion(featureScopeSchema);
+    const guardrailsProperties = record(guardrailsSchema).properties;
+    const preToolVersion = contractVersion(preToolUseSchema);
+    const [minimumMutations, maximumMutations] =
+      mutationBounds(preToolUseSchema);
+    const pathEscape = reason("guard.path_escape");
+    const outsideAllow = reason("guard.outside_allow");
+    const reasonCatalogVersion = record(contractFamilies).reasonCatalog;
+    if (typeof reasonCatalogVersion !== "string") {
+      throw new Error("expected reason catalog version");
+    }
+
     for (const token of [
       "`.brain/02-features/<active-feature>/scope.json`",
-      "`state.feature-scope@1.0.0`",
+      `\`state.feature-scope@${scopeVersion}\``,
       "`kratos scope record`",
       "`## File allowlist`",
       "`## File denylist`",
@@ -247,6 +308,11 @@ describe("pre-write scope guard documentation", () => {
     ]) {
       expect(configuration).toContain(token);
     }
+    for (const property of requiredProperties(featureScopeSchema)) {
+      expect(configuration).toContain(`\`${property}\``);
+    }
+    expect(guardrailsProperties).toHaveProperty("writeBlocks");
+    expect(configuration).toContain("`writeBlocks`");
     expect(configuration).toMatch(/exact `\.brain` root is not\s+repairable/u);
 
     for (const token of [
@@ -269,16 +335,27 @@ describe("pre-write scope guard documentation", () => {
     ]) {
       expect(hosts).toContain(token);
     }
-
-    for (const token of [
-      "reason-codes.v1.6.json",
-      "`guard.path_escape`",
-      "`guard.target_uninspectable`",
-      "exit 3",
-      "failure / exit 2",
-      "Every non-success result is denied by the host relay",
-    ]) {
-      expect(resultContract).toContain(token);
+    expect(hosts).toContain(`\`host.pre-tool-use@${preToolVersion}\``);
+    for (const property of requiredProperties(preToolUseSchema)) {
+      expect(hosts).toContain(`\`${property}\``);
     }
+    expect(hosts).toContain(`${minimumMutations}\u2013${maximumMutations}`);
+    expect(hosts).toContain("closed record");
+
+    expect(guide).toContain(`Revision \`${reasonCatalogVersion}\``);
+    expect(schemaIndex).toContain(
+      `reason-codes.v${reasonCatalogVersion.replace(/\.0$/u, "")}.json`,
+    );
+    expect(resultContract).toContain(`\`${pathEscape.code}\``);
+    expect(resultContract).toContain(
+      `as ${pathEscape.status} / exit ${pathEscape.exitCode}`,
+    );
+    expect(resultContract).toContain(`\`${outsideAllow.code}\``);
+    expect(resultContract).toContain(
+      `${outsideAllow.status} / exit ${outsideAllow.exitCode}`,
+    );
+    expect(resultContract).toContain(
+      "Every non-success result is denied by the host relay",
+    );
   });
 });
