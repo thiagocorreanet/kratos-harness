@@ -9,7 +9,7 @@ import type {
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
-  EventV1,
+  ReadableEvent,
   EvidenceV1,
   FeatureScopeV1,
   GapRecordV1,
@@ -305,7 +305,7 @@ export type CommandObservation =
       readonly gateDecision: GateDecision;
       readonly policyMode: GateMode;
       readonly tokenBudget: number | null;
-      readonly events: readonly EventV1[];
+      readonly events: readonly ReadableEvent[];
       readonly persistedSnapshot: SnapshotV1 | null;
       readonly replayedSnapshot: SnapshotV1 | null;
       readonly integrityAudit: IntegrityAudit | null;

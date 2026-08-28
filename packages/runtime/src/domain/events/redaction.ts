@@ -1,7 +1,8 @@
 import {
   EventIntegrityError,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventServices,
+  type ReadableEvent,
 } from "./model.js";
 
 const DRAFT_KEYS = [
@@ -21,7 +22,8 @@ const DRAFT_KEYS = [
   "observedIdentity",
 ] as const;
 
-const IDENTITY_KEYS = ["host", "model"] as const;
+const IDENTITY_KEYS = ["host", "model", "effort"] as const;
+const ASSIGNMENT_KEYS = ["phase", "role", "model", "effort"] as const;
 const MAX_REFERENCE_COUNT = 256;
 
 type DataRecord = Record<PropertyKey, unknown>;
@@ -122,34 +124,104 @@ function copyObservedIdentity(
 ): {
   host: string;
   model: string | null;
+  effort: string | null;
 } {
   const identity = requirePlainRecord(value, isProxy);
   requireExactKeys(identity, IDENTITY_KEYS);
   const host = requireString(identity, "host");
   const model = requireDataValue(identity, "model");
+  const effort = requireDataValue(identity, "effort");
   if (typeof model !== "string" && model !== null) invalidEvent();
-  return { host, model };
+  if (typeof effort !== "string" && effort !== null) invalidEvent();
+  return { host, model, effort };
+}
+
+function copyResolvedAssignment(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["resolvedAssignment"]> {
+  const assignment = requirePlainRecord(value, isProxy);
+  requireExactKeys(assignment, ASSIGNMENT_KEYS);
+  return {
+    phase: requireString(assignment, "phase") as NonNullable<
+      CurrentEventDraft["resolvedAssignment"]
+    >["phase"],
+    role: requireString(assignment, "role") as NonNullable<
+      CurrentEventDraft["resolvedAssignment"]
+    >["role"],
+    model: requireString(assignment, "model"),
+    effort: requireString(assignment, "effort"),
+  };
+}
+
+const phaseOperation =
+  /^sdd\.(agent\.record|continue):[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+
+function assignmentPolicy(event: {
+  readonly operation: string;
+  readonly reasonCode: string;
+}): "forbidden" | "optional" | "required" {
+  const operation = phaseOperation.exec(event.operation)?.[1];
+  if (operation === "agent.record") {
+    return event.reasonCode === "run.agent.recorded" ? "required" : "forbidden";
+  }
+  if (operation !== "continue") return "forbidden";
+  if (
+    event.reasonCode === "run.transition.accepted" ||
+    event.reasonCode === "run.completed"
+  ) {
+    return "required";
+  }
+  return event.reasonCode === "run.transition.rejected"
+    ? "optional"
+    : "forbidden";
+}
+
+export function assertEventAssignmentPolicy(event: ReadableEvent): void {
+  if (event.stateContract === "1.0.0") return;
+  const hasAssignment = Object.hasOwn(event, "resolvedAssignment");
+  const policy = assignmentPolicy(event);
+  if (
+    (policy === "required" && !hasAssignment) ||
+    (policy === "forbidden" && hasAssignment)
+  ) {
+    invalidEvent();
+  }
 }
 
 export function snapshotEventDraft(
   value: unknown,
   isProxy: EventServices["isProxy"],
-): EventDraftV1 {
+): CurrentEventDraft {
   try {
     const draft = requirePlainRecord(value, isProxy);
-    requireExactKeys(draft, DRAFT_KEYS);
-    return {
+    const resolvedAssignment = Object.hasOwn(draft, "resolvedAssignment")
+      ? copyResolvedAssignment(
+          requireDataValue(draft, "resolvedAssignment"),
+          isProxy,
+        )
+      : undefined;
+    requireExactKeys(
+      draft,
+      resolvedAssignment === undefined
+        ? DRAFT_KEYS
+        : [...DRAFT_KEYS, "resolvedAssignment"],
+    );
+    const snapshot: CurrentEventDraft = {
       contractVersion: requireString(draft, "contractVersion"),
       stateContract: requireString(draft, "stateContract"),
       eventId: requireString(draft, "eventId"),
-      eventType: requireString(draft, "eventType") as EventDraftV1["eventType"],
+      eventType: requireString(
+        draft,
+        "eventType",
+      ) as CurrentEventDraft["eventType"],
       occurredAt: requireString(draft, "occurredAt"),
       operation: requireString(draft, "operation"),
       policyVersion: requireString(draft, "policyVersion"),
       priorRevision: requireRevision(draft, "priorRevision"),
       resultingRevision: requireRevision(draft, "resultingRevision"),
       reasonCode: requireString(draft, "reasonCode"),
-      effect: requireString(draft, "effect") as EventDraftV1["effect"],
+      effect: requireString(draft, "effect") as CurrentEventDraft["effect"],
       artifactRefs: copyReferences(
         requireDataValue(draft, "artifactRefs"),
         isProxy,
@@ -162,7 +234,14 @@ export function snapshotEventDraft(
         requireDataValue(draft, "observedIdentity"),
         isProxy,
       ),
-    } as EventDraftV1;
+      ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
+    } as CurrentEventDraft;
+    assertEventAssignmentPolicy({
+      ...snapshot,
+      previousHash: null,
+      eventHash: "0".repeat(64),
+    });
+    return snapshot;
   } catch {
     return invalidEvent();
   }

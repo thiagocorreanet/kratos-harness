@@ -1,6 +1,6 @@
 import { types } from "node:util";
 
-import type { EventV1 } from "@kratos/contracts";
+import type { EventV1_1 } from "@kratos/contracts";
 
 import {
   EventIntegrityError,
@@ -11,6 +11,7 @@ import {
   snapshotEventReducerRegistry,
   verifyEventStream,
   type EventDraftV1,
+  type CurrentEventDraft,
   type EventReducerRegistry,
   type EventServices,
   type JsonState,
@@ -111,7 +112,7 @@ export interface PreparedEventWrite {
 
 export interface PreparedEventAppend {
   readonly paths: EventStorePaths;
-  readonly event: EventV1;
+  readonly event: EventV1_1;
   readonly effects: readonly [PreparedEventWrite, PreparedEventWrite];
   readonly expected: ReadonlyMap<string, PathFingerprint>;
 }
@@ -153,7 +154,7 @@ export async function prepareEventAppend<State = JsonState>(
 ): Promise<PreparedEventAppend> {
   let paths: EventStorePaths;
   let runId: string;
-  let draft: EventDraftV1;
+  let draft: CurrentEventDraft;
   let eventServices: EventServices;
   let reducers: EventReducerRegistry<State>;
   let tracker: DependencyTracker;
@@ -276,7 +277,7 @@ function snapshotRequest(
 ): {
   readonly feature: string;
   readonly runId: string;
-  readonly event: EventDraftV1;
+  readonly event: CurrentEventDraft;
 } {
   if (typeof input !== "object" || input === null || isProxy(input)) {
     throw new IntegrityFailure();
@@ -306,7 +307,7 @@ function prepareFirstAppend<State>(
   paths: EventStorePaths,
   expected: ReadonlyMap<string, PathFingerprint>,
   runId: string,
-  draft: EventDraftV1,
+  draft: CurrentEventDraft,
   reducers: EventReducerRegistry<State>,
   eventServices: EventServices,
   tracker: DependencyTracker,
@@ -407,7 +408,7 @@ function trustedServices<State>(
 
 function prepared(
   paths: EventStorePaths,
-  event: EventV1,
+  event: EventV1_1,
   expected: ReadonlyMap<string, PathFingerprint>,
   priorEvents: string,
   snapshotCanonical: string,
@@ -430,13 +431,18 @@ function prepared(
   });
 }
 
-function freezeEvent(event: EventV1): EventV1 {
+function freezeEvent(event: EventV1_1): EventV1_1 {
   return Object.freeze({
     ...event,
     artifactRefs: Object.freeze([...event.artifactRefs]),
     evidenceRefs: Object.freeze([...event.evidenceRefs]),
     observedIdentity: Object.freeze({ ...event.observedIdentity }),
-  }) as EventV1;
+    ...(event.resolvedAssignment === undefined
+      ? {}
+      : {
+          resolvedAssignment: Object.freeze({ ...event.resolvedAssignment }),
+        }),
+  }) as EventV1_1;
 }
 
 function readonlyMap(
@@ -470,7 +476,7 @@ function readonlyMap(
   return Object.freeze(readonly);
 }
 
-function canonicalEventLine(event: EventV1): string {
+function canonicalEventLine(event: EventV1_1): string {
   return `${canonicalizeJson(event)}\n`;
 }
 

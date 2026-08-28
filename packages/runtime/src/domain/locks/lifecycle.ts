@@ -1,10 +1,11 @@
-import type { EventV1, LockLeaseV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, LockLeaseV1 } from "@kratos/contracts";
 
 import {
   sealEvent,
   verifyEventStream,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventServices,
+  type ReadableEvent,
 } from "../events/index.js";
 import { canonicalizeJson, type SchemaRegistry } from "../schema/index.js";
 import { parseOwner, lockPaths } from "./scope.js";
@@ -27,7 +28,7 @@ export interface PrepareLeaseTransitionInput {
 }
 
 export interface PreparedLeaseTransition {
-  readonly event: EventV1;
+  readonly event: EventV1_1;
   readonly lease: LockLeaseV1;
   readonly leaseText: string;
   readonly eventsText: string;
@@ -35,8 +36,8 @@ export interface PreparedLeaseTransition {
 
 export interface LeaseBinding {
   readonly action: LockLifecycleAction;
-  readonly event: EventV1;
-  readonly events: readonly EventV1[];
+  readonly event: ReadableEvent;
+  readonly events: readonly ReadableEvent[];
   readonly lease: LockLeaseV1;
 }
 
@@ -139,7 +140,7 @@ function validateActionOrder(
 }
 
 function validateLifecycleEvents(
-  events: readonly EventV1[],
+  events: readonly ReadableEvent[],
   leaseRef: string,
 ): LockLifecycleAction {
   let previousAction: LockLifecycleAction | null = null;
@@ -169,7 +170,7 @@ function validateLifecycleEvents(
   return finalAction;
 }
 
-function lastEvent(events: readonly EventV1[]): EventV1 {
+function lastEvent(events: readonly ReadableEvent[]): ReadableEvent {
   // Callers validate non-emptiness before requesting the final event.
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return events[events.length - 1]!;
@@ -211,9 +212,9 @@ export function prepareLeaseTransition(
   validateTokenTransition(input.action, previousToken, lease.fencingToken);
   const leaseText = canonicalizeJson(lease);
   const digest = services.digests.sha256(leaseText);
-  const draft: EventDraftV1 = {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+  const draft: CurrentEventDraft = {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: input.eventId,
     eventType: input.action === "takeover" ? "recovery" : "operation",
     occurredAt: input.occurredAt,
@@ -225,9 +226,9 @@ export function prepareLeaseTransition(
     effect: "state",
     artifactRefs: [input.leaseRef],
     evidenceRefs: [],
-    observedIdentity: input.observedIdentity,
+    observedIdentity: { ...input.observedIdentity, effort: null },
   };
-  let sealed: EventV1;
+  let sealed: EventV1_1;
   try {
     sealed = sealEvent(draft, prior.cursor, services);
   } catch {

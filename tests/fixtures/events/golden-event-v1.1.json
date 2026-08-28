@@ -1,0 +1,30 @@
+{
+  "draft": {
+    "contractVersion": "1.1.0",
+    "stateContract": "1.1.0",
+    "eventId": "event-01",
+    "eventType": "transition",
+    "occurredAt": "2026-08-10T00:01:00Z",
+    "operation": "sdd.continue:continue-01",
+    "policyVersion": "policy-01",
+    "priorRevision": 0,
+    "resultingRevision": 1,
+    "reasonCode": "run.transition.accepted",
+    "effect": "state",
+    "artifactRefs": [".brain/features/feature-01/00-prd.md"],
+    "evidenceRefs": [".brain/evidence/event-01.json"],
+    "observedIdentity": {
+      "host": "codex",
+      "model": "gpt-5",
+      "effort": "medium"
+    },
+    "resolvedAssignment": {
+      "phase": "prd",
+      "role": "planner",
+      "model": "gpt-5",
+      "effort": "medium"
+    }
+  },
+  "unsignedCanonical": "{\"artifactRefs\":[\".brain/features/feature-01/00-prd.md\"],\"contractVersion\":\"1.1.0\",\"effect\":\"state\",\"eventId\":\"event-01\",\"eventType\":\"transition\",\"evidenceRefs\":[\".brain/evidence/event-01.json\"],\"observedIdentity\":{\"effort\":\"medium\",\"host\":\"codex\",\"model\":\"gpt-5\"},\"occurredAt\":\"2026-08-10T00:01:00Z\",\"operation\":\"sdd.continue:continue-01\",\"policyVersion\":\"policy-01\",\"previousHash\":null,\"priorRevision\":0,\"reasonCode\":\"run.transition.accepted\",\"resolvedAssignment\":{\"effort\":\"medium\",\"model\":\"gpt-5\",\"phase\":\"prd\",\"role\":\"planner\"},\"resultingRevision\":1,\"stateContract\":\"1.1.0\"}",
+  "eventHash": "30d771ad713c004b4cc35ac08bff3e3d811336b8ec05980889193d86c5382b3e"
+}

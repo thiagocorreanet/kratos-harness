@@ -1,6 +1,7 @@
 import type {
   ApprovalV1,
   EventV1,
+  ReadableEvent,
   EvidenceV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -149,7 +150,7 @@ export function buildEvidenceBundle(
   input: {
     readonly runId: string;
     readonly generatedAt: string;
-    readonly events: readonly EventV1[];
+    readonly events: readonly ReadableEvent[];
     readonly evidence: readonly EvidenceV1[];
     readonly snapshot: SnapshotV1;
     readonly gates: GateDecision;

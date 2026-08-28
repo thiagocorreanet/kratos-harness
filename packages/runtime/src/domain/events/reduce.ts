@@ -1,11 +1,15 @@
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { SnapshotV1 } from "@kratos/contracts";
 
 import {
   canonicalizeJson,
   prepareContract,
   type SchemaRegistry,
 } from "../schema/index.js";
-import { EventIntegrityError, type EventChainCursor } from "./model.js";
+import {
+  EventIntegrityError,
+  type EventChainCursor,
+  type ReadableEvent,
+} from "./model.js";
 import { isVerifiedEventStream, type VerifiedEventStream } from "./verify.js";
 
 export type JsonState = unknown;
@@ -18,11 +22,13 @@ export interface ReplayServices {
 
 export interface EventReducerRegistry<State = JsonState> {
   readonly seed: State;
-  readonly reducers: Readonly<
-    Record<string, (state: State, event: EventV1) => State>
-  >;
+  readonly reducers: Readonly<Record<string, EventReducer<State>>>;
   materialize(state: State, cursor: EventChainCursor): SnapshotV1;
 }
+
+type EventReducer<State> = {
+  bivarianceHack(state: State, event: ReadableEvent): State;
+}["bivarianceHack"];
 
 export interface ReplayResult<State = JsonState> {
   readonly state: State;
@@ -41,10 +47,7 @@ interface TrackedViews {
 
 interface InertRegistry<State> {
   readonly materialize: EventReducerRegistry<State>["materialize"];
-  readonly reducers: ReadonlyMap<
-    string,
-    (state: State, event: EventV1) => State
-  >;
+  readonly reducers: ReadonlyMap<string, EventReducer<State>>;
   readonly seed: State;
 }
 
@@ -244,14 +247,14 @@ function snapshotRegistry<State>(
   if (typeof reducersValue !== "object" || reducersValue === null)
     invalidEvent();
   plainObject(reducersValue, services);
-  const reducers = new Map<string, (state: State, event: EventV1) => State>();
+  const reducers = new Map<string, EventReducer<State>>();
   for (const key of Reflect.ownKeys(reducersValue)) {
     if (typeof key !== "string") invalidEvent();
     const descriptor = ownData(reducersValue, key);
     const reducer: unknown = descriptor.value;
     if (!descriptor.enumerable || typeof reducer !== "function") invalidEvent();
     if (isProxy(reducer, services)) invalidEvent();
-    reducers.set(key, reducer as (state: State, event: EventV1) => State);
+    reducers.set(key, reducer as EventReducer<State>);
   }
   if (
     typeof root.materialize !== "function" ||
@@ -272,10 +275,7 @@ export function snapshotEventReducerRegistry<State>(
   services: ReplayServices,
 ): EventReducerRegistry<State> {
   const inert = snapshotRegistry(value, services);
-  const reducers = Object.create(null) as Record<
-    string,
-    (state: State, event: EventV1) => State
-  >;
+  const reducers = Object.create(null) as Record<string, EventReducer<State>>;
   for (const [key, reducer] of inert.reducers) reducers[key] = reducer;
   return Object.freeze({
     seed: freezeJson(inert.seed) as State,
@@ -292,7 +292,7 @@ function freezeJson(value: JsonState): JsonState {
 
 function snapshotStream(stream: VerifiedEventStream): {
   readonly cursor: EventChainCursor;
-  readonly events: readonly EventV1[];
+  readonly events: readonly ReadableEvent[];
 } {
   if (stream.events.length === 0) invalidEvent();
   return {
@@ -356,9 +356,9 @@ function trackedView<Value>(value: Value, tracked: TrackedViews): Value {
 }
 
 function reduceOnce<State>(
-  reducer: (state: State, event: EventV1) => State,
+  reducer: EventReducer<State>,
   state: State,
-  event: EventV1,
+  event: ReadableEvent,
   services: ReplayServices,
 ): State {
   const tracked = trackedViews();
@@ -367,7 +367,7 @@ function reduceOnce<State>(
     tracked,
   );
   const eventInput = trackedView(
-    normalizeJson(event, services) as EventV1,
+    normalizeJson(event, services) as ReadableEvent,
     tracked,
   );
   const result = reducer(stateInput, eventInput);
@@ -418,7 +418,7 @@ function hasFinalBindings(
   snapshot: SnapshotV1,
   stream: {
     readonly cursor: EventChainCursor;
-    readonly events: readonly EventV1[];
+    readonly events: readonly ReadableEvent[];
   },
 ): boolean {
   const event = stream.events.at(-1);

@@ -3,7 +3,7 @@ import type {
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
-  EventV1,
+  ReadableEvent,
   EvidenceV1,
   GapRecordV1,
   ProjectConfigV1_1,
@@ -777,7 +777,7 @@ async function observeAgentOutputs(
 
 async function observeAcceptanceCriteria(
   configuration: RunReference,
-  events: readonly EventV1[],
+  events: readonly ReadableEvent[],
   eventId: string,
   occurredAt: string,
   agentOutput: AgentOutputObservation,
@@ -1014,7 +1014,7 @@ async function observeAcceptanceCriteria(
     currentDeclarations.every(({ checked }) => !checked)
   ) {
     const baselineCandidates: {
-      event: EventV1;
+      event: ReadableEvent;
       lineage: {
         readonly artifactRef?: unknown;
         readonly artifactDigest?: unknown;
@@ -1704,7 +1704,7 @@ async function observeRun(
   registry: SchemaRegistry,
 ): Promise<{
   readonly workflow: WorkflowObservation;
-  readonly events: readonly EventV1[];
+  readonly events: readonly ReadableEvent[];
   readonly persistedSnapshot: SnapshotV1 | null;
   readonly replayedSnapshot: SnapshotV1 | null;
 }> {
@@ -1773,7 +1773,7 @@ async function observeRun(
 
 function corruptRun(): {
   readonly workflow: WorkflowObservation;
-  readonly events: readonly EventV1[];
+  readonly events: readonly ReadableEvent[];
   readonly persistedSnapshot: null;
   readonly replayedSnapshot: null;
 } {

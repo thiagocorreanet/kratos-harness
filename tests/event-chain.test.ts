@@ -1,7 +1,8 @@
 import { types } from "node:util";
 
-import type { EventV1 } from "@kratos/contracts";
-import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
+import type { EventV1, EventV1_1 } from "@kratos/contracts";
+import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
+import goldenV1_1 from "./fixtures/events/golden-event-v1.1.json" with { type: "json" };
 import {
   EVENT_RECORD_BYTES,
   EVENT_STREAM_BYTES,
@@ -11,7 +12,7 @@ import {
   sealEvent,
   unsignedEvent,
   verifyEventStream,
-  type EventDraftV1,
+  type ReadableEvent,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import type { SchemaRegistry } from "@kratos/runtime/domain/schema";
@@ -26,26 +27,50 @@ const services = {
   schemaRegistry: createSchemaRegistry(),
 };
 
-function draft(index: number): EventDraftV1 {
+type CurrentEventDraft = Omit<EventV1_1, "previousHash" | "eventHash">;
+
+function sealedV1Event(): EventV1 {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
-    eventId: `event-${String(index)}`,
-    eventType: "transition",
-    occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
-    policyVersion: "policy-01",
-    priorRevision: index - 1,
-    resultingRevision: index,
-    reasonCode: "ok",
-    effect: "state",
-    artifactRefs: [`.brain/features/feature-01/${String(index)}.md`],
-    evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    ...(JSON.parse(goldenV1.unsignedCanonical) as Omit<EventV1, "eventHash">),
+    eventHash: goldenV1.eventHash,
   };
 }
 
-function stream(): readonly [EventV1, EventV1] {
+function currentDraft(revision: number): CurrentEventDraft {
+  return {
+    ...(structuredClone(goldenV1_1.draft) as CurrentEventDraft),
+    eventId: `event-${String(revision).padStart(2, "0")}`,
+    priorRevision: revision - 1,
+    resultingRevision: revision,
+  };
+}
+
+function draft(index: number): CurrentEventDraft {
+  return {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
+    eventId: `event-${String(index)}`,
+    eventType: "transition",
+    occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
+    operation: `sdd.continue:step-${String(index)}`,
+    policyVersion: "policy-01",
+    priorRevision: index - 1,
+    resultingRevision: index,
+    reasonCode: "run.transition.accepted",
+    effect: "state",
+    artifactRefs: [`.brain/features/feature-01/${String(index)}.md`],
+    evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
+    resolvedAssignment: {
+      phase: "code",
+      role: "implementer",
+      model: "gpt-5",
+      effort: "medium",
+    },
+  };
+}
+
+function stream(): readonly [EventV1_1, EventV1_1] {
   const first = sealEvent(draft(1), { revision: 0, hash: null }, services);
   const second = sealEvent(
     draft(2),
@@ -55,11 +80,11 @@ function stream(): readonly [EventV1, EventV1] {
   return [first, second];
 }
 
-function textOf(events: readonly EventV1[]): string {
+function textOf(events: readonly ReadableEvent[]): string {
   return `${events.map(canonicalizeJson).join("\n")}\n`;
 }
 
-function withHash(event: Omit<EventV1, "eventHash">): EventV1 {
+function withHash(event: Omit<EventV1_1, "eventHash">): EventV1_1 {
   return {
     ...event,
     eventHash: services.digests.sha256(canonicalizeJson(event)),
@@ -91,15 +116,109 @@ interface VersionCase {
 }
 
 describe("event hash-chain verification", () => {
-  it("refuses a readable revision the legacy event chain cannot reduce", () => {
+  it("verifies one hash chain across 1.0.0 and 1.1.0 events", () => {
+    const oldEvent = sealedV1Event();
+    const currentEvent = sealEvent(
+      currentDraft(2),
+      { revision: 1, hash: oldEvent.eventHash },
+      services,
+    );
+
+    expect(
+      verifyEventStream(
+        `${canonicalizeJson(oldEvent)}\n${canonicalizeJson(currentEvent)}\n`,
+        services,
+      ).cursor.revision,
+    ).toBe(2);
+  });
+
+  it("covers resolved and observed execution in the current event hash", () => {
+    const event = sealEvent(
+      currentDraft(1),
+      { revision: 0, hash: null },
+      services,
+    );
+    if (event.resolvedAssignment === undefined) {
+      throw new Error("missing resolved assignment");
+    }
+    const tampered: EventV1_1 = {
+      ...event,
+      resolvedAssignment: {
+        ...event.resolvedAssignment,
+        model: "tampered-model",
+      },
+    };
+
+    expect(() =>
+      verifyEventStream(`${canonicalizeJson(tampered)}\n`, services),
+    ).toThrow("Event stream integrity validation failed");
+  });
+
+  it("parses the exact current revision declared by a record", () => {
+    const [event] = stream();
+    expect(
+      parseEventLines(`${canonicalizeJson(event)}\n`, services.schemaRegistry),
+    ).toEqual([event]);
+  });
+
+  it("dispatches each mixed record by its own declared revision", () => {
+    const oldEvent = sealedV1Event();
+    const currentEvent = sealEvent(
+      currentDraft(2),
+      { revision: 1, hash: oldEvent.eventHash },
+      services,
+    );
+    const versions: unknown[] = [];
+    const schemaRegistry: SchemaRegistry = {
+      validate: (request) => {
+        versions.push(request.version);
+        return services.schemaRegistry.validate(request);
+      },
+    };
+
+    parseEventLines(
+      `${canonicalizeJson(oldEvent)}\n${canonicalizeJson(currentEvent)}\n`,
+      schemaRegistry,
+    );
+
+    expect(versions).toEqual(["1.0.0", "1.1.0"]);
+  });
+
+  it.each([
+    [
+      "a 1.0 declaration carrying 1.1-only fields",
+      {
+        ...sealedV1Event(),
+        observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
+      },
+    ],
+    [
+      "a 1.1 declaration carrying a legacy observed identity",
+      (() => {
+        const event = sealEvent(
+          currentDraft(1),
+          { revision: 0, hash: null },
+          services,
+        );
+        return {
+          ...event,
+          observedIdentity: { host: "codex", model: "gpt-5" },
+        };
+      })(),
+    ],
+    [
+      "a structural version object",
+      { ...sealedV1Event(), stateContract: { major: 1, minor: 0 } },
+    ],
+  ])("rejects hostile per-line version input: %s", (_description, value) => {
     expect(
       integrityError(() =>
         parseEventLines(
-          `${canonicalizeJson(eventV1_1)}\n`,
+          `${canonicalizeJson(value)}\n`,
           services.schemaRegistry,
         ),
-      ),
-    ).toMatchObject({ kind: "unsupported_policy" });
+      ).kind,
+    ).toBe("invalid_event");
   });
 
   it("returns canonical events and the final cursor", () => {

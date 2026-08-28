@@ -1,13 +1,14 @@
 import { types } from "node:util";
 
-import golden from "./fixtures/events/golden-event-v1.json" with { type: "json" };
+import legacyGolden from "./fixtures/events/golden-event-v1.json" with { type: "json" };
+import golden from "./fixtures/events/golden-event-v1.1.json" with { type: "json" };
 import {
   EventIntegrityError,
   sealEvent,
   unsignedEvent,
-  type EventDraftV1,
+  type CurrentEventDraft,
 } from "@kratos/runtime/domain/events";
-import type { EventV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1 } from "@kratos/contracts";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
@@ -20,12 +21,12 @@ const services = {
   schemaRegistry: createSchemaRegistry(),
 };
 
-function draft(): EventDraftV1 {
-  return structuredClone(golden.draft) as EventDraftV1;
+function draft(): CurrentEventDraft {
+  return structuredClone(golden.draft) as CurrentEventDraft;
 }
 
-function goldenUnsigned(): Omit<EventV1, "eventHash"> {
-  return JSON.parse(golden.unsignedCanonical) as Omit<EventV1, "eventHash">;
+function goldenUnsigned(): Omit<EventV1_1, "eventHash"> {
+  return JSON.parse(golden.unsignedCanonical) as Omit<EventV1_1, "eventHash">;
 }
 
 function seal(input: unknown, revision = 0, hash: string | null = null) {
@@ -47,6 +48,109 @@ function integrityKind(
 }
 
 describe("event sealing", () => {
+  it("preserves the committed legacy canonical bytes and hash", () => {
+    const unsigned = JSON.parse(legacyGolden.unsignedCanonical) as Omit<
+      EventV1,
+      "eventHash"
+    >;
+
+    expect(canonicalizeJson(unsigned)).toBe(legacyGolden.unsignedCanonical);
+    expect(services.digests.sha256(legacyGolden.unsignedCanonical)).toBe(
+      "c6f58e1d3427cfee3331856b509b0bbbc67b5d4d8cc3549ed026029fb47826b1",
+    );
+    expect(legacyGolden.eventHash).toBe(
+      "c6f58e1d3427cfee3331856b509b0bbbc67b5d4d8cc3549ed026029fb47826b1",
+    );
+  });
+
+  it("rejects a resolved assignment on an infrastructure event", () => {
+    const input: Omit<EventV1_1, "previousHash" | "eventHash"> = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      eventId: "lease-event-01",
+      eventType: "operation",
+      occurredAt: "2026-08-10T00:01:00Z",
+      operation: "lock.acquire:lease-01",
+      policyVersion: "lease-v1",
+      priorRevision: 0,
+      resultingRevision: 1,
+      reasonCode: "runtime.lease_acquired",
+      effect: "state",
+      artifactRefs: [],
+      evidenceRefs: [],
+      observedIdentity: { host: "codex", model: null, effort: null },
+      resolvedAssignment: {
+        phase: "code",
+        role: "implementer",
+        model: "gpt-5",
+        effort: "medium",
+      },
+    };
+
+    expect(integrityKind(input)).toBe("invalid_event");
+  });
+
+  it("requires an assignment for a phase transition fact", () => {
+    const { resolvedAssignment, ...withoutAssignment } = draft();
+    void resolvedAssignment;
+
+    expect(integrityKind(withoutAssignment)).toBe("invalid_event");
+  });
+
+  it("requires an assignment for a phase-output fact", () => {
+    const { resolvedAssignment, ...withoutAssignment } = draft();
+    void resolvedAssignment;
+
+    expect(
+      integrityKind({
+        ...withoutAssignment,
+        eventType: "decision",
+        operation: "sdd.agent.record:record-01",
+        reasonCode: "run.agent.recorded",
+      }),
+    ).toBe("invalid_event");
+  });
+
+  it.each([
+    ["sdd.continue:continue-01", "run.agent.recorded"],
+    ["sdd.agent.record:record-01", "run.transition.accepted"],
+  ])(
+    "rejects assignment on mismatched phase operation %s and reason %s",
+    (operation, reasonCode) => {
+      expect(integrityKind({ ...draft(), operation, reasonCode })).toBe(
+        "invalid_event",
+      );
+    },
+  );
+
+  it("does not fabricate an assignment for a start event", () => {
+    const { resolvedAssignment, ...base } = draft();
+    void resolvedAssignment;
+    const event = seal({
+      ...base,
+      eventType: "transition",
+      operation: "sdd.start:start-01",
+      reasonCode: "run.started",
+      observedIdentity: { host: "codex", model: null, effort: null },
+    });
+
+    expect(event.resolvedAssignment).toBeUndefined();
+    expect(event.observedIdentity).toEqual({
+      host: "codex",
+      model: null,
+      effort: null,
+    });
+  });
+
+  it("requires nullable observed effort on every current draft", () => {
+    expect(
+      integrityKind({
+        ...draft(),
+        observedIdentity: { host: "codex", model: "gpt-5" },
+      }),
+    ).toBe("invalid_event");
+  });
+
   it("matches the committed first-event golden vector", () => {
     const event = seal(golden.draft);
 
@@ -61,7 +165,7 @@ describe("event sealing", () => {
     const value = draft();
     const reversed = Object.fromEntries(
       Object.entries(value).reverse(),
-    ) as EventDraftV1;
+    ) as CurrentEventDraft;
 
     expect(seal(reversed).eventHash).toBe(golden.eventHash);
   });
@@ -154,12 +258,20 @@ describe("event sealing", () => {
       "mutable nested shapes",
       {
         ...draft(),
-        observedIdentity: { host: "codex", model: "gpt-5", extra: true },
+        observedIdentity: {
+          host: "codex",
+          model: "gpt-5",
+          effort: "medium",
+          extra: true,
+        },
       },
     ],
     [
       "a non-string identity model",
-      { ...draft(), observedIdentity: { host: "codex", model: 1 } },
+      {
+        ...draft(),
+        observedIdentity: { host: "codex", model: 1, effort: "medium" },
+      },
     ],
     [
       "artifact reference lists longer than 256 entries",
@@ -242,7 +354,24 @@ describe("event sealing", () => {
     ["evidenceRefs", { evidenceRefs: [".brain/evidence/event-02.json"] }],
     [
       "observedIdentity",
-      { observedIdentity: { host: "other", model: "gpt-5" } },
+      {
+        observedIdentity: {
+          host: "other",
+          model: "gpt-5",
+          effort: "medium",
+        },
+      },
+    ],
+    [
+      "resolvedAssignment",
+      {
+        resolvedAssignment: {
+          phase: "prd",
+          role: "planner",
+          model: "other-model",
+          effort: "medium",
+        },
+      },
     ],
     ["previousHash", { previousHash: "a".repeat(64) }],
   ])(

@@ -20,7 +20,7 @@ import {
 } from "@kratos/runtime/composition";
 import { planOf } from "@kratos/runtime/domain/effects";
 import {
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import {
@@ -39,10 +39,10 @@ const execFileAsync = promisify(execFile);
 const readOnlyUnsupported =
   process.platform === "win32" || process.geteuid?.() === 0;
 
-function draft(index: number): EventDraftV1 {
+function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
     eventType: "transition",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -54,7 +54,7 @@ function draft(index: number): EventDraftV1 {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
   };
 }
 
