@@ -74,20 +74,23 @@ npx prettier@3.9.6 --check tests/contract-documentation.test.ts docs/user/config
 git diff --check
 ```
 
-Consolidated full-suite evidence available before controller verification:
+Consolidated full-suite evidence from the controller release gate:
 
 ```text
 npm test
 
 Test Files  162 passed (162)
-Tests       4251 passed (4251)
+Tests       4252 passed (4252)
 Exit code   0
 ```
 
 Controller release gate:
 
-- [ ] `npm run verify` — controller execution after all task commits are
-  integrated; it is intentionally not claimed by this task.
+- [x] `npm run verify` — exit 0 after all task commits were integrated. It
+  passed formatting, spelling, English, lint, typecheck, 4,252 tests, coverage
+  (93.47% statements and 89.31% branches), mutation (3/3), gap calibration,
+  performance, oracle, parity, result, contract, differential, build, package
+  verification for both hosts, and benchmark gates.
 
 ## Impact
 
@@ -150,10 +153,14 @@ All focused documentation checks passed.
 
 ```text
 npm test
-162 files passed; 4,251 tests passed; exit 0.
+162 files passed; 4,252 tests passed; exit 0.
 ```
 
-
-- [ ] `npm run verify` is controller-owned final integration evidence and has
-  not been claimed here.
+```text
+npm run verify
+All chained release gates passed; exit 0.
+Coverage: 93.47% statements, 89.31% branches, 94.40% functions, 93.85% lines.
+Mutation: 3/3 (100%).
+Package verification: Codex and Claude Code passed.
+```
 ````
