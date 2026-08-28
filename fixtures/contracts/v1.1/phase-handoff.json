@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.1.0",
+  "hostContract": "1.1.0",
+  "runId": "run-01",
+  "revision": 12,
+  "phase": "review",
+  "host": "codex",
+  "assignment": {
+    "phase": "review",
+    "role": "judge",
+    "model": "gpt-5-review",
+    "effort": "medium"
+  },
+  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

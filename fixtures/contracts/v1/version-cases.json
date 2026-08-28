@@ -34,6 +34,13 @@
     "reasonCode": null
   },
   {
+    "name": "state current revision",
+    "family": "state",
+    "value": "1.1.0",
+    "classification": "current",
+    "reasonCode": null
+  },
+  {
     "name": "state previous",
     "family": "state",
     "value": "0.9.0",
@@ -92,6 +99,13 @@
     "name": "host current",
     "family": "host",
     "value": "1.0.0",
+    "classification": "current",
+    "reasonCode": null
+  },
+  {
+    "name": "host current revision",
+    "family": "host",
+    "value": "1.1.0",
     "classification": "current",
     "reasonCode": null
   },

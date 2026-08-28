@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.1.0",
+  "hostContract": "1.1.0",
+  "hosts": ["codex"],
+  "language": "en",
+  "policyMode": "standard",
+  "snapshots": true,
+  "modelRoles": {
+    "codex": {
+      "planner": "gpt-5-plan",
+      "implementer": { "model": "gpt-5-code", "effort": "high" },
+      "judge": { "model": "gpt-5-review", "effort": "medium" }
+    }
+  }
+}

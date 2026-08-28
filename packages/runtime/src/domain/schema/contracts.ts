@@ -17,6 +17,7 @@ import type {
   GuardrailsV1,
   LockLeaseV1,
   MigrationV1,
+  PhaseHandoffV1_1,
   ProjectConfigV1,
   PreToolUseV1,
   RequirementDiscoveryV1,
@@ -35,6 +36,7 @@ export interface ContractValues {
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers": InitAnswersV1;
   readonly "host.operation-message": HostOperationMessageV1;
+  readonly "host.phase-handoff": PhaseHandoffV1_1;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;

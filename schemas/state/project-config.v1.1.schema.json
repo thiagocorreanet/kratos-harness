@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/project-config/v1.1",
+  "title": "Kratos project configuration v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "pluginVersion",
+    "hostContract",
+    "language",
+    "policyMode",
+    "managedState",
+    "modelRoles"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.1.0" },
+    "stateContract": { "const": "1.1.0" },
+    "pluginVersion": { "const": "0.0.0-development" },
+    "hostContract": { "const": "1.1.0" },
+    "language": { "enum": ["en", "pt-BR"] },
+    "policyMode": { "enum": ["standard", "strict"] },
+    "managedState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "eventLog", "snapshots"],
+      "properties": {
+        "directory": { "const": ".brain" },
+        "eventLog": { "const": "events.jsonl" },
+        "snapshots": { "type": "boolean" }
+      }
+    },
+    "modelRoles": { "$ref": "#/$defs/modelRoles" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "assignment": {
+      "oneOf": [
+        { "$ref": "#/$defs/id" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "effort"],
+          "properties": {
+            "model": { "$ref": "#/$defs/id" },
+            "effort": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "roleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "implementer", "judge"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/assignment" },
+        "implementer": { "$ref": "#/$defs/assignment" },
+        "judge": { "$ref": "#/$defs/assignment" }
+      }
+    },
+    "modelRoles": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "claude": { "$ref": "#/$defs/roleMap" },
+        "codex": { "$ref": "#/$defs/roleMap" }
+      }
+    }
+  }
+}

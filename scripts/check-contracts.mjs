@@ -30,6 +30,12 @@ function sortedUnique(values, label) {
   }
 }
 
+function unique(values, label) {
+  if (new Set(values).size !== values.length) {
+    throw new VerificationError(`${label} are not unique`);
+  }
+}
+
 async function schemaInventory(directory) {
   return (await readdir(directory, { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith(".schema.json"))
@@ -74,9 +80,9 @@ async function verifyArtifacts() {
   if (!manifestValidator(manifest)) {
     throw new VerificationError("manifest does not satisfy its closed schema");
   }
-  sortedUnique(
-    manifest.schemas.map(({ id }) => id),
-    "schema identifiers",
+  unique(
+    manifest.schemas.map(({ id, version }) => `${id}@${version}`),
+    "schema identifier/version pairs",
   );
   sortedUnique(
     manifest.legacyProfiles.map(({ name }) => name),

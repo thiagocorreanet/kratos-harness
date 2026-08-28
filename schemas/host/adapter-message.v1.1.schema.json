@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/adapter-message/v1.1",
+  "title": "Kratos host adapter message v1.1",
+  "oneOf": [
+    { "$ref": "#/$defs/requestMessage" },
+    { "$ref": "#/$defs/responseMessage" },
+    { "$ref": "#/$defs/catalogMessage" },
+    { "$ref": "#/$defs/phaseExecutionMessage" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+(?:[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+    },
+    "payloadContract": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:@-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "requestPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "observedIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapterVersion", "model", "effort"],
+      "properties": {
+        "adapterVersion": { "$ref": "#/$defs/semver" },
+        "model": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "effort": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      }
+    },
+    "common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "messageId",
+        "messageType",
+        "host",
+        "operation",
+        "capabilities",
+        "observedIdentity",
+        "payloadContract",
+        "payload",
+        "correlationId"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.1.0" },
+        "hostContract": { "const": "1.1.0" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "messageType": { "type": "string" },
+        "host": { "enum": ["claude", "codex"] },
+        "operation": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+        "payloadContract": { "$ref": "#/$defs/payloadContract" },
+        "payload": {},
+        "correlationId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "requestMessage": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": {
+            "messageType": { "const": "request" },
+            "payload": { "$ref": "#/$defs/requestPayload" }
+          }
+        }
+      ]
+    },
+    "responseMessage": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": {
+            "messageType": { "const": "response" },
+            "payload": { "$ref": "https://kratos.dev/schemas/result/v1" }
+          }
+        }
+      ]
+    },
+    "roleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "implementer", "judge"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/id" },
+        "implementer": { "$ref": "#/$defs/id" },
+        "judge": { "$ref": "#/$defs/id" }
+      }
+    },
+    "modelCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaults", "models"],
+      "properties": {
+        "defaults": { "$ref": "#/$defs/roleMap" },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["model", "canonicalModel", "efforts"],
+            "properties": {
+              "model": { "$ref": "#/$defs/id" },
+              "canonicalModel": { "$ref": "#/$defs/id" },
+              "efforts": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "$ref": "#/$defs/id" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "catalogMessage": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": {
+            "messageType": { "const": "model-catalog" },
+            "payloadContract": { "const": "host.model-catalog@1.1.0" },
+            "payload": { "$ref": "#/$defs/modelCatalog" }
+          }
+        }
+      ]
+    },
+    "phaseExecution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assignmentDigest", "model", "effort"],
+      "properties": {
+        "assignmentDigest": { "$ref": "#/$defs/sha256" },
+        "model": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "effort": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      }
+    },
+    "phaseExecutionMessage": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": {
+            "messageType": { "const": "phase-execution" },
+            "payloadContract": { "const": "host.phase-execution@1.1.0" },
+            "payload": { "$ref": "#/$defs/phaseExecution" }
+          }
+        }
+      ]
+    }
+  }
+}
