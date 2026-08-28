@@ -194,3 +194,80 @@ working tree SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bd
 HEAD fixture SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
 canonical event hash: c6f58e1d3427cfee3331856b509b0bbbc67b5d4d8cc3549ed026029fb47826b1
 ```
+
+## Review fix round 2/5
+
+### RED
+
+An independently-authored literal matrix exercised the sealing boundary rather
+than importing the production policy table. The first run reproduced five
+operation-family bypasses:
+
+```text
+npm test -- tests/event-sealing.test.ts -t "literal semantic matrix"
+Test Files 1 failed
+Tests 5 failed | 6 passed | 59 skipped
+
+unexpectedly sealed:
+- sdd.continue:* with an unknown reason and fallback tuple
+- sdd.agent.record:* with an unknown reason and fallback tuple
+- sdd.gaps.record:* with an unknown reason and fallback tuple
+- malformed lock.acquire:* with an unknown reason and fallback tuple
+- unreserved infrastructure with transition/artifact instead of the fallback
+```
+
+The same table also proved that swapped known reasons/effects were already
+rejected, that the intended unreserved `operation/state` fallback succeeds
+without assignment, and that assignment on the fallback is rejected.
+An additional fallback case was then observed RED (1 failed) when an
+unreserved operation borrowed `run.started`; it now fails closed so fallback
+records cannot acquire workflow reducer meaning.
+
+### Fix
+
+- Semantic dispatch now classifies the reserved namespace from the operation
+  first. Every `sdd.*` operation must parse as one exact start, continue,
+  agent, gap, or gate operation; every `lock.*` operation must parse as one
+  exact lifecycle operation.
+- The selected operation family has a closed list of complete reason,
+  event-type, effect, and assignment tuples. Exactly one tuple must match.
+  Unknown reasons, malformed operations, borrowed reasons, and multi-field
+  swaps all fail before canonical hashing.
+- Unreserved operations have one explicit fallback: event type `operation`,
+  effect `state`, no resolved assignment, and no reserved workflow reason.
+- Generic event-store test fixtures now identify themselves as
+  `runtime.test:*` infrastructure operations instead of impersonating
+  undefined `sdd.step-*` transitions.
+
+### GREEN
+
+```text
+literal semantic matrix:
+Test Files 1 passed
+Tests 12 passed | 59 skipped
+
+event sealing/chain/reducer/store suites:
+Test Files 10 passed
+Tests 873 passed
+
+actual workflow/agent/gap/gate/lock producers plus composition:
+Test Files 16 passed
+Tests 892 passed
+
+final consolidated event and producer gate:
+Test Files 26 passed
+Tests 1766 passed
+
+npm run lint
+exit 0
+
+npm run typecheck
+exit 0
+
+all round 2 changed files: Prettier clean
+git diff --check
+exit 0
+```
+
+The repository-wide Prettier check continues to name only the two untouched
+pre-existing files recorded in round 1.

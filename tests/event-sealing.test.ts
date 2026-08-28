@@ -25,6 +25,12 @@ function draft(): CurrentEventDraft {
   return structuredClone(golden.draft) as CurrentEventDraft;
 }
 
+function unassignedDraft(): Omit<CurrentEventDraft, "resolvedAssignment"> {
+  const { resolvedAssignment, ...unassigned } = draft();
+  void resolvedAssignment;
+  return unassigned;
+}
+
 function goldenUnsigned(): Omit<EventV1_1, "eventHash"> {
   return JSON.parse(golden.unsignedCanonical) as Omit<EventV1_1, "eventHash">;
 }
@@ -48,6 +54,157 @@ function integrityKind(
 }
 
 describe("event sealing", () => {
+  it.each([
+    {
+      name: "continue with an unknown reason and forged tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: "sdd.continue:unknown-01",
+        reasonCode: "run.future_transition",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "continue with an agent reason and effect",
+      event: {
+        ...draft(),
+        operation: "sdd.continue:swapped-01",
+        reasonCode: "run.agent.recorded",
+        eventType: "decision",
+        effect: "state-and-artifact",
+      },
+      valid: false,
+    },
+    {
+      name: "agent.record with an unknown reason and forged tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: "sdd.agent.record:unknown-01",
+        reasonCode: "run.future_output",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "agent.record with a transition reason and effect",
+      event: {
+        ...draft(),
+        operation: "sdd.agent.record:swapped-01",
+        reasonCode: "run.transition.accepted",
+        eventType: "transition",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "gaps.record with an unknown reason and forged tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: "sdd.gaps.record:unknown-01",
+        reasonCode: "run.future_gap",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "gates.record with a gap reason and wrong effect",
+      event: {
+        ...unassignedDraft(),
+        operation: "sdd.gates.record:swapped-01",
+        reasonCode: "run.gap.recorded",
+        eventType: "decision",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "lock family with malformed operation and unknown tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: "lock.acquire:not-canonical",
+        policyVersion: "locks-v1",
+        reasonCode: "runtime.future_lock",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "lock acquire with a swapped reason and effect",
+      event: {
+        ...unassignedDraft(),
+        operation: `lock.acquire.t1.d${"a".repeat(64)}`,
+        policyVersion: "locks-v1",
+        reasonCode: "runtime.cache_refreshed",
+        eventType: "operation",
+        effect: "artifact",
+      },
+      valid: false,
+    },
+    {
+      name: "unreserved infrastructure fallback",
+      event: {
+        ...unassignedDraft(),
+        operation: "runtime.cache:refresh-01",
+        policyVersion: "runtime-v1",
+        reasonCode: "runtime.cache_refreshed",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: true,
+    },
+    {
+      name: "unreserved fallback with a forged tuple",
+      event: {
+        ...unassignedDraft(),
+        operation: "runtime.cache:refresh-02",
+        policyVersion: "runtime-v1",
+        reasonCode: "runtime.cache_refreshed",
+        eventType: "transition",
+        effect: "artifact",
+      },
+      valid: false,
+    },
+    {
+      name: "unreserved infrastructure with assignment",
+      event: {
+        ...draft(),
+        operation: "runtime.cache:refresh-03",
+        policyVersion: "runtime-v1",
+        reasonCode: "runtime.cache_refreshed",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+    {
+      name: "unreserved infrastructure borrowing a workflow reason",
+      event: {
+        ...unassignedDraft(),
+        operation: "runtime.cache:refresh-04",
+        policyVersion: "runtime-v1",
+        reasonCode: "run.started",
+        eventType: "operation",
+        effect: "state",
+      },
+      valid: false,
+    },
+  ] satisfies readonly {
+    readonly name: string;
+    readonly event: CurrentEventDraft;
+    readonly valid: boolean;
+  }[])("enforces the literal semantic matrix: $name", ({ event, valid }) => {
+    if (valid) {
+      expect(() => seal(event)).not.toThrow();
+      return;
+    }
+    expect(integrityKind(event)).toBe("invalid_event");
+  });
+
   it("preserves the committed legacy canonical bytes and hash", () => {
     const unsigned = JSON.parse(legacyGolden.unsignedCanonical) as Omit<
       EventV1,

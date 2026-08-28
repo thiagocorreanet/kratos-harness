@@ -47,9 +47,9 @@ function draft(index: number): CurrentEventDraft {
     contractVersion: "1.1.0",
     stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -972,7 +972,7 @@ describe("event-store append preparation", () => {
     release?.();
 
     const prepared = await pending;
-    expect(prepared.event.operation).toBe("sdd.step-2");
+    expect(prepared.event.operation).toBe("runtime.test:step-2");
   });
 
   it("snapshots reducers before the first durable await", async () => {

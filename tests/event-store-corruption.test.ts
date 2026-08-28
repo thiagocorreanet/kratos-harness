@@ -40,10 +40,12 @@ function draft(index: number): CurrentEventDraft {
     contractVersion: "1.1.0",
     stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
     operation:
-      index === 3 ? rejectedPersistedText : `sdd.step-${String(index)}`,
+      index === 3
+        ? rejectedPersistedText
+        : `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -151,7 +153,7 @@ const corruptions = [
   [
     "mutated protected byte",
     (events: string, snapshot: string) => ({
-      events: events.replace("sdd.step-1", rejectedPersistedText),
+      events: events.replace("runtime.test:step-1", rejectedPersistedText),
       snapshot,
     }),
   ],

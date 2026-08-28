@@ -44,9 +44,9 @@ function draft(index: number): CurrentEventDraft {
     contractVersion: "1.1.0",
     stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -269,7 +269,7 @@ describe("node event store", () => {
       expect(events.startsWith(beforeRestart)).toBe(true);
       expect(events.split("\n")).toHaveLength(4);
       expect(snapshot.eventCursor).toBe(3);
-      expect(snapshot.currentStep).toBe("sdd.step-3");
+      expect(snapshot.currentStep).toBe("runtime.test:step-3");
     });
   });
 
