@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { hookDefinition, renderHooks } from "./render-hooks.mjs";
+
 const repositoryRoot = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
 );
@@ -202,6 +204,15 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
   await cp(
     join(repositoryRoot, "distribution/shared/pre-tool-use-runner.mjs"),
     join(artifact, "hooks/pre-tool-use-runner.mjs"),
+  );
+  await cp(
+    join(repositoryRoot, "distribution/shared/workflow-hook-runner.mjs"),
+    join(artifact, "hooks/workflow-hook-runner.mjs"),
+  );
+  await writeFile(
+    join(artifact, "hooks/hooks.json"),
+    renderHooks(await hookDefinition(), host),
+    "utf8",
   );
   if (host === "claude-code") {
     const agentDirectory = join(artifact, "agents");

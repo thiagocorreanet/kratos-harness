@@ -24,6 +24,7 @@ import type { RuntimePorts } from "../ports/index.js";
 import { applyPlan, previewPlan, type MutationPreview } from "./index.js";
 import { observeInitialization } from "./init.js";
 import { observeHostOperation } from "./host.js";
+import { observeStopLossUnlock } from "./unlock.js";
 import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
@@ -112,9 +113,23 @@ export async function runCommandLine(
                       ports,
                       schemaRegistry,
                     )
-                  : invocation.command.prerequisite === "migration"
-                    ? await observeMigration(invocation, ports, schemaRegistry)
-                    : await observeWorkflow(invocation, ports, schemaRegistry);
+                  : invocation.command.prerequisite === "stop-loss-unlock"
+                    ? await observeStopLossUnlock(
+                        invocation,
+                        ports,
+                        schemaRegistry,
+                      )
+                    : invocation.command.prerequisite === "migration"
+                      ? await observeMigration(
+                          invocation,
+                          ports,
+                          schemaRegistry,
+                        )
+                      : await observeWorkflow(
+                          invocation,
+                          ports,
+                          schemaRegistry,
+                        );
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }

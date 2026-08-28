@@ -17,7 +17,8 @@ also accept `--root PATH` where shown by `kratos help`.
 | `gaps record REF` | Receive proposed gaps and derive the gate facts | Yes |
 | `gaps resolve ID` | Record the owner's verdict on one gap | Yes |
 | `gaps waive ID` | Record proceeding over a gap nobody answered | Yes |
-| `gates record` | Record measured stop-loss and partition facts | Yes |
+| `gates record` | Trip stop-loss or record partition facts; it cannot clear a latch | Yes |
+| `unlock stop-loss --run ID` | Confirm `UNLOCK ID` on standard input and start a new budget epoch | Conditional |
 | `done` | Request accepted final completion | Conditional |
 | `status`, `stats`, `budgets` | Derive active-run views | No |
 | `doctor`, `explain CODE` | Diagnose state and explain recovery | No |

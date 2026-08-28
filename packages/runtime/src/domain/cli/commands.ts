@@ -29,6 +29,7 @@ import {
 } from "./gaps.js";
 import { migrateBrainCommand, migrateRollbackCommand } from "./migration.js";
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
+import { unlockStopLossCommand } from "./unlock.js";
 import {
   auditCommand,
   dashboardCommand,
@@ -127,6 +128,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   statsCommand,
   statusCommand,
   scopeRecordCommand,
+  unlockStopLossCommand,
   versionCommand,
   ...RETIRED_COMMAND_SPECS,
 ];

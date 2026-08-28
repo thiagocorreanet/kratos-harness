@@ -6,12 +6,19 @@ const runtimeEntry = fileURLToPath(
   new URL("../runtime/kratos.mjs", import.meta.url),
 );
 try {
-  const [{ runPreToolUseProcess }, { relayCodexPreToolUse }] =
-    await Promise.all([
-      import("./pre-tool-use-runner.mjs"),
-      import("../runtime/source/packages/adapters/src/codex/pre-tool-use.js"),
-    ]);
-  runPreToolUseProcess(relayCodexPreToolUse, runtimeEntry);
+  const [
+    { runPreToolUseProcess },
+    { relayCodexPreToolUse, normalizeCodexHook },
+  ] = await Promise.all([
+    import("./pre-tool-use-runner.mjs"),
+    import("../runtime/source/packages/adapters/src/index.js"),
+  ]);
+  runPreToolUseProcess(
+    relayCodexPreToolUse,
+    runtimeEntry,
+    "codex",
+    normalizeCodexHook,
+  );
 } catch {
   process.stdout.write(
     `${JSON.stringify({

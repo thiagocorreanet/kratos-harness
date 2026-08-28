@@ -1,0 +1,10 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "candidateId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "toolFamily": "shell",
+  "failureClass": "nonzero_exit",
+  "exitCode": 1,
+  "diagnostic": "command failed",
+  "firstObservedAt": "2026-08-28T12:00:00Z"
+}

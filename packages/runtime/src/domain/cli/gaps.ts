@@ -190,7 +190,7 @@ export const gatesRecordCommand: CommandSpec = observingCommand(
       {
         name: "--stop-loss",
         kind: "value",
-        valueLabel: "<tripped|clear>",
+        valueLabel: "<tripped>",
         summary: "Record the host-observed stop-loss flag.",
       },
       {
@@ -212,7 +212,7 @@ export const gatesRecordCommand: CommandSpec = observingCommand(
     if (
       (stopLoss !== undefined &&
         stopLoss !== "tripped" &&
-        stopLoss !== "clear") ||
+        stopLoss !== "tripped") ||
       (partition !== undefined &&
         partition !== "required" &&
         partition !== "optional") ||
@@ -235,7 +235,7 @@ export const gatesRecordCommand: CommandSpec = observingCommand(
         tripped:
           stopLoss === undefined
             ? observation.gateFacts.stopLoss.tripped
-            : stopLoss === "tripped",
+            : true,
         exhausted:
           used === null
             ? observation.gateFacts.stopLoss.exhausted

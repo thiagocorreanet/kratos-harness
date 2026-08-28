@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "runId": "run-123",
+  "totalGrossTokens": 1200,
+  "epoch": {
+    "number": 1,
+    "baselineGrossTokens": 0,
+    "exhaustedAt": null
+  },
+  "sessions": [{ "sessionId": "session-123", "cumulativeGrossTokens": 1200 }],
+  "measurementFaultAt": null,
+  "updatedAt": "2026-08-28T12:00:00Z"
+}

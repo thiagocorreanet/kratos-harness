@@ -187,3 +187,8 @@ export {
   normalizeCodexPreToolUse,
   relayCodexPreToolUse,
 } from "./codex/pre-tool-use.js";
+export {
+  normalizeClaudeCodeHook,
+  normalizeCodexHook,
+  type HookKind,
+} from "./hooks.js";

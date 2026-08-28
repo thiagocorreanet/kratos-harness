@@ -25,6 +25,7 @@ const artifacts = [
     "state",
   ],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
+  ["state/failure-candidate.v1.schema.json", "failure-candidate.json", "state"],
   ["state/feature.v1.schema.json", "feature.json", "state"],
   ["state/feature-scope.v1.schema.json", "feature-scope.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
@@ -42,6 +43,7 @@ const artifacts = [
   ["host/adapter-message.v1.schema.json", "adapter-message.json", "host"],
   ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
+  ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
   ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
@@ -51,6 +53,8 @@ const artifacts = [
     "requirement-discovery.json",
     "state",
   ],
+  ["state/run-usage.v1.schema.json", "run-usage.json", "state"],
+  ["state/session-telemetry.v1.schema.json", "session-telemetry.json", "state"],
 ] as const;
 
 type JsonObject = Record<string, unknown>;
@@ -105,6 +109,19 @@ describe("versioned state and host schemas", () => {
         const definitions = schema.$defs as JsonObject;
         for (const name of ["requestMessage", "responseMessage"]) {
           expect((definitions[name] as JsonObject).additionalProperties).toBe(
+            false,
+          );
+        }
+      } else if (fixtureName === "hook-observation.json") {
+        expect(schema.oneOf, fixtureName).toHaveLength(4);
+        const definitions = schema.$defs as JsonObject;
+        for (const name of [
+          "sessionSample",
+          "toolBefore",
+          "toolFailed",
+          "sessionEnd",
+        ]) {
+          expect((definitions[name] as JsonObject).unevaluatedProperties).toBe(
             false,
           );
         }

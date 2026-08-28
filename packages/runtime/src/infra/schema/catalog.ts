@@ -2,6 +2,7 @@ import manifest from "../../../../contracts/catalogs/contract-families.v1.json" 
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
 import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
+import hookObservationSchema from "../../../../../schemas/host/hook-observation.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
@@ -14,6 +15,7 @@ import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
 import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
+import failureCandidateSchema from "../../../../../schemas/state/failure-candidate.v1.schema.json" with { type: "json" };
 import gapSchema from "../../../../../schemas/state/gap.v1.schema.json" with { type: "json" };
 import gatesSchema from "../../../../../schemas/state/gates.v1.schema.json" with { type: "json" };
 import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.json" with { type: "json" };
@@ -21,6 +23,8 @@ import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with {
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
+import runUsageSchema from "../../../../../schemas/state/run-usage.v1.schema.json" with { type: "json" };
+import sessionTelemetrySchema from "../../../../../schemas/state/session-telemetry.v1.schema.json" with { type: "json" };
 import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json" with { type: "json" };
 import transactionManifestSchema from "../../../../../schemas/state/transaction-manifest.v1.schema.json" with { type: "json" };
 import transactionProgressSchema from "../../../../../schemas/state/transaction-progress.v1.schema.json" with { type: "json" };
@@ -62,6 +66,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/gap-proposal.v1.schema.json",
       schema: gapProposalSchema,
+    },
+    {
+      id: "host.hook-observation",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/hook-observation.v1.schema.json",
+      schema: hookObservationSchema,
     },
     {
       id: "host.init-answers",
@@ -118,6 +129,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/evidence.v1.schema.json",
       schema: evidenceSchema,
+    },
+    {
+      id: "state.failure-candidate",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/failure-candidate.v1.schema.json",
+      schema: failureCandidateSchema,
     },
     {
       id: "state.feature",
@@ -183,6 +201,20 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: requirementDiscoverySchema,
     },
     {
+      id: "state.run-usage",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/run-usage.v1.schema.json",
+      schema: runUsageSchema,
+    },
+    {
+      id: "state.session-telemetry",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/session-telemetry.v1.schema.json",
+      schema: sessionTelemetrySchema,
+    },
+    {
       id: "state.snapshot",
       family: "state",
       version: "1.0.0",
@@ -214,6 +246,8 @@ const EXPECTED_SCHEMA_IDS = {
   "host.adapter-message": "https://kratos.dev/schemas/host/adapter-message/v1",
   "host.agent-output": "https://kratos.dev/schemas/host/agent-output/v1",
   "host.gap-proposal": "https://kratos.dev/schemas/host/gap-proposal/v1",
+  "host.hook-observation":
+    "https://kratos.dev/schemas/host/hook-observation/v1",
   "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
   "host.operation-message":
     "https://kratos.dev/schemas/host/operation-message/v1",
@@ -225,6 +259,8 @@ const EXPECTED_SCHEMA_IDS = {
     "https://kratos.dev/schemas/state/acceptance-verdict/v1",
   "state.event": "https://kratos.dev/schemas/state/event/v1",
   "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
+  "state.failure-candidate":
+    "https://kratos.dev/schemas/state/failure-candidate/v1",
   "state.feature": "https://kratos.dev/schemas/state/feature/v1",
   "state.feature-scope": "https://kratos.dev/schemas/state/feature-scope/v1",
   "state.gap": "https://kratos.dev/schemas/state/gap/v1",
@@ -235,6 +271,9 @@ const EXPECTED_SCHEMA_IDS = {
   "state.project-config": "https://kratos.dev/schemas/state/project-config/v1",
   "state.requirement-discovery":
     "https://kratos.dev/schemas/state/requirement-discovery/v1",
+  "state.run-usage": "https://kratos.dev/schemas/state/run-usage/v1",
+  "state.session-telemetry":
+    "https://kratos.dev/schemas/state/session-telemetry/v1",
   "state.snapshot": "https://kratos.dev/schemas/state/snapshot/v1",
   "state.transaction-manifest":
     "https://kratos.dev/schemas/state/transaction-manifest/v1",

@@ -76,6 +76,7 @@ describe("commands that observe before deciding", () => {
       "stats",
       "status",
       "scope record",
+      "unlock stop-loss",
     ]);
   });
 
