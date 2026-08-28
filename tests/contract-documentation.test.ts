@@ -32,22 +32,26 @@ function record(value: unknown): Readonly<Record<string, unknown>> {
   return value as Readonly<Record<string, unknown>>;
 }
 
+function unknownArray(value: unknown): readonly unknown[] {
+  if (!Array.isArray(value)) throw new Error("expected a contract array");
+  return value as readonly unknown[];
+}
+
+function stringValue(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new Error(`expected ${label}`);
+  return value;
+}
+
 function contractVersion(schema: unknown): string {
   const properties = record(record(schema).properties);
   const version = record(properties.contractVersion).const;
-  if (typeof version !== "string") throw new Error("expected contract version");
-  return version;
+  return stringValue(version, "contract version");
 }
 
 function requiredProperties(schema: unknown): readonly string[] {
-  const required = record(schema).required;
-  if (
-    !Array.isArray(required) ||
-    !required.every((value) => typeof value === "string")
-  ) {
-    throw new Error("expected required contract properties");
-  }
-  return required;
+  return unknownArray(record(schema).required).map((value) =>
+    stringValue(value, "required contract property"),
+  );
 }
 
 function mutationBounds(schema: unknown): readonly [number, number] {
@@ -61,9 +65,7 @@ function mutationBounds(schema: unknown): readonly [number, number] {
 }
 
 function reason(code: string): Readonly<Record<string, unknown>> {
-  const reasons = record(reasonCatalogV16).reasons;
-  if (!Array.isArray(reasons))
-    throw new Error("expected reason catalog entries");
+  const reasons = unknownArray(record(reasonCatalogV16).reasons);
   const entry = reasons.find((candidate) => record(candidate).code === code);
   if (entry === undefined) throw new Error(`missing reason ${code}`);
   return record(entry);
@@ -288,10 +290,23 @@ describe("pre-write scope guard documentation", () => {
       mutationBounds(preToolUseSchema);
     const pathEscape = reason("guard.path_escape");
     const outsideAllow = reason("guard.outside_allow");
-    const reasonCatalogVersion = record(contractFamilies).reasonCatalog;
-    if (typeof reasonCatalogVersion !== "string") {
-      throw new Error("expected reason catalog version");
-    }
+    const pathEscapeCode = stringValue(pathEscape.code, "path escape code");
+    const pathEscapeStatus = stringValue(
+      pathEscape.status,
+      "path escape status",
+    );
+    const outsideAllowCode = stringValue(
+      outsideAllow.code,
+      "outside allow code",
+    );
+    const outsideAllowStatus = stringValue(
+      outsideAllow.status,
+      "outside allow status",
+    );
+    const reasonCatalogVersion = stringValue(
+      record(contractFamilies).reasonCatalog,
+      "reason catalog version",
+    );
 
     for (const token of [
       "`.brain/02-features/<active-feature>/scope.json`",
@@ -339,20 +354,22 @@ describe("pre-write scope guard documentation", () => {
     for (const property of requiredProperties(preToolUseSchema)) {
       expect(hosts).toContain(`\`${property}\``);
     }
-    expect(hosts).toContain(`${minimumMutations}\u2013${maximumMutations}`);
+    expect(hosts).toContain(
+      `${String(minimumMutations)}\u2013${String(maximumMutations)}`,
+    );
     expect(hosts).toContain("closed record");
 
     expect(guide).toContain(`Revision \`${reasonCatalogVersion}\``);
     expect(schemaIndex).toContain(
       `reason-codes.v${reasonCatalogVersion.replace(/\.0$/u, "")}.json`,
     );
-    expect(resultContract).toContain(`\`${pathEscape.code}\``);
+    expect(resultContract).toContain(`\`${pathEscapeCode}\``);
     expect(resultContract).toContain(
-      `as ${pathEscape.status} / exit ${pathEscape.exitCode}`,
+      `as ${pathEscapeStatus} / exit ${String(pathEscape.exitCode)}`,
     );
-    expect(resultContract).toContain(`\`${outsideAllow.code}\``);
+    expect(resultContract).toContain(`\`${outsideAllowCode}\``);
     expect(resultContract).toContain(
-      `${outsideAllow.status} / exit ${outsideAllow.exitCode}`,
+      `${outsideAllowStatus} / exit ${String(outsideAllow.exitCode)}`,
     );
     expect(resultContract).toContain(
       "Every non-success result is denied by the host relay",
