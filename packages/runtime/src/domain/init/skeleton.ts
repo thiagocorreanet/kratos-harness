@@ -1,8 +1,4 @@
-import {
-  KRATOS_VERSION,
-  type InitAnswersV1,
-  type ProjectConfigV1,
-} from "@kratos/contracts";
+import { KRATOS_VERSION, type ProjectConfigV1_1 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
 import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
@@ -16,8 +12,9 @@ import {
   MANAGED_SECTION_END,
 } from "./managed-section.js";
 import type { StackProfile } from "./stack.js";
+import type { ResolvedAnswers } from "./answers.js";
 
-type Answers = Required<InitAnswersV1>;
+type Answers = ResolvedAnswers;
 type Host = Answers["hosts"][number];
 
 interface HostSurface {
@@ -164,11 +161,11 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1 = {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+  const config: ProjectConfigV1_1 = {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     pluginVersion: KRATOS_VERSION,
-    hostContract: "1.0.0",
+    hostContract: "1.1.0",
     language: answers.language,
     policyMode: answers.policyMode,
     managedState: {
@@ -176,6 +173,7 @@ function configuration(answers: Answers): string {
       eventLog: "events.jsonl",
       snapshots: answers.snapshots,
     },
+    modelRoles: answers.modelRoles,
   };
   return json(config);
 }

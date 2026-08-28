@@ -1,5 +1,3 @@
-import type { InitAnswersV1 } from "@kratos/contracts";
-
 import { planOf, type Effect } from "../effects.js";
 import {
   MANAGED_SECTION_BEGIN,
@@ -7,13 +5,14 @@ import {
   profileStack,
   skeletonEffects,
   type ManagedFileObservation,
+  type ResolvedAnswers,
 } from "../init/index.js";
 import { resultFor, usageFailure, USAGE_WHY } from "../result/index.js";
 
 import { observingCommand } from "./observed.js";
 import type { CommandObservation, CommandSpec, Decision } from "./spec.js";
 
-type Answers = Required<InitAnswersV1>;
+type Answers = ResolvedAnswers;
 type Host = Answers["hosts"][number];
 type Observation = Extract<
   CommandObservation,
@@ -142,7 +141,10 @@ function decide(
       })),
       why: outcomes
         .filter(({ outcome }) => outcome !== "created")
-        .map(({ path, outcome }) => `${outcome}: ${path}`),
+        .map(({ path, outcome }) => `${outcome}: ${path}`)
+        .concat(
+          observation.answers.defaulted.map((path) => `defaulted: ${path}`),
+        ),
     }),
     plan: planOf(...effects),
     humanStdout: null,

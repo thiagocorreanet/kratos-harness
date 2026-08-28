@@ -20,11 +20,13 @@ import {
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
+import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+
 const ROOT = "/project";
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.0.0",
-  hostContract: "1.0.0",
+  contractVersion: "1.1.0",
+  hostContract: "1.1.0",
   hosts: ["claude", "codex"],
 });
 
@@ -40,6 +42,7 @@ function subject(
   projectFiles: Readonly<Record<string, string>> = {},
   workspaceDirectories: readonly string[] = [],
   seedDirectories: readonly string[] = [],
+  modelRouting = fixedModelRouting([claudeCatalog(), codexCatalog()]),
 ): Subject {
   const storage = memoryTransactionStorage({
     files: seed,
@@ -57,7 +60,7 @@ function subject(
       fileSystem: memoryFileSystem({ "package.json": "{}", ...projectFiles }),
       git: { observe: () => Promise.reject(new Error("unused")) },
       locks: {} as RuntimePorts["locks"],
-      modelRouting: fixedModelRouting([]),
+      modelRouting,
       environment: fixedEnvironment({}, ROOT),
       output,
       standardInput: pipedInput(answers),
@@ -105,12 +108,16 @@ describe("the init command", () => {
       destinationsOf(
         skeletonEffects(
           {
-            contractVersion: "1.0.0",
-            hostContract: "1.0.0",
+            contractVersion: "1.1.0",
+            hostContract: "1.1.0",
             hosts: ["claude", "codex"],
             language: "en",
             policyMode: "standard",
             snapshots: true,
+            modelRoles: {
+              claude: claudeCatalog().defaults,
+              codex: codexCatalog().defaults,
+            },
           },
           profileStack({ rootEntries: ["package.json"] }),
         ),
@@ -155,6 +162,7 @@ describe("the init command", () => {
       summary: expect.stringContaining("Created 27") as unknown,
       stateChanged: true,
     });
+    expect(run.output.structured_.join("")).toContain("modelRoles.codex");
   });
 
   it("keeps a user's instruction file and refuses to guess", async () => {
@@ -191,8 +199,8 @@ describe("the init command", () => {
 
   it("refuses a host the answers never enabled", async () => {
     const answers = JSON.stringify({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+      contractVersion: "1.1.0",
+      hostContract: "1.1.0",
       hosts: ["claude"],
     });
     const run = subject(answers);
@@ -207,6 +215,24 @@ describe("the init command", () => {
 
   it("refuses an answers document that fails its contract", async () => {
     const run = subject(JSON.stringify({ hosts: ["claude"] }));
+
+    expect(await runCommandLine(["init"], run.ports)).not.toBe(0);
+    expect(run.storage.snapshot().files).toEqual({});
+  });
+
+  it("writes nothing when enabled-host defaults cannot be resolved", async () => {
+    const run = subject(
+      JSON.stringify({
+        contractVersion: "1.1.0",
+        hostContract: "1.1.0",
+        hosts: ["codex"],
+      }),
+      {},
+      {},
+      [],
+      [],
+      fixedModelRouting([]),
+    );
 
     expect(await runCommandLine(["init"], run.ports)).not.toBe(0);
     expect(run.storage.snapshot().files).toEqual({});

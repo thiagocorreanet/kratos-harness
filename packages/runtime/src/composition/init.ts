@@ -63,7 +63,11 @@ export async function observeInitialization(
       : piped;
   if (document === null) return failure(USAGE_WHY.missingValue);
 
-  const answers = resolveInitAnswers(parse(document), registry);
+  const answers = await resolveInitAnswers(
+    parse(document),
+    registry,
+    anchored.modelRouting,
+  );
   const rootEntries = await anchored.fileSystem.list(".");
   return {
     kind: "observed",

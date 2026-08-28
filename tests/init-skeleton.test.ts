@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { KRATOS_VERSION, type InitAnswersV1 } from "@kratos/contracts";
+import { KRATOS_VERSION, type InitAnswersV1_1 } from "@kratos/contracts";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import type { Effect } from "@kratos/runtime/domain/effects";
 import {
@@ -48,15 +48,27 @@ const registry = createSchemaRegistry();
 const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
 function answers(
-  overrides: Partial<Required<InitAnswersV1>> = {},
-): Required<InitAnswersV1> {
+  overrides: Partial<Required<InitAnswersV1_1>> = {},
+): Required<InitAnswersV1_1> {
   return {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
+    contractVersion: "1.1.0",
+    hostContract: "1.1.0",
     hosts: ["claude", "codex"],
     language: "en",
     policyMode: "standard",
     snapshots: true,
+    modelRoles: {
+      claude: {
+        planner: { model: "claude-planner", effort: "medium" },
+        implementer: { model: "claude-implementer", effort: "medium" },
+        judge: { model: "claude-judge", effort: "medium" },
+      },
+      codex: {
+        planner: { model: "codex-planner", effort: "medium" },
+        implementer: { model: "codex-implementer", effort: "high" },
+        judge: { model: "codex-judge", effort: "medium" },
+      },
+    },
     ...overrides,
   };
 }
@@ -169,10 +181,10 @@ describe("the generated skeleton", () => {
     );
 
     expect(config).toEqual({
-      contractVersion: "1.0.0",
-      stateContract: "1.0.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       pluginVersion: KRATOS_VERSION,
-      hostContract: "1.0.0",
+      hostContract: "1.1.0",
       language: "pt-BR",
       policyMode: "strict",
       managedState: {
@@ -180,11 +192,23 @@ describe("the generated skeleton", () => {
         eventLog: "events.jsonl",
         snapshots: false,
       },
+      modelRoles: {
+        claude: {
+          planner: { model: "claude-planner", effort: "medium" },
+          implementer: { model: "claude-implementer", effort: "medium" },
+          judge: { model: "claude-judge", effort: "medium" },
+        },
+        codex: {
+          planner: { model: "codex-planner", effort: "medium" },
+          implementer: { model: "codex-implementer", effort: "high" },
+          judge: { model: "codex-judge", effort: "medium" },
+        },
+      },
     });
     expect(
       registry.validate({
         id: "state.project-config",
-        version: "1.0.0",
+        version: "1.1.0",
         value: config,
         structuralReasonCode: "guard.config_corrupt",
       }).kind,

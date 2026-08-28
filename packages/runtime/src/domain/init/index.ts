@@ -1,5 +1,5 @@
 export { resolveInitAnswers } from "./answers.js";
-export type { ResolvedInitAnswers } from "./answers.js";
+export type { ResolvedAnswers, ResolvedInitAnswers } from "./answers.js";
 export {
   MANAGED_SECTION_BEGIN,
   MANAGED_SECTION_END,
