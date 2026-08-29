@@ -232,6 +232,43 @@ function migrationRoot(files: Readonly<Record<string, string>>): string {
   return receipt.slice(0, -"/receipt.json".length);
 }
 
+async function migrateAndRollback(run: Subject): Promise<{
+  readonly root: string;
+  readonly receipt: MigrationV1_1;
+}> {
+  expect(await runAuthorizedConfigMigration(run)).toBe(0);
+  const migrated = run.storage.snapshot().files;
+  const root = migrationRoot(migrated);
+  const receipt = JSON.parse(
+    migrated[`${root}/receipt.json`] ?? "null",
+  ) as MigrationV1_1;
+  expect(
+    await runCommandLine(
+      ["migrate", "rollback", receipt.migrationId],
+      run.ports,
+    ),
+  ).toBe(0);
+  return { root, receipt };
+}
+
+async function observedConfigMigrationId(run: Subject): Promise<string> {
+  const parsed = parseInvocation(["migrate", "config"], DEFAULT_REGISTRY);
+  if (parsed.kind === "result") throw new Error("config migration not parsed");
+  const observed = await observeMigration(
+    parsed.invocation,
+    run.ports,
+    createSchemaRegistry(),
+  );
+  if (
+    observed.kind !== "observed" ||
+    observed.observation.kind !== "migration" ||
+    observed.observation.operation.kind !== "config"
+  ) {
+    throw new Error("config migration not observed");
+  }
+  return observed.observation.operation.migrationId;
+}
+
 describe("configuration migration", () => {
   it("migrates only config and preserves every historical byte", async () => {
     const run = legacyProjectWithHistory();
@@ -741,6 +778,18 @@ describe("configuration migration", () => {
     "x\u2044y",
     "x-",
     "a".repeat(129),
+    "a:b",
+    "C:relative",
+    "con",
+    "CON",
+    "con.txt",
+    "PrN.json",
+    "AUX.log",
+    "nul.anything",
+    "COM1",
+    "com9.receipt",
+    "LPT1",
+    "lPt9.audit",
   ])(
     "rejects noncanonical rollback id %s before observing paths",
     async (migrationId) => {
@@ -770,6 +819,307 @@ describe("configuration migration", () => {
       );
     },
   );
+
+  it.each(["brain.v1", "migration@2026-08-28", "legacy_config-01"])(
+    "accepts portable legacy migration id %s for observation",
+    async (migrationId) => {
+      const run = legacyProjectWithHistory([null]);
+      let inspections = 0;
+      const durable = run.ports.durableFileSystem;
+      const guardedPorts: RuntimePorts = {
+        ...run.ports,
+        durableFileSystem: {
+          ...durable,
+          inspect: (path) => {
+            inspections += 1;
+            return durable.inspect(path);
+          },
+        },
+      };
+
+      expect(
+        await runCommandLine(
+          ["--json", "migrate", "rollback", migrationId],
+          guardedPorts,
+        ),
+      ).not.toBe(0);
+      expect(inspections).toBeGreaterThan(0);
+      expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject(
+        { reasonCode: "runtime.state_corrupt" },
+      );
+    },
+  );
+
+  it("rejects a schema-valid forged prior receipt", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    const receipt = JSON.parse(
+      run.storage.snapshot().files[`${root}/receipt.json`] ?? "null",
+    ) as MigrationV1_1;
+    await run.storage.fileSystem.write(
+      `${root}/receipt.json`,
+      `${JSON.stringify({ ...receipt, planDigest: "f".repeat(64) }, null, 2)}\n`,
+    );
+    const before = run.storage.snapshot();
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).not.toBe(0);
+    expect(run.storage.snapshot()).toEqual(before);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it.each([
+    "authorization.json",
+    "rollback.json",
+    "verification.json",
+    "backup/config.json",
+  ])("rejects a tampered prior %s during retry preview", async (target) => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    await run.storage.fileSystem.write(
+      `${root}/${target}`,
+      '{"tampered":true}\n',
+    );
+    const before = run.storage.snapshot();
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).not.toBe(0);
+    expect(run.storage.snapshot()).toEqual(before);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("rejects a missing prior audit companion", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    await run.storage.fileSystem.remove(`${root}/authorization.json`);
+    const before = run.storage.snapshot();
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).not.toBe(0);
+    expect(run.storage.snapshot()).toEqual(before);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("rejects a cross-root prior receipt reference", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    const receipt = JSON.parse(
+      run.storage.snapshot().files[`${root}/receipt.json`] ?? "null",
+    ) as MigrationV1_1;
+    await run.storage.fileSystem.write(
+      `${root}/receipt.json`,
+      `${JSON.stringify(
+        {
+          ...receipt,
+          authorizationRef: `${root}-attempt-2/authorization.json`,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it.each([
+    "authorization.json",
+    "rollback.json",
+    "verification.json",
+    "backup/config.json",
+    "receipt.json",
+  ])("refuses prior %s mutation after retry preview", async (target) => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+    const preview = previewAuthorization(run.output.structured_.at(-1) ?? "");
+    await run.storage.fileSystem.write(
+      `${root}/${target}`,
+      '{"changed":true}\n',
+    );
+
+    expect(
+      await runCommandLine(
+        ["--json", ...authorizedArguments(preview)],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+    });
+    expect(run.storage.snapshot().files[CONFIG_REF]).toBe(LEGACY_CONFIG_BYTES);
+  });
+
+  it.each([
+    "authorization.json",
+    "rollback.json",
+    "verification.json",
+    "backup/config.json",
+    "receipt.json",
+  ])(
+    "preconditions the observed prior %s bytes at retry apply",
+    async (target) => {
+      const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+      const { root } = await migrateAndRollback(run);
+      const parsed = parseInvocation(["migrate", "config"], DEFAULT_REGISTRY);
+      if (parsed.kind === "result")
+        throw new Error("config migration not parsed");
+      const observed = await observeMigration(
+        parsed.invocation,
+        run.ports,
+        createSchemaRegistry(),
+      );
+      if (
+        observed.kind !== "observed" ||
+        observed.observation.kind !== "migration" ||
+        observed.observation.operation.kind !== "config"
+      ) {
+        throw new Error("retry migration not observed");
+      }
+      const operation = observed.observation.operation;
+      const authorized = parseInvocation(
+        authorizedArguments({
+          planDigest: operation.planDigest,
+          planTime: operation.now,
+        }),
+        DEFAULT_REGISTRY,
+      );
+      if (authorized.kind === "result") {
+        throw new Error("authorized migration not parsed");
+      }
+      const decision = dispatch({
+        ...authorized.invocation,
+        observation: observed.observation,
+      });
+      await run.storage.fileSystem.write(
+        `${root}/${target}`,
+        '{"changed":true}\n',
+      );
+
+      await expect(
+        applyPlan(decision.plan, observed.ports),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.revision_conflict",
+      });
+      expect(run.storage.snapshot().files[CONFIG_REF]).toBe(
+        LEGACY_CONFIG_BYTES,
+      );
+    },
+  );
+
+  it("rejects an escaping prior audit reference", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS]);
+    const { root } = await migrateAndRollback(run);
+    const receipt = JSON.parse(
+      run.storage.snapshot().files[`${root}/receipt.json`] ?? "null",
+    ) as MigrationV1_1;
+    if (receipt.rollback.kind !== "replace") throw new Error("not replacement");
+    await run.storage.fileSystem.write(
+      `${root}/receipt.json`,
+      `${JSON.stringify(
+        {
+          ...receipt,
+          rollback: {
+            ...receipt.rollback,
+            backupRef: `${root}/backup/../backup/config.json`,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("rejects a skipped retry attempt before trusting any receipt", async () => {
+    const migrationId = await observedConfigMigrationId(
+      legacyProjectWithHistory([ANSWERS]),
+    );
+    const run = legacyProjectWithHistory([ANSWERS]);
+    const durable = run.ports.durableFileSystem;
+    let receiptInspections = 0;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...durable,
+        inspect: (path) => {
+          if (path === ".brain/migrations") {
+            return Promise.resolve({ kind: "directory" as const });
+          }
+          if (path.endsWith("/receipt.json")) receiptInspections += 1;
+          return durable.inspect(path);
+        },
+        list: (path) =>
+          path === ".brain/migrations"
+            ? Promise.resolve([migrationId, `${migrationId}-attempt-3`])
+            : durable.list(path),
+      },
+    };
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], ports),
+    ).not.toBe(0);
+    expect(receiptInspections).toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
+
+  it("refuses exactly at the configured attempt cap without emitting cap plus one", async () => {
+    const migrationId = await observedConfigMigrationId(
+      legacyProjectWithHistory([ANSWERS]),
+    );
+    const run = legacyProjectWithHistory([ANSWERS]);
+    const durable = run.ports.durableFileSystem;
+    let receiptInspections = 0;
+    const attempts = Array.from({ length: 10_000 }, (_, index) =>
+      index === 0 ? migrationId : `${migrationId}-attempt-${index + 1}`,
+    );
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...durable,
+        inspect: (path) => {
+          if (path === ".brain/migrations") {
+            return Promise.resolve({ kind: "directory" as const });
+          }
+          if (path.endsWith("/receipt.json")) receiptInspections += 1;
+          return durable.inspect(path);
+        },
+        list: (path) =>
+          path === ".brain/migrations"
+            ? Promise.resolve(attempts)
+            : durable.list(path),
+      },
+    };
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], ports),
+    ).not.toBe(0);
+    expect(receiptInspections).toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.state_corrupt",
+    });
+  });
 
   it("retries after rollback under a new attempt id without overwriting prior audit", async () => {
     const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS, ANSWERS]);

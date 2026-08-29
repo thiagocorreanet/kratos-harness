@@ -233,3 +233,77 @@ golden v1 event fixture still matches `HEAD` exactly:
 working SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
 HEAD SHA-256:    25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
 ```
+
+## Review round 2 fixes
+
+Migration IDs now use a portable component grammar before any migration path
+is constructed. Colon (including drive-relative and ADS spellings) is refused.
+The basename before an extension is compared case-insensitively against `CON`,
+`PRN`, `AUX`, `NUL`, `COM1`-`COM9`, and `LPT1`-`LPT9`. Dotted, underscored,
+hyphenated, and `@`-qualified legacy IDs remain accepted when they are not
+reserved devices.
+
+Retry lineage no longer trusts a receipt by itself. Authorization now persists
+the normalized hosts, role map, and default list needed to reconstruct the
+internal lineage digest. For every prior attempt, observation obtains stable
+bytes for authorization, backup, receipt, rollback manifest, and verification;
+validates exact `1.1.0` record shapes and refs under that attempt root;
+recalculates the lineage digest; reconstructs the planned, authorized,
+completed, and rolled-back receipt through the domain lifecycle; and verifies
+the exact legacy backup plus current source/destination relationships. Every
+one of the five prior files becomes an apply precondition.
+
+Attempt suffixes must be contiguous and canonical. Exactly 10,000 existing
+attempts now refuse before any receipt is read, so the implementation cannot
+emit `attempt-10001`.
+
+### Review round 2 RED
+
+```text
+npm test -- tests/config-migration.test.ts
+Test Files 1 failed
+Tests 24 failed | 46 passed
+```
+
+The failures were the 12 newly rejected portable-ID cases, forged/tampered/
+missing/cross-root bundle cases, four previously unguarded companion mutations,
+and the cap boundary inspecting attempt one instead of refusing immediately.
+
+### Review round 2 GREEN
+
+```text
+focused config migration
+Test Files 1 passed
+Tests 76 passed
+
+Task 8 migration/CLI/replay/fault matrix
+Test Files 8 passed
+Tests 162 passed
+
+transaction fault and recovery matrix
+Test Files 5 passed
+Tests 97 passed
+
+all CLI-named suites
+Test Files 7 passed
+Tests 137 passed
+
+npm run typecheck
+exit 0
+
+npm run lint
+exit 0
+
+npm run format:check
+All matched files use Prettier code style!
+
+git diff --check
+exit 0
+```
+
+The focused matrix includes case/extension variants for every Windows device
+family, legitimate dotted legacy IDs, schema-valid forged receipts, each
+tampered or missing companion, escaping and cross-attempt refs, skipped
+attempts, all five mutations both after preview and after direct observation,
+the exact cap boundary, and the valid rollback/retry cycle with first-attempt
+bytes preserved.

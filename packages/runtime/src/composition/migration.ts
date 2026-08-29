@@ -4,6 +4,7 @@ import type {
   MigrationV1,
   MigrationV1_1,
   ProjectConfigV1,
+  ProjectConfigV1_1,
 } from "@kratos/contracts";
 
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -13,6 +14,7 @@ import {
   completeConfigMigration,
   planBrainMigration,
   plannedConfigMigration,
+  rollBackConfigMigration,
   type MigrationEntry,
   upgradeProjectConfiguration,
 } from "../domain/migration/index.js";
@@ -288,12 +290,23 @@ async function observeConfig(
   const baseMigrationId = `config-${seedDigest.slice(0, 24)}`;
   const attempt = await nextConfigAttempt(
     baseMigrationId,
-    entry.sha256,
-    destinationDigest,
+    {
+      source: { content, sha256: entry.sha256 },
+      destinationDigest,
+      hosts: answers.answers.hosts,
+      answers: document.authority,
+      catalogs,
+      modelRoles: destination.modelRoles,
+      defaulted: answers.defaulted,
+    },
     ports,
     registry,
   );
-  if (attempt.kind === "failure") return attempt;
+  if (attempt.kind === "failure") {
+    return authorized && attempt.result.reasonCode === "runtime.state_corrupt"
+      ? resultFailure("runtime.revision_conflict", ".brain/migrations")
+      : attempt;
+  }
   const migrationId = attempt.migrationId;
   const root = `.brain/migrations/${migrationId}`;
   const backupRef = `${root}/backup/config.json`;
@@ -363,6 +376,11 @@ async function observeConfig(
         planDigest: receiptPlanDigest,
         answers: document.authority,
         catalogs,
+        plan: {
+          hosts: answers.answers.hosts,
+          modelRoles: destination.modelRoles,
+          defaulted: answers.defaulted,
+        },
         source: { ref: CONFIG_REF, sha256: entry.sha256 },
         destination: { ref: CONFIG_REF, sha256: destinationDigest },
         authorizedAt: planTime,
@@ -480,25 +498,41 @@ async function readStableFile(
   return { kind: "file", content, entry: before };
 }
 
+interface ConfigLineageContext {
+  readonly source: { readonly content: string; readonly sha256: string };
+  readonly destinationDigest: string;
+  readonly hosts: readonly ("claude" | "codex")[];
+  readonly answers: { readonly ref: string; readonly sha256: string };
+  readonly catalogs: readonly {
+    readonly host: "claude" | "codex";
+    readonly sha256: string;
+  }[];
+  readonly modelRoles: ProjectConfigV1_1["modelRoles"];
+  readonly defaulted: readonly string[];
+}
+
+type ConfigAttemptGuard = {
+  readonly path: string;
+  readonly content: string;
+  readonly expected: {
+    readonly kind: "file";
+    readonly size: number;
+    readonly sha256: string;
+  };
+};
+
+const MAX_CONFIG_MIGRATION_ATTEMPTS = 10_000;
+
 async function nextConfigAttempt(
   baseMigrationId: string,
-  sourceDigest: string,
-  destinationDigest: string,
+  context: ConfigLineageContext,
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<
   | {
       readonly kind: "attempt";
       readonly migrationId: string;
-      readonly guards: readonly {
-        readonly path: string;
-        readonly content: string;
-        readonly expected: {
-          readonly kind: "file";
-          readonly size: number;
-          readonly sha256: string;
-        };
-      }[];
+      readonly guards: readonly ConfigAttemptGuard[];
     }
   | Extract<ObservedMigration, { readonly kind: "failure" }>
 > {
@@ -525,74 +559,27 @@ async function nextConfigAttempt(
     lineage.some(
       (attempt, index) =>
         !Number.isSafeInteger(attempt) ||
-        attempt > 10_000 ||
+        attempt > MAX_CONFIG_MIGRATION_ATTEMPTS ||
         attempt !== index + 1,
     )
   ) {
     return resultFailure("runtime.state_corrupt", ".brain/migrations");
   }
-  const guards: {
-    readonly path: string;
-    readonly content: string;
-    readonly expected: {
-      readonly kind: "file";
-      readonly size: number;
-      readonly sha256: string;
-    };
-  }[] = [];
+  if (lineage.length >= MAX_CONFIG_MIGRATION_ATTEMPTS) {
+    return resultFailure("runtime.state_corrupt", ".brain/migrations");
+  }
+  const guards: ConfigAttemptGuard[] = [];
   for (const index of lineage) {
     const candidate =
       index === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${index}`;
-    const receiptFile = await readStableFile(
-      `.brain/migrations/${candidate}/receipt.json`,
+    const observed = await observePriorConfigAttempt(
+      candidate,
+      context,
       ports,
+      registry,
     );
-    if (receiptFile.kind !== "file") {
-      return resultFailure(
-        receiptFile.kind === "revision-conflict"
-          ? "runtime.revision_conflict"
-          : "runtime.state_corrupt",
-        `.brain/migrations/${candidate}/receipt.json`,
-      );
-    }
-    let raw: unknown;
-    try {
-      raw = JSON.parse(receiptFile.content) as unknown;
-    } catch {
-      return resultFailure(
-        "runtime.state_corrupt",
-        `.brain/migrations/${candidate}/receipt.json`,
-      );
-    }
-    const validated = registry.validate({
-      id: "state.migration",
-      version: ownString(raw, "stateContract") ?? "",
-      value: raw,
-      structuralReasonCode: "runtime.state_corrupt",
-    });
-    if (
-      validated.kind !== "valid" ||
-      validated.value.stateContract !== "1.1.0" ||
-      validated.value.migrationId !== candidate ||
-      validated.value.status !== "rolled-back" ||
-      validated.value.rollback.kind !== "replace" ||
-      validated.value.backupDigest !== sourceDigest ||
-      validated.value.rollback.backupDigest !== sourceDigest ||
-      validated.value.rollback.destinationDigest !== destinationDigest ||
-      validated.value.conversions.length !== 1 ||
-      validated.value.conversions[0]?.sourceDigest !== sourceDigest ||
-      validated.value.conversions[0]?.destinationDigest !== destinationDigest
-    ) {
-      return resultFailure(
-        "runtime.state_corrupt",
-        `.brain/migrations/${candidate}/receipt.json`,
-      );
-    }
-    guards.push({
-      path: `.brain/migrations/${candidate}/receipt.json`,
-      content: receiptFile.content,
-      expected: expectedFile(receiptFile),
-    });
+    if (observed.kind === "failure") return observed;
+    guards.push(...observed.guards);
   }
   const next = lineage.length + 1;
   return {
@@ -600,6 +587,204 @@ async function nextConfigAttempt(
     migrationId:
       next === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${next}`,
     guards,
+  };
+}
+
+interface PriorAttemptFiles {
+  readonly authorization: Extract<
+    StableFileObservation,
+    { readonly kind: "file" }
+  >;
+  readonly backup: Extract<StableFileObservation, { readonly kind: "file" }>;
+  readonly receipt: Extract<StableFileObservation, { readonly kind: "file" }>;
+  readonly rollback: Extract<StableFileObservation, { readonly kind: "file" }>;
+  readonly verification: Extract<
+    StableFileObservation,
+    { readonly kind: "file" }
+  >;
+}
+
+async function observePriorConfigAttempt(
+  migrationId: string,
+  context: ConfigLineageContext,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | { readonly kind: "bundle"; readonly guards: readonly ConfigAttemptGuard[] }
+  | Extract<ObservedMigration, { readonly kind: "failure" }>
+> {
+  const root = `.brain/migrations/${migrationId}`;
+  const paths = {
+    authorization: `${root}/authorization.json`,
+    backup: `${root}/backup/config.json`,
+    receipt: `${root}/receipt.json`,
+    rollback: `${root}/rollback.json`,
+    verification: `${root}/verification.json`,
+  } as const;
+  const files = await readPriorAttemptFiles(paths, ports);
+  if (files.kind !== "files") {
+    return resultFailure(
+      files.kind === "revision-conflict"
+        ? "runtime.revision_conflict"
+        : "runtime.state_corrupt",
+      root,
+    );
+  }
+
+  let authorization: unknown;
+  let rawReceipt: unknown;
+  let rollbackManifest: unknown;
+  let verification: unknown;
+  try {
+    authorization = JSON.parse(files.value.authorization.content) as unknown;
+    rawReceipt = JSON.parse(files.value.receipt.content) as unknown;
+    rollbackManifest = JSON.parse(files.value.rollback.content) as unknown;
+    verification = JSON.parse(files.value.verification.content) as unknown;
+  } catch {
+    return resultFailure("runtime.state_corrupt", root);
+  }
+  const validated = registry.validate({
+    id: "state.migration",
+    version: ownString(rawReceipt, "stateContract") ?? "",
+    value: rawReceipt,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  if (
+    validated.kind !== "valid" ||
+    validated.value.stateContract !== "1.1.0" ||
+    validated.value.migrationId !== migrationId ||
+    validated.value.status !== "rolled-back" ||
+    validated.value.rollback.kind !== "replace"
+  ) {
+    return resultFailure("runtime.state_corrupt", paths.receipt);
+  }
+  const receipt = validated.value;
+  const receiptPlanDigest = ports.digests.sha256(
+    canonicalizeJson({
+      kind: "project-config-replacement",
+      migrationId,
+      planTime: receipt.createdAt,
+      source: { ref: CONFIG_REF, sha256: context.source.sha256 },
+      destination: { ref: CONFIG_REF, sha256: context.destinationDigest },
+      hosts: context.hosts,
+      modelRoles: context.modelRoles,
+      defaulted: context.defaulted,
+    }),
+  );
+  const planned = plannedConfigMigration({
+    migrationId,
+    planDigest: receiptPlanDigest,
+    authorizationRef: paths.authorization,
+    backupRef: paths.backup,
+    backupDigest: context.source.sha256,
+    destinationRef: CONFIG_REF,
+    destinationDigest: context.destinationDigest,
+    verificationRef: paths.verification,
+    now: receipt.createdAt,
+  });
+  const authorized = authorizeConfigMigration(
+    planned,
+    receiptPlanDigest,
+    paths.authorization,
+    receipt.createdAt,
+  );
+  const completed =
+    authorized === null
+      ? null
+      : completeConfigMigration(
+          authorized,
+          paths.verification,
+          context.destinationDigest,
+          receipt.createdAt,
+        );
+  const expectedReceipt =
+    completed === null
+      ? null
+      : rollBackConfigMigration(
+          completed,
+          context.source.sha256,
+          context.destinationDigest,
+          receipt.updatedAt,
+        );
+  const expectedAuthorization = {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
+    migrationId,
+    planDigest: receiptPlanDigest,
+    answers: context.answers,
+    catalogs: context.catalogs,
+    plan: {
+      hosts: context.hosts,
+      modelRoles: context.modelRoles,
+      defaulted: context.defaulted,
+    },
+    source: { ref: CONFIG_REF, sha256: context.source.sha256 },
+    destination: { ref: CONFIG_REF, sha256: context.destinationDigest },
+    authorizedAt: receipt.createdAt,
+  };
+  if (
+    receipt.planDigest !== receiptPlanDigest ||
+    expectedReceipt === null ||
+    !sameJson(receipt, expectedReceipt) ||
+    !sameJson(authorization, expectedAuthorization) ||
+    !validConfigRollbackManifest(rollbackManifest, receipt) ||
+    !validConfigVerificationAt(verification, receipt, receipt.createdAt) ||
+    files.value.backup.content !== context.source.content ||
+    files.value.backup.entry.sha256 !== context.source.sha256
+  ) {
+    return resultFailure("runtime.state_corrupt", root);
+  }
+  const guards = (
+    Object.entries(files.value) as readonly [
+      keyof PriorAttemptFiles,
+      PriorAttemptFiles[keyof PriorAttemptFiles],
+    ][]
+  )
+    .map(([name, file]) => ({
+      path: paths[name],
+      content: file.content,
+      expected: expectedFile(file),
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path, "en-US"));
+  return { kind: "bundle", guards };
+}
+
+async function readPriorAttemptFiles(
+  paths: Readonly<Record<keyof PriorAttemptFiles, string>>,
+  ports: RuntimePorts,
+): Promise<
+  | { readonly kind: "files"; readonly value: PriorAttemptFiles }
+  | { readonly kind: "missing-or-corrupt" | "revision-conflict" }
+> {
+  const [authorization, backup, receipt, rollback, verification] =
+    await Promise.all([
+      readStableFile(paths.authorization, ports),
+      readStableFile(paths.backup, ports),
+      readStableFile(paths.receipt, ports),
+      readStableFile(paths.rollback, ports),
+      readStableFile(paths.verification, ports),
+    ]);
+  if (
+    authorization.kind === "revision-conflict" ||
+    backup.kind === "revision-conflict" ||
+    receipt.kind === "revision-conflict" ||
+    rollback.kind === "revision-conflict" ||
+    verification.kind === "revision-conflict"
+  ) {
+    return { kind: "revision-conflict" };
+  }
+  if (
+    authorization.kind !== "file" ||
+    backup.kind !== "file" ||
+    receipt.kind !== "file" ||
+    rollback.kind !== "file" ||
+    verification.kind !== "file"
+  ) {
+    return { kind: "missing-or-corrupt" };
+  }
+  return {
+    kind: "files",
+    value: { authorization, backup, receipt, rollback, verification },
   };
 }
 
@@ -833,10 +1018,12 @@ async function observeRollback(
 }
 
 function isCanonicalMigrationId(value: string): boolean {
+  const windowsBasename = value.split(".", 1)[0]?.toUpperCase() ?? "";
   return (
     value.length <= 128 &&
     !value.includes("..") &&
-    /^[a-zA-Z0-9](?:[a-zA-Z0-9._:@-]{0,126}[a-zA-Z0-9])?$/u.test(value)
+    !/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/u.test(windowsBasename) &&
+    /^[a-zA-Z0-9](?:[a-zA-Z0-9._@-]{0,126}[a-zA-Z0-9])?$/u.test(value)
   );
 }
 
@@ -989,6 +1176,14 @@ function validConfigVerification(
   value: unknown,
   receipt: MigrationV1_1,
 ): boolean {
+  return validConfigVerificationAt(value, receipt, receipt.updatedAt);
+}
+
+function validConfigVerificationAt(
+  value: unknown,
+  receipt: MigrationV1_1,
+  verifiedAt: string,
+): boolean {
   if (!isRecord(value) || receipt.rollback.kind !== "replace") return false;
   return sameJson(value, {
     contractVersion: "1.1.0",
@@ -1003,7 +1198,7 @@ function validConfigVerification(
       ref: receipt.rollback.destinationRef,
       sha256: receipt.rollback.destinationDigest,
     },
-    verifiedAt: receipt.updatedAt,
+    verifiedAt,
   });
 }
 

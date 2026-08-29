@@ -50,9 +50,18 @@ preconditions, closing the validation/apply swap boundary. The older
 
 After a successful replacement rollback, the same source and answers derive
 the next `-attempt-N` migration ID only from a validated chain of prior
-rolled-back receipts. Those receipt bytes are also apply preconditions. A retry
-therefore preserves every prior audit file instead of overwriting the first
-attempt.
+rolled-back audit bundles. Each prior authorization, receipt, rollback
+manifest, verification record, and exact backup must have version `1.1.0`,
+canonical refs under its own attempt root, recomputable lineage/content
+digests, and consistent source/destination relationships. All five exact files
+are also apply preconditions. Attempts are contiguous and capped; the cap is a
+refusal, never an extra suffix. A retry therefore preserves every prior audit
+file instead of overwriting the first attempt.
+
+Migration IDs are portable single path components. Validation happens before
+path construction and rejects separators, colon/drive/ADS syntax, traversal,
+overlong values, and case-insensitive Windows device basenames (including
+extension variants). Non-device dotted legacy IDs remain readable.
 
 Replay audits compare canonical persisted and replayed snapshots and report
 field-level divergence. Repair is a previewable digest-bound write plan. Apply
