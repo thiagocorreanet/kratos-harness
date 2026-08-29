@@ -128,3 +128,36 @@ significant.
 - A persisted, schema-valid legacy v1 inbox record with a different candidate
   ID is matched in memory; invalid manual proposals are rejected; and capture
   and list still leave curated memory unpromoted.
+
+## Fix Round 2
+
+### Scope
+
+Narrowed only the six-character mixed-alphanumeric temporary suffix branch.
+It now requires at least two ASCII letters and two digits before it is treated
+as a nonce. Existing all-numeric and 8+-character hexadecimal temporary nonce
+handling is unchanged.
+
+### RED evidence
+
+`npm test -- tests/workflow-hook-domain.test.ts`
+
+Result: **1 failure / 27 passes**. The exact review regression incorrectly
+deduplicated `/tmp/kratos-release-v1beta/output` and
+`/tmp/kratos-release-v2beta/output`.
+
+### GREEN evidence
+
+- `npm test -- tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts`
+  - **2 files passed, 35 tests passed**.
+- `npm test -- tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/cli-commands.test.ts tests/workflow-hook-distribution.test.ts tests/workflow-hooks-contracts.test.ts tests/schema-registry-fixtures.test.ts tests/cli-help.test.ts tests/memory-capture-distribution.test.ts`
+  - **8 files passed, 325 tests passed**.
+- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`,
+  and `git diff --check` — passed.
+
+### Regression coverage
+
+- Positive pairs cover two common six-character mkdtemp-style suffix shapes
+  with at least two letters and two digits.
+- Preservation tests cover letter-only suffixes and the exact substantive
+  `v1beta` versus `v2beta` temporary paths.

@@ -227,7 +227,7 @@ function normalizeCandidateDiagnostic(value: string): string {
       "<uuid>",
     )
     .replace(
-      /((?:\/tmp|\/var\/tmp)\/[^\s/]+?)-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6})(?=\/|\s|$)/gu,
+      /((?:\/tmp|\/var\/tmp)\/[^\s/]+?)-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=(?:[A-Za-z0-9]*[A-Za-z]){2}[A-Za-z0-9]*(?=\/|\s|$))(?=(?:[A-Za-z0-9]*\d){2}[A-Za-z0-9]*(?=\/|\s|$))[A-Za-z0-9]{6})(?=\/|\s|$)/gu,
       "$1-<nonce>",
     )
     .replace(
