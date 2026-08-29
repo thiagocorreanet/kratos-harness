@@ -89,6 +89,7 @@ function stateFiles(
   profile: StackProfile,
 ): readonly FileEntry[] {
   return [
+    [".brain/.gitignore", brainGitignore()],
     [".brain/00-business/README.md", businessReadme()],
     [".brain/01-architecture/README.md", architectureReadme()],
     // An empty keeper is how the directory survives a checkout while it holds
@@ -219,6 +220,18 @@ function stackProfileDocument(profile: StackProfile): string {
     "| Stack | Evidence |",
     "| --- | --- |",
     ...profile.stacks.map(({ id, evidence }) => `| ${id} | \`${evidence}\` |`),
+  );
+}
+
+function brainGitignore(): string {
+  return lines(
+    "# Volatile telemetry and run event streams are not tracked.",
+    "03-memory/task_log.jsonl",
+    "03-memory/.cache/",
+    "02-features/*/runs/*/events.jsonl",
+    "events.jsonl",
+    "*.trace",
+    "traces/",
   );
 }
 

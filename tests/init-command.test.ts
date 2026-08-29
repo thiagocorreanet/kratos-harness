@@ -159,7 +159,7 @@ describe("the init command", () => {
 
     expect(result).toMatchObject({
       reasonCode: "trail.ok",
-      summary: expect.stringContaining("Created 27") as unknown,
+      summary: expect.stringContaining("Created 28") as unknown,
       stateChanged: true,
     });
     expect(run.output.structured_.join("")).toContain("modelRoles.codex");
@@ -434,7 +434,7 @@ describe("the init command", () => {
 
     const result: unknown = JSON.parse(run.output.structured_.join(""));
     expect(result).toMatchObject({
-      summary: expect.stringContaining("preserved 18") as unknown,
+      summary: expect.stringContaining("preserved 19") as unknown,
     });
     expect(Object.keys(run.storage.snapshot().files)).toContain("CLAUDE.md");
   });

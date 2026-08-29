@@ -116,7 +116,7 @@ describe("init fault campaign", () => {
 
     // The campaign is only worth running if it reaches the operations that
     // publish the surface, so the count is asserted rather than assumed.
-    expect(Object.keys(complete)).toHaveLength(27);
+    expect(Object.keys(complete)).toHaveLength(28);
     expect(boundaries.length).toBeGreaterThan(100);
 
     for (const boundary of boundaries) {
