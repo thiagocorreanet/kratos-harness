@@ -6,8 +6,10 @@ import {
   skeletonEffects,
   type ManagedFileObservation,
   type ResolvedInitAnswers,
+  type ResolvedProjectProfile,
 } from "../domain/init/index.js";
 import {
+  resultFor,
   usageFailure,
   USAGE_WHY,
   type Result,
@@ -64,9 +66,17 @@ export async function observeInitialization(
       : piped;
   if (document === null) return failure(USAGE_WHY.missingValue);
 
-  const answers = await resolveInitAnswers(parse(document), registry, {
-    observe: (host) => observeModelCatalog(anchored.modelRouting, host),
-  });
+  const persisted = await observePersistedProfile(anchored, registry);
+  if (persisted.kind === "failure") return persisted;
+
+  const answers = await resolveInitAnswers(
+    parse(document),
+    registry,
+    {
+      observe: (host) => observeModelCatalog(anchored.modelRouting, host),
+    },
+    persisted.profile,
+  );
   const rootEntries = await anchored.fileSystem.list(".");
   return {
     kind: "observed",
@@ -78,6 +88,67 @@ export async function observeInitialization(
       destinations: await observeDestinations(answers, rootEntries, anchored),
     },
     ports: anchored,
+  };
+}
+
+async function observePersistedProfile(
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | { readonly kind: "profile"; readonly profile?: ResolvedProjectProfile }
+  | Extract<Observed, { readonly kind: "failure" }>
+> {
+  const path = ".brain/config.json";
+  const entry = await ports.durableFileSystem.inspect(path);
+  if (entry.kind === "missing") return { kind: "profile" };
+  if (entry.kind !== "file")
+    return configurationFailure("guard.config_corrupt");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      await ports.durableFileSystem.readText(path),
+    ) as unknown;
+  } catch {
+    return configurationFailure("guard.config_corrupt");
+  }
+  const version = stateContract(parsed);
+  if (version === "1.0.0" || version === "1.1.0" || version === "1.2.0") {
+    return configurationFailure("profile.config_migration_required");
+  }
+  const validated = registry.validate({
+    id: "state.project-config",
+    version,
+    value: parsed,
+    structuralReasonCode: "guard.config_corrupt",
+  });
+  if (validated.kind !== "valid" || validated.value.stateContract !== "1.3.0") {
+    return configurationFailure(
+      validated.kind === "invalid"
+        ? (validated.diagnostics[0]?.reasonCode ?? "guard.config_corrupt")
+        : "guard.config_corrupt",
+    );
+  }
+  return { kind: "profile", profile: validated.value.projectProfile };
+}
+
+function stateContract(value: unknown): unknown {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>).stateContract
+    : undefined;
+}
+
+function configurationFailure(
+  reasonCode: string,
+): Extract<Observed, { readonly kind: "failure" }> {
+  return {
+    kind: "failure",
+    result: resultFor(reasonCode, {
+      why: [
+        "The existing project configuration must be usable before initialization can preserve its profile.",
+      ],
+      evidence: [{ kind: "artifact", ref: ".brain/config.json" }],
+    }),
   };
 }
 

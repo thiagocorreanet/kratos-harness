@@ -164,7 +164,7 @@ async function verifyProjectFlow(runtime, host, workRoot) {
   const initHost = host === "codex" ? "codex" : "claude";
   const fixture = JSON.parse(
     await readFile(
-      join(repositoryRoot, "fixtures/contracts/v1.2/init-answers.json"),
+      join(repositoryRoot, "fixtures/contracts/v1.3/init-answers.json"),
       "utf8",
     ),
   );

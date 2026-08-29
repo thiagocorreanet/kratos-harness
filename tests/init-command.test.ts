@@ -20,13 +20,15 @@ import {
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
+import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
+
 import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
 
 const ROOT = "/project";
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["claude", "codex"],
 });
 
@@ -108,8 +110,8 @@ describe("the init command", () => {
       destinationsOf(
         skeletonEffects(
           {
-            contractVersion: "1.2.0",
-            hostContract: "1.2.0",
+            contractVersion: "1.3.0",
+            hostContract: "1.3.0",
             hosts: ["claude", "codex"],
             language: {
               conversation: "en",
@@ -126,6 +128,24 @@ describe("the init command", () => {
               claude: claudeCatalog().defaults,
               codex: codexCatalog().defaults,
             },
+            projectProfile: {
+              commands: {
+                test: { status: "unresolved" },
+                lint: { status: "unresolved" },
+                build: { status: "unresolved" },
+                run: { status: "unresolved" },
+              },
+              paths: {
+                source: { status: "unresolved" },
+                tests: { status: "unresolved" },
+                configuration: { status: "unresolved" },
+              },
+              conventions: {
+                directoryLayout: { status: "unresolved" },
+                naming: { status: "unresolved" },
+                implementationLanguages: { status: "unresolved" },
+              },
+            },
           },
           profileStack({ rootEntries: ["package.json"] }),
         ),
@@ -141,7 +161,10 @@ describe("the init command", () => {
     // The second run starts from what the first one wrote, which is the only
     // way to prove nothing moved: a fresh project would pass either way.
     const again = subject(ANSWERS, settled.files);
-    expect(await runCommandLine(["init"], again.ports)).toBe(0);
+    expect(
+      await runCommandLine(["init"], again.ports),
+      again.output.human_.join("") + again.output.structured_.join(""),
+    ).toBe(0);
 
     expect(
       Object.fromEntries(
@@ -157,6 +180,142 @@ describe("the init command", () => {
       ),
     );
     expect(again.output.structured_.join("")).toContain("preserved");
+  });
+
+  it("persists every profile leaf as unresolved on a fresh initialization", async () => {
+    const run = subject();
+
+    expect(await runCommandLine(["init"], run.ports)).toBe(0);
+
+    const configuration = JSON.parse(
+      run.storage.snapshot().files[".brain/config.json"] ?? "null",
+    ) as { readonly projectProfile: unknown };
+    expect(configuration.projectProfile).toEqual({
+      commands: {
+        test: { status: "unresolved" },
+        lint: { status: "unresolved" },
+        build: { status: "unresolved" },
+        run: { status: "unresolved" },
+      },
+      paths: {
+        source: { status: "unresolved" },
+        tests: { status: "unresolved" },
+        configuration: { status: "unresolved" },
+      },
+      conventions: {
+        directoryLayout: { status: "unresolved" },
+        naming: { status: "unresolved" },
+        implementationLanguages: { status: "unresolved" },
+      },
+    });
+  });
+
+  it("merges explicit profile leaves fieldwise, including override and clearing", async () => {
+    const initialAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "resolved", value: "npm run lint" },
+          build: { status: "not-applicable", reason: "No build step." },
+          run: { status: "resolved", value: "npm start" },
+        },
+        paths: {
+          source: { status: "resolved", value: ["src"] },
+          tests: { status: "resolved", value: ["tests"] },
+          configuration: { status: "resolved", value: ["package.json"] },
+        },
+        conventions: {
+          directoryLayout: { status: "resolved", value: "Feature folders." },
+          naming: { status: "resolved", value: "Use camelCase." },
+          implementationLanguages: {
+            status: "resolved",
+            value: ["TypeScript"],
+          },
+        },
+      },
+    });
+    const first = subject(initialAnswers);
+    expect(await runCommandLine(["init"], first.ports)).toBe(0);
+    const initialState = first.storage.snapshot();
+    const settled = Object.fromEntries(
+      Object.entries(initialState.files).filter(
+        ([path]) => !path.startsWith(".brain/transactions/"),
+      ),
+    );
+
+    const nextAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm run test:unit" },
+          lint: { status: "unresolved" },
+        },
+        paths: {
+          tests: { status: "not-applicable", reason: "No test directory." },
+        },
+      },
+    });
+    const again = subject(
+      nextAnswers,
+      settled,
+      {},
+      [],
+      initialState.directories,
+    );
+
+    expect(
+      await runCommandLine(["init"], again.ports),
+      again.output.human_.join("") + again.output.structured_.join(""),
+    ).toBe(0);
+
+    const configuration = JSON.parse(
+      again.storage.snapshot().files[".brain/config.json"] ?? "null",
+    ) as {
+      readonly projectProfile: {
+        readonly commands: Readonly<Record<string, unknown>>;
+        readonly paths: Readonly<Record<string, unknown>>;
+        readonly conventions: Readonly<Record<string, unknown>>;
+      };
+    };
+    expect(configuration.projectProfile.commands).toEqual({
+      test: { status: "resolved", value: "npm run test:unit" },
+      lint: { status: "unresolved" },
+      build: { status: "not-applicable", reason: "No build step." },
+      run: { status: "resolved", value: "npm start" },
+    });
+    expect(configuration.projectProfile.paths).toEqual({
+      source: { status: "resolved", value: ["src"] },
+      tests: { status: "not-applicable", reason: "No test directory." },
+      configuration: { status: "resolved", value: ["package.json"] },
+    });
+    expect(configuration.projectProfile.conventions).toEqual({
+      directoryLayout: { status: "resolved", value: "Feature folders." },
+      naming: { status: "resolved", value: "Use camelCase." },
+      implementationLanguages: {
+        status: "resolved",
+        value: ["TypeScript"],
+      },
+    });
+  });
+
+  it("refuses initialization over project configuration 1.2 until explicit migration", async () => {
+    const run = subject(ANSWERS, {
+      ".brain/config.json": `${JSON.stringify(projectConfigV1_2, null, 2)}\n`,
+    });
+
+    expect(await runCommandLine(["--json", "init"], run.ports)).toBe(4);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "profile.config_migration_required",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[".brain/config.json"]).toBe(
+      `${JSON.stringify(projectConfigV1_2, null, 2)}\n`,
+    );
   });
 
   it("reports every destination as created, updated, or preserved", async () => {
@@ -221,8 +380,8 @@ describe("the init command", () => {
 
   it("refuses a host the answers never enabled", async () => {
     const answers = JSON.stringify({
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       hosts: ["claude"],
     });
     const run = subject(answers);
@@ -245,8 +404,8 @@ describe("the init command", () => {
   it("writes nothing when enabled-host defaults cannot be resolved", async () => {
     const run = subject(
       JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
       }),
       {},
@@ -263,8 +422,8 @@ describe("the init command", () => {
   it("names the host and role for distinct model-routing refusals", async () => {
     const unavailable = subject(
       JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["claude", "codex"],
       }),
       {},
@@ -275,8 +434,8 @@ describe("the init command", () => {
     );
     const unsupportedEffort = subject(
       JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["claude", "codex"],
         modelRoles: {
           codex: {

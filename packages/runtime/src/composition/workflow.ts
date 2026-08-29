@@ -7,7 +7,7 @@ import type {
   ReadableEvent,
   EvidenceV1,
   GapRecordV1,
-  ProjectConfigV1_2,
+  ProjectConfigV1_3,
   SnapshotV1,
 } from "@kratos/contracts";
 import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
@@ -1361,7 +1361,7 @@ type PhaseAssignmentReason =
   | "model.resolution_unavailable"
   | "model.effort_unsupported"
   | "model.independence_violation"
-  | "model.config_migration_required"
+  | "profile.config_migration_required"
   | "guard.config_missing"
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
@@ -1610,7 +1610,7 @@ async function observeConfigurationSnapshot(
 ): Promise<
   | {
       readonly kind: "valid";
-      readonly value: ProjectConfigV1_2;
+      readonly value: ProjectConfigV1_3;
       readonly digest: string;
     }
   | PhaseAssignmentRefusal

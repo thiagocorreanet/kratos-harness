@@ -12,6 +12,7 @@ import {
   DEFAULT_LANGUAGE_POLICY,
   profileStack,
   skeletonEffects,
+  unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
@@ -238,8 +239,8 @@ describe("feature document contracts", () => {
   it("generates every feature template byte for byte from the canonical contract", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
         language: DEFAULT_LANGUAGE_POLICY,
         policyMode: "standard",
@@ -251,6 +252,7 @@ describe("feature document contracts", () => {
             judge: { model: "judge", effort: "medium" },
           },
         },
+        projectProfile: unresolvedProjectProfile(),
       },
       profileStack({ rootEntries: ["package.json"] }),
     );

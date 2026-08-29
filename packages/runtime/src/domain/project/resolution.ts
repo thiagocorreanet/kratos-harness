@@ -1,4 +1,4 @@
-import type { ProjectConfigV1_2 } from "@kratos/contracts";
+import type { ProjectConfigV1_3 } from "@kratos/contracts";
 
 interface Rooted {
   /** Internal absolute path. It must never be copied to public output. */
@@ -8,7 +8,7 @@ interface Rooted {
 export type ProjectResolution =
   | (Rooted & {
       readonly kind: "initialized";
-      readonly configuration: ProjectConfigV1_2;
+      readonly configuration: ProjectConfigV1_3;
     })
   | (Rooted & { readonly kind: "root-only" })
   | (Rooted & {
@@ -24,7 +24,7 @@ export type ProjectResolution =
       readonly reasonCode:
         | "guard.config_missing"
         | "guard.config_corrupt"
-        | "model.config_migration_required"
+        | "profile.config_migration_required"
         | "contract.state_version_invalid"
         | "contract.state_version_unsupported";
     })

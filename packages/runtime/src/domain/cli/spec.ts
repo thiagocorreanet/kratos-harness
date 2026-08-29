@@ -19,7 +19,7 @@ import type {
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
-  ProjectConfigV1_2,
+  ProjectConfigV1_3,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -214,7 +214,7 @@ export type CommandObservation =
             readonly kind: "refused";
             readonly reasonCode:
               | ModelRoleRefusal
-              | "model.config_migration_required"
+              | "profile.config_migration_required"
               | "guard.config_missing"
               | "guard.config_corrupt"
               | "contract.state_version_invalid"
@@ -343,7 +343,7 @@ export type CommandObservation =
               readonly content: string;
               readonly sha256: string;
             };
-            readonly destination: ProjectConfigV1_2;
+            readonly destination: ProjectConfigV1_3;
             readonly destinationDigest: string;
             /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;

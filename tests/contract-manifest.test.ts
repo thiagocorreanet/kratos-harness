@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.3.schema.json",
+        "schemas/contracts/contract-manifest.v1.4.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -108,7 +108,7 @@ describe("contract family manifest", () => {
       contractVersion: "1.0.0",
       pluginVersion: "0.0.0-development",
       resultContract: "1.0.0",
-      reasonCatalog: "1.8.0",
+      reasonCatalog: "1.9.0",
       stateContract: {
         current: "1.3.0",
         readable: ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],

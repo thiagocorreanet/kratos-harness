@@ -3,7 +3,13 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
 } from "@kratos/contracts";
+
+import {
+  unresolvedProjectProfile,
+  type ResolvedProjectProfile,
+} from "../init/profile.js";
 
 export interface StateUpgrade {
   readonly from: string;
@@ -84,6 +90,26 @@ export function upgradeProjectConfigurationV1_2(
     policyMode: source.policyMode,
     managedState: { ...source.managedState },
     modelRoles: source.modelRoles,
+  };
+}
+
+/** Upgrade a v1.2 configuration payload to v1.3 with its typed project profile. */
+export function upgradeProjectConfigurationV1_3(
+  source: ProjectConfigV1_2,
+  projectProfile: ResolvedProjectProfile = unresolvedProjectProfile(),
+): ProjectConfigV1_3 {
+  return {
+    contractVersion: "1.3.0",
+    stateContract: "1.3.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.3.0",
+    language: { ...source.language },
+    policyMode: source.policyMode,
+    managedState: { ...source.managedState },
+    modelRoles: source.modelRoles,
+    projectProfile: structuredClone(
+      projectProfile,
+    ) as ProjectConfigV1_3["projectProfile"],
   };
 }
 

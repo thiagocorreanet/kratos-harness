@@ -6,6 +6,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
 } from "@kratos/contracts";
 import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -63,14 +64,14 @@ const LEGACY_CONFIG: ProjectConfigV1 = {
 const LEGACY_CONFIG_BYTES = `${JSON.stringify(LEGACY_CONFIG, null, 4)}\n\n`;
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["claude", "codex"],
 });
 
 const EXPLICIT_ANSWERS = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["codex"],
   modelRoles: {
     codex: {
@@ -272,6 +273,110 @@ async function observedConfigMigrationId(run: Subject): Promise<string> {
 }
 
 describe("configuration migration", () => {
+  it("migrates project configuration 1.2 to 1.3 without requiring answers", async () => {
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    } satisfies ProjectConfigV1_2;
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n`,
+    });
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated).toMatchObject({
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
+      hostContract: "1.3.0",
+    });
+    expect(migrated.projectProfile.commands.test).toEqual({
+      status: "unresolved",
+    });
+  });
+
+  it("uses migration answers for profile leaves while leaving omitted leaves unresolved", async () => {
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    } satisfies ProjectConfigV1_2;
+    const profileAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+        },
+        conventions: {
+          implementationLanguages: {
+            status: "resolved",
+            value: ["TypeScript"],
+          },
+        },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [profileAnswers, profileAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.projectProfile.commands.test).toEqual({
+      status: "resolved",
+      value: "npm test",
+    });
+    expect(migrated.projectProfile.commands.lint).toEqual({
+      status: "unresolved",
+    });
+    expect(migrated.projectProfile.conventions.implementationLanguages).toEqual(
+      { status: "resolved", value: ["TypeScript"] },
+    );
+  });
+
   it("migrates legacy pt-BR language config into granular language policy", () => {
     const legacy: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",
@@ -341,7 +446,7 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      stateContract: "1.2.0",
+      stateContract: "1.3.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -389,10 +494,10 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
       pluginVersion: "0.0.0-development",
-      hostContract: "1.2.0",
+      hostContract: "1.3.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -413,6 +518,24 @@ describe("configuration migration", () => {
           planner: { model: "planner-canonical", effort: "medium" },
           implementer: { model: "implementer-canonical", effort: "high" },
           judge: { model: "judge-canonical", effort: "medium" },
+        },
+      },
+      projectProfile: {
+        commands: {
+          test: { status: "unresolved" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
         },
       },
     });
@@ -590,13 +713,13 @@ describe("configuration migration", () => {
     const run = legacyProjectWithHistory(
       [
         JSON.stringify({
-          contractVersion: "1.2.0",
-          hostContract: "1.2.0",
+          contractVersion: "1.3.0",
+          hostContract: "1.3.0",
           hosts: ["codex"],
         }),
         JSON.stringify({
-          contractVersion: "1.2.0",
-          hostContract: "1.2.0",
+          contractVersion: "1.3.0",
+          hostContract: "1.3.0",
           hosts: ["codex"],
         }),
       ],
@@ -651,7 +774,7 @@ describe("configuration migration", () => {
       (
         JSON.parse(
           run.storage.snapshot().files[CONFIG_REF] ?? "null",
-        ) as ProjectConfigV1_2
+        ) as ProjectConfigV1_3
       ).modelRoles,
     ).toHaveProperty("codex");
   });
@@ -663,7 +786,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_2;
+    ) as ProjectConfigV1_3;
     expect(migrated.modelRoles).toEqual({
       codex: {
         planner: { model: "planner-canonical", effort: "medium" },
@@ -680,8 +803,8 @@ describe("configuration migration", () => {
     {
       label: "invalid answers",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: [],
       }),
       routing: fixedModelRouting([codexCatalog()]),
@@ -689,8 +812,8 @@ describe("configuration migration", () => {
     {
       label: "missing catalog",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([]),
@@ -698,8 +821,8 @@ describe("configuration migration", () => {
     {
       label: "equal implementer and judge defaults",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([

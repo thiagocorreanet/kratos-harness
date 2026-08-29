@@ -10,10 +10,10 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json);
+[`contract-manifest.v1.4.schema.json`](../../schemas/contracts/contract-manifest.v1.4.schema.json);
 the published
-[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json)
-predecessor and v1 schema remain byte-preserved.
+[`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json),
+v1.2, v1.1, and v1 schemas remain byte-preserved.
 The manifest registers every current payload schema, its generated type, and
 the metadata-only Go v3 migration profiles.
 
@@ -151,6 +151,11 @@ Revision `1.8.0` preserves those 107 entries and appends two language policy out
 | --- | ---: | --- |
 | `policy.language_incomplete` | 3 | A supplied language policy is incomplete and missing required fields |
 | `policy.language_convention_mismatch_advisory` | 0 | The evaluated artifact language differs from the declared language policy |
+
+Revision `1.9.0` preserves those 109 entries and appends
+[`profile.config_migration_required`](../../packages/contracts/catalogs/reason-codes.v1.9.json),
+the blocked / exit 4 refusal used when a project configuration predates the
+typed project profile and requires explicit migration.
 
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.

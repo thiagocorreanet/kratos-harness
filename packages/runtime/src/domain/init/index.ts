@@ -34,6 +34,7 @@ export type {
   ManagedFilePlan,
 } from "./managed-section.js";
 export { destinationsOf, skeletonEffects } from "./skeleton.js";
+export { renderStackProfile } from "./stack-profile.js";
 export { profileStack } from "./stack.js";
 export type {
   DetectedStack,

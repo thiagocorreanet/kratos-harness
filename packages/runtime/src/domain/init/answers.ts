@@ -87,6 +87,7 @@ export async function resolveInitAnswers(
   document: unknown,
   registry: SchemaRegistry,
   modelRouting: ModelRouting,
+  persistedProfile?: ResolvedProjectProfile,
 ): Promise<ResolvedInitAnswers> {
   const validated = registry.validate({
     id: "host.init-answers",
@@ -148,7 +149,10 @@ export async function resolveInitAnswers(
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
       snapshots: supplied.snapshots ?? DEFAULTS.snapshots,
       modelRoles,
-      projectProfile: resolveProjectProfile(supplied.projectProfile, undefined),
+      projectProfile: resolveProjectProfile(
+        supplied.projectProfile,
+        persistedProfile,
+      ),
     },
     defaulted,
   };
