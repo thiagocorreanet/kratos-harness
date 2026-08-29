@@ -11,11 +11,14 @@ either untouched or complete.
 
 ## The generated surface
 
-The `go-v3-v0.6.5` inventory freezes the generated file list. The twenty-seven
-paths that carry no `<feature>` or `<run>` segment are initialization's; the
-rest belong to the commands that own those lifecycles.
+The `go-v3-v0.6.5` inventory freezes the legacy generated file list. The
+twenty-eight paths that carry no `<feature>` or `<run>` segment are
+initialization's (the twenty-seven legacy oracle paths plus
+`.brain/.gitignore`); the rest belong to the commands that own those
+lifecycles.
 
 ```text
+.brain/.gitignore
 .brain/00-business/README.md
 .brain/01-architecture/README.md
 .brain/01-architecture/adr/.gitkeep
@@ -35,9 +38,31 @@ AGENTS.md
 CLAUDE.md
 ```
 
-That list is the allowlist. The test reads it from the inventory rather than
-from a copy, so a path that drifts from the oracle fails there instead of
-shipping.
+That list is the allowlist.
+
+## State ignore rules (`.brain/.gitignore`)
+
+The state directory carries its own `.gitignore` so that append-only logs
+(`03-memory/task_log.jsonl`, `02-features/*/runs/*/events.jsonl`,
+`events.jsonl`), transient caches (`03-memory/.cache/`), and tool traces
+(`*.trace`, `traces/`) stay untracked in Git without polluting the project root
+`.gitignore`.
+
+Curated memory, decisions (`decisions.log`), gotchas (`gotchas.md`), distilled
+task metrics (`task_metrics.md`), project configuration (`config.json`),
+guardrails (`guardrails.json`), and all feature specifications and execution
+states remain under version control.
+
+### Adopting state ignore rules in existing repositories
+
+Repositories initialized before this change can adopt the rules by running
+`kratos init` and removing any previously committed volatile files from the
+Git index without deleting local files:
+
+```bash
+git rm -r --cached .brain/03-memory/task_log.jsonl .brain/03-memory/.cache/
+git commit -m "chore: adopt state ignore rules"
+```
 
 ## Shared phase-agent prompts
 

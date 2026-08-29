@@ -32,6 +32,7 @@ interface Discovery {
  * A path that drifts from the inventory fails here instead of shipping.
  */
 let frozen: readonly string[];
+let expectedSurface: readonly string[];
 
 beforeAll(async () => {
   const discovery = JSON.parse(
@@ -43,6 +44,7 @@ beforeAll(async () => {
     // owns that lifecycle, not to initialization.
     .filter((name) => !name.includes("<"))
     .sort();
+  expectedSurface = [".brain/.gitignore", ...frozen].sort();
 });
 
 const registry = createSchemaRegistry();
@@ -109,10 +111,75 @@ describe("the generated skeleton", () => {
     >();
   });
 
-  it("generates exactly the frozen initialization surface", () => {
+  it("generates exactly the expected initialization surface", () => {
     expect(destinationsOf(skeletonEffects(answers(), nodeProject))).toEqual(
-      frozen,
+      expectedSurface,
     );
+  });
+
+  it("writes the state ignore rules byte for byte", () => {
+    const generated = skeletonEffects(answers(), nodeProject);
+    const gitignore = contentAt(generated, ".brain/.gitignore");
+
+    expect(gitignore).toBe(
+      [
+        "# Volatile telemetry and run event streams are not tracked.",
+        "03-memory/task_log.jsonl",
+        "03-memory/.cache/",
+        "02-features/*/runs/*/events.jsonl",
+        "events.jsonl",
+        "*.trace",
+        "traces/",
+      ].join("\n") + "\n",
+    );
+  });
+
+  it("classifies every path written by initialization as deliberately committed or ignored", () => {
+    const effects = skeletonEffects(answers(), nodeProject);
+    const paths = destinationsOf(effects);
+
+    const ignoredPaths = [
+      ".brain/03-memory/task_log.jsonl",
+      ".brain/03-memory/.cache/feature-create.json",
+    ];
+
+    const committedPaths = [
+      ".brain/.gitignore",
+      ".brain/00-business/README.md",
+      ".brain/01-architecture/README.md",
+      ".brain/01-architecture/adr/.gitkeep",
+      ".brain/01-architecture/stack-profile.md",
+      ".brain/02-features/README.md",
+      ".brain/02-features/_template/00-prd.md",
+      ".brain/02-features/_template/01-design.md",
+      ".brain/02-features/_template/02-tasks.md",
+      ".brain/02-features/_template/03-summa.md",
+      ".brain/02-features/_template/state.json",
+      ".brain/02-features/active",
+      ".brain/03-memory/decisions.log",
+      ".brain/03-memory/gotchas.md",
+      ".brain/03-memory/task_metrics.md",
+      ".brain/config.json",
+      ".brain/guardrails.json",
+      ".claude/settings.json",
+      ".codex/agents/code-implementer.toml",
+      ".codex/agents/implementation-evaluator.toml",
+      ".codex/agents/prd-researcher.toml",
+      ".codex/agents/spec-planner.toml",
+      ".codex/agents/spec-reviewer.toml",
+      ".codex/config.toml",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ];
+
+    expect([...paths].sort()).toEqual(
+      [...committedPaths, ...ignoredPaths].sort(),
+    );
+    for (const path of paths) {
+      const isIgnored = ignoredPaths.includes(path);
+      const isCommitted = committedPaths.includes(path);
+      expect(isIgnored !== isCommitted).toBe(true);
+    }
   });
 
   it("writes files and creates no directory of its own", () => {
@@ -166,7 +233,7 @@ describe("the generated skeleton", () => {
       uuid.mockRestore();
     }
 
-    expect(destinationsOf(generated)).toEqual(frozen);
+    expect(destinationsOf(generated)).toEqual(expectedSurface);
   });
 
   it("generates only the surface of the hosts the answers enabled", () => {
@@ -178,12 +245,12 @@ describe("the generated skeleton", () => {
     );
 
     expect(claudeOnly).toEqual(
-      frozen.filter(
+      expectedSurface.filter(
         (path) => !path.startsWith(".codex/") && path !== "AGENTS.md",
       ),
     );
     expect(codexOnly).toEqual(
-      frozen.filter(
+      expectedSurface.filter(
         (path) => !path.startsWith(".claude/") && path !== "CLAUDE.md",
       ),
     );
