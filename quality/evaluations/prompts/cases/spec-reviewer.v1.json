@@ -1,0 +1,40 @@
+{
+  "id": "spec-reviewer-audit",
+  "description": "Evaluates that spec reviewer emits plan payload with dependency-ordered steps and updates artifacts",
+  "promptId": "spec-reviewer",
+  "input": {
+    "featureDocuments": {
+      ".brain/02-features/f1/00-prd.md": "# PRD\nObjective: Add feature\n",
+      ".brain/02-features/f1/01-design.md": "# Design\nSystem interfaces\n",
+      ".brain/02-features/f1/02-tasks.md": "# Tasks\n"
+    },
+    "context": "Audit the specifications and author 03-summa.md"
+  },
+  "assertions": [
+    {
+      "id": "schema-valid",
+      "description": "Machine block satisfies agent-output contract schema",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "schema_valid" }
+    },
+    {
+      "id": "agent-is-plan",
+      "description": "Agent field is 'plan'",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "agent_equals", "expected": "plan" }
+    },
+    {
+      "id": "artifacts-contains-summa",
+      "description": "Artifacts contains 03-summa.md",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "artifacts_contains", "path": ".brain/02-features/f1/03-summa.md" }
+    },
+    {
+      "id": "changed-files-empty",
+      "description": "Spec reviewer touches no source code files",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "changed_files_empty" }
+    }
+  ],
+  "trials": 3
+}
