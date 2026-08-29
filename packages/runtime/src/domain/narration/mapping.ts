@@ -24,6 +24,8 @@ export const EVENT_BEAT_RULES: readonly EventBeatRule[] = [
     match: (e) =>
       e.reasonCode === "gate.approval_required" ||
       e.reasonCode.includes("approval_required") ||
+      e.reasonCode.includes("aprovacao") ||
+      e.reasonCode.includes("aceitacao") ||
       e.reasonCode.includes("human_intervention") ||
       e.reasonCode.includes("interaction_required") ||
       e.reasonCode.includes("prompt_required") ||
