@@ -25,6 +25,7 @@
 ### Task 1: Schema Definitions, Reason Codes, and Contract Catalog
 
 **Files:**
+
 - Create: `schemas/state/project-config.v1.2.schema.json`
 - Create: `schemas/host/init-answers.v1.2.schema.json`
 - Create: `packages/contracts/catalogs/reason-codes.v1.8.json`
@@ -37,12 +38,14 @@
 - Test: `tests/contract-compatibility.test.ts`
 
 **Interfaces:**
+
 - Consumes: Existing schema registry and contract compatibility layer.
 - Produces: `LanguagePolicyV1`, `ProjectConfigV1_2`, `InitAnswersV1_2` types and `1.2.0` schema definitions.
 
 - [ ] **Step 1: Write the failing test for v1.2.0 schemas and contract compatibility**
 
 In `tests/contract-compatibility.test.ts`, add:
+
 ```typescript
 it("recognizes stateContract 1.2.0 and hostContract 1.2.0 as current", () => {
   expect(CONTRACT_IDENTITIES.state).toBe("1.2.0");
@@ -62,6 +65,7 @@ Expected: FAIL due to mismatched contract versions (currently `1.1.0`).
 Create `schemas/state/project-config.v1.2.schema.json` with the required closed 7-property `language` object.
 Create `schemas/host/init-answers.v1.2.schema.json` with optional `language` object that requires all 7 properties when present.
 Copy and update `packages/contracts/catalogs/reason-codes.v1.8.json` from `v1.7.json`, adding:
+
 ```json
 {
   "code": "policy.language_incomplete",
@@ -84,6 +88,7 @@ Copy and update `packages/contracts/catalogs/reason-codes.v1.8.json` from `v1.7.
   "recovery": "Review the artifact language against the declared project language policy."
 }
 ```
+
 Update `packages/contracts/catalogs/contract-families.v1.json` to bump `stateContract.current` to `"1.2.0"`, `hostContract.current` to `"1.2.0"`, and `reasonCatalog` to `"1.8.0"`.
 Update `packages/contracts/src/compatibility.ts` and export `ProjectConfigV1_2` / `InitAnswersV1_2` / `LanguagePolicyV1` in `packages/contracts/src/generated/contracts.ts`.
 
@@ -104,16 +109,19 @@ git commit -m "feat(contracts): add v1.2.0 schemas and language policy contracts
 ### Task 2: Initialization Answers Resolution and Defaulting
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/init/answers.ts:1-197`
 - Test: `tests/init-answers.test.ts`
 
 **Interfaces:**
+
 - Consumes: `InitAnswersV1_2`, `LanguagePolicyV1` from `@kratos/contracts`.
 - Produces: `resolveInitAnswers` resolving absent `language` to default policy and rejecting incomplete `language` objects.
 
 - [ ] **Step 1: Write failing tests for language policy resolution and refusal of incomplete objects**
 
 In `tests/init-answers.test.ts`, add:
+
 ```typescript
 it("defaults absent language policy to complete English defaults", async () => {
   const resolved = await resolveInitAnswers(
@@ -160,6 +168,7 @@ Expected: FAIL due to string-based language assumptions in `answers.ts`.
 - [ ] **Step 3: Update `answers.ts` to support `LanguagePolicyV1` and full default resolution**
 
 Update `DEFAULT_LANGUAGE_POLICY` in `packages/runtime/src/domain/init/answers.ts`:
+
 ```typescript
 export const DEFAULT_LANGUAGE_POLICY: LanguagePolicyV1 = {
   conversation: "en",
@@ -171,6 +180,7 @@ export const DEFAULT_LANGUAGE_POLICY: LanguagePolicyV1 = {
   enforcement: "advisory",
 };
 ```
+
 Update `resolveInitAnswers` to construct `answers.language` using `supplied.language ?? DEFAULT_LANGUAGE_POLICY`.
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -190,6 +200,7 @@ git commit -m "feat(init): resolve per-artifact language policy and defaults in 
 ### Task 3: Convention Detection and Skeleton Effects
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/init/detect.ts`
 - Modify: `packages/runtime/src/domain/init/index.ts`
 - Modify: `packages/runtime/src/domain/init/skeleton.ts:1-372`
@@ -197,12 +208,14 @@ git commit -m "feat(init): resolve per-artifact language policy and defaults in 
 - Test: `tests/skeleton.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RepositoryEvidence` from `domain/init/stack.ts`, `ResolvedAnswers` from `domain/init/answers.ts`.
 - Produces: `detectLanguageConventions` and updated `skeletonEffects` emitting `.brain/config.json` v1.2.0, `CLAUDE.md`, `AGENTS.md`, and `.codex/config.toml`.
 
 - [ ] **Step 1: Write failing test for convention detection and skeleton content**
 
 Create `tests/init-convention-detection.test.ts`:
+
 ```typescript
 import { describe, expect, it } from "vitest";
 import { detectLanguageConventions } from "@kratos/runtime/domain/init";
@@ -227,6 +240,7 @@ Expected: FAIL ("detectLanguageConventions is not defined").
 
 Implement pure, offline convention detection in `packages/runtime/src/domain/init/detect.ts`.
 Update `packages/runtime/src/domain/init/skeleton.ts`:
+
 - Emit `.brain/config.json` with `contractVersion: "1.2.0"`, `stateContract: "1.2.0"`, `hostContract: "1.2.0"`, and full `language` object.
 - Render detailed language directives into `CLAUDE.md` and `AGENTS.md` (e.g. Conversation, Documentation, Comments, Identifiers, Commits).
 - Render `[language]` section into `.codex/config.toml`.
@@ -248,17 +262,20 @@ git commit -m "feat(init): add convention detection and render language policy s
 ### Task 4: Project Configuration Classification and Loading
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/project/configuration.ts:1-81`
 - Test: `tests/project-configuration-layers.test.ts`
 - Test: `tests/configuration-classification.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ProjectConfigV1_2` from `@kratos/contracts`.
 - Produces: `classifyConfiguration` recognizing state version `"1.2.0"` as valid and requiring migration for `"1.0.0"` and `"1.1.0"`.
 
 - [ ] **Step 1: Write failing test for configuration classification**
 
 In `tests/configuration-classification.test.ts`, add:
+
 ```typescript
 it("classifies stateContract 1.1.0 as migration-required and 1.2.0 as valid", () => {
   const outcome11 = classifyConfiguration(
@@ -301,17 +318,20 @@ git commit -m "feat(project): classify config v1.2.0 as valid and v1.0/v1.1 as m
 ### Task 5: Configuration Migration from Legacy Formats
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/migration/upgrade.ts:1-77`
 - Modify: `packages/runtime/src/composition/migration.ts:1-1339`
 - Test: `tests/config-migration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ProjectConfigV1`, `ProjectConfigV1_1`.
 - Produces: `upgradeProjectConfiguration` producing `ProjectConfigV1_2` with migrated `LanguagePolicyV1`.
 
 - [ ] **Step 1: Write failing tests for single-field language migration**
 
 In `tests/config-migration.test.ts`, add:
+
 ```typescript
 it("migrates legacy pt-BR language config into granular language policy", async () => {
   const legacy: ProjectConfigV1_1 = {
@@ -366,17 +386,20 @@ git commit -m "feat(migration): upgrade legacy single-field language configs to 
 ### Task 6: Phase Agent Prompts and Dual-Channel Relay
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/phase-agents/model.ts:1-250`
 - Modify: `packages/runtime/src/domain/phase-agents/index.ts`
 - Test: `tests/phase-agent-prompts.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LanguagePolicyV1`.
 - Produces: `PHASE_AGENT_PROMPTS` including normative language rules and exception boundaries.
 
 - [ ] **Step 1: Write failing test verifying language policy rules and exceptions in prompts**
 
 In `tests/phase-agent-prompts.test.ts`, add:
+
 ```typescript
 it("contains language policy rules and normative exceptions in shared instructions", () => {
   for (const { instructions } of PHASE_AGENT_PROMPTS) {
@@ -413,18 +436,21 @@ git commit -m "feat(prompts): relay language policy and normative exceptions in 
 ### Task 7: Gate Evaluation and Non-Blocking Advisory Reporting
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/gates/evaluate.ts:1-160`
 - Modify: `packages/runtime/src/domain/acceptance/index.ts:1-164`
 - Test: `tests/gate-evaluator.test.ts`
 - Test: `tests/acceptance.test.ts`
 
 **Interfaces:**
+
 - Consumes: Language observation metadata, `LanguagePolicyV1`.
 - Produces: Advisory diagnostics without blocking criteria or gates.
 
 - [ ] **Step 1: Write failing test ensuring language mismatch never fails acceptance criteria**
 
 In `tests/gate-evaluator.test.ts`, add:
+
 ```typescript
 it("reports language mismatch as advisory without failing gate or criteria", () => {
   const decision = evaluateGates(contextWithLanguageMismatch);
@@ -459,6 +485,7 @@ git commit -m "feat(gates): report language divergence as advisory without block
 ### Task 8: End-to-End Verification and Full Suite Pass
 
 **Files:**
+
 - Modify: Documentation and changelog / architecture records if applicable.
 - Test: Full repository test suite.
 

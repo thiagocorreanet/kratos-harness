@@ -68,6 +68,7 @@ The `language` property becomes a required, closed object:
 ```
 
 Schema rules:
+
 - `language` is closed (`additionalProperties: false`).
 - All 7 keys are required when `language` is present:
   - `conversation`: `"en" | "pt-BR"`
@@ -120,6 +121,7 @@ The language policy governs authored text and prose synthesis. It explicitly doe
 Existing project configurations with `stateContract: "1.0.0"` or `stateContract: "1.1.0"` carrying a single `language: "en" | "pt-BR"` value are migrated to `1.2.0` deterministically:
 
 - Legacy `"language": "pt-BR"` migrates to:
+
   ```json
   {
     "conversation": "pt-BR",
@@ -131,7 +133,9 @@ Existing project configurations with `stateContract: "1.0.0"` or `stateContract:
     "enforcement": "advisory"
   }
   ```
+
 - Legacy `"language": "en"` migrates to:
+
   ```json
   {
     "conversation": "en",
@@ -165,6 +169,7 @@ The resolved language policy is broadcast through two independent channels:
 ## 9. Verification and evidence requirements
 
 Verification must provide test evidence for:
+
 1. Complete `v1.2.0` schema validation for `project-config` and `init-answers`.
 2. Rejection of incomplete language objects with descriptive diagnostics naming missing keys.
 3. Fallback resolution of absent language policy to documented English defaults.
