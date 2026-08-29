@@ -2,15 +2,15 @@
   "contractVersion": "1.0.0",
   "pluginVersion": "0.0.0-development",
   "resultContract": "1.0.0",
-  "reasonCatalog": "1.7.0",
+  "reasonCatalog": "1.8.0",
   "stateContract": {
-    "current": "1.1.0",
-    "readable": ["1.0.0", "1.1.0"],
+    "current": "1.2.0",
+    "readable": ["1.0.0", "1.1.0", "1.2.0"],
     "migrationOnly": ["0.9.0", "go-v3@0.6.5"]
   },
   "hostContract": {
-    "current": "1.1.0",
-    "accepted": ["1.0.0", "1.1.0"]
+    "current": "1.2.0",
+    "accepted": ["1.0.0", "1.1.0", "1.2.0"]
   },
   "schemas": [
     {
@@ -68,6 +68,14 @@
       "path": "schemas/host/init-answers.v1.1.schema.json",
       "boundary": "cross-process",
       "typeName": "InitAnswersV1_1"
+    },
+    {
+      "id": "host.init-answers",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/init-answers.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "InitAnswersV1_2"
     },
     {
       "id": "host.operation-message",
@@ -228,6 +236,14 @@
       "path": "schemas/state/project-config.v1.1.schema.json",
       "boundary": "persisted",
       "typeName": "ProjectConfigV1_1"
+    },
+    {
+      "id": "state.project-config",
+      "family": "state",
+      "version": "1.2.0",
+      "path": "schemas/state/project-config.v1.2.schema.json",
+      "boundary": "persisted",
+      "typeName": "ProjectConfigV1_2"
     },
     {
       "id": "state.requirement-discovery",

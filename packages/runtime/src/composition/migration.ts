@@ -5,6 +5,7 @@ import type {
   MigrationV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,
+  ProjectConfigV1_2,
 } from "@kratos/contracts";
 
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -12,11 +13,13 @@ import { resolveInitAnswers } from "../domain/init/index.js";
 import {
   authorizeConfigMigration,
   completeConfigMigration,
+  migrateLegacyLanguage,
   planBrainMigration,
   plannedConfigMigration,
   rollBackConfigMigration,
   type MigrationEntry,
   upgradeProjectConfiguration,
+  upgradeProjectConfigurationV1_2,
 } from "../domain/migration/index.js";
 import type { Result } from "../domain/result/index.js";
 import type { HostModelCatalog } from "../domain/model-roles/index.js";
@@ -161,7 +164,7 @@ async function observeConfig(
   }
 
   const version = ownString(parsed, "stateContract");
-  if (version === "1.1.0") {
+  if (version === "1.2.0") {
     if (authorized) {
       return resultFailure("runtime.revision_conflict", CONFIG_REF);
     }
@@ -189,7 +192,7 @@ async function observeConfig(
       authorized ? CONFIG_REF : undefined,
     );
   }
-  if (version !== "1.0.0") {
+  if (version !== "1.0.0" && version !== "1.1.0") {
     return resultFailure(
       authorized
         ? "runtime.revision_conflict"
@@ -210,82 +213,167 @@ async function observeConfig(
     );
   }
 
-  const document = await migrationAnswers(invocation, ports);
-  if (document.kind === "failure") {
-    return authorized
-      ? resultFailure("runtime.revision_conflict", CONFIG_REF)
-      : document;
-  }
-  const legacy = source.value as ProjectConfigV1;
-  const supplemented = supplementLegacyDefaults(document.value, legacy);
+  let destination: ProjectConfigV1_2;
+  let hosts: readonly ("claude" | "codex")[];
+  let answersAuthority: { readonly ref: string; readonly sha256: string };
+  let defaulted: readonly string[];
   const observedCatalogs = new Map<
     "claude" | "codex",
     HostModelCatalog | null
   >();
-  const answers = await resolveInitAnswers(supplemented, registry, {
-    observe: async (host) => {
-      const catalog = await observeModelCatalog(ports.modelRouting, host);
-      observedCatalogs.set(host, catalog);
-      return catalog;
-    },
-  });
-  if (answers.kind === "invalid") {
-    if (authorized) {
-      return resultFailure("runtime.revision_conflict", CONFIG_REF);
-    }
-    return {
-      kind: "failure",
-      result: resultFor(answers.reasonCode, {
-        why: [migrationAnswerFailure(answers.subject)],
-        evidence:
-          answers.subject === undefined
-            ? []
-            : [
-                {
-                  kind: "observation",
-                  ref: `model-routing/${answers.subject.host}${
-                    answers.subject.role === undefined
-                      ? ""
-                      : `/${answers.subject.role}`
-                  }`,
-                },
-              ],
-      }),
-    };
-  }
-  if (
-    answers.answers.language !== legacy.language ||
-    answers.answers.policyMode !== legacy.policyMode ||
-    answers.answers.snapshots !== legacy.managedState.snapshots
-  ) {
-    return resultFailure("trail.output_invalido");
-  }
-  const catalogs = answers.answers.hosts.map((host) => {
-    const catalog = observedCatalogs.get(host);
-    if (catalog === undefined || catalog === null) {
-      throw new Error("resolved model catalog was not captured");
-    }
-    return {
-      host,
-      sha256: ports.digests.sha256(canonicalizeJson(catalog)),
-    };
-  });
 
-  const destination = upgradeProjectConfiguration(
-    legacy,
-    answers.answers.modelRoles,
+  if (version === "1.0.0") {
+    const document = await migrationAnswers(invocation, ports);
+    if (document.kind === "failure") {
+      return authorized
+        ? resultFailure("runtime.revision_conflict", CONFIG_REF)
+        : document;
+    }
+    const legacy = source.value as ProjectConfigV1;
+    const supplemented = supplementLegacyDefaults(document.value, legacy);
+    const answers = await resolveInitAnswers(supplemented, registry, {
+      observe: async (host) => {
+        const catalog = await observeModelCatalog(ports.modelRouting, host);
+        observedCatalogs.set(host, catalog);
+        return catalog;
+      },
+    });
+    if (answers.kind === "invalid") {
+      if (authorized) {
+        return resultFailure("runtime.revision_conflict", CONFIG_REF);
+      }
+      return {
+        kind: "failure",
+        result: resultFor(answers.reasonCode, {
+          why: [migrationAnswerFailure(answers.subject)],
+          evidence:
+            answers.subject === undefined
+              ? []
+              : [
+                  {
+                    kind: "observation",
+                    ref: `model-routing/${answers.subject.host}${
+                      answers.subject.role === undefined
+                        ? ""
+                        : `/${answers.subject.role}`
+                    }`,
+                  },
+                ],
+        }),
+      };
+    }
+    const legacyPolicy = migrateLegacyLanguage(legacy.language);
+    if (
+      !sameJson(answers.answers.language, legacyPolicy) ||
+      answers.answers.policyMode !== legacy.policyMode ||
+      answers.answers.snapshots !== legacy.managedState.snapshots
+    ) {
+      return resultFailure("trail.output_invalido");
+    }
+    destination = upgradeProjectConfiguration(
+      legacy,
+      answers.answers.modelRoles,
+    );
+    hosts = answers.answers.hosts;
+    answersAuthority = document.authority;
+    defaulted = answers.defaulted;
+  } else {
+    const legacy = source.value as ProjectConfigV1_1;
+    const document = await migrationAnswers(invocation, ports);
+    if (document.kind === "document") {
+      const supplemented = supplementLegacyDefaults(document.value, legacy);
+      const answers = await resolveInitAnswers(supplemented, registry, {
+        observe: async (host) => {
+          const catalog = await observeModelCatalog(ports.modelRouting, host);
+          observedCatalogs.set(host, catalog);
+          return catalog;
+        },
+      });
+      if (answers.kind === "invalid") {
+        if (authorized) {
+          return resultFailure("runtime.revision_conflict", CONFIG_REF);
+        }
+        return {
+          kind: "failure",
+          result: resultFor(answers.reasonCode, {
+            why: [migrationAnswerFailure(answers.subject)],
+            evidence:
+              answers.subject === undefined
+                ? []
+                : [
+                    {
+                      kind: "observation",
+                      ref: `model-routing/${answers.subject.host}${
+                        answers.subject.role === undefined
+                          ? ""
+                          : `/${answers.subject.role}`
+                      }`,
+                    },
+                  ],
+          }),
+        };
+      }
+      const legacyPolicy = migrateLegacyLanguage(legacy.language);
+      if (
+        !sameJson(answers.answers.language, legacyPolicy) ||
+        answers.answers.policyMode !== legacy.policyMode ||
+        answers.answers.snapshots !== legacy.managedState.snapshots
+      ) {
+        return resultFailure("trail.output_invalido");
+      }
+      destination = upgradeProjectConfigurationV1_2({
+        ...legacy,
+        modelRoles: answers.answers.modelRoles,
+      });
+      hosts = answers.answers.hosts;
+      answersAuthority = document.authority;
+      defaulted = answers.defaulted;
+    } else {
+      if (
+        document.result.why[0] !==
+        resultFor("trail.uso", { why: [USAGE_WHY.missingValue] }).why[0]
+      ) {
+        return authorized
+          ? resultFailure("runtime.revision_conflict", CONFIG_REF)
+          : document;
+      }
+      hosts = (["claude", "codex"] as const).filter(
+        (host) => legacy.modelRoles[host] !== undefined,
+      );
+      answersAuthority = { ref: "config", sha256: entry.sha256 };
+      defaulted = [];
+      destination = upgradeProjectConfigurationV1_2(legacy);
+    }
+  }
+
+  const catalogs = await Promise.all(
+    hosts.map(async (host) => {
+      let catalog = observedCatalogs.get(host);
+      if (catalog === undefined) {
+        catalog = await observeModelCatalog(ports.modelRouting, host);
+        observedCatalogs.set(host, catalog);
+      }
+      if (catalog === null) {
+        throw new Error("resolved model catalog was not captured");
+      }
+      return {
+        host,
+        sha256: ports.digests.sha256(canonicalizeJson(catalog)),
+      };
+    }),
   );
+
   const destinationContent = `${JSON.stringify(destination, null, 2)}\n`;
   const destinationDigest = ports.digests.sha256(destinationContent);
   const seedDigest = ports.digests.sha256(
     canonicalizeJson({
       sourceDigest: entry.sha256,
       destinationDigest,
-      hosts: answers.answers.hosts,
-      answers: document.authority,
+      hosts,
+      answers: answersAuthority,
       catalogs,
       modelRoles: destination.modelRoles,
-      defaulted: answers.defaulted,
+      defaulted,
     }),
   );
   const baseMigrationId = `config-${seedDigest.slice(0, 24)}`;
@@ -294,11 +382,11 @@ async function observeConfig(
     {
       source: { content, sha256: entry.sha256 },
       destinationDigest,
-      hosts: answers.answers.hosts,
-      answers: document.authority,
+      hosts,
+      answers: answersAuthority,
       catalogs,
       modelRoles: destination.modelRoles,
-      defaulted: answers.defaulted,
+      defaulted,
     },
     ports,
     registry,
@@ -322,9 +410,9 @@ async function observeConfig(
       planTime,
       source: { ref: CONFIG_REF, sha256: entry.sha256 },
       destination: { ref: CONFIG_REF, sha256: destinationDigest },
-      hosts: answers.answers.hosts,
+      hosts,
       modelRoles: destination.modelRoles,
-      defaulted: answers.defaulted,
+      defaulted,
     }),
   );
   const planned = plannedConfigMigration({
@@ -375,12 +463,12 @@ async function observeConfig(
         stateContract: "1.1.0",
         migrationId,
         planDigest: receiptPlanDigest,
-        answers: document.authority,
+        answers: answersAuthority,
         catalogs,
         plan: {
-          hosts: answers.answers.hosts,
+          hosts,
           modelRoles: destination.modelRoles,
-          defaulted: answers.defaulted,
+          defaulted,
         },
         source: { ref: CONFIG_REF, sha256: entry.sha256 },
         destination: { ref: CONFIG_REF, sha256: destinationDigest },
@@ -451,10 +539,10 @@ async function observeConfig(
         planDigest,
         receiptPlanDigest,
         expected: { kind: "file", size: entry.size, sha256: entry.sha256 },
-        hosts: [...answers.answers.hosts],
-        answers: document.authority,
+        hosts: [...hosts],
+        answers: answersAuthority,
         catalogs,
-        defaulted: [...answers.defaulted],
+        defaulted: [...defaulted],
         guards: attempt.guards,
         writes: plannedWrites,
       },
@@ -508,7 +596,7 @@ interface ConfigLineageContext {
     readonly host: "claude" | "codex";
     readonly sha256: string;
   }[];
-  readonly modelRoles: ProjectConfigV1_1["modelRoles"];
+  readonly modelRoles: ProjectConfigV1_2["modelRoles"];
   readonly defaulted: readonly string[];
 }
 
@@ -856,12 +944,16 @@ async function migrationAnswers(
 
 function supplementLegacyDefaults(
   document: unknown,
-  legacy: ProjectConfigV1,
+  legacy: ProjectConfigV1 | ProjectConfigV1_1,
 ): unknown {
   if (!isRecord(document)) return document;
+  const legacyLanguage =
+    typeof legacy.language === "string"
+      ? migrateLegacyLanguage(legacy.language)
+      : legacy.language;
   return {
     ...document,
-    language: document.language ?? legacy.language,
+    language: document.language ?? legacyLanguage,
     policyMode: document.policyMode ?? legacy.policyMode,
     snapshots: document.snapshots ?? legacy.managedState.snapshots,
   };

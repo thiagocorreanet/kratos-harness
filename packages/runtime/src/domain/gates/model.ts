@@ -1,4 +1,4 @@
-import type { ApprovalV1 } from "@kratos/contracts";
+import type { ApprovalV1, LanguagePolicyV1 } from "@kratos/contracts";
 import type { PrdDocumentObservation } from "../feature-documents/index.js";
 
 export type GateMode = "shadow" | "warn" | "enforce";
@@ -16,6 +16,23 @@ export const GATE_IDS = [
 
 export type GateId = (typeof GATE_IDS)[number];
 
+export interface LanguageObservationMetadata {
+  readonly artifactRef?: string;
+  readonly artifactType?:
+    "conversation" | "documentation" | "comments" | "identifiers" | "commits";
+  readonly observedLanguage?: string;
+  readonly expectedLanguage?: string;
+  readonly mismatch?: boolean;
+  readonly detail?: string | null;
+}
+
+export interface GateAdvisory {
+  readonly gateId?: GateId;
+  readonly reasonCode: string;
+  readonly evidenceRefs: readonly string[];
+  readonly detail: string | null;
+}
+
 export interface GateContext {
   readonly mode: GateMode;
   readonly phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
@@ -30,6 +47,9 @@ export interface GateContext {
   readonly partitionApproved: boolean;
   readonly finalAcceptance: boolean;
   readonly acceptanceCriteria?: readonly AcceptanceCriterionGateState[];
+  readonly languagePolicy?: LanguagePolicyV1 | null;
+  readonly languageObservations?: readonly LanguageObservationMetadata[];
+  readonly languageMismatch?: boolean;
 }
 
 export interface AcceptanceCriterionGateState {
@@ -62,6 +82,7 @@ export interface GateDecision {
   readonly outcome: "pass" | "warn" | "block";
   readonly primary: GateFailure | null;
   readonly failures: readonly GateFailure[];
+  readonly advisories?: readonly GateAdvisory[];
   readonly mode: GateMode;
   readonly criteria: readonly AcceptanceCriterionGateState[];
 }

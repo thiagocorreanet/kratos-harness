@@ -1,6 +1,7 @@
-import type { ApprovalV1 } from "@kratos/contracts";
+import type { ApprovalV1, LanguagePolicyV1 } from "@kratos/contracts";
 
 import type {
+  GateAdvisory,
   GateContext,
   GateDecision,
   GateFailure,
@@ -33,6 +34,20 @@ function failure(
   };
 }
 
+function advisory(
+  reasonCode: GateAdvisory["reasonCode"],
+  evidenceRefs: readonly string[],
+  detail: string | null = null,
+  gateId?: GateId,
+): GateAdvisory {
+  return {
+    ...(gateId !== undefined ? { gateId } : {}),
+    reasonCode,
+    evidenceRefs,
+    detail,
+  };
+}
+
 function approved(
   approvals: readonly ApprovalV1[],
   gate: string,
@@ -47,9 +62,32 @@ function approved(
   );
 }
 
+function expectedLanguageForArtifactType(
+  policy: LanguagePolicyV1 | null | undefined,
+  artifactType: string | undefined,
+): string | undefined {
+  if (!policy || !artifactType) return undefined;
+  switch (artifactType) {
+    case "conversation":
+      return policy.conversation;
+    case "documentation":
+      return policy.documentation;
+    case "comments":
+      return policy.comments;
+    case "identifiers":
+      return policy.identifiers;
+    case "commits":
+      return policy.commits;
+    default:
+      return undefined;
+  }
+}
+
 /** Pure, ordered policy evaluation. No evaluator reads time, disk, Git, or I/O. */
 export function evaluateGates(context: GateContext): GateDecision {
   const failures: GateFailure[] = [];
+  const advisories: GateAdvisory[] = [];
+
   if (!context.contextReadable) {
     failures.push(
       failure("context-readable", "blocked.context_unreadable", [
@@ -136,12 +174,63 @@ export function evaluateGates(context: GateContext): GateDecision {
       failure("final-acceptance", "gate.aceitacao_final", [".brain/approvals"]),
     );
   }
+
+  const enforcement = context.languagePolicy?.enforcement ?? "advisory";
+  if (enforcement !== "off") {
+    if (context.languageMismatch) {
+      advisories.push(
+        advisory(
+          "policy.language_convention_mismatch_advisory",
+          [".brain/02-features/active"],
+          "Artifact language differs from declared language policy.",
+        ),
+      );
+    }
+    if (
+      context.languageObservations &&
+      context.languageObservations.length > 0
+    ) {
+      for (const obs of context.languageObservations) {
+        const expectedFromPolicy = expectedLanguageForArtifactType(
+          context.languagePolicy,
+          obs.artifactType,
+        );
+        const expectedLanguage = obs.expectedLanguage ?? expectedFromPolicy;
+
+        const isMismatch =
+          obs.mismatch === true ||
+          (obs.observedLanguage !== undefined &&
+            expectedLanguage !== undefined &&
+            obs.observedLanguage !== expectedLanguage);
+
+        if (isMismatch) {
+          const evidenceRef = obs.artifactRef ?? ".brain/02-features/active";
+          const detail =
+            obs.detail ??
+            (obs.observedLanguage && expectedLanguage
+              ? `Language divergence detected: expected '${expectedLanguage}', observed '${obs.observedLanguage}' in ${obs.artifactRef ?? "artifact"}.`
+              : `Language divergence detected in ${obs.artifactRef ?? "artifact"}.`);
+          advisories.push(
+            advisory(
+              "policy.language_convention_mismatch_advisory",
+              [evidenceRef],
+              detail,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   failures.sort(
     (left, right) =>
       left.priority - right.priority ||
       left.gateId.localeCompare(right.gateId, "en-US"),
   );
   const immutable = Object.freeze(failures.map((item) => Object.freeze(item)));
+  const immutableAdvisories = Object.freeze(
+    advisories.map((item) => Object.freeze(item)),
+  );
   return {
     outcome:
       failures.length === 0
@@ -153,6 +242,7 @@ export function evaluateGates(context: GateContext): GateDecision {
             : "pass",
     primary: immutable[0] ?? null,
     failures: immutable,
+    advisories: immutableAdvisories,
     mode: context.mode,
     criteria,
   };

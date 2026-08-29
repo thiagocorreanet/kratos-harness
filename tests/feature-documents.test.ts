@@ -8,7 +8,11 @@ import {
   inspectPrdDocument,
 } from "@kratos/runtime/domain/feature-documents";
 import { evaluateGates } from "@kratos/runtime/domain/gates";
-import { profileStack, skeletonEffects } from "@kratos/runtime/domain/init";
+import {
+  DEFAULT_LANGUAGE_POLICY,
+  profileStack,
+  skeletonEffects,
+} from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -234,10 +238,10 @@ describe("feature document contracts", () => {
   it("generates every feature template byte for byte from the canonical contract", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["codex"],
-        language: "en",
+        language: DEFAULT_LANGUAGE_POLICY,
         policyMode: "standard",
         snapshots: true,
         modelRoles: {

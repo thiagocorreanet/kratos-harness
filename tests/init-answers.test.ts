@@ -13,8 +13,8 @@ const registry = createSchemaRegistry();
 
 function answers(overrides: Record<string, unknown> = {}) {
   return {
-    contractVersion: "1.1.0",
-    hostContract: "1.1.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     hosts: ["claude"],
     ...overrides,
   };
@@ -53,6 +53,42 @@ describe("initialization answers", () => {
     expect(config(forward)).toBe(config(reverse));
   });
 
+  it("defaults absent language policy to complete English defaults", async () => {
+    const resolved = await resolveInitAnswers(
+      answers({ hosts: ["codex"] }),
+      registry,
+      fixedModelRouting([codexCatalog()]),
+    );
+    expect(resolved.kind).toBe("resolved");
+    if (resolved.kind !== "resolved") return;
+    expect(resolved.answers.language).toEqual({
+      conversation: "en",
+      documentation: "en",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    });
+    expect(resolved.defaulted).toContain("language");
+  });
+
+  it("rejects an incomplete language policy object with a diagnostic naming the missing field", async () => {
+    const resolved = await resolveInitAnswers(
+      answers({
+        hosts: ["codex"],
+        language: {
+          conversation: "pt-BR",
+          documentation: "pt-BR",
+          // missing comments, identifiers, commits, preserveConventions, enforcement
+        },
+      }),
+      registry,
+      fixedModelRouting([codexCatalog()]),
+    );
+    expect(resolved.kind).toBe("invalid");
+  });
+
   it("resolves adapter defaults into canonical closed role assignments", async () => {
     const resolved = await resolveInitAnswers(
       answers({ hosts: ["codex"] }),
@@ -63,10 +99,18 @@ describe("initialization answers", () => {
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.1.0",
-      hostContract: "1.1.0",
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       hosts: ["codex"],
-      language: "en",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
       policyMode: "standard",
       snapshots: true,
       modelRoles: { codex: codexCatalog().defaults },
@@ -87,7 +131,15 @@ describe("initialization answers", () => {
     const resolved = await resolveInitAnswers(
       answers({
         hosts: ["codex"],
-        language: "pt-BR",
+        language: {
+          conversation: "pt-BR",
+          documentation: "pt-BR",
+          comments: "pt-BR",
+          identifiers: "pt-BR",
+          commits: "pt-BR",
+          preserveConventions: true,
+          enforcement: "advisory",
+        },
         policyMode: "strict",
         snapshots: false,
         modelRoles: {
@@ -105,6 +157,15 @@ describe("initialization answers", () => {
     expect(resolved).toMatchObject({
       kind: "resolved",
       answers: {
+        language: {
+          conversation: "pt-BR",
+          documentation: "pt-BR",
+          comments: "pt-BR",
+          identifiers: "pt-BR",
+          commits: "pt-BR",
+          preserveConventions: true,
+          enforcement: "advisory",
+        },
         modelRoles: {
           codex: {
             planner: { model: "planner-canonical", effort: "medium" },

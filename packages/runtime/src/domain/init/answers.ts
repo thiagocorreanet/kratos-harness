@@ -1,4 +1,4 @@
-import type { InitAnswersV1_1 } from "@kratos/contracts";
+import type { InitAnswersV1_2, LanguagePolicyV1 } from "@kratos/contracts";
 
 import {
   resolveModelRoleAssignment,
@@ -12,12 +12,22 @@ import type { ModelRouting } from "../../ports/model-routing.js";
 import type { SchemaRegistry } from "../schema/index.js";
 
 /** Answers after every default has been made visible and every model resolved. */
-export type ResolvedAnswers = Omit<Required<InitAnswersV1_1>, "modelRoles"> & {
+export type ResolvedAnswers = Omit<Required<InitAnswersV1_2>, "modelRoles"> & {
   readonly modelRoles: ResolvedModelRoles;
 };
 
+export const DEFAULT_LANGUAGE_POLICY: LanguagePolicyV1 = {
+  conversation: "en",
+  documentation: "en",
+  comments: "en",
+  identifiers: "en",
+  commits: "en",
+  preserveConventions: true,
+  enforcement: "advisory",
+};
+
 const DEFAULTS = {
-  language: "en",
+  language: DEFAULT_LANGUAGE_POLICY,
   policyMode: "standard",
   snapshots: true,
 } as const;
@@ -27,7 +37,7 @@ const HOSTS = ["claude", "codex"] as const;
 const ROLES = ["planner", "implementer", "judge"] as const;
 
 type Host = "claude" | "codex";
-type ExplicitRoleMap = NonNullable<InitAnswersV1_1["modelRoles"]>[Host];
+type ExplicitRoleMap = NonNullable<InitAnswersV1_2["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */
 export type ResolvedRoleMap = Readonly<
@@ -84,7 +94,7 @@ export async function resolveInitAnswers(
       reasonCode: first?.reasonCode ?? "trail.output_invalido",
     };
   }
-  if (validated.value.contractVersion !== "1.1.0") {
+  if (validated.value.contractVersion !== "1.2.0") {
     return { kind: "invalid", reasonCode: "trail.output_invalido" };
   }
 
@@ -126,7 +136,7 @@ export async function resolveInitAnswers(
       contractVersion: supplied.contractVersion,
       hostContract: supplied.hostContract,
       hosts: supplied.hosts,
-      language: supplied.language ?? DEFAULTS.language,
+      language: supplied.language ?? DEFAULT_LANGUAGE_POLICY,
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
       snapshots: supplied.snapshots ?? DEFAULTS.snapshots,
       modelRoles,

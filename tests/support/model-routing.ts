@@ -1,4 +1,4 @@
-import type { ModelAssignmentV1_1, ProjectConfigV1_1 } from "@kratos/contracts";
+import type { ModelAssignmentV1_1, ProjectConfigV1_2 } from "@kratos/contracts";
 import type {
   HostModelCatalog,
   ModelRole,
@@ -47,13 +47,21 @@ export function claudeCatalog(): HostModelCatalog {
 export function roleConfig(
   host: "claude" | "codex",
   roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>,
-): ProjectConfigV1_1 {
+): ProjectConfigV1_2 {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     pluginVersion: "0.0.0-development",
-    hostContract: "1.1.0",
-    language: "en",
+    hostContract: "1.2.0",
+    language: {
+      conversation: "en",
+      documentation: "en",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    },
     policyMode: "strict",
     managedState: {
       directory: ".brain",

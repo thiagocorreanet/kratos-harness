@@ -1,0 +1,28 @@
+{
+  "contractVersion": "1.2.0",
+  "stateContract": "1.2.0",
+  "pluginVersion": "0.0.0-development",
+  "hostContract": "1.2.0",
+  "language": {
+    "conversation": "pt-BR",
+    "documentation": "pt-BR",
+    "comments": "en",
+    "identifiers": "en",
+    "commits": "en",
+    "preserveConventions": true,
+    "enforcement": "advisory"
+  },
+  "policyMode": "strict",
+  "managedState": {
+    "directory": ".brain",
+    "eventLog": "events.jsonl",
+    "snapshots": true
+  },
+  "modelRoles": {
+    "codex": {
+      "planner": "gpt-5-plan",
+      "implementer": { "model": "gpt-5-code", "effort": "high" },
+      "judge": { "model": "gpt-5-review", "effort": "medium" }
+    }
+  }
+}

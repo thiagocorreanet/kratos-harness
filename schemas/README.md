@@ -23,17 +23,20 @@ The universal runtime-result family contains:
   which adds `guard.path_escape` and `guard.target_uninspectable` for pre-write
   target inspection;
 - [`reason-codes.v1.7.json`](../packages/contracts/catalogs/reason-codes.v1.7.json),
-  the current revision, which adds the eight fail-closed `model.*` routing,
-  independence, handoff, execution, and configuration-migration reasons.
+  which adds the eight fail-closed `model.*` routing,
+  independence, handoff, execution, and configuration-migration reasons;
+- [`reason-codes.v1.8.json`](../packages/contracts/catalogs/reason-codes.v1.8.json),
+  the current revision, which adds `policy.language_incomplete` and
+  `policy.language_convention_mismatch_advisory`.
 
 The state family contains:
 
 - [`acceptance-criteria-snapshot.v1.schema.json`](state/acceptance-criteria-snapshot.v1.schema.json);
 - [`acceptance-verdict.v1.schema.json`](state/acceptance-verdict.v1.schema.json);
 - [`project-config.v1.schema.json`](state/project-config.v1.schema.json);
-- [`project-config.v1.1.schema.json`](state/project-config.v1.1.schema.json), the
-  current configuration with host-specific `planner`, `implementer`, and
-  `judge` assignments;
+- [`project-config.v1.1.schema.json`](state/project-config.v1.1.schema.json);
+- [`project-config.v1.2.schema.json`](state/project-config.v1.2.schema.json), the
+  current configuration with closed per-artifact language policy;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
@@ -62,9 +65,10 @@ The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the
 current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.json),
 [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
-[`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its current
-[`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) role-routing
-revision, plus
+[`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
+[`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
+current [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json)
+per-artifact language policy revision, plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine

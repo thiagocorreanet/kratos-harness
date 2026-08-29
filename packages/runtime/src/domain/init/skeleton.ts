@@ -1,4 +1,4 @@
-import { KRATOS_VERSION, type ProjectConfigV1_1 } from "@kratos/contracts";
+import { KRATOS_VERSION, type ProjectConfigV1_2 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
 import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
@@ -162,11 +162,11 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1_1 = {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+  const config: ProjectConfigV1_2 = {
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     pluginVersion: KRATOS_VERSION,
-    hostContract: "1.1.0",
+    hostContract: "1.2.0",
     language: answers.language,
     policyMode: answers.policyMode,
     managedState: {
@@ -310,10 +310,18 @@ function codexConfiguration(answers: Answers): string {
   return lines(
     `# Managed by Kratos ${KRATOS_VERSION}.`,
     "",
-    'contract_version = "1.0.0"',
-    'host_contract = "1.0.0"',
-    `language = "${answers.language}"`,
+    'contract_version = "1.2.0"',
+    'host_contract = "1.2.0"',
     `policy_mode = "${answers.policyMode}"`,
+    "",
+    "[language]",
+    `conversation = "${answers.language.conversation}"`,
+    `documentation = "${answers.language.documentation}"`,
+    `comments = "${answers.language.comments}"`,
+    `identifiers = "${answers.language.identifiers}"`,
+    `commits = "${answers.language.commits}"`,
+    `preserve_conventions = ${String(answers.language.preserveConventions)}`,
+    `enforcement = "${answers.language.enforcement}"`,
     "",
     "[state]",
     'directory = ".brain"',
@@ -351,7 +359,14 @@ function instructions(answers: Answers, file: string, note: string): string {
     "",
     "## This project",
     "",
-    `- Conversation language: ${answers.language}`,
+    "- Language policy:",
+    `  - Conversation: ${answers.language.conversation}`,
+    `  - Documentation: ${answers.language.documentation}`,
+    `  - Code comments: ${answers.language.comments}`,
+    `  - Code identifiers: ${answers.language.identifiers}`,
+    `  - Suggested commits: ${answers.language.commits}`,
+    `  - Preserve conventions: ${answers.language.preserveConventions ? "enabled" : "disabled"}`,
+    `  - Enforcement: ${answers.language.enforcement}`,
     `- Policy mode: ${answers.policyMode}`,
     `- Snapshots: ${answers.snapshots ? "enabled" : "disabled"}`,
     "- Managed state: `.brain`, described by `.brain/config.json`",

@@ -7,7 +7,7 @@ import type {
   ReadableEvent,
   EvidenceV1,
   GapRecordV1,
-  ProjectConfigV1_1,
+  ProjectConfigV1_2,
   SnapshotV1,
 } from "@kratos/contracts";
 import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
@@ -1610,7 +1610,7 @@ async function observeConfigurationSnapshot(
 ): Promise<
   | {
       readonly kind: "valid";
-      readonly value: ProjectConfigV1_1;
+      readonly value: ProjectConfigV1_2;
       readonly digest: string;
     }
   | PhaseAssignmentRefusal

@@ -1,10 +1,10 @@
-import reasonCatalog from "../catalogs/reason-codes.v1.7.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.8.json" with { type: "json" };
 
 /** One catalog entry: the policy a result carrying this code must satisfy. */
 export interface ReasonPolicy {
   readonly code: string;
   readonly description: string;
-  readonly status: "success" | "failure" | "blocked";
+  readonly status: "success" | "failure" | "blocked" | "advisory";
   readonly exitCode: number;
   readonly evidence: "required" | "optional" | "forbidden";
   readonly stateChanged: boolean;

@@ -64,6 +64,18 @@ describe("the canonical phase-agent prompts", () => {
     }
   });
 
+  it("contains language policy rules and normative exceptions in shared instructions", () => {
+    for (const { instructions } of PHASE_AGENT_PROMPTS) {
+      expect(instructions).toContain("## Language policy");
+      expect(instructions).toContain(
+        "Domain terms, proper nouns, acronyms, library names",
+      );
+      expect(instructions).toContain(
+        "external interface fields keep their canonical form",
+      );
+    }
+  });
+
   it("keeps each role inside its distinct responsibility", () => {
     expect(prompt("prd-researcher")).toContain(
       "Do not design the solution and do not write code.",
@@ -138,10 +150,18 @@ describe("the canonical phase-agent prompts", () => {
   it("renders every Codex definition from the canonical body", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["codex"],
-        language: "en",
+        language: {
+          conversation: "en",
+          documentation: "en",
+          comments: "en",
+          identifiers: "en",
+          commits: "en",
+          preserveConventions: true,
+          enforcement: "advisory",
+        },
         policyMode: "standard",
         snapshots: true,
         modelRoles: {

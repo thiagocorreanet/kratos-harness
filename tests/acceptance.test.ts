@@ -109,4 +109,33 @@ describe("done acceptance", () => {
       ),
     ).toMatchObject({ kind: "cycle" });
   });
+
+  it("accepts candidate when gates contain language divergence advisories", () => {
+    expect(
+      decideDone({
+        ...candidate,
+        gates: {
+          ...candidate.gates,
+          advisories: [
+            {
+              reasonCode: "policy.language_convention_mismatch_advisory",
+              evidenceRefs: [".brain/02-features/example/01-prd.md"],
+              detail: "Language mismatch in PRD.",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+      reasonCode: "done.all_steps",
+      evidenceRefs: [".brain/evidence/acceptance.json"],
+      advisories: [
+        {
+          reasonCode: "policy.language_convention_mismatch_advisory",
+          evidenceRefs: [".brain/02-features/example/01-prd.md"],
+          detail: "Language mismatch in PRD.",
+        },
+      ],
+    });
+  });
 });

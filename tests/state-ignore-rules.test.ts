@@ -3,8 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { skeletonEffects } from "@kratos/runtime/domain/init";
-import { profileStack } from "@kratos/runtime/domain/init";
+import {
+  DEFAULT_LANGUAGE_POLICY,
+  profileStack,
+  skeletonEffects,
+} from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
 const IDENTITY = [
@@ -76,10 +79,10 @@ async function createGitRepo(): Promise<{
 async function writeSkeleton(root: string): Promise<void> {
   const effects = skeletonEffects(
     {
-      contractVersion: "1.1.0",
-      hostContract: "1.1.0",
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       hosts: ["claude", "codex"],
-      language: "en",
+      language: DEFAULT_LANGUAGE_POLICY,
       policyMode: "standard",
       snapshots: true,
       modelRoles: {

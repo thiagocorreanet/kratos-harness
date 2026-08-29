@@ -1,4 +1,9 @@
-import type { ProjectConfigV1, ProjectConfigV1_1 } from "@kratos/contracts";
+import type {
+  LanguagePolicyV1,
+  ProjectConfigV1,
+  ProjectConfigV1_1,
+  ProjectConfigV1_2,
+} from "@kratos/contracts";
 
 export interface StateUpgrade {
   readonly from: string;
@@ -51,8 +56,39 @@ export function upgradeState(
   return { kind: "upgraded", value: state, path };
 }
 
+/** Deterministically map a legacy single-field language setting into a granular language policy. */
+export function migrateLegacyLanguage(
+  language: "en" | "pt-BR",
+): LanguagePolicyV1 {
+  return {
+    conversation: language,
+    documentation: language,
+    comments: "en",
+    identifiers: "en",
+    commits: "en",
+    preserveConventions: true,
+    enforcement: "advisory",
+  };
+}
+
+/** Upgrade a v1.1 configuration payload to v1.2 with granular language policy. */
+export function upgradeProjectConfigurationV1_2(
+  source: ProjectConfigV1_1,
+): ProjectConfigV1_2 {
+  return {
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.2.0",
+    language: migrateLegacyLanguage(source.language),
+    policyMode: source.policyMode,
+    managedState: { ...source.managedState },
+    modelRoles: source.modelRoles,
+  };
+}
+
 /**
- * Upgrade the one project payload whose old revision cannot execute phases.
+ * Upgrade the legacy v1.0 project payload to v1.2.
  *
  * Every pre-existing setting comes from the validated source configuration.
  * Migration answers contribute only the newly required, already normalized
@@ -62,8 +98,8 @@ export function upgradeState(
 export function upgradeProjectConfiguration(
   source: ProjectConfigV1,
   modelRoles: ProjectConfigV1_1["modelRoles"],
-): ProjectConfigV1_1 {
-  return {
+): ProjectConfigV1_2 {
+  return upgradeProjectConfigurationV1_2({
     contractVersion: "1.1.0",
     stateContract: "1.1.0",
     pluginVersion: source.pluginVersion,
@@ -72,5 +108,5 @@ export function upgradeProjectConfiguration(
     policyMode: source.policyMode,
     managedState: { ...source.managedState },
     modelRoles,
-  };
+  });
 }

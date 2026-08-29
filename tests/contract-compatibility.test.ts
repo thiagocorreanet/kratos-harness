@@ -6,6 +6,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  CONTRACT_IDENTITIES,
+  CONTRACT_VERSIONS,
   classifyContractVersion,
   contractFailureResult,
 } from "../packages/contracts/src/index.js";
@@ -52,6 +54,13 @@ function renderResult(result: unknown) {
 }
 
 describe("contract compatibility classifier", () => {
+  it("recognizes stateContract 1.2.0 and hostContract 1.2.0 as current", () => {
+    expect(CONTRACT_IDENTITIES.state).toBe("1.2.0");
+    expect(CONTRACT_IDENTITIES.host).toBe("1.2.0");
+    expect(CONTRACT_VERSIONS["state.project-config"]).toBe("1.2.0");
+    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.2.0");
+  });
+
   it("classifies every fixture exactly without mutating input", () => {
     for (const fixture of cases) {
       const before = structuredClone(fixture);
