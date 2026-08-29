@@ -1,4 +1,5 @@
 import type {
+  FailureCandidateV1,
   GateFactsV1,
   HostOperationMessageV1,
   HookObservationV1,
@@ -8,7 +9,7 @@ import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { WriteFilePrecondition } from "../domain/effects.js";
 import { classifyHostContract } from "../domain/host/index.js";
 import {
-  failureCandidate,
+  captureCandidate,
   initialRunUsage,
   sanitizeDiagnostic,
 } from "../domain/hooks/index.js";
@@ -21,6 +22,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { readCandidates } from "./memory.js";
 
 export async function observeHostOperation(
   invocation: Invocation,
@@ -64,10 +66,16 @@ export async function observeHostOperation(
   if (observation.hook === null) {
     return { kind: "observed", observation, ports: anchored };
   }
+  const candidates =
+    observation.hook.kind === "tool.failed"
+      ? await readCandidates(anchored, registry)
+      : null;
+  if (candidates?.kind === "failure") return candidates;
   const context = await observeHookContext(
     observation.hook,
     anchored,
     registry,
+    candidates?.value ?? [],
   );
   return {
     kind: "observed",
@@ -115,6 +123,7 @@ async function observeHookContext(
   hook: HookObservationV1,
   ports: RuntimePorts,
   registry: SchemaRegistry,
+  existingCandidates: readonly FailureCandidateV1[],
 ): Promise<
   NonNullable<CommandObservation & { kind: "host-operation" }>["context"]
 > {
@@ -149,9 +158,9 @@ async function observeHookContext(
   const transientRoot = `.brain/03-memory/.cache/hooks/${hook.sessionId}`;
   const transientFiles = await filesIn(transientRoot, ports);
   const telemetryPath = `.brain/03-memory/telemetry/${hook.sessionId}.json`;
-  const candidate =
+  const capture =
     hook.kind === "tool.failed"
-      ? failureCandidate(
+      ? captureCandidate(
           {
             toolFamily: hook.toolFamily,
             failureClass: hook.failureClass,
@@ -162,6 +171,7 @@ async function observeHookContext(
             ),
             observedAt: hook.occurredAt,
           },
+          existingCandidates,
           (canonical) => ports.digests.sha256(canonical),
         )
       : null;
@@ -173,14 +183,7 @@ async function observeHookContext(
     usageExpected: precondition(usageEntry),
     gates: gates ?? emptyGates(runId, hook.occurredAt),
     gatesExpected: precondition(gatesEntry),
-    candidate,
-    candidateExists:
-      candidate !== null &&
-      (
-        await ports.durableFileSystem.inspect(
-          `.brain/03-memory/candidates/${candidate.candidateId}.json`,
-        )
-      ).kind === "file",
+    capture,
     cache,
     telemetryExists:
       (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",

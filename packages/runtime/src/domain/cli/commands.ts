@@ -6,6 +6,7 @@ import { resultFor } from "../result/index.js";
 import { renderHelp } from "./help.js";
 import { initCommand } from "./init.js";
 import { hookCommand } from "./hook.js";
+import { memoryCaptureCommand, memoryListCommand } from "./memory.js";
 import { objectiveCommand } from "./objective.js";
 import { continueCommand, doneCommand, startCommand } from "./workflow.js";
 import {
@@ -127,6 +128,8 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   migrateBrainCommand,
   migrateConfigCommand,
   migrateRollbackCommand,
+  memoryCaptureCommand,
+  memoryListCommand,
   objectiveCommand,
   repairCommand,
   startCommand,

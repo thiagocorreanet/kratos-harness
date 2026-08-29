@@ -24,6 +24,7 @@ function subject(
   files: Readonly<Record<string, string>> = {},
   directories: readonly string[] = [".brain", ".brain/transactions"],
   piped: string | null = null,
+  localFiles: Readonly<Record<string, string>> = {},
 ) {
   const storage = memoryTransactionStorage({ files, directories });
   return {
@@ -33,7 +34,7 @@ function subject(
       ids: sequentialIds("id"),
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
-      fileSystem: memoryFileSystem({}),
+      fileSystem: memoryFileSystem(localFiles),
       environment: fixedEnvironment({}, ROOT),
       git: stubGit(),
       modelRouting: fixedModelRouting([claudeCatalog()]),
@@ -218,7 +219,7 @@ describe("workflow hook runtime", () => {
       toolFamily: "shell",
       failureClass: "nonzero_exit",
       exitCode: 1,
-      diagnostic: "failed at /project/src/file.ts",
+      diagnostic: "failed at /project/src/file.ts on 2026-08-28T12:00:00.000Z",
       usage: null,
     };
     const first = hookRun(
@@ -233,7 +234,11 @@ describe("workflow hook runtime", () => {
     const second = hookRun(
       settled(first),
       first.storage.snapshot().directories,
-      failure,
+      {
+        ...failure,
+        diagnostic:
+          "failed at /project/src/file.ts on 2026-08-28T12:01:00.000Z",
+      },
       "failure-two",
     );
     expect(
@@ -243,6 +248,57 @@ describe("workflow hook runtime", () => {
       path.startsWith(".brain/03-memory/candidates/"),
     );
     expect(candidates).toHaveLength(1);
+  });
+
+  it("captures a manual proposal once without changing curated memory", async () => {
+    const base = await started();
+    const proposal = `${JSON.stringify({
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
+      observation: "Deploy command failed at 2026-08-28T12:00:00.000Z",
+    })}\n`;
+    const first = subject(
+      settled(base),
+      base.storage.snapshot().directories,
+      null,
+      { "proposal.json": proposal },
+    );
+    expect(
+      await runCommandLine(["memory", "capture", "proposal.json"], first.ports),
+    ).toBe(0);
+
+    const second = subject(
+      settled(first),
+      first.storage.snapshot().directories,
+      null,
+      { "proposal.json": proposal },
+    );
+    expect(
+      await runCommandLine(
+        ["memory", "capture", "proposal.json"],
+        second.ports,
+      ),
+    ).toBe(0);
+
+    const files = settled(second);
+    expect(
+      Object.keys(files).filter((path) =>
+        path.startsWith(".brain/03-memory/candidates/"),
+      ),
+    ).toHaveLength(1);
+    expect(files[".brain/03-memory/curated-memory.json"]).toBeDefined();
+    expect(files[".brain/03-memory/gotchas.md"]).toBeDefined();
+    expect(
+      (
+        JSON.parse(files[".brain/03-memory/curated-memory.json"] ?? "") as {
+          confirmed: unknown[];
+        }
+      ).confirmed,
+    ).toEqual([]);
+
+    const listed = subject(files, second.storage.snapshot().directories);
+    expect(await runCommandLine(["memory", "list"], listed.ports)).toBe(0);
+    expect(settled(listed)).toEqual(files);
   });
 
   it("finalizes session telemetry and clears transient files", async () => {

@@ -34,6 +34,7 @@ import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
+import { observeMemory } from "./memory.js";
 
 function write(
   text: string,
@@ -140,29 +141,31 @@ export async function runCommandLine(
               ? await observeGuardWrite(invocation, ports, schemaRegistry)
               : invocation.command.prerequisite === "scope-record"
                 ? await observeScopeRecord(invocation, ports, schemaRegistry)
-                : invocation.command.prerequisite === "host-operation"
-                  ? await observeHostOperation(
-                      invocation,
-                      ports,
-                      schemaRegistry,
-                    )
-                  : invocation.command.prerequisite === "stop-loss-unlock"
-                    ? await observeStopLossUnlock(
+                : invocation.command.prerequisite === "memory"
+                  ? await observeMemory(invocation, ports, schemaRegistry)
+                  : invocation.command.prerequisite === "host-operation"
+                    ? await observeHostOperation(
                         invocation,
                         ports,
                         schemaRegistry,
                       )
-                    : invocation.command.prerequisite === "migration"
-                      ? await observeMigration(
+                    : invocation.command.prerequisite === "stop-loss-unlock"
+                      ? await observeStopLossUnlock(
                           invocation,
                           ports,
                           schemaRegistry,
                         )
-                      : await observeWorkflow(
-                          invocation,
-                          ports,
-                          schemaRegistry,
-                        );
+                      : invocation.command.prerequisite === "migration"
+                        ? await observeMigration(
+                            invocation,
+                            ports,
+                            schemaRegistry,
+                          )
+                        : await observeWorkflow(
+                            invocation,
+                            ports,
+                            schemaRegistry,
+                          );
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }

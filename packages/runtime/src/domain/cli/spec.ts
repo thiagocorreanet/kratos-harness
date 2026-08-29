@@ -45,6 +45,7 @@ import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
+import type { CandidateCaptureDecision } from "../hooks/index.js";
 
 export type GuardWriteOutcome =
   | { readonly kind: "allowed" }
@@ -122,6 +123,17 @@ export interface Globals {
  */
 export type CommandObservation =
   | { readonly kind: "none" }
+  | {
+      readonly kind: "memory";
+      readonly operation: "list";
+      readonly candidates: readonly FailureCandidateV1[];
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "capture";
+      readonly candidates: readonly FailureCandidateV1[];
+      readonly capture: CandidateCaptureDecision;
+    }
   | { readonly kind: "write-guard"; readonly outcome: GuardWriteOutcome }
   | { readonly kind: "scope-record"; readonly outcome: ScopeRecordOutcome }
   | {
@@ -171,8 +183,7 @@ export type CommandObservation =
         readonly usageExpected: WriteFilePrecondition;
         readonly gates: GateFactsV1;
         readonly gatesExpected: WriteFilePrecondition;
-        readonly candidate: FailureCandidateV1 | null;
-        readonly candidateExists: boolean;
+        readonly capture: CandidateCaptureDecision | null;
         readonly cache: {
           readonly startedAt: string;
           readonly grossTokens: number;
