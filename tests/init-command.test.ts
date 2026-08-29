@@ -25,8 +25,8 @@ import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
 const ROOT = "/project";
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   hosts: ["claude", "codex"],
 });
 
@@ -108,10 +108,18 @@ describe("the init command", () => {
       destinationsOf(
         skeletonEffects(
           {
-            contractVersion: "1.1.0",
-            hostContract: "1.1.0",
+            contractVersion: "1.2.0",
+            hostContract: "1.2.0",
             hosts: ["claude", "codex"],
-            language: "en",
+            language: {
+              conversation: "en",
+              documentation: "en",
+              comments: "en",
+              identifiers: "en",
+              commits: "en",
+              preserveConventions: true,
+              enforcement: "advisory",
+            },
             policyMode: "standard",
             snapshots: true,
             modelRoles: {
@@ -213,8 +221,8 @@ describe("the init command", () => {
 
   it("refuses a host the answers never enabled", async () => {
     const answers = JSON.stringify({
-      contractVersion: "1.1.0",
-      hostContract: "1.1.0",
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       hosts: ["claude"],
     });
     const run = subject(answers);
@@ -237,8 +245,8 @@ describe("the init command", () => {
   it("writes nothing when enabled-host defaults cannot be resolved", async () => {
     const run = subject(
       JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["codex"],
       }),
       {},
@@ -255,8 +263,8 @@ describe("the init command", () => {
   it("names the host and role for distinct model-routing refusals", async () => {
     const unavailable = subject(
       JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["claude", "codex"],
       }),
       {},
@@ -267,8 +275,8 @@ describe("the init command", () => {
     );
     const unsupportedEffort = subject(
       JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["claude", "codex"],
         modelRoles: {
           codex: {
@@ -400,7 +408,7 @@ describe("the init command", () => {
 
       expect(
         await readFile(join(target, ".brain/config.json"), "utf8"),
-      ).toContain('"language": "en"');
+      ).toContain('"conversation": "en"');
       expect(await readFile(join(target, "CLAUDE.md"), "utf8")).toContain(
         "BEGIN KRATOS MANAGED SECTION",
       );

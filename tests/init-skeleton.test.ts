@@ -52,10 +52,18 @@ const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
 function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
-    contractVersion: "1.1.0",
-    hostContract: "1.1.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     hosts: ["claude", "codex"],
-    language: "en",
+    language: {
+      conversation: "en",
+      documentation: "en",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    },
     policyMode: "standard",
     snapshots: true,
     modelRoles: {
@@ -91,10 +99,18 @@ function underBrain(path: string): boolean {
 describe("the generated skeleton", () => {
   it("accepts resolved model-role objects but rejects raw assignments at its public boundary", () => {
     interface RawAssignments {
-      readonly contractVersion: "1.1.0";
-      readonly hostContract: "1.1.0";
+      readonly contractVersion: "1.2.0";
+      readonly hostContract: "1.2.0";
       readonly hosts: readonly ["codex"];
-      readonly language: "en";
+      readonly language: {
+        readonly conversation: "en";
+        readonly documentation: "en";
+        readonly comments: "en";
+        readonly identifiers: "en";
+        readonly commits: "en";
+        readonly preserveConventions: true;
+        readonly enforcement: "advisory";
+      };
       readonly policyMode: "standard";
       readonly snapshots: true;
       readonly modelRoles: {
@@ -260,8 +276,17 @@ describe("the generated skeleton", () => {
   });
 
   it("writes a project configuration the runtime itself accepts", () => {
+    const ptBrPolicy = {
+      conversation: "pt-BR" as const,
+      documentation: "pt-BR" as const,
+      comments: "en" as const,
+      identifiers: "en" as const,
+      commits: "en" as const,
+      preserveConventions: true,
+      enforcement: "advisory" as const,
+    };
     const generated = skeletonEffects(
-      answers({ language: "pt-BR", policyMode: "strict", snapshots: false }),
+      answers({ language: ptBrPolicy, policyMode: "strict", snapshots: false }),
       nodeProject,
     );
     const config: unknown = JSON.parse(
@@ -269,11 +294,11 @@ describe("the generated skeleton", () => {
     );
 
     expect(config).toEqual({
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       pluginVersion: KRATOS_VERSION,
-      hostContract: "1.1.0",
-      language: "pt-BR",
+      hostContract: "1.2.0",
+      language: ptBrPolicy,
       policyMode: "strict",
       managedState: {
         directory: ".brain",
@@ -296,7 +321,7 @@ describe("the generated skeleton", () => {
     expect(
       registry.validate({
         id: "state.project-config",
-        version: "1.1.0",
+        version: "1.2.0",
         value: config,
         structuralReasonCode: "guard.config_corrupt",
       }).kind,
@@ -354,14 +379,50 @@ describe("the generated skeleton", () => {
 
   it("carries the conversation language into the host instructions", () => {
     const generated = skeletonEffects(
-      answers({ language: "pt-BR" }),
+      answers({
+        language: {
+          conversation: "pt-BR",
+          documentation: "pt-BR",
+          comments: "en",
+          identifiers: "en",
+          commits: "en",
+          preserveConventions: true,
+          enforcement: "advisory",
+        },
+      }),
       nodeProject,
     );
 
     // The managed content stays in English; the language answer says which
     // language the host converses in.
-    expect(contentAt(generated, "CLAUDE.md")).toContain("pt-BR");
-    expect(contentAt(generated, "AGENTS.md")).toContain("pt-BR");
+    expect(contentAt(generated, "CLAUDE.md")).toContain("Conversation: pt-BR");
+    expect(contentAt(generated, "AGENTS.md")).toContain("Conversation: pt-BR");
+  });
+
+  it("renders the language policy section into .codex/config.toml", () => {
+    const generated = skeletonEffects(
+      answers({
+        language: {
+          conversation: "pt-BR",
+          documentation: "pt-BR",
+          comments: "en",
+          identifiers: "en",
+          commits: "en",
+          preserveConventions: true,
+          enforcement: "advisory",
+        },
+      }),
+      nodeProject,
+    );
+    const toml = contentAt(generated, ".codex/config.toml");
+    expect(toml).toContain("[language]");
+    expect(toml).toContain('conversation = "pt-BR"');
+    expect(toml).toContain('documentation = "pt-BR"');
+    expect(toml).toContain('comments = "en"');
+    expect(toml).toContain('identifiers = "en"');
+    expect(toml).toContain('commits = "en"');
+    expect(toml).toContain("preserve_conventions = true");
+    expect(toml).toContain('enforcement = "advisory"');
   });
 
   it("names only the destinations of a plan, not its narration", () => {

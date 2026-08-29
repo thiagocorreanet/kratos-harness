@@ -1,4 +1,7 @@
-export { DEFAULT_LANGUAGE_POLICY, resolveInitAnswers } from "./answers.js";
+export {
+  DEFAULT_LANGUAGE_POLICY,
+  resolveInitAnswers,
+} from "./answers.js";
 export type {
   ModelResolutionSubject,
   ModelResolutionRefusal,
@@ -7,6 +10,12 @@ export type {
   ResolvedModelRoles,
   ResolvedRoleMap,
 } from "./answers.js";
+export { detectLanguageConventions } from "./detect.js";
+export type {
+  DetectedLanguageConventions,
+  LanguageConventionEvidence,
+  LanguageConventionSample,
+} from "./detect.js";
 export {
   MANAGED_SECTION_BEGIN,
   MANAGED_SECTION_END,
