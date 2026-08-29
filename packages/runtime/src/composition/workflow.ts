@@ -78,6 +78,7 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
 
 const EMPTY_DIGEST =
@@ -1474,7 +1475,7 @@ async function observePhaseAssignment(input: {
   );
   if (configuration.kind === "refused") return configuration;
 
-  const catalog = await input.ports.modelRouting.observe(host);
+  const catalog = await observeModelCatalog(input.ports.modelRouting, host);
   if (catalog === null) {
     return refusedAssignment("model.resolution_unavailable", host);
   }
@@ -1519,7 +1520,10 @@ async function observePhaseAssignment(input: {
   if (currentConfiguration.digest !== configuration.digest) {
     return refusedAssignment("model.assignment_stale", "configuration");
   }
-  const currentCatalog = await input.ports.modelRouting.observe(host);
+  const currentCatalog = await observeModelCatalog(
+    input.ports.modelRouting,
+    host,
+  );
   if (currentCatalog === null) {
     return refusedAssignment("model.assignment_stale", "catalog");
   }

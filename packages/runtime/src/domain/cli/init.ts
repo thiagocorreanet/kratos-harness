@@ -231,7 +231,12 @@ function narrowHosts(
   if (requested === undefined || requested === true) return answers;
   const host = HOSTS.find((candidate) => candidate === requested);
   if (host === undefined || !answers.hosts.includes(host)) return null;
-  return { ...answers, hosts: [host] };
+  const roles = answers.modelRoles[host];
+  return {
+    ...answers,
+    hosts: [host],
+    modelRoles: roles === undefined ? {} : { [host]: roles },
+  };
 }
 
 function refusal(reasonCode: string, why: readonly string[]): Decision {

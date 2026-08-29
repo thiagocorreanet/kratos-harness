@@ -71,6 +71,34 @@ Initialization persists the canonical resolved objects, so an existing project
 does not silently inherit different defaults from a later adapter version.
 Concrete names remain adapter data; shared workflow policy is host neutral.
 
+## Packaged phase-agent relay
+
+Each packaged host ships `skills/kratos/scripts/phase-agent-relay.mjs`. The
+host-specific module pins only the host identity and delegates to the shared
+adapter protocol. For one phase it:
+
+1. obtains the validated handoff through the runtime transport;
+2. refuses to start phase work unless the native launcher declares exact model
+   and effort selection;
+3. passes the runtime-selected phase, role, model, and effort unchanged to that
+   launcher; and
+4. translates the launch result into an `sdd.agent.record:<correlation>`
+   request carrying the original `assignmentDigest` in `phaseExecution`.
+
+The launcher returns nullable host-observed identity separately from the
+selected assignment. The relay never fills a missing observation from the
+handoff. Runtime handoff refusals are returned unchanged, and an unavailable
+exact selector is a host capability refusal before work, not permission to
+choose a fallback.
+
+The repository cannot invoke proprietary Codex or Claude Code phase-agent APIs
+in a portable test process. The packaged-host conformance suite therefore
+imports both built relay modules and supplies controlled runtime and launcher
+ports. It executes the complete handoff-to-launch-to-record binding and proves
+that an unsupported selector calls neither launch nor record. This verifies the
+shipped integration contract; it is not a claim that a proprietary host API
+ran end to end in the test environment.
+
 ## Contract negotiation
 
 Each adapter-message revision pins `hostContract` to a constant. A host speaking a

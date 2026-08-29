@@ -2,6 +2,7 @@ import {
   CONTRACT_VERSIONS,
   KRATOS_VERSION,
   type AdapterMessageV1_1,
+  type PhaseHandoffV1_1,
 } from "@kratos/contracts";
 
 export interface HostModelAssignment {
@@ -155,6 +156,53 @@ export interface HostRendering {
   readonly exitCode: number;
 }
 
+export interface HostPhaseRuntime {
+  handoff(): Promise<
+    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_1 }
+    | { readonly kind: "refused"; readonly rendering: HostRendering }
+  >;
+  record(message: AdapterMessageV1_1): Promise<HostRendering>;
+}
+
+export interface HostPhaseLauncher {
+  /** Both selectors must be exact or the phase is not allowed to begin. */
+  readonly exactSelection: {
+    readonly model: boolean;
+    readonly effort: boolean;
+  };
+  launch(request: {
+    readonly phase: PhaseHandoffV1_1["phase"];
+    readonly role: PhaseHandoffV1_1["assignment"]["role"];
+    readonly model: string;
+    readonly effort: string;
+  }): Promise<{
+    readonly payload: { readonly ref: string; readonly sha256: string };
+    /** Host observation only; nullable values are never filled from selection. */
+    readonly observedIdentity: {
+      readonly model: string | null;
+      readonly effort: string | null;
+    };
+  }>;
+}
+
+export interface HostPhaseRelayInput {
+  readonly modelRouting: HostModelCatalog;
+  readonly messageId: string;
+  readonly correlationId: string;
+  readonly runtime: HostPhaseRuntime;
+  readonly launcher: HostPhaseLauncher;
+  readonly adapterVersion?: string;
+  readonly capabilities?: readonly string[];
+}
+
+export type HostPhaseRelayOutcome =
+  | { readonly kind: "recorded"; readonly rendering: HostRendering }
+  | { readonly kind: "runtime-refused"; readonly rendering: HostRendering }
+  | {
+      readonly kind: "exact-selection-unsupported";
+      readonly phaseExecuted: false;
+    };
+
 /**
  * The runtime's half of a host conversation, from the host side.
  *
@@ -298,6 +346,83 @@ export const codexAdapter = (options: HostAdapterOptions): HostAdapter =>
 
 export const claudeCodeAdapter = (options: HostAdapterOptions): HostAdapter =>
   createHostAdapter("claude-code", options);
+
+/**
+ * Relay one runtime-selected assignment through an exact host launch and back
+ * into `agent record`. The launcher supplies observation, never selection.
+ */
+export async function relaySelectedPhase(
+  host: SupportedHost,
+  input: HostPhaseRelayInput,
+): Promise<HostPhaseRelayOutcome> {
+  const runtimeHandoff = await input.runtime.handoff();
+  if (runtimeHandoff.kind === "refused") {
+    return {
+      kind: "runtime-refused",
+      rendering: runtimeHandoff.rendering,
+    };
+  }
+  const { handoff } = runtimeHandoff;
+  if (
+    handoff.host !== configurationHostFor(host) ||
+    handoff.phase !== handoff.assignment.phase
+  ) {
+    throw new Error("Runtime handoff does not match the host relay");
+  }
+
+  // Validate and snapshot host facts before any proprietary phase work starts.
+  createHostAdapter(host, {
+    modelRouting: input.modelRouting,
+    ...(input.adapterVersion === undefined
+      ? {}
+      : { adapterVersion: input.adapterVersion }),
+    ...(input.capabilities === undefined
+      ? {}
+      : { capabilities: input.capabilities }),
+  });
+  if (
+    !input.launcher.exactSelection.model ||
+    !input.launcher.exactSelection.effort
+  ) {
+    return { kind: "exact-selection-unsupported", phaseExecuted: false };
+  }
+
+  const execution = await input.launcher.launch(
+    Object.freeze({
+      phase: handoff.assignment.phase,
+      role: handoff.assignment.role,
+      model: handoff.assignment.model,
+      effort: handoff.assignment.effort,
+    }),
+  );
+  const adapter = createHostAdapter(host, {
+    modelRouting: input.modelRouting,
+    model: execution.observedIdentity.model,
+    effort: execution.observedIdentity.effort,
+    ...(input.adapterVersion === undefined
+      ? {}
+      : { adapterVersion: input.adapterVersion }),
+    ...(input.capabilities === undefined
+      ? {}
+      : { capabilities: input.capabilities }),
+  });
+  const request = adapter.translate({
+    messageId: input.messageId,
+    correlationId: input.correlationId,
+    operation: `sdd.agent.record:${input.correlationId}`,
+    payloadContract: "host.agent-output@1.0.0",
+    payload: { ...execution.payload },
+    phaseExecution: {
+      assignmentDigest: handoff.assignmentDigest,
+      model: execution.observedIdentity.model,
+      effort: execution.observedIdentity.effort,
+    },
+  });
+  return {
+    kind: "recorded",
+    rendering: await input.runtime.record(request),
+  };
+}
 
 export {
   type GuardExecution,

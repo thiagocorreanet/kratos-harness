@@ -16,6 +16,7 @@ import type { SchemaRegistry } from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeModelCatalog } from "./model-routing.js";
 import { createSchemaRegistry } from "./schema.js";
 
 export type Observed =
@@ -63,11 +64,9 @@ export async function observeInitialization(
       : piped;
   if (document === null) return failure(USAGE_WHY.missingValue);
 
-  const answers = await resolveInitAnswers(
-    parse(document),
-    registry,
-    anchored.modelRouting,
-  );
+  const answers = await resolveInitAnswers(parse(document), registry, {
+    observe: (host) => observeModelCatalog(anchored.modelRouting, host),
+  });
   const rootEntries = await anchored.fileSystem.list(".");
   return {
     kind: "observed",

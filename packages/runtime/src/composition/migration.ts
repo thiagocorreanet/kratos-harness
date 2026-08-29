@@ -28,6 +28,7 @@ import {
 import type { DurableFileSystem, RuntimePorts } from "../ports/index.js";
 
 import { createRuntimeAt } from "./index.js";
+import { observeModelCatalog } from "./model-routing.js";
 
 export type ObservedMigration =
   | { readonly kind: "failure"; readonly result: Result }
@@ -223,7 +224,7 @@ async function observeConfig(
   >();
   const answers = await resolveInitAnswers(supplemented, registry, {
     observe: async (host) => {
-      const catalog = await ports.modelRouting.observe(host);
+      const catalog = await observeModelCatalog(ports.modelRouting, host);
       observedCatalogs.set(host, catalog);
       return catalog;
     },

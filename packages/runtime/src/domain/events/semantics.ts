@@ -1,4 +1,5 @@
 import type { CurrentEventDraft, ReadableEvent } from "./model.js";
+import { PHASE_MODEL_ROLE } from "../model-roles/model.js";
 
 type AssignmentPolicy = "forbidden" | "required";
 
@@ -170,6 +171,13 @@ function matchesPolicy(
 export function assertEventSemanticPolicy(event: ReadableEvent): void {
   if (event.stateContract === "1.0.0") return;
   const hasAssignment = Object.hasOwn(event, "resolvedAssignment");
+  if (
+    event.resolvedAssignment !== undefined &&
+    event.resolvedAssignment.role !==
+      PHASE_MODEL_ROLE[event.resolvedAssignment.phase]
+  ) {
+    throw new Error("invalid event semantics");
+  }
   if (event.operation.startsWith("lock.")) {
     const lockMatch = LOCK_OPERATION_PATTERN.exec(event.operation);
     if (lockMatch === null) throw new Error("invalid event semantics");

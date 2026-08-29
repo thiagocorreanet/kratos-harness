@@ -392,6 +392,26 @@ describe("read-only model-role handoffs", () => {
     expect(run.storage.snapshot()).toEqual(run.before);
   });
 
+  it("maps malformed catalog output to a stable refusal without mutation", async () => {
+    const run = await started();
+    const malformed = {
+      ...codexCatalog(),
+      models: null,
+    } as unknown as HostModelCatalog;
+
+    expect(
+      await runCommandLine(["--json", "handoff"], {
+        ...run.ports,
+        modelRouting: { observe: () => Promise.resolve(malformed) },
+      }),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "model.resolution_unavailable",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot()).toEqual(run.before);
+  });
+
   it("maps the Claude Code launcher onto the Claude configuration host", async () => {
     const run = await started({
       launcherHost: "claude-code",

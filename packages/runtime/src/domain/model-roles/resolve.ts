@@ -14,9 +14,38 @@ import {
 } from "./model.js";
 import type { RunPhase } from "../workflow/index.js";
 
+const IDENTIFIER = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const CATALOG_KEYS = ["defaults", "host", "models"] as const;
+const DEFAULT_KEYS = ["implementer", "judge", "planner"] as const;
+const ASSIGNMENT_KEYS = ["effort", "model"] as const;
+const MODEL_KEYS = ["aliases", "canonicalModel", "efforts"] as const;
+
 /** Map a workflow phase to its runtime-owned model role. */
 export function roleForPhase(phase: RunPhase): ModelRole {
   return PHASE_MODEL_ROLE[phase];
+}
+
+/** Validate and freeze one host-supplied catalog before policy consumes it. */
+export function snapshotHostModelCatalog(
+  value: unknown,
+  expectedHost?: "claude" | "codex",
+): HostModelCatalog | null {
+  try {
+    if (!hasExactDataKeys(value, CATALOG_KEYS)) return null;
+    const host = dataValue(value, "host");
+    if (
+      (host !== "claude" && host !== "codex") ||
+      (expectedHost !== undefined && host !== expectedHost)
+    ) {
+      return null;
+    }
+    const defaults = snapshotDefaults(dataValue(value, "defaults"));
+    const models = snapshotModels(dataValue(value, "models"));
+    if (defaults === null || models === null) return null;
+    return Object.freeze({ host, defaults, models });
+  } catch {
+    return null;
+  }
 }
 
 /** Normalize a model assignment without selecting a fallback model or effort. */
@@ -63,7 +92,8 @@ export function resolvePhaseAssignmentDetailed(input: {
   if (configuredRoles === undefined) {
     return detailedRefused("model.host_missing", input.host, null);
   }
-  if (input.catalog.host !== input.host) {
+  const catalog = snapshotHostModelCatalog(input.catalog, input.host);
+  if (catalog === null) {
     return detailedRefused("model.resolution_unavailable", input.host, null);
   }
 
@@ -74,7 +104,7 @@ export function resolvePhaseAssignmentDetailed(input: {
       host: input.host,
       role: candidateRole,
       roles: configuredRoles,
-      catalog: input.catalog,
+      catalog,
     });
     if (candidate.kind === "refused") {
       return detailedRefused(candidate.reasonCode, input.host, candidateRole);
@@ -131,14 +161,15 @@ export function resolveModelRoleAssignment(input: {
   readonly roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>;
   readonly catalog: HostModelCatalog;
 }): ModelRoleAssignmentResolution {
-  if (input.catalog.host !== input.host) {
+  const catalog = snapshotHostModelCatalog(input.catalog, input.host);
+  if (catalog === null) {
     return refused("model.resolution_unavailable");
   }
   const configured = input.roles[input.role];
   if (configured === undefined) return refused("model.role_missing");
 
   const assignment = normalizeModelAssignment(configured);
-  const candidates = input.catalog.models.filter((model) =>
+  const candidates = catalog.models.filter((model) =>
     modelNames(model).includes(assignment.model),
   );
   if (candidates.length !== 1) return refused("model.resolution_unavailable");
@@ -165,4 +196,113 @@ function modelNames(
 
 function sortedUnique(values: readonly string[]): readonly string[] {
   return [...new Set(values)].sort();
+}
+
+function snapshotDefaults(value: unknown): HostModelCatalog["defaults"] | null {
+  if (!hasExactDataKeys(value, DEFAULT_KEYS)) return null;
+  const planner = snapshotAssignment(dataValue(value, "planner"));
+  const implementer = snapshotAssignment(dataValue(value, "implementer"));
+  const judge = snapshotAssignment(dataValue(value, "judge"));
+  if (planner === null || implementer === null || judge === null) return null;
+  return Object.freeze({ planner, implementer, judge });
+}
+
+function snapshotAssignment(value: unknown): NormalizedModelAssignment | null {
+  if (!hasExactDataKeys(value, ASSIGNMENT_KEYS)) return null;
+  const model = dataValue(value, "model");
+  const effort = dataValue(value, "effort");
+  if (!identifier(model) || !identifier(effort)) return null;
+  return Object.freeze({ model, effort });
+}
+
+function snapshotModels(value: unknown): HostModelCatalog["models"] | null {
+  const values = denseArray(value);
+  if (values === null || values.length === 0) return null;
+  const models: HostModelCatalog["models"][number][] = [];
+  for (const candidate of values) {
+    const model = snapshotModel(candidate);
+    if (model === null) return null;
+    models.push(model);
+  }
+  return Object.freeze(models);
+}
+
+function snapshotModel(
+  value: unknown,
+): HostModelCatalog["models"][number] | null {
+  if (!hasExactDataKeys(value, MODEL_KEYS)) return null;
+  const canonicalModel = dataValue(value, "canonicalModel");
+  const aliases = snapshotIdentifiers(dataValue(value, "aliases"), true);
+  const efforts = snapshotIdentifiers(dataValue(value, "efforts"), false);
+  if (!identifier(canonicalModel) || aliases === null || efforts === null) {
+    return null;
+  }
+  return Object.freeze({ canonicalModel, aliases, efforts });
+}
+
+function snapshotIdentifiers(
+  value: unknown,
+  allowEmpty: boolean,
+): readonly string[] | null {
+  const values = denseArray(value);
+  if (
+    values === null ||
+    (!allowEmpty && values.length === 0) ||
+    !values.every(identifier)
+  ) {
+    return null;
+  }
+  return Object.freeze([...values] as string[]);
+}
+
+function denseArray(value: unknown): readonly unknown[] | null {
+  if (!Array.isArray(value)) return null;
+  const names = Object.getOwnPropertyNames(value);
+  if (
+    names.length !== value.length + 1 ||
+    names.at(-1) !== "length" ||
+    names.slice(0, -1).some((name, index) => name !== String(index))
+  ) {
+    return null;
+  }
+  return names.slice(0, -1).map((key) => dataValue(value, key));
+}
+
+function hasExactDataKeys(
+  value: unknown,
+  expected: readonly string[],
+): value is Readonly<Record<string, unknown>> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype &&
+      Object.getPrototypeOf(value) !== null)
+  ) {
+    return false;
+  }
+  const keys = Object.keys(value).sort();
+  return (
+    keys.length === expected.length &&
+    keys.every((key, index) => key === expected[index]) &&
+    keys.every((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return descriptor !== undefined && "value" in descriptor;
+    })
+  );
+}
+
+function dataValue(
+  value: Readonly<Record<string, unknown>> | readonly unknown[],
+  key: string,
+): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined || !("value" in descriptor)) {
+    throw new Error("catalog property is not inert data");
+  }
+  return descriptor.value;
+}
+
+function identifier(value: unknown): value is string {
+  return typeof value === "string" && IDENTIFIER.test(value);
 }

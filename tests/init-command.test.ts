@@ -195,6 +195,20 @@ describe("the init command", () => {
     expect(written).toContain("AGENTS.md");
     expect(written).not.toContain("CLAUDE.md");
     expect(written).not.toContain(".claude/settings.json");
+    expect(
+      JSON.parse(run.storage.snapshot().files[".brain/config.json"] ?? "null"),
+    ).toMatchObject({
+      modelRoles: { codex: codexCatalog().defaults },
+    });
+    expect(
+      Object.keys(
+        (
+          JSON.parse(
+            run.storage.snapshot().files[".brain/config.json"] ?? "null",
+          ) as { readonly modelRoles: Readonly<Record<string, unknown>> }
+        ).modelRoles,
+      ),
+    ).toEqual(["codex"]);
   });
 
   it("refuses a host the answers never enabled", async () => {

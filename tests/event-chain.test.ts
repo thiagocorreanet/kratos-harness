@@ -154,6 +154,29 @@ describe("event hash-chain verification", () => {
     ).toThrow("Event stream integrity validation failed");
   });
 
+  it("rejects a correctly rehashed history with a mismatched phase role", () => {
+    const event = sealEvent(
+      currentDraft(1),
+      { revision: 0, hash: null },
+      services,
+    );
+    if (event.resolvedAssignment === undefined) {
+      throw new Error("missing resolved assignment");
+    }
+    const invalid = withHash({
+      ...unsignedEvent(event),
+      resolvedAssignment: {
+        ...event.resolvedAssignment,
+        phase: "review",
+        role: "implementer",
+      },
+    });
+
+    expect(
+      integrityError(() => verifyEventStream(textOf([invalid]), services)).kind,
+    ).toBe("invalid_event");
+  });
+
   it("parses the exact current revision declared by a record", () => {
     const [event] = stream();
     expect(

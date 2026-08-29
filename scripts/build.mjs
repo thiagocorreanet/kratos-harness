@@ -223,6 +223,10 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
     join(repositoryRoot, "distribution/shared/workflow-hook-runner.mjs"),
     join(artifact, "hooks/workflow-hook-runner.mjs"),
   );
+  await cp(
+    join(repositoryRoot, "distribution/shared/phase-agent-runtime.mjs"),
+    join(artifact, "skills/kratos/scripts/phase-agent-runtime.mjs"),
+  );
   await writeFile(
     join(artifact, "hooks/hooks.json"),
     renderHooks(await hookDefinition(), host),

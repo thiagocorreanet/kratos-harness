@@ -316,6 +316,20 @@ describe("event sealing", () => {
     ).toBe("invalid_event");
   });
 
+  it("rejects an assignment whose role does not match its phase", () => {
+    expect(
+      integrityKind({
+        ...draft(),
+        resolvedAssignment: {
+          phase: "review",
+          role: "implementer",
+          model: "gpt-5",
+          effort: "medium",
+        },
+      }),
+    ).toBe("invalid_event");
+  });
+
   it.each([
     ["sdd.continue:continue-01", "run.agent.recorded"],
     ["sdd.agent.record:record-01", "run.transition.accepted"],

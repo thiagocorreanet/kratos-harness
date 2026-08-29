@@ -143,6 +143,26 @@ describe("model role resolution", () => {
     ).toEqual({ kind: "refused", reasonCode: "model.resolution_unavailable" });
   });
 
+  it("refuses a malformed runtime catalog instead of throwing", () => {
+    const catalog = {
+      ...codexCatalog(),
+      models: null,
+    } as unknown as HostModelCatalog;
+
+    expect(
+      resolved({
+        phase: "review",
+        host: "codex",
+        configuration: roleConfig("codex", {
+          planner: "planner",
+          implementer: "implementer",
+          judge: "judge",
+        }),
+        catalog,
+      }),
+    ).toEqual({ kind: "refused", reasonCode: "model.resolution_unavailable" });
+  });
+
   it("refuses an effort unsupported by the canonical model", () => {
     expect(
       resolved({
