@@ -64,6 +64,18 @@ describe("the canonical phase-agent prompts", () => {
     }
   });
 
+  it("contains language policy rules and normative exceptions in shared instructions", () => {
+    for (const { instructions } of PHASE_AGENT_PROMPTS) {
+      expect(instructions).toContain("## Language policy");
+      expect(instructions).toContain(
+        "Domain terms, proper nouns, acronyms, library names",
+      );
+      expect(instructions).toContain(
+        "external interface fields keep their canonical form",
+      );
+    }
+  });
+
   it("keeps each role inside its distinct responsibility", () => {
     expect(prompt("prd-researcher")).toContain(
       "Do not design the solution and do not write code.",
