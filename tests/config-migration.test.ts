@@ -377,6 +377,138 @@ describe("configuration migration", () => {
     );
   });
 
+  it("preserves both persisted custom role maps when narrowed v1.2 answers only add a profile", async () => {
+    const customRoles = {
+      claude: {
+        planner: { model: "claude-custom-planner", effort: "high" },
+        implementer: { model: "claude-custom-implementer", effort: "medium" },
+        judge: { model: "claude-custom-judge", effort: "high" },
+      },
+      codex: {
+        planner: { model: "codex-custom-planner", effort: "high" },
+        implementer: { model: "codex-custom-implementer", effort: "medium" },
+        judge: { model: "codex-custom-judge", effort: "high" },
+      },
+    } as const;
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: customRoles,
+    } satisfies ProjectConfigV1_2;
+    const profileOnlyAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+        },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [profileOnlyAnswers, profileOnlyAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles).toEqual(customRoles);
+    const preview = run.output.structured_.join("");
+    expect(preview).toContain("claude.planner = claude-custom-planner@high");
+    expect(preview).not.toContain(
+      "claude.planner = claude-custom-planner@high (defaulted)",
+    );
+    expect(preview).not.toContain(
+      "codex.planner = codex-custom-planner@high (defaulted)",
+    );
+  });
+
+  it("merges explicit role answers without deleting another persisted host map", async () => {
+    const claudeRoles = {
+      planner: { model: "claude-custom-planner", effort: "high" },
+      implementer: { model: "claude-custom-implementer", effort: "medium" },
+      judge: { model: "claude-custom-judge", effort: "high" },
+    } as const;
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: {
+        claude: claudeRoles,
+        codex: codexCatalog().defaults,
+      },
+    } satisfies ProjectConfigV1_2;
+    const narrowedAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      modelRoles: {
+        codex: {
+          planner: "planner-alias",
+          implementer: "impl-alias",
+          judge: "judge-alias",
+        },
+      },
+      projectProfile: {
+        commands: { test: { status: "resolved", value: "npm test" } },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [narrowedAnswers, narrowedAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles.claude).toEqual(claudeRoles);
+    expect(migrated.modelRoles.codex).toEqual({
+      planner: { model: "planner-canonical", effort: "medium" },
+      implementer: { model: "implementer-canonical", effort: "medium" },
+      judge: { model: "judge-canonical", effort: "medium" },
+    });
+  });
+
   it("migrates legacy pt-BR language config into granular language policy", () => {
     const legacy: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",

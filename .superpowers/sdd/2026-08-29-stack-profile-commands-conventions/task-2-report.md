@@ -91,3 +91,77 @@ location used by concurrently executing package tests. It can make the full
 Vitest run order-sensitive; isolated package and runtime-distribution coverage
 is green. Final full-suite verification should avoid concurrent mutation of that
 shared directory or run the affected package checks separately.
+
+## Fix Round 1
+
+### Review fixes
+
+- Corrected v1.2 profile-only migration so catalog defaults cannot replace
+  persisted custom model-role assignments. Omitted role maps are preserved,
+  explicitly supplied host maps override only that host, and a narrowed host
+  answer cannot delete another persisted host map. Preview metadata no longer
+  describes preserved assignments as defaulted.
+- Replaced command table cells with dynamically sized fenced code blocks. The
+  command content line is now byte-for-byte the configured single-line command,
+  including `&&`, `|`, `<`, `>`, `&`, and arbitrary backtick runs.
+- Added complete Markdown prose escaping for not-applicable reasons, paths, and
+  conventions. Implementation-language controls are emitted visibly as `\\n`,
+  `\\r`, `\\t`, or `\\uNNNN`, so published v1.3 labels cannot alter document
+  structure.
+- Preserved the published v1.3 host/state schemas byte for byte. The review
+  ruling retained their approved 64-character label boundary and assigned
+  control safety to deterministic rendering; immutable digest assertions now
+  cover both v1.3 profile schemas.
+
+### RED evidence
+
+```sh
+npx --yes npm@11.16.0 test -- tests/config-migration.test.ts -t 'preserves both persisted custom role maps|merges explicit role answers'
+# 2 expected failures: catalog defaults replaced both custom maps, and a narrowed answer deleted the other host map
+
+npx --yes npm@11.16.0 test -- tests/config-migration.test.ts -t 'merges explicit role answers'
+# 1 expected failure: a defaulted omitted host map replaced its persisted custom assignments
+
+npx --yes npm@11.16.0 test -- tests/config-migration.test.ts -t 'preserves both persisted custom role maps'
+# 1 expected failure: preview incorrectly marked a preserved custom assignment as defaulted
+
+npx --yes npm@11.16.0 test -- tests/init-skeleton.test.ts -t 'keeps command bytes copyable'
+# 1 expected failure: commands were HTML-entity transformed and prose/label Markdown remained structurally active
+```
+
+### GREEN evidence
+
+```sh
+npx --yes npm@11.16.0 test -- tests/config-migration.test.ts tests/init-skeleton.test.ts tests/contract-schemas.test.ts tests/contract-manifest.test.ts tests/schema-registry-integrity.test.ts
+# 5 files passed, 148 tests passed
+
+npx --yes npm@11.16.0 test -- tests/contract-type-generation.test.ts
+# 1 file passed, 13 tests passed
+
+npx --yes npm@11.16.0 test -- tests/init-command.test.ts tests/configuration-classification.test.ts tests/project-configuration.test.ts tests/contract-reason-catalog.test.ts tests/contract-compatibility.test.ts
+# 5 files passed, 64 tests passed
+
+npx --yes npm@11.16.0 run typecheck
+npx --yes npm@11.16.0 run contracts:check
+npx --yes npm@11.16.0 run lint
+npx --yes npm@11.16.0 run format:check
+# all passed; contracts verified 37 schemas, 14 legacy profiles, and current generated types
+```
+
+The contract type-generation suite timed out once when run concurrently inside
+a six-file Vitest selection; its immediate isolated rerun passed all 13 tests.
+
+### Self-review
+
+- Mutating the migration back to whole-map replacement fails both role-map
+  regressions; mutating hostwise merge to include resolved defaults for omitted
+  hosts fails the explicit partial-map case.
+- Migration lineage and preview hosts now derive from the final persisted maps,
+  while default markers exclude role values retained from project state.
+- Dynamic fences use one more backtick than the longest configured run, with a
+  minimum of three, so command bytes cannot close their own fenced block.
+- Markdown punctuation, raw HTML delimiters, entity starts, table separators,
+  and controls are neutralized outside command blocks while retaining intended
+  rendered text.
+- No v1.3 schema/catalog bytes changed, no v1.4 profile contract was introduced,
+  and no Task 3 doctor or host-relay work was added.

@@ -394,13 +394,20 @@ async function observeConfig(
       ) {
         return resultFailure("trail.output_invalido");
       }
+      const modelRoles = mergeExplicitModelRoles(
+        document.value,
+        legacy.modelRoles,
+        answers.answers.modelRoles,
+      );
       destination = upgradeProjectConfigurationV1_3(
-        { ...legacy, modelRoles: answers.answers.modelRoles },
+        { ...legacy, modelRoles },
         answers.answers.projectProfile,
       );
-      hosts = answers.answers.hosts;
+      hosts = configuredHosts(modelRoles);
       answersAuthority = document.authority;
-      defaulted = answers.defaulted;
+      defaulted = answers.defaulted.filter(
+        (path) => !path.startsWith("modelRoles."),
+      );
     } else {
       if (
         document.result.why[0] !==
@@ -1052,6 +1059,42 @@ function ownString(value: unknown, key: string): string | null {
     typeof descriptor.value === "string"
     ? descriptor.value
     : null;
+}
+
+function hasOwn(value: unknown, key: string): boolean {
+  return isRecord(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function configuredHosts(
+  modelRoles: ProjectConfigV1_3["modelRoles"],
+): readonly ("claude" | "codex")[] {
+  return (["claude", "codex"] as const).filter(
+    (host) => modelRoles[host] !== undefined,
+  );
+}
+
+function mergeExplicitModelRoles(
+  document: unknown,
+  persisted: ProjectConfigV1_3["modelRoles"],
+  resolved: ProjectConfigV1_3["modelRoles"],
+): ProjectConfigV1_3["modelRoles"] {
+  const supplied =
+    isRecord(document) && isRecord(document.modelRoles)
+      ? document.modelRoles
+      : undefined;
+  const claude =
+    supplied !== undefined && hasOwn(supplied, "claude")
+      ? resolved.claude
+      : undefined;
+  const codex =
+    supplied !== undefined && hasOwn(supplied, "codex")
+      ? resolved.codex
+      : undefined;
+  return {
+    ...persisted,
+    ...(claude === undefined ? {} : { claude }),
+    ...(codex === undefined ? {} : { codex }),
+  };
 }
 
 function resultFailure(

@@ -276,6 +276,20 @@ describe("versioned state and host schemas", () => {
         }),
       ),
     ).toBe(true);
+    // v1.3 is published and permits arbitrary labels up to 64 characters.
+    // Rendering owns visible control escaping without rewriting this contract.
+    expect(
+      validate(
+        answer({
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["Type\nScript", "C\u0000lang"],
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
 
     for (const [label, projectProfile] of [
       [
@@ -387,6 +401,10 @@ describe("versioned state and host schemas", () => {
       "4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e",
     ],
     [
+      "host/init-answers.v1.3.schema.json",
+      "9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329",
+    ],
+    [
       "host/phase-handoff.v1.1.schema.json",
       "b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557",
     ],
@@ -405,6 +423,10 @@ describe("versioned state and host schemas", () => {
     [
       "state/project-config.v1.2.schema.json",
       "bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48",
+    ],
+    [
+      "state/project-config.v1.3.schema.json",
+      "9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));

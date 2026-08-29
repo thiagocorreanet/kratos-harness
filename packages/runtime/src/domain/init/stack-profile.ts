@@ -24,28 +24,45 @@ export function renderStackProfile(
     "",
     "## Commands",
     "",
-    "| Command | Value |",
-    "| --- | --- |",
-    `| Test | ${renderLeaf(projectProfile.commands.test, "projectProfile.commands.test")} |`,
-    `| Lint | ${renderLeaf(projectProfile.commands.lint, "projectProfile.commands.lint")} |`,
-    `| Build | ${renderLeaf(projectProfile.commands.build, "projectProfile.commands.build")} |`,
-    `| Run | ${renderLeaf(projectProfile.commands.run, "projectProfile.commands.run")} |`,
+    ...renderCommand(
+      "Test",
+      projectProfile.commands.test,
+      "projectProfile.commands.test",
+    ),
+    "",
+    ...renderCommand(
+      "Lint",
+      projectProfile.commands.lint,
+      "projectProfile.commands.lint",
+    ),
+    "",
+    ...renderCommand(
+      "Build",
+      projectProfile.commands.build,
+      "projectProfile.commands.build",
+    ),
+    "",
+    ...renderCommand(
+      "Run",
+      projectProfile.commands.run,
+      "projectProfile.commands.run",
+    ),
     "",
     "## Paths",
     "",
     "| Path group | Value |",
     "| --- | --- |",
-    `| Source | ${renderLeaf(projectProfile.paths.source, "projectProfile.paths.source")} |`,
-    `| Tests | ${renderLeaf(projectProfile.paths.tests, "projectProfile.paths.tests")} |`,
-    `| Configuration | ${renderLeaf(projectProfile.paths.configuration, "projectProfile.paths.configuration")} |`,
+    `| Source | ${renderProseLeaf(projectProfile.paths.source, "projectProfile.paths.source")} |`,
+    `| Tests | ${renderProseLeaf(projectProfile.paths.tests, "projectProfile.paths.tests")} |`,
+    `| Configuration | ${renderProseLeaf(projectProfile.paths.configuration, "projectProfile.paths.configuration")} |`,
     "",
     "## Conventions",
     "",
     "| Convention | Value |",
     "| --- | --- |",
-    `| Directory layout | ${renderLeaf(projectProfile.conventions.directoryLayout, "projectProfile.conventions.directoryLayout")} |`,
-    `| Naming | ${renderLeaf(projectProfile.conventions.naming, "projectProfile.conventions.naming")} |`,
-    `| Implementation languages | ${renderLeaf(projectProfile.conventions.implementationLanguages, "projectProfile.conventions.implementationLanguages")} |`,
+    `| Directory layout | ${renderProseLeaf(projectProfile.conventions.directoryLayout, "projectProfile.conventions.directoryLayout")} |`,
+    `| Naming | ${renderProseLeaf(projectProfile.conventions.naming, "projectProfile.conventions.naming")} |`,
+    `| Implementation languages | ${renderProseLeaf(projectProfile.conventions.implementationLanguages, "projectProfile.conventions.implementationLanguages")} |`,
     "",
     "## Language policy",
     "",
@@ -76,14 +93,33 @@ function renderStacks(stack: StackProfile): readonly string[] {
   ];
 }
 
-function renderLeaf<T>(leaf: ProjectProfileLeaf<T>, key: string): string {
+function renderCommand(
+  label: string,
+  leaf: ProjectProfileLeaf<string>,
+  key: string,
+): readonly string[] {
+  if (leaf.status === "unresolved") {
+    return [`### ${label}`, "", `\`<UNRESOLVED: ${key}>\``];
+  }
+  if (leaf.status === "not-applicable") {
+    return [
+      `### ${label}`,
+      "",
+      `Not applicable: ${escapeMarkdownProse(leaf.reason)}`,
+    ];
+  }
+  const fence = "`".repeat(Math.max(3, longestRun(leaf.value, "`") + 1));
+  return [`### ${label}`, "", `${fence}text`, leaf.value, fence];
+}
+
+function renderProseLeaf<T>(leaf: ProjectProfileLeaf<T>, key: string): string {
   if (leaf.status === "unresolved") return `\`<UNRESOLVED: ${key}>\``;
   if (leaf.status === "not-applicable") {
-    return `Not applicable: ${escape(leaf.reason)}`;
+    return `Not applicable: ${escapeMarkdownProse(leaf.reason)}`;
   }
   return Array.isArray(leaf.value)
-    ? leaf.value.map((value) => code(String(value))).join(", ")
-    : code(String(leaf.value));
+    ? leaf.value.map((value) => escapeMarkdownProse(String(value))).join(", ")
+    : escapeMarkdownProse(String(leaf.value));
 }
 
 function code(value: string): string {
@@ -98,4 +134,47 @@ function escape(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll("|", "&#124;")
     .replaceAll("`", "&#96;");
+}
+
+function escapeMarkdownProse(value: string): string {
+  return visiblyEscapeControls(value)
+    .replaceAll("\\", "\\\\")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("|", "&#124;")
+    .replace(/([`*_[\]{}()#+.!~-])/gu, "\\$1");
+}
+
+function visiblyEscapeControls(value: string): string {
+  let escaped = "";
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint === undefined || (codePoint > 31 && codePoint !== 127)) {
+      escaped += character;
+    } else if (character === "\n") {
+      escaped += "\\n";
+    } else if (character === "\r") {
+      escaped += "\\r";
+    } else if (character === "\t") {
+      escaped += "\\t";
+    } else {
+      escaped += `\\u${codePoint.toString(16).padStart(4, "0")}`;
+    }
+  }
+  return escaped;
+}
+
+function longestRun(value: string, character: string): number {
+  let longest = 0;
+  let current = 0;
+  for (const candidate of value) {
+    if (candidate === character) {
+      current += 1;
+      longest = Math.max(longest, current);
+    } else {
+      current = 0;
+    }
+  }
+  return longest;
 }
