@@ -9,11 +9,15 @@ import type {
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import { resolveInitAnswers } from "../domain/init/index.js";
 import {
+  authorizeConfigMigration,
+  completeConfigMigration,
   planBrainMigration,
+  plannedConfigMigration,
   type MigrationEntry,
   upgradeProjectConfiguration,
 } from "../domain/migration/index.js";
 import type { Result } from "../domain/result/index.js";
+import type { HostModelCatalog } from "../domain/model-roles/index.js";
 import { resultFor, usageFailure, USAGE_WHY } from "../domain/result/index.js";
 import {
   canonicalizeJson,
@@ -111,27 +115,53 @@ async function observeConfig(
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<ObservedMigration> {
-  const entry = await ports.durableFileSystem.inspect(CONFIG_REF);
-  if (entry.kind === "missing") return resultFailure("guard.config_missing");
-  if (entry.kind !== "file") return resultFailure("guard.config_corrupt");
+  const requestedDigest = invocation.flags.get("--plan-digest");
+  const requestedTime = invocation.flags.get("--plan-time");
+  const authorized = invocation.flags.get("--yes") === true;
+  if (
+    (authorized &&
+      (typeof requestedDigest !== "string" ||
+        typeof requestedTime !== "string")) ||
+    (!authorized &&
+      (requestedDigest !== undefined || requestedTime !== undefined)) ||
+    (typeof requestedDigest === "string" &&
+      !/^[a-f0-9]{64}$/u.test(requestedDigest)) ||
+    (typeof requestedTime === "string" && !isCanonicalInstant(requestedTime))
+  ) {
+    return { kind: "failure", result: usageFailure(USAGE_WHY.missingValue) };
+  }
+  const planTime =
+    typeof requestedTime === "string"
+      ? requestedTime
+      : ports.clock.now().toISOString();
+  const sourceFile = await readStableFile(CONFIG_REF, ports);
+  if (sourceFile.kind !== "file") {
+    if (authorized || sourceFile.kind === "revision-conflict") {
+      return resultFailure("runtime.revision_conflict", CONFIG_REF);
+    }
+    return resultFailure(
+      sourceFile.kind === "missing"
+        ? "guard.config_missing"
+        : "guard.config_corrupt",
+    );
+  }
 
-  let content: string;
+  const { content, entry } = sourceFile;
   let parsed: unknown;
   try {
-    content = await ports.durableFileSystem.readText(CONFIG_REF);
     parsed = JSON.parse(content) as unknown;
   } catch {
-    return resultFailure("guard.config_corrupt");
-  }
-  if (
-    encoder.encode(content).byteLength !== entry.size ||
-    ports.digests.sha256(content) !== entry.sha256
-  ) {
-    return resultFailure("runtime.revision_conflict", CONFIG_REF);
+    return resultFailure(
+      authorized ? "runtime.revision_conflict" : "guard.config_corrupt",
+      authorized ? CONFIG_REF : undefined,
+    );
   }
 
   const version = ownString(parsed, "stateContract");
   if (version === "1.1.0") {
+    if (authorized) {
+      return resultFailure("runtime.revision_conflict", CONFIG_REF);
+    }
     const current = registry.validate({
       id: "state.project-config",
       version,
@@ -149,10 +179,20 @@ async function observeConfig(
     };
   }
   if (version === null) {
-    return resultFailure("contract.state_version_invalid");
+    return resultFailure(
+      authorized
+        ? "runtime.revision_conflict"
+        : "contract.state_version_invalid",
+      authorized ? CONFIG_REF : undefined,
+    );
   }
   if (version !== "1.0.0") {
-    return resultFailure("contract.state_version_unsupported");
+    return resultFailure(
+      authorized
+        ? "runtime.revision_conflict"
+        : "contract.state_version_unsupported",
+      authorized ? CONFIG_REF : undefined,
+    );
   }
   const source = registry.validate({
     id: "state.project-config",
@@ -160,18 +200,36 @@ async function observeConfig(
     value: parsed,
     structuralReasonCode: "guard.config_corrupt",
   });
-  if (source.kind !== "valid") return resultFailure("guard.config_corrupt");
+  if (source.kind !== "valid") {
+    return resultFailure(
+      authorized ? "runtime.revision_conflict" : "guard.config_corrupt",
+      authorized ? CONFIG_REF : undefined,
+    );
+  }
 
   const document = await migrationAnswers(invocation, ports);
-  if (document.kind === "failure") return document;
+  if (document.kind === "failure") {
+    return authorized
+      ? resultFailure("runtime.revision_conflict", CONFIG_REF)
+      : document;
+  }
   const legacy = source.value as ProjectConfigV1;
   const supplemented = supplementLegacyDefaults(document.value, legacy);
-  const answers = await resolveInitAnswers(
-    supplemented,
-    registry,
-    ports.modelRouting,
-  );
+  const observedCatalogs = new Map<
+    "claude" | "codex",
+    HostModelCatalog | null
+  >();
+  const answers = await resolveInitAnswers(supplemented, registry, {
+    observe: async (host) => {
+      const catalog = await ports.modelRouting.observe(host);
+      observedCatalogs.set(host, catalog);
+      return catalog;
+    },
+  });
   if (answers.kind === "invalid") {
+    if (authorized) {
+      return resultFailure("runtime.revision_conflict", CONFIG_REF);
+    }
     return {
       kind: "failure",
       result: resultFor(answers.reasonCode, {
@@ -199,6 +257,16 @@ async function observeConfig(
   ) {
     return resultFailure("trail.output_invalido");
   }
+  const catalogs = answers.answers.hosts.map((host) => {
+    const catalog = observedCatalogs.get(host);
+    if (catalog === undefined || catalog === null) {
+      throw new Error("resolved model catalog was not captured");
+    }
+    return {
+      host,
+      sha256: ports.digests.sha256(canonicalizeJson(catalog)),
+    };
+  });
 
   const destination = upgradeProjectConfiguration(
     legacy,
@@ -211,32 +279,144 @@ async function observeConfig(
       sourceDigest: entry.sha256,
       destinationDigest,
       hosts: answers.answers.hosts,
+      answers: document.authority,
+      catalogs,
       modelRoles: destination.modelRoles,
       defaulted: answers.defaulted,
     }),
   );
-  const migrationId = `config-${seedDigest.slice(0, 24)}`;
+  const baseMigrationId = `config-${seedDigest.slice(0, 24)}`;
+  const attempt = await nextConfigAttempt(
+    baseMigrationId,
+    entry.sha256,
+    destinationDigest,
+    ports,
+    registry,
+  );
+  if (attempt.kind === "failure") return attempt;
+  const migrationId = attempt.migrationId;
   const root = `.brain/migrations/${migrationId}`;
-  const writes = [
-    CONFIG_REF,
-    `${root}/backup/config.json`,
-    `${root}/authorization.json`,
-    `${root}/rollback.json`,
-    `${root}/receipt.json`,
-    `${root}/verification.json`,
-  ] as const;
-  const planDigest = ports.digests.sha256(
+  const backupRef = `${root}/backup/config.json`;
+  const authorizationRef = `${root}/authorization.json`;
+  const rollbackRef = `${root}/rollback.json`;
+  const receiptRef = `${root}/receipt.json`;
+  const verificationRef = `${root}/verification.json`;
+  const receiptPlanDigest = ports.digests.sha256(
     canonicalizeJson({
       kind: "project-config-replacement",
       migrationId,
+      planTime,
       source: { ref: CONFIG_REF, sha256: entry.sha256 },
       destination: { ref: CONFIG_REF, sha256: destinationDigest },
       hosts: answers.answers.hosts,
       modelRoles: destination.modelRoles,
       defaulted: answers.defaulted,
-      writes,
     }),
   );
+  const planned = plannedConfigMigration({
+    migrationId,
+    planDigest: receiptPlanDigest,
+    authorizationRef,
+    backupRef,
+    backupDigest: entry.sha256,
+    destinationRef: CONFIG_REF,
+    destinationDigest,
+    verificationRef,
+    now: planTime,
+  });
+  const authorizedReceipt = authorizeConfigMigration(
+    planned,
+    receiptPlanDigest,
+    authorizationRef,
+    planTime,
+  );
+  const completed =
+    authorizedReceipt === null
+      ? null
+      : completeConfigMigration(
+          authorizedReceipt,
+          verificationRef,
+          destinationDigest,
+          planTime,
+        );
+  if (completed === null || completed.rollback.kind !== "replace") {
+    return resultFailure("runtime.state_corrupt");
+  }
+  const missing = { kind: "missing" } as const;
+  const plannedWrites = [
+    {
+      path: CONFIG_REF,
+      content: destinationContent,
+      expected: {
+        kind: "file" as const,
+        size: entry.size,
+        sha256: entry.sha256,
+      },
+    },
+    { path: backupRef, content, expected: missing },
+    {
+      path: authorizationRef,
+      content: json({
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        migrationId,
+        planDigest: receiptPlanDigest,
+        answers: document.authority,
+        catalogs,
+        source: { ref: CONFIG_REF, sha256: entry.sha256 },
+        destination: { ref: CONFIG_REF, sha256: destinationDigest },
+        authorizedAt: planTime,
+      }),
+      expected: missing,
+    },
+    {
+      path: rollbackRef,
+      content: json({
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        migrationId,
+        planDigest: receiptPlanDigest,
+        rollback: completed.rollback,
+      }),
+      expected: missing,
+    },
+    { path: receiptRef, content: json(completed), expected: missing },
+    {
+      path: verificationRef,
+      content: json({
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        migrationId,
+        planDigest: receiptPlanDigest,
+        backup: { ref: backupRef, sha256: entry.sha256 },
+        destination: { ref: CONFIG_REF, sha256: destinationDigest },
+        verifiedAt: planTime,
+      }),
+      expected: missing,
+    },
+  ].map((write) => ({
+    ...write,
+    sha256: ports.digests.sha256(write.content),
+  }));
+  const planDigest = ports.digests.sha256(
+    canonicalizeJson({
+      kind: "project-config-write-set",
+      migrationId,
+      planTime,
+      ...(attempt.guards.length === 0
+        ? {}
+        : {
+            guards: attempt.guards.map(({ path, expected }) => ({
+              path,
+              sha256: expected.sha256,
+            })),
+          }),
+      writes: plannedWrites.map(({ path, sha256 }) => ({ path, sha256 })),
+    }),
+  );
+  if (typeof requestedDigest === "string" && requestedDigest !== planDigest) {
+    return resultFailure("runtime.revision_conflict", CONFIG_REF);
+  }
   return {
     kind: "observed",
     ports,
@@ -245,25 +425,203 @@ async function observeConfig(
       operation: {
         kind: "config",
         migrationId,
-        now: ports.clock.now().toISOString(),
+        now: planTime,
         source: { content, sha256: entry.sha256 },
         destination,
         destinationDigest,
         planDigest,
+        receiptPlanDigest,
         expected: { kind: "file", size: entry.size, sha256: entry.sha256 },
         hosts: [...answers.answers.hosts],
+        answers: document.authority,
+        catalogs,
         defaulted: [...answers.defaulted],
-        writes,
+        guards: attempt.guards,
+        writes: plannedWrites,
       },
     },
   };
+}
+
+type StableFileObservation =
+  | {
+      readonly kind: "file";
+      readonly content: string;
+      readonly entry: Extract<
+        Awaited<ReturnType<DurableFileSystem["inspect"]>>,
+        { readonly kind: "file" }
+      >;
+    }
+  | { readonly kind: "missing" | "corrupt" | "revision-conflict" };
+
+async function readStableFile(
+  path: string,
+  ports: RuntimePorts,
+): Promise<StableFileObservation> {
+  const before = await ports.durableFileSystem.inspect(path);
+  if (before.kind === "missing") return { kind: "missing" };
+  if (before.kind !== "file") return { kind: "corrupt" };
+  let content: string;
+  try {
+    content = await ports.durableFileSystem.readText(path);
+  } catch {
+    return { kind: "revision-conflict" };
+  }
+  const after = await ports.durableFileSystem.inspect(path);
+  if (
+    after.kind !== "file" ||
+    after.size !== before.size ||
+    after.sha256 !== before.sha256 ||
+    encoder.encode(content).byteLength !== before.size ||
+    ports.digests.sha256(content) !== before.sha256
+  ) {
+    return { kind: "revision-conflict" };
+  }
+  return { kind: "file", content, entry: before };
+}
+
+async function nextConfigAttempt(
+  baseMigrationId: string,
+  sourceDigest: string,
+  destinationDigest: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | {
+      readonly kind: "attempt";
+      readonly migrationId: string;
+      readonly guards: readonly {
+        readonly path: string;
+        readonly content: string;
+        readonly expected: {
+          readonly kind: "file";
+          readonly size: number;
+          readonly sha256: string;
+        };
+      }[];
+    }
+  | Extract<ObservedMigration, { readonly kind: "failure" }>
+> {
+  const migrations = await ports.durableFileSystem.inspect(".brain/migrations");
+  if (migrations.kind === "missing") {
+    return { kind: "attempt", migrationId: baseMigrationId, guards: [] };
+  }
+  if (migrations.kind !== "directory") {
+    return resultFailure("runtime.state_corrupt", ".brain/migrations");
+  }
+  const entries = new Set(
+    await ports.durableFileSystem.list(".brain/migrations"),
+  );
+  const lineage = [...entries]
+    .flatMap((entry): number[] => {
+      if (entry === baseMigrationId) return [1];
+      const suffix = entry.slice(`${baseMigrationId}-attempt-`.length);
+      if (!entry.startsWith(`${baseMigrationId}-attempt-`)) return [];
+      if (!/^(?:[2-9]|[1-9][0-9]+)$/u.test(suffix)) return [Number.NaN];
+      return [Number(suffix)];
+    })
+    .sort((left, right) => left - right);
+  if (
+    lineage.some(
+      (attempt, index) =>
+        !Number.isSafeInteger(attempt) ||
+        attempt > 10_000 ||
+        attempt !== index + 1,
+    )
+  ) {
+    return resultFailure("runtime.state_corrupt", ".brain/migrations");
+  }
+  const guards: {
+    readonly path: string;
+    readonly content: string;
+    readonly expected: {
+      readonly kind: "file";
+      readonly size: number;
+      readonly sha256: string;
+    };
+  }[] = [];
+  for (const index of lineage) {
+    const candidate =
+      index === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${index}`;
+    const receiptFile = await readStableFile(
+      `.brain/migrations/${candidate}/receipt.json`,
+      ports,
+    );
+    if (receiptFile.kind !== "file") {
+      return resultFailure(
+        receiptFile.kind === "revision-conflict"
+          ? "runtime.revision_conflict"
+          : "runtime.state_corrupt",
+        `.brain/migrations/${candidate}/receipt.json`,
+      );
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(receiptFile.content) as unknown;
+    } catch {
+      return resultFailure(
+        "runtime.state_corrupt",
+        `.brain/migrations/${candidate}/receipt.json`,
+      );
+    }
+    const validated = registry.validate({
+      id: "state.migration",
+      version: ownString(raw, "stateContract") ?? "",
+      value: raw,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+    if (
+      validated.kind !== "valid" ||
+      validated.value.stateContract !== "1.1.0" ||
+      validated.value.migrationId !== candidate ||
+      validated.value.status !== "rolled-back" ||
+      validated.value.rollback.kind !== "replace" ||
+      validated.value.backupDigest !== sourceDigest ||
+      validated.value.rollback.backupDigest !== sourceDigest ||
+      validated.value.rollback.destinationDigest !== destinationDigest ||
+      validated.value.conversions.length !== 1 ||
+      validated.value.conversions[0]?.sourceDigest !== sourceDigest ||
+      validated.value.conversions[0]?.destinationDigest !== destinationDigest
+    ) {
+      return resultFailure(
+        "runtime.state_corrupt",
+        `.brain/migrations/${candidate}/receipt.json`,
+      );
+    }
+    guards.push({
+      path: `.brain/migrations/${candidate}/receipt.json`,
+      content: receiptFile.content,
+      expected: expectedFile(receiptFile),
+    });
+  }
+  const next = lineage.length + 1;
+  return {
+    kind: "attempt",
+    migrationId:
+      next === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${next}`,
+    guards,
+  };
+}
+
+function isCanonicalInstant(value: string): boolean {
+  if (value.length !== 24) return false;
+  const instant = new Date(value);
+  return !Number.isNaN(instant.getTime()) && instant.toISOString() === value;
+}
+
+function json(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 async function migrationAnswers(
   invocation: Invocation,
   ports: RuntimePorts,
 ): Promise<
-  | { readonly kind: "document"; readonly value: unknown }
+  | {
+      readonly kind: "document";
+      readonly value: unknown;
+      readonly authority: { readonly ref: string; readonly sha256: string };
+    }
   | Extract<ObservedMigration, { readonly kind: "failure" }>
 > {
   const path = invocation.flags.get("--answers");
@@ -286,9 +644,23 @@ async function migrationAnswers(
     return { kind: "failure", result: usageFailure(USAGE_WHY.missingValue) };
   }
   try {
-    return { kind: "document", value: JSON.parse(text) as unknown };
+    return {
+      kind: "document",
+      value: JSON.parse(text) as unknown,
+      authority: {
+        ref: typeof path === "string" ? path : "stdin",
+        sha256: ports.digests.sha256(text),
+      },
+    };
   } catch {
-    return { kind: "document", value: null };
+    return {
+      kind: "document",
+      value: null,
+      authority: {
+        ref: typeof path === "string" ? path : "stdin",
+        sha256: ports.digests.sha256(text),
+      },
+    };
   }
 }
 
@@ -336,7 +708,7 @@ function resultFailure(
     result: resultFor(reasonCode, {
       why: [
         reasonCode === "runtime.revision_conflict"
-          ? "The observed migration source or destination changed after the authorized decision."
+          ? "The authorized migration inputs or exact write plan changed after preview."
           : "The observed migration input does not satisfy the requested operation.",
       ],
       evidence:
@@ -366,6 +738,9 @@ async function observeRollback(
   registry: SchemaRegistry,
 ): Promise<ObservedMigration> {
   const migrationId = invocation.positionals[0] ?? "";
+  if (!isCanonicalMigrationId(migrationId)) {
+    return { kind: "failure", result: usageFailure(USAGE_WHY.missingValue) };
+  }
   const root = `.brain/migrations/${migrationId}`;
   let receipt: MigrationV1 | MigrationV1_1 | null = null;
   let targets: readonly string[] = [];
@@ -374,19 +749,17 @@ async function observeRollback(
     { readonly kind: "rollback" }
   >["replacement"] = null;
   try {
-    const receiptEntry = await ports.durableFileSystem.inspect(
-      `${root}/receipt.json`,
-    );
-    const rollbackEntry = await ports.durableFileSystem.inspect(
-      `${root}/rollback.json`,
-    );
-    if (receiptEntry.kind === "file" && rollbackEntry.kind === "file") {
-      const rawReceipt = JSON.parse(
-        await ports.durableFileSystem.readText(`${root}/receipt.json`),
-      ) as unknown;
-      const rollback = JSON.parse(
-        await ports.durableFileSystem.readText(`${root}/rollback.json`),
-      ) as unknown;
+    const receiptFile = await readStableFile(`${root}/receipt.json`, ports);
+    const rollbackFile = await readStableFile(`${root}/rollback.json`, ports);
+    if (
+      receiptFile.kind === "revision-conflict" ||
+      rollbackFile.kind === "revision-conflict"
+    ) {
+      return resultFailure("runtime.revision_conflict", root);
+    }
+    if (receiptFile.kind === "file" && rollbackFile.kind === "file") {
+      const rawReceipt = JSON.parse(receiptFile.content) as unknown;
+      const rollback = JSON.parse(rollbackFile.content) as unknown;
       const version = ownString(rawReceipt, "stateContract");
       if (version === "1.0.0") {
         const validated = registry.validate({
@@ -425,6 +798,8 @@ async function observeRollback(
             migrationId,
             root,
             ports,
+            receiptFile,
+            rollbackFile,
           );
           if (observed.kind === "revision-conflict") {
             return resultFailure("runtime.revision_conflict", CONFIG_REF);
@@ -457,12 +832,22 @@ async function observeRollback(
   };
 }
 
+function isCanonicalMigrationId(value: string): boolean {
+  return (
+    value.length <= 128 &&
+    !value.includes("..") &&
+    /^[a-zA-Z0-9](?:[a-zA-Z0-9._:@-]{0,126}[a-zA-Z0-9])?$/u.test(value)
+  );
+}
+
 async function observeConfigReplacement(
   receipt: MigrationV1_1,
   rollbackManifest: unknown,
   migrationId: string,
   root: string,
   ports: RuntimePorts,
+  receiptFile: Extract<StableFileObservation, { readonly kind: "file" }>,
+  rollbackFile: Extract<StableFileObservation, { readonly kind: "file" }>,
 ): Promise<ConfigReplacementObservation> {
   if (
     receipt.migrationId !== migrationId ||
@@ -483,43 +868,35 @@ async function observeConfigReplacement(
   ) {
     return { kind: "corrupt" };
   }
-  const verificationEntry = await ports.durableFileSystem.inspect(
-    `${root}/verification.json`,
-  );
-  const receiptEntry = await ports.durableFileSystem.inspect(
-    `${root}/receipt.json`,
-  );
-  const backupEntry = await ports.durableFileSystem.inspect(
-    receipt.rollback.backupRef,
-  );
-  const destinationEntry = await ports.durableFileSystem.inspect(
-    receipt.rollback.destinationRef,
-  );
+  const [verificationFile, backupFile, destinationFile] = await Promise.all([
+    readStableFile(`${root}/verification.json`, ports),
+    readStableFile(receipt.rollback.backupRef, ports),
+    readStableFile(receipt.rollback.destinationRef, ports),
+  ]);
   if (
-    verificationEntry.kind !== "file" ||
-    receiptEntry.kind !== "file" ||
-    backupEntry.kind !== "file" ||
-    backupEntry.sha256 !== receipt.rollback.backupDigest ||
-    receiptEntry.sha256 !==
-      ports.digests.sha256(
-        await ports.durableFileSystem.readText(`${root}/receipt.json`),
-      )
+    verificationFile.kind === "revision-conflict" ||
+    backupFile.kind === "revision-conflict" ||
+    destinationFile.kind === "revision-conflict"
+  ) {
+    return { kind: "revision-conflict" };
+  }
+  if (
+    verificationFile.kind !== "file" ||
+    backupFile.kind !== "file" ||
+    backupFile.entry.sha256 !== receipt.rollback.backupDigest
   ) {
     return { kind: "corrupt" };
   }
   if (
-    destinationEntry.kind !== "file" ||
-    destinationEntry.sha256 !== receipt.rollback.destinationDigest
+    destinationFile.kind !== "file" ||
+    destinationFile.entry.sha256 !== receipt.rollback.destinationDigest
   ) {
     return { kind: "revision-conflict" };
   }
-  const [verificationText, backupContent] = await Promise.all([
-    ports.durableFileSystem.readText(`${root}/verification.json`),
-    ports.durableFileSystem.readText(receipt.rollback.backupRef),
-  ]);
-  const verification = JSON.parse(verificationText) as unknown;
+  const verification = JSON.parse(verificationFile.content) as unknown;
   if (
-    ports.digests.sha256(backupContent) !== receipt.rollback.backupDigest ||
+    ports.digests.sha256(backupFile.content) !==
+      receipt.rollback.backupDigest ||
     !validConfigVerification(verification, receipt)
   ) {
     return { kind: "corrupt" };
@@ -528,26 +905,57 @@ async function observeConfigReplacement(
     kind: "ready",
     value: {
       destinationRef: receipt.rollback.destinationRef,
-      content: backupContent,
+      content: backupFile.content,
       expected: {
         kind: "file",
-        size: destinationEntry.size,
-        sha256: destinationEntry.sha256,
+        size: destinationFile.entry.size,
+        sha256: destinationFile.entry.sha256,
       },
       backupRef: receipt.rollback.backupRef,
       backupExpected: {
         kind: "file",
-        size: backupEntry.size,
-        sha256: backupEntry.sha256,
+        size: backupFile.entry.size,
+        sha256: backupFile.entry.sha256,
       },
       receiptExpected: {
         kind: "file",
-        size: receiptEntry.size,
-        sha256: receiptEntry.sha256,
+        size: receiptFile.entry.size,
+        sha256: receiptFile.entry.sha256,
       },
+      guards: [
+        {
+          path: receipt.rollback.backupRef,
+          content: backupFile.content,
+          expected: expectedFile(backupFile),
+        },
+        {
+          path: `${root}/rollback.json`,
+          content: rollbackFile.content,
+          expected: expectedFile(rollbackFile),
+        },
+        {
+          path: `${root}/verification.json`,
+          content: verificationFile.content,
+          expected: expectedFile(verificationFile),
+        },
+      ],
       backupDigest: receipt.rollback.backupDigest,
       destinationDigest: receipt.rollback.destinationDigest,
     },
+  };
+}
+
+function expectedFile(
+  file: Extract<StableFileObservation, { readonly kind: "file" }>,
+): {
+  readonly kind: "file";
+  readonly size: number;
+  readonly sha256: string;
+} {
+  return {
+    kind: "file",
+    size: file.entry.size,
+    sha256: file.entry.sha256,
   };
 }
 

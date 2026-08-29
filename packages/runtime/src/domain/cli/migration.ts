@@ -1,11 +1,8 @@
 import type { MigrationV1 } from "@kratos/contracts";
 
 import {
-  authorizeConfigMigration,
   authorizeMigration,
-  completeConfigMigration,
   completeMigration,
-  plannedConfigMigration,
   plannedMigration,
   rollBackConfigMigration,
   rollBackMigration,
@@ -75,6 +72,18 @@ export const migrateConfigCommand: CommandSpec = observingCommand(
         name: "--yes",
         kind: "boolean",
         summary: "Authorize the exact digest-bound configuration plan.",
+      },
+      {
+        name: "--plan-digest",
+        kind: "value",
+        valueLabel: "<sha256>",
+        summary: "Authorize the exact write-set digest printed by preview.",
+      },
+      {
+        name: "--plan-time",
+        kind: "value",
+        valueLabel: "<instant>",
+        summary: "Reuse the exact plan instant printed by preview.",
       },
     ],
     positionals: { min: 0, max: 0 },
@@ -243,142 +252,42 @@ function migrateConfig(
       humanStdout: `${[
         "Configuration migration preview",
         `Plan digest: ${operation.planDigest}`,
+        `Plan time: ${operation.now}`,
         ...details,
-        "Re-run with --yes to authorize this exact plan.",
+        `Apply command: ${configApplyCommand(invocation, operation.planDigest, operation.now)}`,
       ].join("\n")}\n`,
       payload: null,
     };
   }
-
-  const root = `.brain/migrations/${operation.migrationId}`;
-  const authorizationRef = `${root}/authorization.json`;
-  const backupRef = `${root}/backup/config.json`;
-  const rollbackRef = `${root}/rollback.json`;
-  const receiptRef = `${root}/receipt.json`;
-  const verificationRef = `${root}/verification.json`;
   if (
-    JSON.stringify(operation.writes) !==
-    JSON.stringify([
-      ".brain/config.json",
-      backupRef,
-      authorizationRef,
-      rollbackRef,
-      receiptRef,
-      verificationRef,
-    ])
+    invocation.flags.get("--plan-digest") !== operation.planDigest ||
+    invocation.flags.get("--plan-time") !== operation.now
   ) {
-    return corrupt();
+    return usage();
   }
-  const planned = plannedConfigMigration({
-    migrationId: operation.migrationId,
-    planDigest: operation.planDigest,
-    authorizationRef,
-    backupRef,
-    backupDigest: operation.source.sha256,
-    destinationRef: ".brain/config.json",
-    destinationDigest: operation.destinationDigest,
-    verificationRef,
-    now: operation.now,
-  });
-  const authorized = authorizeConfigMigration(
-    planned,
-    operation.planDigest,
-    authorizationRef,
-    operation.now,
-  );
-  if (authorized === null) return corrupt();
-  const completed = completeConfigMigration(
-    authorized,
-    verificationRef,
-    operation.destinationDigest,
-    operation.now,
-  );
-  if (completed === null || completed.rollback.kind !== "replace") {
-    return corrupt();
-  }
-  const destinationContent = `${JSON.stringify(operation.destination, null, 2)}\n`;
-  const missing = { kind: "missing" } as const;
   return {
     result: resultFor("trail.ok", {
       summary: `Completed configuration migration plan ${operation.planDigest}.`,
       stateChanged: true,
-      evidence: operation.writes.map((ref) => ({
+      evidence: operation.writes.map(({ path: ref }) => ({
         kind: "artifact" as const,
         ref,
       })),
       why: operation.defaulted.map((path) => `defaulted: ${path}`),
     }),
     plan: planOf(
-      {
-        kind: "write_file",
-        path: ".brain/config.json",
-        content: destinationContent,
-        expected: operation.expected,
-      },
-      {
-        kind: "write_file",
-        path: backupRef,
-        content: operation.source.content,
-        expected: missing,
-      },
-      {
-        kind: "write_file",
-        path: authorizationRef,
-        content: json({
-          contractVersion: "1.1.0",
-          stateContract: "1.1.0",
-          migrationId: operation.migrationId,
-          planDigest: operation.planDigest,
-          source: {
-            ref: ".brain/config.json",
-            sha256: operation.source.sha256,
-          },
-          destination: {
-            ref: ".brain/config.json",
-            sha256: operation.destinationDigest,
-          },
-          authorizedAt: operation.now,
-        }),
-        expected: missing,
-      },
-      {
-        kind: "write_file",
-        path: rollbackRef,
-        content: json({
-          contractVersion: "1.1.0",
-          stateContract: "1.1.0",
-          migrationId: operation.migrationId,
-          planDigest: operation.planDigest,
-          rollback: completed.rollback,
-        }),
-        expected: missing,
-      },
-      {
-        kind: "write_file",
-        path: receiptRef,
-        content: json(completed),
-        expected: missing,
-      },
-      {
-        kind: "write_file",
-        path: verificationRef,
-        content: json({
-          contractVersion: "1.1.0",
-          stateContract: "1.1.0",
-          migrationId: operation.migrationId,
-          planDigest: operation.planDigest,
-          backup: {
-            ref: backupRef,
-            sha256: operation.source.sha256,
-          },
-          destination: {
-            ref: ".brain/config.json",
-            sha256: operation.destinationDigest,
-          },
-          verifiedAt: operation.now,
-        }),
-        expected: missing,
-      },
+      ...operation.guards.map(({ path, content, expected }) => ({
+        kind: "write_file" as const,
+        path,
+        content,
+        expected,
+      })),
+      ...operation.writes.map(({ path, content, expected }) => ({
+        kind: "write_file" as const,
+        path,
+        content,
+        expected,
+      })),
     ),
     humanStdout: null,
     payload: null,
@@ -391,6 +300,10 @@ function configPlanDetails(
   const details = [
     `Source SHA-256: ${operation.source.sha256}`,
     `Destination SHA-256: ${operation.destinationDigest}`,
+    `Answers ${operation.answers.ref} SHA-256: ${operation.answers.sha256}`,
+    ...operation.catalogs.map(
+      ({ host, sha256 }) => `Catalog ${host} SHA-256: ${sha256}`,
+    ),
     `Confirmed hosts: ${operation.hosts.join(", ")}`,
     "Assignments:",
   ];
@@ -412,8 +325,37 @@ function configPlanDetails(
       );
     }
   }
-  details.push("Writes:", ...operation.writes.map((path) => `- ${path}`));
+  details.push(
+    "Writes:",
+    ...operation.writes.map(({ path, sha256 }) => `- ${path} sha256=${sha256}`),
+  );
   return details;
+}
+
+function configApplyCommand(
+  invocation: Invocation,
+  planDigest: string,
+  planTime: string,
+): string {
+  const arguments_: string[] = ["kratos", "migrate", "config"];
+  for (const flag of ["--root", "--answers"] as const) {
+    const value = invocation.flags.get(flag);
+    if (typeof value === "string") arguments_.push(flag, shellArgument(value));
+  }
+  arguments_.push(
+    "--yes",
+    "--plan-digest",
+    planDigest,
+    "--plan-time",
+    planTime,
+  );
+  return arguments_.join(" ");
+}
+
+function shellArgument(value: string): string {
+  return /^[a-zA-Z0-9._/@:-]+$/u.test(value)
+    ? value
+    : `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function json(value: unknown): string {
@@ -450,12 +392,12 @@ function migrateRollback(observation: Observation): Decision {
         ],
       }),
       plan: planOf(
-        {
-          kind: "write_file",
-          path: replacement.backupRef,
-          content: replacement.content,
-          expected: replacement.backupExpected,
-        },
+        ...replacement.guards.map(({ path, content, expected }) => ({
+          kind: "write_file" as const,
+          path,
+          content,
+          expected,
+        })),
         {
           kind: "write_file",
           path: replacement.destinationRef,

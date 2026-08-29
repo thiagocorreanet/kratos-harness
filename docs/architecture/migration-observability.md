@@ -20,22 +20,39 @@ same resolution as initialization: explicit assignments override adapter
 defaults, and every persisted planner, implementer, and judge assignment is
 canonical, complete, and independent. Preview prints the source and
 destination digests, confirmed hosts, all assignments (including which values
-were defaulted), and the exact write list without mutating the project.
+were defaulted), a stable plan instant, and the exact six-file write list with
+one SHA-256 per final content byte sequence, without mutating the project. It
+also prints the complete apply command.
 
-Apply authorizes the displayed plan digest and holds the exact source file
-fingerprint as a managed-transaction precondition. The transaction replaces
-only `.brain/config.json` and writes an exact prior-byte backup, authorization,
+Apply requires `--yes`, the caller-carried `--plan-digest`, and the preview's
+`--plan-time`; `--yes` alone grants no authority. Re-observation rebuilds all
+six bytes from the exact source, answers, model catalogs, and plan instant. The
+external digest commits to each ordered path and content digest, while the
+receipt's stable lineage digest is embedded in the self-referential audit
+records. Answer authority is byte-bound (including formatting), and every
+enabled host's canonical catalog is digest-bound even when a catalog edit would
+resolve to the same assignments. Any mismatch is a revision conflict, rather
+than permission to make a new plan. The transaction holds the exact source fingerprint, replaces only
+`.brain/config.json`, and writes an exact prior-byte backup, authorization,
 replacement rollback manifest, `MigrationV1_1` receipt, and verification record
-under one deterministic migration ID. Existing events, snapshots, documents,
-approvals, and evidence are not rewritten. A current configuration is a no-op;
-source drift is a revision conflict rather than permission to make a new plan.
+under one deterministic migration attempt ID. Existing events, snapshots,
+documents, approvals, and evidence are not rewritten. A current configuration
+is a no-op.
 
 Replacement rollback validates the v1.1 receipt, verification record, exact
 backup digest, current destination digest, and their recorded references. It
 then restores the original bytes and marks the receipt rolled back in one
 transaction. Destination drift is a revision conflict and leaves both files
-unchanged. The older `MigrationV1` Brain-copy receipt retains its delete-only
-rollback behavior.
+unchanged. Receipt, rollback manifest, verification, backup, and destination
+are each read as a stable byte snapshot and the same fingerprints become apply
+preconditions, closing the validation/apply swap boundary. The older
+`MigrationV1` Brain-copy receipt retains its delete-only rollback behavior.
+
+After a successful replacement rollback, the same source and answers derive
+the next `-attempt-N` migration ID only from a validated chain of prior
+rolled-back receipts. Those receipt bytes are also apply preconditions. A retry
+therefore preserves every prior audit file instead of overwriting the first
+attempt.
 
 Replay audits compare canonical persisted and replayed snapshots and report
 field-level divergence. Repair is a previewable digest-bound write plan. Apply

@@ -78,11 +78,17 @@ describe("argument parsing", () => {
       "--answers",
       "migration.json",
       "--yes",
+      "--plan-digest",
+      "a".repeat(64),
+      "--plan-time",
+      "2026-08-28T12:00:00.000Z",
     ]);
 
     expect(parsed.failure).toBeNull();
     expect(parsed.flags.get("--answers")).toBe("migration.json");
     expect(parsed.flags.get("--yes")).toBe(true);
+    expect(parsed.flags.get("--plan-digest")).toBe("a".repeat(64));
+    expect(parsed.flags.get("--plan-time")).toBe("2026-08-28T12:00:00.000Z");
   });
 
   it("reads a value flag and a boolean flag", () => {

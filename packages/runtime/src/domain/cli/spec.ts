@@ -345,11 +345,32 @@ export type CommandObservation =
             };
             readonly destination: ProjectConfigV1_1;
             readonly destinationDigest: string;
+            /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;
+            /** Stable receipt lineage digest embedded in migration records. */
+            readonly receiptPlanDigest: string;
             readonly expected: WriteFilePrecondition;
             readonly hosts: readonly ("claude" | "codex")[];
+            readonly answers: {
+              readonly ref: string;
+              readonly sha256: string;
+            };
+            readonly catalogs: readonly {
+              readonly host: "claude" | "codex";
+              readonly sha256: string;
+            }[];
             readonly defaulted: readonly string[];
-            readonly writes: readonly string[];
+            readonly guards: readonly {
+              readonly path: string;
+              readonly content: string;
+              readonly expected: WriteFilePrecondition;
+            }[];
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+              readonly sha256: string;
+              readonly expected: WriteFilePrecondition;
+            }[];
           }
         | {
             readonly kind: "config-current";
@@ -367,6 +388,11 @@ export type CommandObservation =
               readonly backupRef: string;
               readonly backupExpected: WriteFilePrecondition;
               readonly receiptExpected: WriteFilePrecondition;
+              readonly guards: readonly {
+                readonly path: string;
+                readonly content: string;
+                readonly expected: WriteFilePrecondition;
+              }[];
               readonly backupDigest: string;
               readonly destinationDigest: string;
             } | null;

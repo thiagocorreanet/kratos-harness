@@ -6,7 +6,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
 } from "@kratos/contracts";
-import { applyPlan, TransactionFailure } from "@kratos/runtime/composition";
+import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { observeMigration } from "@kratos/runtime/composition/migration";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
@@ -19,8 +19,6 @@ import {
   DEFAULT_REGISTRY,
   dispatch,
   parseInvocation,
-  type CommandObservation,
-  type Decision,
 } from "@kratos/runtime/domain/cli";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { renderResultJson } from "@kratos/runtime/domain/result";
@@ -121,18 +119,10 @@ interface Subject {
   readonly ports: RuntimePorts;
   readonly storage: ReturnType<typeof memoryTransactionStorage>;
   readonly output: ReturnType<typeof recordingOutput>;
-  pending?: {
-    readonly observation: Extract<
-      CommandObservation,
-      { readonly kind: "migration" }
-    >;
-    readonly ports: RuntimePorts;
-    readonly planDigest: string;
-  };
 }
 
 function legacyProjectWithHistory(
-  answers: readonly (string | null)[] = [ANSWERS],
+  answers: readonly (string | null)[] = [ANSWERS, ANSWERS],
   modelRouting = fixedModelRouting([claudeCatalog(), codexCatalog()]),
   additions: Readonly<Record<string, string>> = {},
   answerFiles: Readonly<Record<string, string>> = {},
@@ -181,61 +171,50 @@ function legacyProjectWithHistory(
   };
 }
 
-async function previewConfigMigration(run: Subject): Promise<{
+interface PreviewAuthorization {
   readonly planDigest: string;
-  readonly decision: Decision;
-}> {
-  const parsed = parseInvocation(["migrate", "config"], DEFAULT_REGISTRY);
-  if (parsed.kind === "result") throw new Error("config migration not parsed");
-  const observed = await observeMigration(
-    parsed.invocation,
-    run.ports,
-    createSchemaRegistry(),
-  );
-  if (observed.kind === "failure") throw new Error(observed.result.reasonCode);
-  if (
-    observed.observation.kind !== "migration" ||
-    observed.observation.operation.kind !== "config"
-  ) {
-    throw new Error("config migration not observed");
-  }
-  const decision = dispatch({
-    ...parsed.invocation,
-    observation: observed.observation,
-  });
-  const planDigest = observed.observation.operation.planDigest;
-  run.pending = {
-    observation: observed.observation,
-    ports: observed.ports,
-    planDigest,
-  };
-  return { planDigest, decision };
+  readonly planTime: string;
 }
 
-async function applyConfigMigration(
+function authorizedArguments(
+  authorization: PreviewAuthorization,
+  prefix: readonly string[] = [],
+): readonly string[] {
+  return [
+    "migrate",
+    "config",
+    ...prefix,
+    "--yes",
+    "--plan-digest",
+    authorization.planDigest,
+    "--plan-time",
+    authorization.planTime,
+  ];
+}
+
+function previewAuthorization(output: string): PreviewAuthorization {
+  const digest = /^Plan digest: ([a-f0-9]{64})$/mu.exec(output)?.[1];
+  const planTime = /^Plan time: (\S+)$/mu.exec(output)?.[1];
+  if (digest === undefined || planTime === undefined) {
+    throw new Error(`migration authorization missing from preview:\n${output}`);
+  }
+  return { planDigest: digest, planTime };
+}
+
+async function runAuthorizedConfigMigration(
   run: Subject,
-  planDigest: string,
-): Promise<{ readonly reasonCode: string }> {
-  const pending = run.pending;
-  if (pending === undefined || pending.planDigest !== planDigest) {
-    throw new Error("preview digest not pending");
-  }
-  const parsed = parseInvocation(
-    ["migrate", "config", "--yes"],
-    DEFAULT_REGISTRY,
+  prefix: readonly string[] = [],
+): Promise<number> {
+  const before = run.output.structured_.length;
+  const previewArgs = ["migrate", "config", ...prefix];
+  const previewExit = await runCommandLine(previewArgs, run.ports);
+  if (previewExit !== 0) return previewExit;
+  const preview = run.output.structured_.slice(before).join("");
+  const authorization = previewAuthorization(preview);
+  expect(preview).toContain(
+    `kratos migrate config${prefix.length === 0 ? "" : ` ${prefix.join(" ")}`} --yes --plan-digest ${authorization.planDigest} --plan-time ${authorization.planTime}`,
   );
-  if (parsed.kind === "result") throw new Error("config migration not parsed");
-  const decision = dispatch({
-    ...parsed.invocation,
-    observation: pending.observation,
-  });
-  try {
-    await applyPlan(decision.plan, pending.ports);
-    return { reasonCode: decision.result.reasonCode };
-  } catch (error) {
-    if (!(error instanceof TransactionFailure)) throw error;
-    return { reasonCode: error.reasonCode };
-  }
+  return runCommandLine(authorizedArguments(authorization, prefix), run.ports);
 }
 
 async function mutateConfigAfterPreview(run: Subject): Promise<void> {
@@ -259,7 +238,7 @@ describe("configuration migration", () => {
     const before = run.storage.snapshot().files;
 
     expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
+      await runAuthorizedConfigMigration(run),
       run.output.human_.join(""),
     ).toBe(0);
 
@@ -285,6 +264,9 @@ describe("configuration migration", () => {
     const preview = run.output.structured_.join("");
     expect(preview).toContain("Source SHA-256:");
     expect(preview).toContain("Destination SHA-256:");
+    expect(preview).toContain("Answers stdin SHA-256:");
+    expect(preview).toContain("Catalog claude SHA-256:");
+    expect(preview).toContain("Catalog codex SHA-256:");
     expect(preview).toContain("Confirmed hosts: claude, codex");
     for (const assignment of [
       "claude.planner = planner-canonical@medium (defaulted)",
@@ -306,14 +288,73 @@ describe("configuration migration", () => {
     ]) {
       expect(preview).toContain(path);
     }
+    expect(preview.match(/^- .* sha256=[a-f0-9]{64}$/gmu)).toHaveLength(6);
+    expect(preview).toContain("Plan time: 2026-08-28T12:00:00.000Z");
+  });
+
+  it("binds the plan digest to every exact write byte and plan timestamp", async () => {
+    const run = legacyProjectWithHistory();
+    const parsed = parseInvocation(["migrate", "config"], DEFAULT_REGISTRY);
+    if (parsed.kind === "result")
+      throw new Error("config migration not parsed");
+    const observed = await observeMigration(
+      parsed.invocation,
+      run.ports,
+      createSchemaRegistry(),
+    );
+    if (
+      observed.kind !== "observed" ||
+      observed.observation.kind !== "migration" ||
+      observed.observation.operation.kind !== "config"
+    ) {
+      throw new Error("config migration not observed");
+    }
+    const operation = observed.observation.operation;
+
+    expect(operation.writes).toHaveLength(6);
+    for (const write of operation.writes) {
+      expect(write.sha256, write.path).toBe(
+        run.storage.digests.sha256(write.content),
+      );
+    }
+    expect(operation.planDigest).toBe(
+      run.storage.digests.sha256(
+        canonicalizeJson({
+          kind: "project-config-write-set",
+          migrationId: operation.migrationId,
+          planTime: operation.now,
+          writes: operation.writes.map(({ path, sha256 }) => ({
+            path,
+            sha256,
+          })),
+        }),
+      ),
+    );
+    for (const name of [
+      "authorization.json",
+      "receipt.json",
+      "verification.json",
+    ]) {
+      expect(
+        operation.writes.find(({ path }) => path.endsWith(name))?.content,
+        name,
+      ).toContain(operation.now);
+    }
   });
 
   it("refuses changed source instead of silently replanning after preview", async () => {
     const run = legacyProjectWithHistory([ANSWERS, ANSWERS]);
-    const preview = await previewConfigMigration(run);
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+    const preview = previewAuthorization(run.output.structured_.join(""));
     await mutateConfigAfterPreview(run);
 
-    expect(await applyConfigMigration(run, preview.planDigest)).toMatchObject({
+    expect(
+      await runCommandLine(
+        ["--json", ...authorizedArguments(preview)],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
       reasonCode: "runtime.revision_conflict",
     });
     expect(run.storage.snapshot().files[CONFIG_REF]).toContain(" \n");
@@ -324,6 +365,100 @@ describe("configuration migration", () => {
     ).toEqual([]);
   });
 
+  it("requires caller-carried preview authorization for apply", async () => {
+    const run = legacyProjectWithHistory();
+    const before = run.storage.snapshot();
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config", "--yes"], run.ports),
+    ).not.toBe(0);
+
+    expect(run.storage.snapshot()).toEqual(before);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "trail.uso",
+    });
+  });
+
+  it("refuses answer drift against a prior CLI preview", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, EXPLICIT_ANSWERS]);
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+    const preview = previewAuthorization(run.output.structured_.join(""));
+
+    expect(
+      await runCommandLine(
+        ["--json", ...authorizedArguments(preview)],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(run.storage.snapshot().files[CONFIG_REF]).toBe(LEGACY_CONFIG_BYTES);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+    });
+  });
+
+  it("binds authorization to exact answer bytes even when semantics match", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ` ${ANSWERS}\n`]);
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+    const preview = previewAuthorization(run.output.structured_.join(""));
+
+    expect(
+      await runCommandLine(
+        ["--json", ...authorizedArguments(preview)],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+    });
+  });
+
+  it("refuses catalog drift against a prior CLI preview", async () => {
+    let changed = false;
+    const original = codexCatalog();
+    const altered = {
+      ...original,
+      models: original.models.map((model, index) =>
+        index === 0
+          ? { ...model, aliases: [...model.aliases, "new-planner-alias"] }
+          : model,
+      ),
+    };
+    const run = legacyProjectWithHistory(
+      [
+        JSON.stringify({
+          contractVersion: "1.1.0",
+          hostContract: "1.1.0",
+          hosts: ["codex"],
+        }),
+        JSON.stringify({
+          contractVersion: "1.1.0",
+          hostContract: "1.1.0",
+          hosts: ["codex"],
+        }),
+      ],
+      {
+        observe: (host) =>
+          Promise.resolve(
+            host === "codex" ? (changed ? altered : original) : null,
+          ),
+      },
+    );
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+    const preview = previewAuthorization(run.output.structured_.join(""));
+    changed = true;
+
+    expect(
+      await runCommandLine(
+        ["--json", ...authorizedArguments(preview)],
+        run.ports,
+      ),
+    ).not.toBe(0);
+    expect(run.storage.snapshot().files[CONFIG_REF]).toBe(LEGACY_CONFIG_BYTES);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+    });
+  });
+
   it("requires answers to confirm hosts even when host surfaces exist", async () => {
     const run = legacyProjectWithHistory([null], undefined, {
       ".claude/settings.json": "{}\n",
@@ -331,9 +466,7 @@ describe("configuration migration", () => {
     });
     const before = run.storage.snapshot();
 
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
-    ).not.toBe(0);
+    expect(await runAuthorizedConfigMigration(run)).not.toBe(0);
 
     expect(run.storage.snapshot()).toEqual(before);
   });
@@ -347,10 +480,7 @@ describe("configuration migration", () => {
     );
 
     expect(
-      await runCommandLine(
-        ["migrate", "config", "--answers", "migration.json", "--yes"],
-        run.ports,
-      ),
+      await runAuthorizedConfigMigration(run, ["--answers", "migration.json"]),
     ).toBe(0);
 
     expect(
@@ -363,11 +493,9 @@ describe("configuration migration", () => {
   });
 
   it("normalizes explicit roles and lets them override adapter defaults", async () => {
-    const run = legacyProjectWithHistory([EXPLICIT_ANSWERS]);
+    const run = legacyProjectWithHistory([EXPLICIT_ANSWERS, EXPLICIT_ANSWERS]);
 
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
-    ).toBe(0);
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
@@ -424,18 +552,14 @@ describe("configuration migration", () => {
     const run = legacyProjectWithHistory([answers], routing);
     const before = run.storage.snapshot();
 
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
-    ).not.toBe(0);
+    expect(await runAuthorizedConfigMigration(run)).not.toBe(0);
 
     expect(run.storage.snapshot()).toEqual(before);
   });
 
   it("treats a current configuration as an idempotent no-op", async () => {
     const first = legacyProjectWithHistory();
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], first.ports),
-    ).toBe(0);
+    expect(await runAuthorizedConfigMigration(first)).toBe(0);
     const settled = first.storage.snapshot().files;
     const current = legacyProjectWithHistory([null], undefined, settled);
     await current.storage.fileSystem.write(
@@ -455,11 +579,9 @@ describe("configuration migration", () => {
   });
 
   it("writes a verified receipt and rollback restores exact original bytes", async () => {
-    const run = legacyProjectWithHistory([ANSWERS]);
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS]);
     const before = run.storage.snapshot().files;
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
-    ).toBe(0);
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
     const migrated = run.storage.snapshot().files;
     const root = migrationRoot(migrated);
     const receipt = JSON.parse(
@@ -513,11 +635,180 @@ describe("configuration migration", () => {
     }
   });
 
+  it.each([
+    "rollback.json",
+    "verification.json",
+    "backup/config.json",
+    "receipt.json",
+    "destination",
+  ])(
+    "refuses a %s swap between rollback validation and apply preconditions",
+    async (target) => {
+      const run = legacyProjectWithHistory();
+      expect(await runAuthorizedConfigMigration(run)).toBe(0);
+      const migrated = run.storage.snapshot().files;
+      const root = migrationRoot(migrated);
+      const receipt = JSON.parse(
+        migrated[`${root}/receipt.json`] ?? "null",
+      ) as MigrationV1_1;
+      const parsed = parseInvocation(
+        ["migrate", "rollback", receipt.migrationId],
+        DEFAULT_REGISTRY,
+      );
+      if (parsed.kind === "result") throw new Error("rollback not parsed");
+      const observed = await observeMigration(
+        parsed.invocation,
+        run.ports,
+        createSchemaRegistry(),
+      );
+      if (observed.kind === "failure") {
+        throw new Error(observed.result.reasonCode);
+      }
+      const decision = dispatch({
+        ...parsed.invocation,
+        observation: observed.observation,
+      });
+      const targetPath =
+        target === "destination" ? CONFIG_REF : `${root}/${target}`;
+      await run.storage.fileSystem.write(targetPath, '{"swapped":true}\n');
+
+      await expect(
+        applyPlan(decision.plan, observed.ports),
+      ).rejects.toMatchObject({
+        reasonCode: "runtime.revision_conflict",
+      });
+      expect(run.storage.snapshot().files[targetPath]).toBe(
+        '{"swapped":true}\n',
+      );
+    },
+  );
+
+  it.each([
+    "rollback.json",
+    "verification.json",
+    "backup/config.json",
+    "receipt.json",
+    "destination",
+  ])("refuses %s drift during its stable rollback read", async (target) => {
+    const run = legacyProjectWithHistory();
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+    const migrated = run.storage.snapshot().files;
+    const root = migrationRoot(migrated);
+    const receipt = JSON.parse(
+      migrated[`${root}/receipt.json`] ?? "null",
+    ) as MigrationV1_1;
+    const targetPath =
+      target === "destination" ? CONFIG_REF : `${root}/${target}`;
+    const durable = run.ports.durableFileSystem;
+    let swapped = false;
+    const driftingPorts: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...durable,
+        readText: async (path) => {
+          const content = await durable.readText(path);
+          if (path === targetPath && !swapped) {
+            swapped = true;
+            await run.storage.fileSystem.write(path, '{"reread-drift":true}\n');
+          }
+          return content;
+        },
+      },
+    };
+
+    expect(
+      await runCommandLine(
+        ["--json", "migrate", "rollback", receipt.migrationId],
+        driftingPorts,
+      ),
+    ).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+    });
+    expect(run.storage.snapshot().files[targetPath]).toBe(
+      '{"reread-drift":true}\n',
+    );
+  });
+
+  it.each([
+    "../x",
+    "x/y",
+    "x\\y",
+    ".",
+    "..",
+    "%2f",
+    "x\u2215y",
+    "x\u2044y",
+    "x-",
+    "a".repeat(129),
+  ])(
+    "rejects noncanonical rollback id %s before observing paths",
+    async (migrationId) => {
+      const run = legacyProjectWithHistory([null]);
+      let inspections = 0;
+      const durable = run.ports.durableFileSystem;
+      const guardedPorts: RuntimePorts = {
+        ...run.ports,
+        durableFileSystem: {
+          ...durable,
+          inspect: (path) => {
+            inspections += 1;
+            return durable.inspect(path);
+          },
+        },
+      };
+
+      expect(
+        await runCommandLine(
+          ["--json", "migrate", "rollback", migrationId],
+          guardedPorts,
+        ),
+      ).not.toBe(0);
+      expect(inspections).toBe(0);
+      expect(JSON.parse(run.output.structured_.at(-1) ?? "null")).toMatchObject(
+        { reasonCode: "trail.uso" },
+      );
+    },
+  );
+
+  it("retries after rollback under a new attempt id without overwriting prior audit", async () => {
+    const run = legacyProjectWithHistory([ANSWERS, ANSWERS, ANSWERS, ANSWERS]);
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+    const firstRoot = migrationRoot(run.storage.snapshot().files);
+    const firstReceipt = JSON.parse(
+      run.storage.snapshot().files[`${firstRoot}/receipt.json`] ?? "null",
+    ) as MigrationV1_1;
+    expect(
+      await runCommandLine(
+        ["migrate", "rollback", firstReceipt.migrationId],
+        run.ports,
+      ),
+    ).toBe(0);
+    const afterRollback = run.storage.snapshot().files;
+    const firstAudit = Object.fromEntries(
+      Object.entries(afterRollback).filter(([path]) =>
+        path.startsWith(`${firstRoot}/`),
+      ),
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+    const retried = run.storage.snapshot().files;
+    const roots = Object.keys(retried)
+      .filter((path) => /\/receipt\.json$/u.test(path))
+      .map((path) => path.slice(0, -"/receipt.json".length))
+      .filter((root) => root.startsWith(".brain/migrations/config-"))
+      .sort();
+    expect(roots).toHaveLength(2);
+    expect(roots[0]).toBe(firstRoot);
+    expect(roots[1]).toBe(`${firstRoot}-attempt-2`);
+    for (const [path, content] of Object.entries(firstAudit)) {
+      expect(retried[path], path).toBe(content);
+    }
+  });
+
   it("refuses rollback after destination drift", async () => {
     const run = legacyProjectWithHistory();
-    expect(
-      await runCommandLine(["migrate", "config", "--yes"], run.ports),
-    ).toBe(0);
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
     const migrated = run.storage.snapshot().files;
     const root = migrationRoot(migrated);
     const receipt = JSON.parse(
@@ -563,9 +854,7 @@ describe("configuration migration", () => {
     "refuses rollback when the %s cannot verify",
     async (target) => {
       const run = legacyProjectWithHistory();
-      expect(
-        await runCommandLine(["migrate", "config", "--yes"], run.ports),
-      ).toBe(0);
+      expect(await runAuthorizedConfigMigration(run)).toBe(0);
       const migrated = run.storage.snapshot().files;
       const root = migrationRoot(migrated);
       const receipt = JSON.parse(

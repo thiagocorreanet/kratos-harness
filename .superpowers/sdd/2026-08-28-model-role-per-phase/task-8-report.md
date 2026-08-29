@@ -2,9 +2,10 @@
 
 ## Status
 
-Completed. `kratos migrate config [--answers PATH] [--yes]` now upgrades only a
-validated `ProjectConfigV1`, persists complete canonical phase-role assignments,
-and records a digest-bound `MigrationV1_1` replacement receipt. Rollback restores
+Completed. `kratos migrate config [--answers PATH]` previews a validated
+`ProjectConfigV1`; apply additionally requires `--yes --plan-digest SHA256
+--plan-time INSTANT`. It persists complete canonical phase-role assignments and
+records a digest-bound `MigrationV1_1` replacement receipt. Rollback restores
 the exact prior configuration only while the receipt, backup, verification, and
 current destination still agree.
 
@@ -20,9 +21,10 @@ current destination still agree.
 - Added a no-mutation preview that renders source/destination SHA-256 values,
   confirmed hosts, every normalized assignment and default marker, plan digest,
   and the exact six-file write list.
-- Derived deterministic migration IDs and plan digests from canonical source,
-  destination, host, assignment, default, and write-list facts. The apply plan
-  holds the exact observed source size and digest as a write precondition.
+- Derived deterministic migration IDs and exact write-set plan digests from
+  source, destination, answer bytes, host catalogs, assignments, defaults,
+  timestamp, and six final path/content pairs. The apply plan holds the exact
+  observed source size and digest as a write precondition.
 - Applied one managed transaction for `.brain/config.json`, the exact old-byte
   backup, authorization, replacement rollback manifest, v1.1 receipt, and
   verification record.
@@ -127,10 +129,107 @@ test data or behavior changed there.
 - Preview has no effect plan. Apply uses the exact preview observation and the
   transaction boundary re-observes the source fingerprint before publication.
 - Authorization, receipt conversion, rollback metadata, and verification all
-  carry the same source, destination, and plan digests.
+  carry the same source, destination, and internal lineage digests; the
+  caller-carried outer digest binds their exact final bytes.
 - Rollback snapshots only digest-verified backup bytes; apply rechecks the
   backup through a preconditioned no-op and holds the changing receipt and
   destination as durable transaction preconditions.
 - Historical event, snapshot, document, approval, and evidence paths are never
   included in the migration plan.
 - No subagents were used.
+
+## Review round 1 fixes
+
+The first review identified that `--yes` could authorize a freshly recomputed
+plan instead of carrying authority from preview. The CLI now requires all three
+apply inputs: `--yes`, `--plan-digest <sha256>`, and the preview's
+`--plan-time <instant>`. Preview prints that complete apply command. The apply
+invocation re-reads the exact config and answer bytes, re-observes enabled-host
+catalogs, rebuilds every final artifact byte at the supplied instant, and
+compares the caller-carried write-set digest. Source, answer formatting,
+catalog, attempt-lineage, timestamp, or artifact-byte drift returns
+`runtime.revision_conflict`; `--yes` alone returns usage failure with zero
+effects.
+
+The externally authorized plan digest is SHA-256 over the deterministic
+ordered list of six `{ path, content-sha256 }` pairs plus migration ID and plan
+instant. Each final write is materialized during observation, so the handler
+cannot recreate timestamped receipt bytes differently. Preview publishes all
+six content digests. A separate stable lineage digest is embedded in the
+self-referential `MigrationV1_1` records; the caller-carried plan digest remains
+the exact-byte authorization digest, avoiding an impossible self-hash while
+still binding every byte written.
+
+Rollback now obtains receipt, rollback manifest, verification, backup, and
+destination through inspect/read/inspect stable snapshots. The exact bytes and
+fingerprints used to authorize restoration are carried as apply
+preconditions. Controlled swaps both during a stable read and between
+validation and precondition checking refuse without restoring or rewriting any
+record.
+
+Rollback IDs are checked before migration paths are constructed. The bounded
+canonical grammar rejects dot traversal, slash, backslash, percent-encoded and
+Unicode alternate separators, trailing punctuation, and values longer than 128
+characters. Legacy canonical Brain migration IDs remain accepted.
+
+A rolled-back configuration migration can be retried. The next deterministic
+ID is `<base>-attempt-N`, derived from a contiguous, schema-valid chain of exact
+rolled-back receipts whose source and destination digests match. Prior receipt
+bytes become apply preconditions, and a full migrate/rollback/retry test proves
+that the first attempt's audit directory remains byte-for-byte unchanged.
+
+### Review RED
+
+The review tests were written before the fixes. The focused run failed on the
+missing authorization flags/timestamp/write digests, `--yes` applying by
+itself, rollback IDs reaching storage, and absent retry/swap protections:
+
+```text
+npm test -- tests/config-migration.test.ts tests/cli-parsing.test.ts
+Test Files 2 failed
+Tests 28 failed | 17 passed
+```
+
+### Review GREEN and byte evidence
+
+```text
+focused config migration
+Test Files 1 passed
+Tests 41 passed
+
+Task 8 migration/CLI/replay/fault matrix
+Test Files 8 passed
+Tests 127 passed
+
+transaction fault and recovery matrix
+Test Files 5 passed
+Tests 97 passed
+
+all CLI-named suites
+Test Files 7 passed
+Tests 137 passed
+
+npm run typecheck
+exit 0
+
+npm run lint
+exit 0
+
+npm run format:check
+All matched files use Prettier code style!
+
+git diff --check
+exit 0
+```
+
+The focused suite hashes each of the six literal planned contents and
+reconstructs the exact outer plan digest, including the stable timestamp. It
+also binds semantically identical but byte-different answers, and catalog-only
+changes that leave resolved assignments unchanged. Historical golden event,
+snapshot, PRD, approval, and evidence bytes remain outside all six writes. The
+golden v1 event fixture still matches `HEAD` exactly:
+
+```text
+working SHA-256: 25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
+HEAD SHA-256:    25e6c1823f5c5dd2658a663acf6abbb69e3707348a694482d0796b67bdb619c7
+```
