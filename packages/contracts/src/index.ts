@@ -85,4 +85,13 @@ export type CurrentEvent = EventV1_1;
 export type ReadableEvent = EventV1 | EventV1_1;
 export type CurrentProjectConfig = ProjectConfigV1_3;
 export type ReadableProjectConfig =
-  ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
+  | ProjectConfigV1
+  | ProjectConfigV1_1
+  | ProjectConfigV1_2
+  | ProjectConfigV1_3;
+export type {
+  BeatKind,
+  BeatV1,
+  ClockDerivedProgress,
+  NarrationV1,
+} from "./narration.js";
