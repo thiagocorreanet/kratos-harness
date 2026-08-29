@@ -59,7 +59,7 @@
     "schemas": {
       "type": "array",
       "minItems": 18,
-      "maxItems": 35,
+      "maxItems": 37,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/schemaEntry"

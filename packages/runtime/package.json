@@ -34,6 +34,7 @@
     "./domain/locks": "./src/domain/locks/index.ts",
     "./domain/migration": "./src/domain/migration/index.ts",
     "./domain/model-roles": "./src/domain/model-roles/index.ts",
+    "./domain/narration": "./src/domain/narration/index.ts",
     "./domain/objective": "./src/domain/objective/index.ts",
     "./domain/observability": "./src/domain/observability/index.ts",
     "./domain/project": "./src/domain/project/index.ts",

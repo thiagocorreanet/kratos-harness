@@ -134,6 +134,14 @@
       "typeName": "ApprovalV1"
     },
     {
+      "id": "state.beat",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/beat.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "BeatV1"
+    },
+    {
       "id": "state.event",
       "family": "state",
       "version": "1.0.0",
@@ -228,6 +236,14 @@
       "path": "schemas/state/migration.v1.1.schema.json",
       "boundary": "persisted",
       "typeName": "MigrationV1_1"
+    },
+    {
+      "id": "state.narration",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/narration.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "NarrationV1"
     },
     {
       "id": "state.project-config",

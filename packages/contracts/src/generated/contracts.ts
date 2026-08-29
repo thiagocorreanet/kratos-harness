@@ -16,6 +16,7 @@
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
+// source: https://kratos.dev/schemas/state/beat/v1 sha256:e6bf3425c5fd36c5955c7941fdf575efd3fa1f8bba0565d0d8f5ec6ab49a8c25
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
@@ -28,6 +29,7 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
+// source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48
@@ -1001,6 +1003,28 @@ export namespace ApprovalV1Contract {
   }
 }
 export type ApprovalV1 = ApprovalV1Contract.ApprovalV1;
+export namespace BeatV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Reference = string;
+
+  export interface BeatV1 {
+    contractVersion: "1.0.0";
+    beatId: Id;
+    kind: "work" | "milestone" | "resumption" | "warning" | "waiting" | "stop";
+    subject: string;
+    sentence: string;
+    reasonCode: string;
+    occurredAt: Timestamp;
+    eventId: Id;
+    revision: number;
+    facts: {
+      [k: string]: unknown | undefined;
+    };
+    evidenceRefs: Reference[];
+  }
+}
+export type BeatV1 = BeatV1Contract.BeatV1;
 export namespace EventV1Contract {
   export type Id = string;
   export type Timestamp = string;
@@ -1329,6 +1353,43 @@ export namespace MigrationV1_1Contract {
   }
 }
 export type MigrationV1_1 = MigrationV1_1Contract.MigrationV1_1;
+export namespace NarrationV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Reference = string;
+
+  export interface NarrationV1 {
+    contractVersion: "1.0.0";
+    runId: Id;
+    generatedAt: Timestamp;
+    beats: Beat[];
+    pendingProgress: ClockDerivedProgress | null;
+  }
+  export interface Beat {
+    contractVersion: "1.0.0";
+    beatId: Id;
+    kind: "work" | "milestone" | "resumption" | "warning" | "waiting" | "stop";
+    subject: string;
+    sentence: string;
+    reasonCode: string;
+    occurredAt: Timestamp;
+    eventId: Id;
+    revision: number;
+    facts: {
+      [k: string]: unknown | undefined;
+    };
+    evidenceRefs: Reference[];
+  }
+  export interface ClockDerivedProgress {
+    kind: "in_progress";
+    eventId: Id;
+    operation: Id;
+    elapsedMs: number;
+    startedAt: Timestamp;
+    asOf: Timestamp;
+  }
+}
+export type NarrationV1 = NarrationV1Contract.NarrationV1;
 export namespace ProjectConfigV1Contract {
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
