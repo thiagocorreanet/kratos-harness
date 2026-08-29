@@ -65,6 +65,7 @@
 ### Task 1: Publish multi-version contracts and model-role refusal policy
 
 **Files:**
+
 - Create: `schemas/state/project-config.v1.1.schema.json`
 - Create: `schemas/state/event.v1.1.schema.json`
 - Create: `schemas/state/migration.v1.1.schema.json`
@@ -97,6 +98,7 @@
 - Test: `tests/contract-compatibility.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `classifyContractVersion(family, value)` and registry key `${id}\0${version}`.
 - Produces: `ProjectConfigV1_1`, `EventV1_1`, `MigrationV1_1`, `InitAnswersV1_1`, `AdapterMessageV1_1`, `PhaseHandoffV1_1`, per-contract current-version constants, and a registry that accepts more than one version for one contract ID.
 
@@ -253,6 +255,7 @@ git commit -m "feat: publish model role contracts"
 ### Task 2: Implement pure phase-role resolution and assignment binding
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/model-roles/model.ts`
 - Create: `packages/runtime/src/domain/model-roles/resolve.ts`
 - Create: `packages/runtime/src/domain/model-roles/digest.ts`
@@ -262,6 +265,7 @@ git commit -m "feat: publish model role contracts"
 - Test: `tests/model-role-resolution.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RunPhase`, `ProjectConfigV1_1`, canonical JSON, and a SHA-256 function.
 - Produces: `roleForPhase`, `normalizeModelAssignment`, `resolvePhaseAssignment`, `validateHostIndependence`, and `digestPhaseAssignment`.
 
@@ -411,6 +415,7 @@ git commit -m "feat: resolve fixed model roles by phase"
 ### Task 3: Add read-only host model catalogs and honest execution observation
 
 **Files:**
+
 - Create: `packages/runtime/src/ports/model-routing.ts`
 - Create: `packages/runtime/src/infra/fake/model-routing.ts`
 - Modify: `packages/runtime/src/ports/index.ts`
@@ -424,6 +429,7 @@ git commit -m "feat: resolve fixed model roles by phase"
 - Test: `tests/ports-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: `HostModelCatalog` from Task 2 and `AdapterMessageV1_1` from Task 1.
 - Produces: `ModelRouting` runtime port and adapter descriptors/messages that carry catalogs and nullable observed effort without adding mutation authority.
 
@@ -530,6 +536,7 @@ git commit -m "feat: expose host model routing catalogs"
 ### Task 4: Initialize explicit independent role assignments
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/init/answers.ts:1-96`
 - Modify: `packages/runtime/src/domain/init/skeleton.ts:1-210`
 - Modify: `packages/runtime/src/composition/init.ts:25-112`
@@ -540,6 +547,7 @@ git commit -m "feat: expose host model routing catalogs"
 - Test: `tests/init-fault-campaign.test.ts`
 
 **Interfaces:**
+
 - Consumes: current init answers, `ModelRouting`, normalization, and independence validation.
 - Produces: resolved initialization answers whose `modelRoles` is explicit and a generated `.brain/config.json` at state `1.1.0`.
 
@@ -624,6 +632,7 @@ git commit -m "feat: initialize independent model roles"
 ### Task 5: Resolve and digest-bind read-only handoffs
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/project/configuration.ts:1-65`
 - Modify: `packages/runtime/src/domain/cli/spec.ts:189-298`
 - Modify: `packages/runtime/src/domain/cli/diagnostics.ts:87-117`
@@ -635,6 +644,7 @@ git commit -m "feat: initialize independent model roles"
 - Test: `tests/project-configuration.test.ts`
 
 **Interfaces:**
+
 - Consumes: current project config, current workflow phase/revision, active host catalog, and digest functions.
 - Produces: a validated `PhaseHandoffV1_1` payload and actionable role/config failures with no effects.
 
@@ -731,6 +741,7 @@ git commit -m "feat: bind phase handoffs to model assignments"
 ### Task 6: Verify and replay mixed-version event chains
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/events/model.ts:1-44`
 - Modify: `packages/runtime/src/domain/events/parse.ts`
 - Modify: `packages/runtime/src/domain/events/redaction.ts:1-156`
@@ -747,6 +758,7 @@ git commit -m "feat: bind phase handoffs to model assignments"
 - Test: `tests/event-chain-properties.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ReadableEvent`, current `EventV1_1` drafts, exact per-record versions, and existing reducer registries.
 - Produces: a continuous verified chain across event revisions without changing old canonical bytes.
 
@@ -848,6 +860,7 @@ git commit -m "feat: verify mixed model role event history"
 ### Task 7: Persist runtime-selected phase execution and reject stale or mismatched results
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/workflow/model.ts:1-145`
 - Modify: `packages/runtime/src/domain/workflow/decision.ts:1-300`
 - Modify: `packages/runtime/src/domain/cli/agent.ts:28-63`
@@ -862,6 +875,7 @@ git commit -m "feat: verify mixed model role event history"
 - Test: `tests/cli-composition.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PhaseHandoffV1_1`, adapter-supplied digest and nullable observed execution, and `CurrentEventDraft`.
 - Produces: phase record/transition events whose assignment is constructed by the runtime, plus fail-closed stale/mismatch outcomes.
 
@@ -982,6 +996,7 @@ git commit -m "feat: audit resolved phase model execution"
 ### Task 8: Add digest-bound current configuration migration and rollback
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/migration/upgrade.ts:1-48`
 - Modify: `packages/runtime/src/domain/migration/index.ts`
 - Modify: `packages/runtime/src/domain/cli/migration.ts:21-270`
@@ -995,6 +1010,7 @@ git commit -m "feat: audit resolved phase model execution"
 - Test: `tests/cli-parsing.test.ts`
 
 **Interfaces:**
+
 - Consumes: exact `ProjectConfigV1` source bytes, v1.1 migration answers, host catalogs, SHA-256, managed transactions, and readable migration receipts.
 - Produces: `kratos migrate config [--answers PATH] [--yes]`, a digest-bound `MigrationV1_1` plan/receipt, and rollback of the one replaced configuration file.
 
@@ -1100,6 +1116,7 @@ git commit -m "feat: migrate project model role configuration"
 ### Task 9: Publish compatibility documentation and acceptance evidence
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `schemas/README.md`
 - Modify: `docs/architecture/system-architecture.md`
@@ -1118,6 +1135,7 @@ git commit -m "feat: migrate project model role configuration"
 - Test: `tests/architecture.test.ts`
 
 **Interfaces:**
+
 - Consumes: final public schemas, commands, reason codes, tests, and verification output.
 - Produces: accurate public behavior and a criterion-by-criterion evidence record suitable for the issue and pull request.
 
