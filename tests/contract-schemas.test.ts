@@ -249,6 +249,106 @@ describe("versioned state and host schemas", () => {
     }
   });
 
+  it("enforces project-profile text and list boundaries in v1.3", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "host/init-answers.v1.3.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const answer = (projectProfile: JsonObject) => ({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile,
+    });
+
+    expect(
+      validate(
+        answer({
+          commands: { test: { status: "resolved", value: "x".repeat(2048) } },
+          paths: { source: { status: "resolved", value: ["src"] } },
+          conventions: {
+            directoryLayout: { status: "resolved", value: "x".repeat(1024) },
+            implementationLanguages: {
+              status: "resolved",
+              value: ["x".repeat(64)],
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
+
+    for (const [label, projectProfile] of [
+      [
+        "an empty command",
+        { commands: { test: { status: "resolved", value: "" } } },
+      ],
+      [
+        "a multiline command",
+        { commands: { test: { status: "resolved", value: "npm\ntest" } } },
+      ],
+      [
+        "an empty reason",
+        { commands: { test: { status: "not-applicable", reason: "" } } },
+      ],
+      [
+        "a multiline reason",
+        {
+          commands: {
+            test: { status: "not-applicable", reason: "not\napplicable" },
+          },
+        },
+      ],
+      [
+        "an overlong convention",
+        {
+          conventions: {
+            naming: { status: "resolved", value: "x".repeat(1025) },
+          },
+        },
+      ],
+      [
+        "an overlong implementation language",
+        {
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["x".repeat(65)],
+            },
+          },
+        },
+      ],
+      [
+        "an empty path list",
+        { paths: { source: { status: "resolved", value: [] } } },
+      ],
+      [
+        "duplicate paths",
+        { paths: { source: { status: "resolved", value: ["src", "src"] } } },
+      ],
+      [
+        "an empty language list",
+        {
+          conventions: {
+            implementationLanguages: { status: "resolved", value: [] },
+          },
+        },
+      ],
+      [
+        "duplicate implementation languages",
+        {
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["TypeScript", "TypeScript"],
+            },
+          },
+        },
+      ],
+    ] as const) {
+      expect(validate(answer(projectProfile)), label).toBe(false);
+    }
+  });
+
   it.each([
     [
       "state/project-config.v1.schema.json",
@@ -265,6 +365,46 @@ describe("versioned state and host schemas", () => {
     [
       "host/adapter-message.v1.schema.json",
       "40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd",
+    ],
+    [
+      "contracts/contract-manifest.v1.1.schema.json",
+      "7693411838fa4629ca524fd0053de08372201d2d3ffd44e9e2e3c69f5d91d9bf",
+    ],
+    [
+      "contracts/contract-manifest.v1.2.schema.json",
+      "2356781cab1977eb06efd3864c2c553eb77de058e9d5530c1424080a599311ad",
+    ],
+    [
+      "host/adapter-message.v1.1.schema.json",
+      "f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8",
+    ],
+    [
+      "host/init-answers.v1.1.schema.json",
+      "802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461",
+    ],
+    [
+      "host/init-answers.v1.2.schema.json",
+      "4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e",
+    ],
+    [
+      "host/phase-handoff.v1.1.schema.json",
+      "b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557",
+    ],
+    [
+      "state/event.v1.1.schema.json",
+      "856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f",
+    ],
+    [
+      "state/migration.v1.1.schema.json",
+      "4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38",
+    ],
+    [
+      "state/project-config.v1.1.schema.json",
+      "ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4",
+    ],
+    [
+      "state/project-config.v1.2.schema.json",
+      "bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));

@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.2.schema.json",
+        "schemas/contracts/contract-manifest.v1.3.schema.json",
       ),
     ),
     readJson<Discovery>(

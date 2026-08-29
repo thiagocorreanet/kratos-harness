@@ -83,9 +83,10 @@ digest-bound resolved assignment. See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json).
-The immutable predecessor remains
-[`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
+[`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json).
+The immutable predecessors remain
+[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json)
+and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed
 [`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)

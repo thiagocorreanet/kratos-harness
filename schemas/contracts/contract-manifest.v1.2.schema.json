@@ -33,10 +33,10 @@
       "required": ["current", "readable", "migrationOnly"],
       "properties": {
         "current": {
-          "const": "1.3.0"
+          "const": "1.2.0"
         },
         "readable": {
-          "const": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]
+          "const": ["1.0.0", "1.1.0", "1.2.0"]
         },
         "migrationOnly": {
           "const": ["0.9.0", "go-v3@0.6.5"]
@@ -49,17 +49,17 @@
       "required": ["current", "accepted"],
       "properties": {
         "current": {
-          "const": "1.3.0"
+          "const": "1.2.0"
         },
         "accepted": {
-          "const": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]
+          "const": ["1.0.0", "1.1.0", "1.2.0"]
         }
       }
     },
     "schemas": {
       "type": "array",
       "minItems": 18,
-      "maxItems": 37,
+      "maxItems": 35,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/schemaEntry"
@@ -89,18 +89,18 @@
           "enum": ["state", "host"]
         },
         "version": {
-          "enum": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]
+          "enum": ["1.0.0", "1.1.0", "1.2.0"]
         },
         "path": {
           "type": "string",
-          "pattern": "^schemas/(?:state|host)/[a-z-]+\\.v1(?:\\.[123])?\\.schema\\.json$"
+          "pattern": "^schemas/(?:state|host)/[a-z-]+\\.v1(?:\\.[12])?\\.schema\\.json$"
         },
         "boundary": {
           "enum": ["persisted", "cross-process"]
         },
         "typeName": {
           "type": "string",
-          "pattern": "^[A-Z][A-Za-z0-9]*V1(?:_[123])?$"
+          "pattern": "^[A-Z][A-Za-z0-9]*V1(?:_[12])?$"
         }
       },
       "allOf": [
