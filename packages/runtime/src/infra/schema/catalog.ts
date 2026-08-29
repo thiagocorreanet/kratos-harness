@@ -7,6 +7,9 @@ import hookObservationSchema from "../../../../../schemas/host/hook-observation.
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1.schema.json" with { type: "json" };
 import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2.schema.json" with { type: "json" };
+import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
+import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
+import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
@@ -15,6 +18,7 @@ import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/accept
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
 import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-verdict.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
+import curatedMemorySchema from "../../../../../schemas/state/curated-memory.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
@@ -111,6 +115,27 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: initAnswersV1_2Schema,
     },
     {
+      id: "host.memory-capture",
+      family: "host",
+      version: "1.2.0",
+      path: "schemas/host/memory-capture.v1.2.schema.json",
+      schema: memoryCaptureV1_2Schema,
+    },
+    {
+      id: "host.memory-change",
+      family: "host",
+      version: "1.2.0",
+      path: "schemas/host/memory-change.v1.2.schema.json",
+      schema: memoryChangeV1_2Schema,
+    },
+    {
+      id: "host.memory-migration",
+      family: "host",
+      version: "1.2.0",
+      path: "schemas/host/memory-migration.v1.2.schema.json",
+      schema: memoryMigrationV1_2Schema,
+    },
+    {
       id: "host.operation-message",
       family: "host",
       version: "1.0.0",
@@ -151,6 +176,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/approval.v1.schema.json",
       schema: approvalSchema,
+    },
+    {
+      id: "state.curated-memory",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/curated-memory.v1.schema.json",
+      schema: curatedMemorySchema,
     },
     {
       id: "state.event",

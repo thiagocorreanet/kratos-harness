@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.2.0",
+  "hostContract": "1.2.0",
+  "sourceDigest": "5555555555555555555555555555555555555555555555555555555555555555",
+  "reviewer": "memory-reviewer",
+  "lessons": [
+    {
+      "title": "Verify the artifact before deployment",
+      "why": ["The deployment command rejects an absent artifact."],
+      "apply": ["Build and verify the artifact before invoking deployment."],
+      "sourceRanges": [{ "startLine": 1, "endLine": 1 }]
+    }
+  ]
+}

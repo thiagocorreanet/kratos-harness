@@ -121,6 +121,7 @@ describe("state directory ignore rules in Git", () => {
       const volatilePaths = [
         ".brain/03-memory/task_log.jsonl",
         ".brain/03-memory/.cache/feature-create.json",
+        ".brain/03-memory/candidates/candidate.json",
         ".brain/02-features/auth/runs/run-1/events.jsonl",
         ".brain/events.jsonl",
         ".brain/agent.trace",
@@ -147,6 +148,7 @@ describe("state directory ignore rules in Git", () => {
         ".brain/02-features/_template/state.json",
         ".brain/02-features/active",
         ".brain/03-memory/decisions.log",
+        ".brain/03-memory/curated-memory.json",
         ".brain/03-memory/gotchas.md",
         ".brain/03-memory/task_metrics.md",
         ".brain/config.json",

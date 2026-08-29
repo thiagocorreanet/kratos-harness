@@ -9,12 +9,16 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
+// source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
+// source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
+// source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
+// source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:dec982bc9b5cdebb5ce76757fc78a379d0428bfa126dc6fefc1780fee93ad9ae
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
@@ -646,6 +650,367 @@ export namespace InitAnswersV1_2Contract {
   }
 }
 export type InitAnswersV1_2 = InitAnswersV1_2Contract.InitAnswersV1_2;
+export namespace MemoryCaptureV1_2Contract {
+  export interface MemoryCaptureV1_2 {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    observation: string;
+  }
+}
+export type MemoryCaptureV1_2 = MemoryCaptureV1_2Contract.MemoryCaptureV1_2;
+export namespace MemoryChangeV1_2Contract {
+  export type MemoryChangeV1_2 = Promote | Merge | Archive;
+  export type Id = string;
+  export type Sha256 = string;
+  export type Title = string;
+  export type Text = string;
+
+  export interface Promote {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "promote";
+    reviewer: Id;
+    /**
+     * @minItems 1
+     * @maxItems 16
+     */
+    candidateIds:
+      | [Sha256]
+      | [Sha256, Sha256]
+      | [Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ];
+    title: Title;
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    why:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    apply:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+  }
+  export interface Merge {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "merge";
+    reviewer: Id;
+    /**
+     * @minItems 2
+     * @maxItems 16
+     */
+    lessonIds:
+      | [Sha256, Sha256]
+      | [Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256, Sha256]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ]
+      | [
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+          Sha256,
+        ];
+    title: Title;
+  }
+  export interface Archive {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "archive";
+    reviewer: Id;
+    lessonId: Sha256;
+    reason: Text;
+  }
+}
+export type MemoryChangeV1_2 = MemoryChangeV1_2Contract.MemoryChangeV1_2;
+export namespace MemoryMigrationV1_2Contract {
+  export type Sha256 = string;
+  export type Id = string;
+  export type Title = string;
+  export type Text = string;
+  export type PositiveInteger = number;
+
+  export interface MemoryMigrationV1_2 {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    sourceDigest: Sha256;
+    reviewer: Id;
+    /**
+     * @minItems 1
+     * @maxItems 24
+     */
+    lessons: [Lesson, ...Lesson[]];
+  }
+  export interface Lesson {
+    title: Title;
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    why:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    apply:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+    /**
+     * @minItems 1
+     * @maxItems 64
+     */
+    sourceRanges: [SourceRange, ...SourceRange[]];
+  }
+  export interface SourceRange {
+    startLine: PositiveInteger;
+    endLine: PositiveInteger;
+  }
+}
+export type MemoryMigrationV1_2 =
+  MemoryMigrationV1_2Contract.MemoryMigrationV1_2;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage
@@ -896,6 +1261,81 @@ export namespace ApprovalV1Contract {
   }
 }
 export type ApprovalV1 = ApprovalV1Contract.ApprovalV1;
+export namespace CuratedMemoryV1Contract {
+  export type NonnegativeInteger = number;
+  export type Sha256 = string;
+  export type Timestamp = string;
+  export type Title = string;
+  export type Text = string;
+  export type Id = string;
+
+  export interface CuratedMemoryV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    revision: NonnegativeInteger;
+    projectionDigest: Sha256;
+    updatedAt: Timestamp;
+    /**
+     * @maxItems 24
+     */
+    confirmed: ConfirmedLesson[];
+    /**
+     * @maxItems 48
+     */
+    archive: ArchiveTombstone[];
+  }
+  export interface ConfirmedLesson {
+    lessonId: Sha256;
+    title: Title;
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    why:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    apply:
+      | [Text]
+      | [Text, Text]
+      | [Text, Text, Text]
+      | [Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text]
+      | [Text, Text, Text, Text, Text, Text, Text, Text];
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    candidateIds: [Sha256, ...Sha256[]];
+    reviewer: Id;
+    confirmedAt: Timestamp;
+  }
+  export interface ArchiveTombstone {
+    lessonId: Sha256;
+    title: Title;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    candidateIds: [Sha256, ...Sha256[]];
+    reviewer: Id;
+    archivedAt: Timestamp;
+    reason: Text;
+    replacementLessonId: Sha256 | null;
+  }
+}
+export type CuratedMemoryV1 = CuratedMemoryV1Contract.CuratedMemoryV1;
 export namespace EventV1Contract {
   export type Id = string;
   export type Timestamp = string;

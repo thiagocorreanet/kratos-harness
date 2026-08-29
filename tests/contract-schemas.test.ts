@@ -28,6 +28,7 @@ const artifacts = [
   ],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
   ["state/failure-candidate.v1.schema.json", "failure-candidate.json", "state"],
+  ["state/curated-memory.v1.schema.json", "curated-memory.json", "state"],
   ["state/feature.v1.schema.json", "feature.json", "state"],
   ["state/feature-scope.v1.schema.json", "feature-scope.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],

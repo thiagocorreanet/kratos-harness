@@ -2,7 +2,7 @@
   "contractVersion": "1.0.0",
   "pluginVersion": "0.0.0-development",
   "resultContract": "1.0.0",
-  "reasonCatalog": "1.8.0",
+  "reasonCatalog": "1.9.0",
   "stateContract": {
     "current": "1.2.0",
     "readable": ["1.0.0", "1.1.0", "1.2.0"],
@@ -78,6 +78,30 @@
       "typeName": "InitAnswersV1_2"
     },
     {
+      "id": "host.memory-capture",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-capture.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryCaptureV1_2"
+    },
+    {
+      "id": "host.memory-change",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-change.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryChangeV1_2"
+    },
+    {
+      "id": "host.memory-migration",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-migration.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryMigrationV1_2"
+    },
+    {
       "id": "host.operation-message",
       "family": "host",
       "version": "1.0.0",
@@ -124,6 +148,14 @@
       "path": "schemas/state/approval.v1.schema.json",
       "boundary": "persisted",
       "typeName": "ApprovalV1"
+    },
+    {
+      "id": "state.curated-memory",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/curated-memory.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "CuratedMemoryV1"
     },
     {
       "id": "state.event",

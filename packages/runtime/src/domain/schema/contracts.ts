@@ -34,6 +34,10 @@ import type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryCaptureV1_2,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
 } from "@kratos/contracts";
 
 export interface ContractValues {
@@ -43,10 +47,14 @@ export interface ContractValues {
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers":
     InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2;
+  readonly "host.memory-capture": MemoryCaptureV1_2;
+  readonly "host.memory-change": MemoryChangeV1_2;
+  readonly "host.memory-migration": MemoryMigrationV1_2;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "host.phase-handoff": PhaseHandoffV1_1;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
+  readonly "state.curated-memory": CuratedMemoryV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.event": EventV1 | EventV1_1;

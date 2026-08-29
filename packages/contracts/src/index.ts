@@ -72,6 +72,10 @@ export type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryCaptureV1_2,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
 } from "./generated/contracts.js";
 
 export type LanguagePolicyV1 = ProjectConfigV1_2Contract.LanguagePolicy;
