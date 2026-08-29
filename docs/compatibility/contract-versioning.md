@@ -1,9 +1,9 @@
 # Contract Family Versioning
 
 Kratos versions installed plugin assets, persisted project state, and host
-adapter messages independently. Publishing these contracts does not make the
-harness runtime usable: it establishes the fail-closed boundary that later
-runtime, migration, and adapter work must consume.
+adapter messages independently. Publishing these schemas establishes the
+fail-closed wire boundary; the runtime, migration, and adapter services consume
+that boundary and implement the behavior described below.
 
 ## Authoritative artifacts
 
@@ -33,18 +33,44 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-State contracts `1.0.0` and `1.1.0` are readable; only `1.1.0` is current for
-new writes. State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is
-the frozen predecessor family; both are `migration-only`. Ordinary operations
-must not treat them as current state or mutate them. An explicit migration
-planner owns their inspection and recovery. A project configuration at
-`1.0.0` is readable only to that planner and returns
-`model.config_migration_required` before phase execution.
+The state family's current global revision is `1.1.0`, and its readable window
+contains `1.0.0` and `1.1.0`. This family identity is used for bundle
+compatibility and negotiation; it is not a blanket write revision for every
+payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-Host contracts `1.0.0` and `1.1.0` are accepted for their registered payloads,
-but model routing, handoff, and execution observation require `1.1.0`. Host
-`0.9.0`, unknown earlier versions, and future versions require an adapter
-upgrade. Host compatibility is not inferred from a shared major version.
+- Role-aware state payloads `state.project-config`, `state.event`, and
+  `state.migration` write `1.1.0`.
+- Unchanged state payloads `state.acceptance-criteria-snapshot`,
+  `state.acceptance-verdict`, `state.approval`, `state.evidence`,
+  `state.failure-candidate`, `state.feature`, `state.feature-scope`,
+  `state.gap`, `state.gates`, `state.guardrails`, `state.lock`,
+  `state.requirement-discovery`, `state.run-usage`,
+  `state.session-telemetry`, `state.snapshot`,
+  `state.transaction-manifest`, and `state.transaction-progress` continue to
+  write their registered `1.0.0` revision.
+
+State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is the frozen
+predecessor family; both are `migration-only`. Ordinary operations must not
+treat them as current state or mutate them. An explicit migration planner owns
+their inspection and recovery. A project configuration at `1.0.0` is readable
+only to that planner and returns `model.config_migration_required` before phase
+execution.
+
+The host family's current global revision is also `1.1.0`, with `1.0.0` and
+`1.1.0` accepted for their registered payloads. Exact writes again follow
+`CONTRACT_VERSIONS`:
+
+- Role-aware host payloads `host.adapter-message`, `host.init-answers`, and
+  `host.phase-handoff` write `1.1.0`.
+- Unchanged host payloads `host.agent-output`, `host.gap-proposal`,
+  `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
+  continue to write their registered `1.0.0` revision.
+
+Model routing, handoff, and execution observation therefore require the
+registered `1.1.0` role-aware payloads, not a forced revision change to
+unrelated contracts. Host `0.9.0`, unknown earlier versions, and future
+versions require an adapter upgrade. Host compatibility is not inferred from a
+shared major version.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -147,9 +173,20 @@ rewrite historical `1.0.0` events, snapshots, documents, approvals, or evidence.
 readable, no migration rewrites them, and no approval or gate contract changes.
 The embedded record is host neutral and carries no new I/O or trust authority.
 
-The schemas constrain wire shape; they do not implement event replay, lock time
-evaluation, migration execution, or host transport. Those services remain
-separate backlog work.
+The schemas constrain wire shape; runtime services own the corresponding
+behavior. Event replay and chain verification are implemented by the
+[`domain/events`](../../packages/runtime/src/domain/events/) modules and their
+[`composition/events.ts`](../../packages/runtime/src/composition/events.ts)
+wiring. Lock-time policy and lifecycle are implemented by
+[`domain/locks`](../../packages/runtime/src/domain/locks/) and
+[`composition/locks.ts`](../../packages/runtime/src/composition/locks.ts).
+Migration planning, receipts, execution, and rollback are implemented by
+[`domain/migration`](../../packages/runtime/src/domain/migration/) and
+[`composition/migration.ts`](../../packages/runtime/src/composition/migration.ts).
+Host negotiation and delivery are implemented by
+[`domain/host`](../../packages/runtime/src/domain/host/) and
+[`composition/host.ts`](../../packages/runtime/src/composition/host.ts).
+Schema validation does not execute those behaviors; these runtime services do.
 
 ## Generated declarations
 

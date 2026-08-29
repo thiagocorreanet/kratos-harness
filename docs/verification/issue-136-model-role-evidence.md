@@ -18,6 +18,24 @@ does not emit warning state and does not continue once.
 This is local deterministic evidence. No pull request was created or pushed,
 and this record makes no claim that remote CI is green.
 
+## Canonical run identity
+
+The canonical implementation verification run in this record is
+`implementation-77144bf`:
+
+- Observed HEAD: `77144bfc9290117d6b88bb52ea71485842310e0a`
+- Commit subject: `docs: publish model role guarantees`
+- Invocation date: 2026-08-28, America/Sao_Paulo
+- Command: `npm run verify`
+- Result: exit 0
+
+All full-gate summaries and benchmark values below come from that one run. An
+earlier pre-commit run is not used as acceptance evidence. The
+documentation-only review correction that adds this identity follows the
+observed implementation commit; it does not claim that the correction commit
+verified itself. Its fresh post-commit verification belongs in the Task 9
+execution report.
+
 ## Acceptance evidence
 
 `A` is the focused acceptance command and `B` is the focused load-bearing
@@ -55,13 +73,16 @@ command shown in [verification commands](#verification-commands).
 
 ## Compatibility, state, migration, rollback, and security impact
 
-- **Compatibility:** Current state and host families are `1.1.0`; the current
-  reason catalog is `1.7.0`. Historical state/host `1.0.0` payloads remain
-  readable where the compatibility manifest permits them, but model-role
-  operations require current contracts. Mixed event histories remain one
-  verified hash chain. Configuration is the explicit migration exception: a
-  historical project configuration must be migrated before a model-role
-  handoff or phase result can proceed.
+- **Compatibility:** Current state and host family identities are `1.1.0`; the
+  current reason catalog is `1.7.0`. The role-aware project configuration,
+  event, migration, adapter-message, initialization-answer, and phase-handoff
+  payloads use their registered `1.1.0` revisions. Unchanged payloads continue
+  to use their exact registered `1.0.0` revisions. Historical state/host
+  `1.0.0` payloads remain readable where the compatibility manifest permits
+  them, but model-role operations require the current role-aware contracts.
+  Mixed event histories remain one verified hash chain. Configuration is the
+  explicit migration exception: a historical project configuration must be
+  migrated before a model-role handoff or phase result can proceed.
 - **State and migration:** Initialization writes explicit host-specific
   assignments for all three roles. Migration replaces only
   `.brain/config.json` after an authorized, digest-bound preview; it does not
@@ -104,7 +125,7 @@ Duration    20.17s
 Exit code   0
 ```
 
-Complete repository gate:
+Canonical implementation repository gate (`implementation-77144bf`):
 
 ```text
 npm run verify
@@ -116,18 +137,25 @@ Lint         passed with 0 warnings
 Type check   passed
 Test Files   171 passed (171)
 Tests        4608 passed (4608)
-Coverage     93.51% statements, 89.06% branches, 95.35% functions, 94.24% lines
+Test time    271.04s
+Coverage     171 files and 4608 tests passed in 420.95s
+Statements   93.51% (7309/7816)
+Branches     89.06% (5556/6238)
+Functions    95.35% (1253/1314)
+Lines        94.24% (6660/7067)
 Mutation     3 / 3 (100.00%)
 Gaps         10 / 10 found, 0 false gaps
-Performance  1,081,336 / 1,500,000 runtime bytes; 134,443 / 250,000 schema bytes
+Performance  1,081,336 / 1,500,000 runtime bytes
+Schemas      134,443 / 250,000 bytes
 Oracle       12 surfaces, 4 PRD anchors, 3 binaries verified
 Parity       discovery verified; 0 / 400 parity gaps
-Results      76 reasons, exits 0-5, and 6 examples verified
+Results      76 reasons, exits 0-5, 6 examples verified
 Contracts    33 schemas, 14 legacy profiles, generated types current
 Differential 2 / 2 self-test scenarios equal
 Build        Codex and Claude Code artifacts produced
 Packages     Codex and Claude Code verification passed
-Benchmarks   help 114.01044 ms; version 102.468202 ms; handshake 108.841431 ms; bundle 1,289,487 bytes
+Benchmark    help 111.984511 ms; version 106.236515 ms; handshake 108.745999 ms
+Bundle       1,289,487 bytes
 Exit code    0
 ```
 
@@ -158,9 +186,11 @@ refused with `model.independence_violation`; no warning state is introduced.
 
 ### Compatibility impact
 
-State and host contract families advance to `1.1.0`, the reason catalog
-advances to `1.7.0`, historical compatible records remain readable, and
-historical project configuration requires the explicit model-role migration.
+State and host family identities advance to `1.1.0`, and role-aware payloads
+use their registered `1.1.0` revisions. Unchanged payloads retain their exact
+registered `1.0.0` revisions. The reason catalog advances to `1.7.0`,
+historical compatible records remain readable, and historical project
+configuration requires the explicit model-role migration.
 
 ### State, migration, and rollback impact
 
@@ -181,7 +211,7 @@ model identity, and unobservable host execution remains null.
   `docs/verification/issue-136-model-role-evidence.md`
 - Focused verification: `npm test -- tests/model-role-resolution.test.ts tests/model-role-workflow.test.ts tests/config-migration.test.ts tests/contract-manifest.test.ts tests/contract-schemas.test.ts tests/host-adapter-contract.test.ts tests/init-command.test.ts tests/event-chain.test.ts tests/contract-documentation.test.ts` — PASS, 9 files and 275 tests
 - Load-bearing verification: `npm test -- tests/architecture.test.ts tests/runtime-distribution.test.ts tests/objective-command.test.ts tests/package-verifier.test.ts tests/contract-type-generation.test.ts tests/github-contribution-contract.test.ts` — PASS, 6 files and 166 tests
-- Full repository verification: `npm run verify` — PASS, exit 0; 171 files and 4,608 tests; coverage and all remaining gate summaries are in the evidence document
+- Full repository verification: `npm run verify` — PASS for canonical run `implementation-77144bf` at observed HEAD `77144bfc9290117d6b88bb52ea71485842310e0a`, exit 0; 171 files and 4,608 tests; coverage and all remaining gate summaries are in the evidence document
 - Diff hygiene: `git diff --check` — PASS, no output, exit 0
 - Remote CI: not observed; no green-CI claim is made
 ```
