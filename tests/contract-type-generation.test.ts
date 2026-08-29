@@ -40,6 +40,9 @@ describe("schema-derived contract declarations", () => {
     expect(after).toContain("export type HostOperationMessageV1");
     expect(after).toContain("export type CuratedMemoryV1");
     expect(after).toContain("export type MemoryChangeV1_2");
+    expect(after).toContain("candidateIds: Sha256[];");
+    expect(after).toContain("confirmed: ConfirmedLesson[];");
+    expect(after).toContain("sourceRanges: SourceRange[];");
     expect(after).toContain('kind: "create";');
     expect(after).toContain('kind: "move";');
     expect(after).toContain("source: Target;");

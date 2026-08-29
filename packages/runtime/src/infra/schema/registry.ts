@@ -8,7 +8,6 @@ import type { ValidateFunction } from "ajv/dist/2020.js";
 import type {
   ContractId,
   ContractRequest,
-  ContractValue,
   SchemaRegistry,
   ValidationDiagnostic,
 } from "../../domain/schema/index.js";
@@ -134,68 +133,65 @@ export function compileSchemaRegistry(
     throw registryIntegrityError();
   }
 
-  return Object.freeze({
-    validate<I extends ContractId, const V>(request: ContractRequest<I, V>) {
-      const id = request.id;
-      const family = families.get(id);
-      if (family === undefined) throw registryIntegrityError();
-      const requestedContractVersion = request.version;
-      const classification = classifyContractVersion(
-        family,
-        requestedContractVersion,
-      );
-      if (classification.classification !== "current") {
-        try {
-          return {
-            kind: "invalid" as const,
-            diagnostics: [
-              versionDiagnostic(id, requestedContractVersion, classification),
-            ],
-          };
-        } catch {
-          throw registryIntegrityError();
-        }
-      }
-
-      const version = classification.selectedVersion;
-      if (version === null) throw registryIntegrityError();
-      const validator = validators.get(registryKey(id, version));
-      if (validator === undefined) throw registryIntegrityError();
+  const validate = (request: ContractRequest<ContractId>) => {
+    const id = request.id;
+    const family = families.get(id);
+    if (family === undefined) throw registryIntegrityError();
+    const requestedContractVersion = request.version;
+    const classification = classifyContractVersion(
+      family,
+      requestedContractVersion,
+    );
+    if (classification.classification !== "current") {
       try {
-        const structuralReasonCode = request.structuralReasonCode;
-        const value = request.value;
-        if (!isInertJsonData(value)) {
-          return {
-            kind: "invalid" as const,
-            diagnostics: dataShapeDiagnostics(
-              id,
-              version,
-              structuralReasonCode,
-            ),
-          };
-        }
-        if (!validator(value)) {
-          return {
-            kind: "invalid" as const,
-            diagnostics: normalizeAjvDiagnostics(
-              validator.errors,
-              id,
-              version,
-              structuralReasonCode,
-            ),
-          };
-        }
         return {
-          kind: "valid" as const,
-          // AJV accepted this exact request's schema, so this is the sole
-          // runtime boundary that may connect its unknown input to V.
-          value: value as ContractValue<I, V>,
+          kind: "invalid" as const,
+          diagnostics: [
+            versionDiagnostic(id, requestedContractVersion, classification),
+          ],
         };
       } catch {
         throw registryIntegrityError();
       }
-    },
-  });
+    }
+
+    const version = classification.selectedVersion;
+    if (version === null) throw registryIntegrityError();
+    const validator = validators.get(registryKey(id, version));
+    if (validator === undefined) throw registryIntegrityError();
+    try {
+      const structuralReasonCode = request.structuralReasonCode;
+      const value = request.value;
+      if (!isInertJsonData(value)) {
+        return {
+          kind: "invalid" as const,
+          diagnostics: dataShapeDiagnostics(id, version, structuralReasonCode),
+        };
+      }
+      if (!validator(value)) {
+        return {
+          kind: "invalid" as const,
+          diagnostics: normalizeAjvDiagnostics(
+            validator.errors,
+            id,
+            version,
+            structuralReasonCode,
+          ),
+        };
+      }
+      return {
+        kind: "valid" as const,
+        // AJV accepted this exact request's schema. The public registry
+        // signature reconnects this runtime-validated value to its selected
+        // contract type without forcing TypeScript to expand every contract
+        // union at this generic implementation boundary.
+        value,
+      };
+    } catch {
+      throw registryIntegrityError();
+    }
+  };
+  return Object.freeze({ validate }) as SchemaRegistry;
 }
 
 export function ajvSchemaRegistry(): SchemaRegistry {

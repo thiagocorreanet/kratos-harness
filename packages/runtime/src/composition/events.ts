@@ -18,6 +18,8 @@ import {
 import {
   canonicalizeJson,
   prepareContract,
+  type ContractId,
+  type ContractRequest,
   type SchemaRegistry,
 } from "../domain/schema/index.js";
 import type { PathFingerprint } from "../domain/transactions/index.js";
@@ -389,6 +391,11 @@ function trustedServices<State>(
   const isPromise = tracker.call(() => services.isPromise ?? types.isPromise);
   const rawDigests = tracker.call(() => services.digests);
   const rawSchemaRegistry = tracker.call(() => services.schemaRegistry);
+  const rawValidate = rawSchemaRegistry.validate.bind(rawSchemaRegistry) as (
+    request: ContractRequest<ContractId>,
+  ) => unknown;
+  const trackedValidate = (request: ContractRequest<ContractId>): unknown =>
+    tracker.call(() => rawValidate(request));
   return {
     durableFileSystem: tracker.call(() => services.durableFileSystem),
     events: {
@@ -398,8 +405,7 @@ function trustedServices<State>(
       isProxy: (value) => tracker.call(() => isProxy(value)),
       isPromise: (value) => tracker.call(() => isPromise(value)),
       schemaRegistry: {
-        validate: (request) =>
-          tracker.call(() => rawSchemaRegistry.validate(request)),
+        validate: trackedValidate as SchemaRegistry["validate"],
       },
     },
   };

@@ -189,6 +189,33 @@ function adapterMessageV1_1TypeSchema(schema) {
   };
 }
 
+/**
+ * Runtime schemas enforce memory collection cardinality. Keeping every
+ * bounded array as a TypeScript tuple union turns the published memory types
+ * into an exponentially large domain, which the compiler cannot carry through
+ * the generic schema registry. Generated declarations retain their closed,
+ * discriminated shapes while representing those runtime-validated collections
+ * as ordinary arrays.
+ */
+function memoryTypeSchema(schema) {
+  function withoutArrayBounds(value) {
+    if (Array.isArray(value)) return value.map(withoutArrayBounds);
+    if (value === null || typeof value !== "object") return value;
+    const copy = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        withoutArrayBounds(child),
+      ]),
+    );
+    if (copy.type === "array") {
+      delete copy.minItems;
+      delete copy.maxItems;
+    }
+    return copy;
+  }
+  return withoutArrayBounds(schema);
+}
+
 function schemaForTypeGeneration(id, schema) {
   if (id === "host.agent-output") {
     return agentOutputTypeSchema(schema);
@@ -204,6 +231,13 @@ function schemaForTypeGeneration(id, schema) {
     schema.$id === "https://kratos.dev/schemas/host/adapter-message/v1.1"
   ) {
     return adapterMessageV1_1TypeSchema(schema);
+  }
+  if (
+    id === "host.memory-change" ||
+    id === "host.memory-migration" ||
+    id === "state.curated-memory"
+  ) {
+    return memoryTypeSchema(schema);
   }
   return schema;
 }

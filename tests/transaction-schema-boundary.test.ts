@@ -1,5 +1,7 @@
 import {
   canonicalizeJson,
+  type ContractId,
+  type ContractRequest,
   type SchemaRegistry,
 } from "@kratos/runtime/domain/schema";
 import {
@@ -59,12 +61,14 @@ describe("transaction schema boundary", () => {
     });
     const production = createSchemaRegistry();
     const requests: { readonly id: string; readonly version: unknown }[] = [];
-    const tracking: SchemaRegistry = {
-      validate: (request) => {
-        requests.push({ id: request.id, version: request.version });
-        return production.validate(request);
-      },
+    const rawValidate = production.validate.bind(production) as (
+      request: ContractRequest<ContractId>,
+    ) => unknown;
+    const validate = (request: ContractRequest<ContractId>): unknown => {
+      requests.push({ id: request.id, version: request.version });
+      return rawValidate(request);
     };
+    const tracking = { validate } as SchemaRegistry;
     const injected = services(storage, tracking);
 
     await executeManagedMutation(
@@ -342,12 +346,14 @@ describe("transaction schema boundary", () => {
       directories: [".brain/transactions"],
     });
     const production = createSchemaRegistry();
-    const rejecting: SchemaRegistry = {
-      validate: (request) =>
-        request.id === "state.transaction-manifest"
-          ? { kind: "invalid", diagnostics: [] }
-          : production.validate(request),
-    };
+    const rawValidate = production.validate.bind(production) as (
+      request: ContractRequest<ContractId>,
+    ) => unknown;
+    const validate = (request: ContractRequest<ContractId>): unknown =>
+      request.id === "state.transaction-manifest"
+        ? { kind: "invalid", diagnostics: [] }
+        : rawValidate(request);
+    const rejecting = { validate } as SchemaRegistry;
 
     await expect(
       executeManagedMutation(
@@ -514,14 +520,16 @@ describe("transaction schema boundary", () => {
       { rootMode: "existing" },
       services(storage, production),
     );
-    const throwing: SchemaRegistry = {
-      validate: (request) => {
-        if (request.id === "state.transaction-manifest") {
-          throw new Error("registry detail");
-        }
-        return production.validate(request);
-      },
+    const rawValidate = production.validate.bind(production) as (
+      request: ContractRequest<ContractId>,
+    ) => unknown;
+    const validate = (request: ContractRequest<ContractId>): unknown => {
+      if (request.id === "state.transaction-manifest") {
+        throw new Error("registry detail");
+      }
+      return rawValidate(request);
     };
+    const throwing = { validate } as SchemaRegistry;
 
     await expect(
       inspectManagedTransactions(services(storage, throwing)),
