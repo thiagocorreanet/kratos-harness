@@ -8,6 +8,7 @@ import type {
   HostOperationMessageV1,
   InitAnswersV1,
   InitAnswersV1_1,
+  InitAnswersV1_2,
   EventV1,
   EventV1_1,
   EvidenceV1,
@@ -24,6 +25,7 @@ import type {
   PhaseHandoffV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,
+  ProjectConfigV1_2,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -39,7 +41,8 @@ export interface ContractValues {
   readonly "host.agent-output": AgentOutputV1;
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.hook-observation": HookObservationV1;
-  readonly "host.init-answers": InitAnswersV1 | InitAnswersV1_1;
+  readonly "host.init-answers":
+    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "host.phase-handoff": PhaseHandoffV1_1;
   readonly "host.pre-tool-use": PreToolUseV1;
@@ -56,7 +59,8 @@ export interface ContractValues {
   readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
-  readonly "state.project-config": ProjectConfigV1 | ProjectConfigV1_1;
+  readonly "state.project-config":
+    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.run-usage": RunUsageV1;
   readonly "state.session-telemetry": SessionTelemetryV1;
