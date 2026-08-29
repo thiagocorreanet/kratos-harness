@@ -18,6 +18,7 @@
     "performance:check": "node scripts/check-performance.mjs",
     "benchmark": "node scripts/run-benchmarks.mjs",
     "eval:calibrate": "node scripts/calibrate-model-evals.mjs",
+    "eval:prompts": "node scripts/evaluate-prompts.mjs",
     "gaps:calibrate": "node scripts/check-gap-calibration.mjs",
     "mutation:check": "node scripts/run-mutation.mjs",
     "plugin:install": "node scripts/install-plugin.mjs",
