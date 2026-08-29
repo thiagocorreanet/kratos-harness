@@ -352,7 +352,7 @@ async function observeConfig(
           destinationDigest,
           planTime,
         );
-  if (completed === null || completed.rollback.kind !== "replace") {
+  if (completed?.rollback.kind !== "replace") {
     return resultFailure("runtime.state_corrupt");
   }
   const missing = { kind: "missing" } as const;
@@ -511,7 +511,7 @@ interface ConfigLineageContext {
   readonly defaulted: readonly string[];
 }
 
-type ConfigAttemptGuard = {
+interface ConfigAttemptGuard {
   readonly path: string;
   readonly content: string;
   readonly expected: {
@@ -519,7 +519,7 @@ type ConfigAttemptGuard = {
     readonly size: number;
     readonly sha256: string;
   };
-};
+}
 
 const MAX_CONFIG_MIGRATION_ATTEMPTS = 10_000;
 
@@ -571,7 +571,9 @@ async function nextConfigAttempt(
   const guards: ConfigAttemptGuard[] = [];
   for (const index of lineage) {
     const candidate =
-      index === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${index}`;
+      index === 1
+        ? baseMigrationId
+        : `${baseMigrationId}-attempt-${String(index)}`;
     const observed = await observePriorConfigAttempt(
       candidate,
       context,
@@ -585,7 +587,9 @@ async function nextConfigAttempt(
   return {
     kind: "attempt",
     migrationId:
-      next === 1 ? baseMigrationId : `${baseMigrationId}-attempt-${next}`,
+      next === 1
+        ? baseMigrationId
+        : `${baseMigrationId}-attempt-${String(next)}`,
     guards,
   };
 }
@@ -1047,9 +1051,9 @@ async function observeConfigReplacement(
     receipt.verificationRefs.length !== 1 ||
     receipt.verificationRefs[0] !== `${root}/verification.json` ||
     receipt.conversions.length !== 1 ||
-    receipt.conversions[0]?.payloadContract !== "state.project-config" ||
-    receipt.conversions[0]?.sourceDigest !== receipt.backupDigest ||
-    receipt.conversions[0]?.destinationDigest !==
+    receipt.conversions[0].payloadContract !== "state.project-config" ||
+    receipt.conversions[0].sourceDigest !== receipt.backupDigest ||
+    receipt.conversions[0].destinationDigest !==
       receipt.rollback.destinationDigest ||
     !validConfigRollbackManifest(rollbackManifest, receipt)
   ) {

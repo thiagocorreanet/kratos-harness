@@ -183,6 +183,41 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
+Current `host.init-answers@1.1.0` also accepts `modelRoles`, keyed by enabled
+configuration host. Every supplied host map is closed to `planner`,
+`implementer`, and `judge`. Each assignment is either a bare model name or
+`{ "model": NAME, "effort": EFFORT }`; a bare name normalizes exactly to the
+object form with `effort: "medium"`.
+
+```json
+{
+  "contractVersion": "1.1.0",
+  "hostContract": "1.1.0",
+  "hosts": ["codex"],
+  "modelRoles": {
+    "codex": {
+      "planner": "gpt-5.6-terra",
+      "implementer": { "model": "gpt-5.6-sol", "effort": "high" },
+      "judge": { "model": "gpt-5.6-terra", "effort": "medium" }
+    }
+  }
+}
+```
+
+When a host map is omitted, composition asks that enabled host's adapter for
+its versioned defaults. The runtime resolves aliases to canonical identities,
+validates every effort, and compares the canonical implementer and judge before
+planning any effect. Equal identities return `model.independence_violation`;
+missing or invalid facts fail without cross-role, model, alias, or effort
+fallback. The earlier one-time-warning proposal was removed by owner decision:
+initialization never writes warning state for a non-independent configuration.
+
+Success discloses each defaulted answer and persists complete canonical object
+assignments in `.brain/config.json`. Later commands therefore use project state,
+not whatever defaults a newer adapter happens to ship. Prompt text does not
+choose roles or enforce independence; prompts only report phase output to the
+runtime-owned policy boundary.
+
 With no pipe and no `--answers`, `init` waits on standard input the way any
 filter does. In a terminal it does not: reading a TTY would hang the process
 waiting on a person who was never asked for anything.
@@ -230,6 +265,9 @@ the published result says so.
 | The project was initialized, or already matched the answers | `trail.ok` |
 | A managed destination exists without markers and no flag authorizes it | `guard.outside_allow` |
 | The answers document fails validation | its contract reason |
+| An enabled host has no model catalog | `model.resolution_unavailable` |
+| A role is missing or its effort is unsupported | the matching `model.*` refusal |
+| Implementer and judge resolve to one canonical model | `model.independence_violation` |
 | A managed section is malformed | `runtime.state_corrupt` |
 | An incomplete transaction blocks the commit | `runtime.recovery_required` |
 | A destination moved between the decision and the commit | `runtime.revision_conflict` |

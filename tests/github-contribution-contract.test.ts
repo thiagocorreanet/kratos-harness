@@ -273,6 +273,18 @@ describe("pull request and contribution workflow contract", () => {
     expect(template).toMatch(/not a substitute for deterministic tests/i);
     expect(template).toMatch(/Signed-off-by|DCO/);
     expect(template).toMatch(/normative English/i);
+
+    const deterministic =
+      /## Deterministic test evidence\n(?<body>[\s\S]*?)\n## Prompt and model evaluations/u.exec(
+        template,
+      )?.groups?.body;
+    expect(deterministic).toBeDefined();
+    expect(deterministic).toMatch(/^- Acceptance evidence record:/mu);
+    expect(deterministic).toMatch(/^- Focused verification:/mu);
+    expect(deterministic).toMatch(
+      /^- Full repository verification: `npm run verify`/mu,
+    );
+    expect(deterministic).toMatch(/^- Diff hygiene: `git diff --check`/mu);
   });
 
   it("documents labels, milestones, stable IDs, and proposed branches", async () => {

@@ -154,7 +154,6 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: PayloadContract;
         payload: KratosUniversalResultV1;
-        phaseExecution?: PhaseExecution;
         correlationId: Id;
       }
     | {
@@ -168,7 +167,6 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: "host.model-catalog@1.1.0";
         payload: ModelCatalog;
-        phaseExecution?: PhaseExecution;
         correlationId: Id;
       }
     | {
@@ -182,7 +180,6 @@ export namespace AdapterMessageV1_1Contract {
         observedIdentity: ObservedIdentity;
         payloadContract: "host.phase-execution@1.1.0";
         payload: PhaseExecution;
-        phaseExecution?: PhaseExecution;
         correlationId: Id;
       };
   export type Id = string;

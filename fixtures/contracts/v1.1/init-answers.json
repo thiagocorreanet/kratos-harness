@@ -1,15 +1,20 @@
 {
   "contractVersion": "1.1.0",
   "hostContract": "1.1.0",
-  "hosts": ["codex"],
+  "hosts": ["claude", "codex"],
   "language": "en",
   "policyMode": "standard",
   "snapshots": true,
   "modelRoles": {
+    "claude": {
+      "planner": "sonnet",
+      "implementer": { "model": "opus", "effort": "medium" },
+      "judge": "sonnet"
+    },
     "codex": {
-      "planner": "gpt-5-plan",
-      "implementer": { "model": "gpt-5-code", "effort": "high" },
-      "judge": { "model": "gpt-5-review", "effort": "medium" }
+      "planner": "gpt-5.6-terra",
+      "implementer": { "model": "gpt-5.6-sol", "effort": "high" },
+      "judge": { "model": "gpt-5.6-terra", "effort": "medium" }
     }
   }
 }

@@ -11,5 +11,4 @@ export type {
   ValidationResult,
 } from "./validation.js";
 export { CanonicalJsonError, canonicalizeJson } from "./canonical-json.js";
-export { declaredContractVersion } from "./contract-version.js";
 export { prepareContract, type PreparedContract } from "./prepare.js";

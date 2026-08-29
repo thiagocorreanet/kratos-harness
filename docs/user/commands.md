@@ -25,6 +25,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `handoff` | Derive a phase handoff | No |
 | `hook` | Accept one versioned host operation from standard input | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
+| `migrate config` | Preview or authorize the `1.0.0` to `1.1.0` configuration replacement | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
 | `repair` | Preview or explicitly authorize a safe repair | Conditional |
@@ -34,3 +35,49 @@ also accept `--root PATH` where shown by `kratos help`.
 Unknown commands, missing flags, invalid transitions, stale revisions, and
 failed gates return a stable nonzero exit code and a recovery description.
 Never automate by scraping human output; use `--json`.
+
+## Model-role command behavior
+
+`kratos init` consumes `host.init-answers@1.1.0` from standard input or
+`--answers PATH`. Explicit host role maps override adapter defaults. Omitted
+maps are filled only from the corresponding enabled host catalog, and every
+default is disclosed and persisted after canonical resolution. Initialization
+fails before writing when roles are incomplete, unresolved, unsupported, or
+non-independent.
+
+`kratos handoff [--json]` is read-only. It maps the current phase to the fixed
+runtime role, resolves the canonical model and effort, and returns both that
+assignment and `assignmentDigest`. The digest binds the exact configuration
+digest, run ID, revision, phase, host, role, model, and effort. Request a new
+handoff after `model.assignment_stale`; no prior digest is silently refreshed.
+
+For host-driven `kratos agent record REF`, the adapter request carries the
+handoff digest plus nullable host-observed model and effort, bound to the exact
+referenced output bytes. A known mismatch returns
+`model.execution_mismatch`. With no host execution report, direct CLI recording
+persists `model: null` and `effort: null`; `--model` remains diagnostic input and
+does not manufacture an observation.
+
+## Configuration migration commands
+
+Preview a pre-role configuration with answers from a file:
+
+```bash
+kratos migrate config --answers model-roles.json --root PATH
+```
+
+The preview performs no writes and prints the source, destination, answers,
+catalog, and plan digests; confirmed hosts; every canonical assignment and
+default; the plan time; six exact write paths; and the complete apply command.
+Apply requires the exact caller-carried values:
+
+```bash
+kratos migrate config --answers model-roles.json --root PATH \
+  --yes --plan-digest SHA256 --plan-time INSTANT
+```
+
+`--yes` alone is insufficient. Source, answer bytes, catalog facts, timestamp,
+or output-byte drift returns a revision conflict rather than silently making a
+different plan. `kratos migrate rollback ID --root PATH` restores the exact
+backed-up configuration only while the current destination and complete audit
+bundle still match the receipt.

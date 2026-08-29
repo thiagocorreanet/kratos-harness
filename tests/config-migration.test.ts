@@ -1092,7 +1092,7 @@ describe("configuration migration", () => {
     const durable = run.ports.durableFileSystem;
     let receiptInspections = 0;
     const attempts = Array.from({ length: 10_000 }, (_, index) =>
-      index === 0 ? migrationId : `${migrationId}-attempt-${index + 1}`,
+      index === 0 ? migrationId : `${migrationId}-attempt-${String(index + 1)}`,
     );
     const ports: RuntimePorts = {
       ...run.ports,
@@ -1144,7 +1144,7 @@ describe("configuration migration", () => {
     expect(await runAuthorizedConfigMigration(run)).toBe(0);
     const retried = run.storage.snapshot().files;
     const roots = Object.keys(retried)
-      .filter((path) => /\/receipt\.json$/u.test(path))
+      .filter((path) => path.endsWith("/receipt.json"))
       .map((path) => path.slice(0, -"/receipt.json".length))
       .filter((root) => root.startsWith(".brain/migrations/config-"))
       .sort();

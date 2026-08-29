@@ -17,13 +17,13 @@ import {
   type Result,
 } from "../domain/result/index.js";
 import {
-  declaredContractVersion,
   prepareContract,
   type SchemaRegistry,
 } from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan, previewPlan, type MutationPreview } from "./index.js";
+import { declaredContractVersion } from "./contract-version.js";
 import { observeInitialization } from "./init.js";
 import { observeHostOperation } from "./host.js";
 import { observeStopLossUnlock } from "./unlock.js";

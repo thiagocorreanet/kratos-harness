@@ -1,9 +1,9 @@
 # Append-Only Event Store Integrity
 
 Issue [#21](https://github.com/thiagocorreanet/kratos-harness/issues/21)
-(`RUN-06`) provides an internal event-store boundary for the deterministic
-runtime. It does not add a public command: the staged bundle still exposes only
-`help`, `version`, and `handshake`.
+(`RUN-06`) provides the internal event-store boundary for the deterministic
+runtime. Workflow commands append through this boundary; callers never select
+an event path or bypass verification.
 
 ## Run ownership and layout
 
@@ -43,9 +43,9 @@ mark, CRLF, blank records, non-canonical bytes, and an unterminated final
 record.
 
 `eventHash` is the lower-case SHA-256 digest of canonical unsigned event bytes.
-Those bytes contain every `EventV1` field except `eventHash`, including
-`previousHash`. The complete validated event, including its `eventHash`, is the
-stored line.
+Those bytes contain every field of the event's exact declared revision except
+`eventHash`, including `previousHash`. The complete validated event, including
+its `eventHash`, is the stored line.
 
 The first event has `previousHash: null`, `priorRevision: 0`, and
 `resultingRevision: 1`. Every successor must meet all of these invariants:
@@ -65,6 +65,39 @@ only semantic append-only exact-prefix extension.
 SHA-256 chaining supplies tamper evidence for protected event content and
 ordering. It is not authentication of an author or of `observedIdentity`; the
 event store does not sign events or establish authority.
+
+## Mixed revisions and phase execution provenance
+
+The parser selects each line's exact registered schema from its inert
+`stateContract` data property. `state.event@1.0.0` remains readable and
+byte-identical; current writes use `state.event@1.1.0`. A valid post-migration
+stream may therefore contain both revisions in one continuous chain:
+
+```text
+state.event@1.0.0 → state.event@1.0.0 → state.event@1.1.0
+```
+
+Verification does not upgrade old bytes or apply the current schema to a legacy
+record. It validates each record against its exact revision, then checks one
+contiguous revision sequence, predecessor hash chain, and replay result across
+the whole stream. Configuration migration never rewrites an event or snapshot.
+
+Current phase-scoped events separate selected policy from observed execution:
+
+- `resolvedAssignment` contains the runtime-selected phase, role, canonical
+  model, and effort. It is required for phase-output recording and the accepted
+  or completed transition based on that output.
+- `observedIdentity` contains the configuration host and only the model and
+  effort a validated host envelope reported. Either execution field may be
+  `null`; unknown stays unknown and never inherits a configured, CLI, prompt,
+  or agent-authored value.
+
+The fixed mapping is `prd/spec/plan → planner`, `code → implementer`, and
+`review/acceptance → judge`. Runtime composition re-resolves all three roles,
+canonical implementer/judge independence, and the handoff digest before append.
+Stale selection or known execution mismatch produces a `model.*` refusal and no
+event. Lease, recovery, transaction, and run-start facts do not fabricate a
+phase assignment.
 
 ## Replay and snapshot binding
 
@@ -133,12 +166,14 @@ the expected tail and make stale truncation `runtime.state_corrupt`.
 
 ## Bounded metadata boundary
 
-Only the closed metadata-only `EventV1` envelope is persisted. It has no raw
-payload, source content, exception, environment, credential, or message field;
-there are no raw prompts in the event store. The draft boundary copies only the
-closed fields, safe relative references, and observed identity metadata before
-sealing. Sensitive evidence remains with its owning component and is referenced
-by approved metadata rather than copied into history.
+Only the closed metadata-only `EventV1` or `EventV1_1` envelope is persisted. It
+has no raw payload, source content, exception, environment, credential, prompt,
+or message field; there are no raw prompts in the event store. The draft
+boundary copies only the closed fields, safe
+relative references, runtime-resolved assignment, and validated observed
+identity metadata before sealing. Sensitive evidence remains with its owning
+component and is referenced by approved metadata rather than copied into
+history.
 
 The parser measures UTF-8 bytes before replay and refuses a record over
 64 KiB, a stream over 64 MiB, or more than 100,000 events. These limits and the

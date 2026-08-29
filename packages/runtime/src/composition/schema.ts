@@ -1,11 +1,10 @@
 import { CONTRACT_VERSIONS } from "@kratos/contracts";
 
 import type { ConfigurationValidator } from "../domain/project/index.js";
-import {
-  declaredContractVersion,
-  type SchemaRegistry,
-} from "../domain/schema/index.js";
+import type { SchemaRegistry } from "../domain/schema/index.js";
 import { ajvSchemaRegistry } from "../infra/schema/index.js";
+
+import { declaredContractVersion } from "./contract-version.js";
 
 const productionSchemaRegistry = ajvSchemaRegistry();
 

@@ -20,8 +20,8 @@ the metadata-only Go v3 migration profiles.
 | Identity | Current | Owner |
 | --- | --- | --- |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
-| `stateContract` | `1.0.0` | Persisted `.brain/` configuration and history |
-| `hostContract` | `1.0.0` | Cross-process adapter request and response messages |
+| `stateContract` | `1.1.0` | Persisted `.brain/` configuration and history |
+| `hostContract` | `1.1.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
 and the numeric `schema_version` field inside a legacy payload is not converted
@@ -33,14 +33,18 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-State contract `1.0.0` is readable and writable. State `0.9.0` is a synthetic
-previous fixture and `go-v3@0.6.5` is the frozen predecessor family; both are
-`migration-only`. Ordinary operations must not read them as current state or
-mutate them. An explicit migration planner owns their inspection and recovery.
+State contracts `1.0.0` and `1.1.0` are readable; only `1.1.0` is current for
+new writes. State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is
+the frozen predecessor family; both are `migration-only`. Ordinary operations
+must not treat them as current state or mutate them. An explicit migration
+planner owns their inspection and recovery. A project configuration at
+`1.0.0` is readable only to that planner and returns
+`model.config_migration_required` before phase execution.
 
-Host contract `1.0.0` is accepted. Host `0.9.0`, unknown earlier versions, and
-future versions require an adapter upgrade. Host compatibility is not inferred
-from a shared major version.
+Host contracts `1.0.0` and `1.1.0` are accepted for their registered payloads,
+but model routing, handoff, and execution observation require `1.1.0`. Host
+`0.9.0`, unknown earlier versions, and future versions require an adapter
+upgrade. Host compatibility is not inferred from a shared major version.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -99,6 +103,24 @@ request. Existing write and scope reasons retain their published failure / exit
 additive schemas, and the optional `writeBlocks` field keeps an existing
 `state.guardrails@1.0.0` record valid. No state migration is required.
 
+Revision `1.7.0` preserves those 99 entries and appends eight fail-closed model
+role outcomes in
+[`reason-codes.v1.7.json`](../../packages/contracts/catalogs/reason-codes.v1.7.json):
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `model.role_missing` | 3 | The mapped role is absent for the active host |
+| `model.host_missing` | 3 | The active host has no role map |
+| `model.resolution_unavailable` | 3 | The catalog cannot produce one canonical model |
+| `model.effort_unsupported` | 3 | The canonical model does not support the requested effort |
+| `model.independence_violation` | 3 | Implementer and judge resolve to the same canonical model |
+| `model.assignment_stale` | 3 | The digest-bound handoff no longer matches current state |
+| `model.execution_mismatch` | 3 | Known host execution differs from the selected assignment |
+| `model.config_migration_required` | 4 | The project configuration predates explicit role assignments |
+
+Strict refusal replaces the earlier contradictory one-time-warning proposal by
+owner decision. No warning receipt or warning state exists.
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied
@@ -106,13 +128,20 @@ version value.
 
 ## Current payload schemas
 
-Seventeen persisted state schemas include project configuration, requirement
+Current state schemas include project configuration, requirement
 discovery, workflow facts, snapshots, events, approvals, evidence metadata,
 feature scope, guardrails, lock leases, migrations, and transaction records.
-Six host schemas cover adapter messages, phase-agent output, gap proposals,
+Host schemas cover adapter messages, phase-agent output, gap proposals,
 initialization answers, operation delivery, and normalized pre-tool mutation
-requests. All are JSON Schema 2020-12 documents with closed objects and exact
-family identities.
+requests, plus phase handoff. All are JSON Schema 2020-12 documents with closed
+objects and exact family identities.
+
+The `1.1.0` additions are `state.project-config`, `state.event`,
+`state.migration`, `host.init-answers`, `host.adapter-message`, and
+`host.phase-handoff`. A mixed event stream is valid: each line selects its exact
+registered schema before the continuous revision and hash chain is verified.
+Migration changes only `.brain/config.json` and its audit bundle; it does not
+rewrite historical `1.0.0` events, snapshots, documents, approvals, or evidence.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.

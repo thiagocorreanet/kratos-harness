@@ -39,6 +39,7 @@ Kratos makes those answers executable:
 | Concurrent operation | Recoverable leases and fencing tokens for project and run scopes |
 | Contract-first integration | Versioned schemas, reason codes, results, and host messages |
 | Host neutrality | Thin Codex and Claude Code adapters around the same runtime policy |
+| Independent phase roles | Host-specific planner, implementer, and judge assignments with strict canonical separation |
 | Project ownership | Durable project state under a project-owned `.brain/` directory |
 
 The foundation includes versioned contracts, schemas, reason codes, and stable
@@ -77,6 +78,13 @@ stable result and reason-code contract. The
 embedded schemas, performs validation before domain use, and emits canonical
 JSON at persistence boundaries.
 
+Model routing follows the same authority split. The runtime owns the fixed map
+`prd/spec/plan → planner`, `code → implementer`, and
+`review/acceptance → judge`, and blocks canonical implementer/judge equality.
+Adapters supply only host-native defaults, aliases, supported efforts, and
+nullable observations. There is no cross-role fallback, and prompts do not own
+the independence decision.
+
 Persistence uses canonical JSON.
 
 For the complete component, data, security, and runtime analysis, see the
@@ -108,6 +116,13 @@ flowchart LR
 an expected revision. `done` completes only final acceptance. Duplicate
 correlation identifiers are idempotent, while stale revisions, failed gates,
 missing evidence, or mismatched runs fail closed with actionable reason codes.
+
+`handoff` resolves the current phase to a canonical host assignment and binds
+configuration, run, revision, phase, host, role, model, and effort in one
+digest. Phase-result recording revalidates that assignment before append and
+keeps runtime-selected metadata separate from nullable host-observed model and
+effort. Unknown execution stays `null`; it is never inferred from configuration,
+CLI flags, prompts, or agent output.
 
 ## Repository map
 
@@ -169,6 +184,13 @@ Kratos keeps durable state under `.brain/` and may reconcile bounded sections
 of `.claude/` and `.codex/`, plus `CLAUDE.md` and `AGENTS.md`. Managed writes remain
 inside the declared transaction surface and preserve user-owned content outside
 explicit markers.
+
+Current configuration persists complete canonical `planner`, `implementer`, and
+`judge` assignments per enabled host. Pre-role `1.0.0` configuration requires
+an explicit, digest-bound `kratos migrate config` preview and apply. Migration
+replaces only the configuration and audit bundle; mixed `1.0.0`/`1.1.0` event
+history remains byte-preserved and verifiable, and guarded rollback restores
+the exact prior configuration.
 
 The event chain provides tamper evidence, not author authentication. Evidence
 classification is metadata, not encryption. Secrets, credentials, raw prompts,

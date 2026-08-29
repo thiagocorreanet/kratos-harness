@@ -198,6 +198,23 @@ describe("versioned state and host schemas", () => {
         },
       }),
     ).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: { codex: { ...roles, planner: "invalid model" } },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: {
+          codex: {
+            ...roles,
+            planner: { model: "model-x", effort: "invalid effort" },
+          },
+        },
+      }),
+    ).toBe(false);
 
     const eventValidate = ajv.compile(event.schema);
     const observed = event.fixture.observedIdentity as JsonObject;

@@ -528,6 +528,7 @@ describe("the repository obeys its own rules", () => {
       "packages/runtime/src/domain/events/redaction.ts",
       "packages/runtime/src/domain/events/reduce.ts",
       "packages/runtime/src/domain/events/seal.ts",
+      "packages/runtime/src/domain/events/semantics.ts",
       "packages/runtime/src/domain/events/verify.ts",
     ]);
   });

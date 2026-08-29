@@ -50,17 +50,19 @@ function closedObjectVariant(schema, constraints) {
     throw new Error("closed schema cannot produce a generated union");
   }
   const properties = Object.fromEntries(
-    Object.entries(schema.properties).map(([name, definition]) => [
-      name,
-      constraints[name] === undefined
-        ? definition
-        : mergeConstraint(definition, constraints[name]),
-    ]),
+    Object.entries(schema.properties)
+      .filter(([name]) => constraints[name] !== false)
+      .map(([name, definition]) => [
+        name,
+        constraints[name] === undefined
+          ? definition
+          : mergeConstraint(definition, constraints[name]),
+      ]),
   );
   return {
     type: schema.type,
     additionalProperties: schema.additionalProperties,
-    required: schema.required,
+    required: schema.required.filter((name) => constraints[name] !== false),
     properties,
   };
 }

@@ -6,9 +6,59 @@ Kratos resolves explicit command flags first, then project configuration, then
 documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
-The project configuration records plugin and host contracts, language, policy
-mode, enabled hosts, and managed state paths. Secrets, tokens, prompts, and
-private keys are prohibited.
+The current `state.project-config@1.1.0` records plugin and host contracts,
+language, policy mode, host-specific model roles, and managed state paths.
+Secrets, tokens, prompts, and private keys are prohibited. Historical
+configuration `1.0.0` is readable only for explicit migration and cannot
+authorize phase execution.
+
+## Model roles and fixed phase mapping
+
+`modelRoles` is keyed by `claude` and `codex`. Each enabled host has exactly
+`planner`, `implementer`, and `judge`; the non-empty host key set is the enabled
+host set. There is no separate enabled-host field and no configurable phase
+mapping that could disagree with runtime policy.
+
+| Phase | Required role |
+| --- | --- |
+| `prd`, `spec`, `plan` | `planner` |
+| `code` | `implementer` |
+| `review`, `acceptance` | `judge` |
+
+A role assignment may be a bare host model name or a closed object containing
+`model` and `effort`. A bare value always normalizes to the object form with
+`effort: "medium"`:
+
+```json
+{
+  "modelRoles": {
+    "codex": {
+      "planner": "gpt-5.6-terra",
+      "implementer": { "model": "gpt-5.6-sol", "effort": "high" },
+      "judge": { "model": "gpt-5.6-terra", "effort": "medium" }
+    }
+  }
+}
+```
+
+The runtime resolves configured names through the active host's versioned
+catalog and persists canonical model identities. Every phase resolution checks
+the complete host map and compares the canonical implementer and judge with
+exact equality. If they are equal, `model.independence_violation` blocks the
+operation. This strict refusal is the owner-approved replacement for the
+contradictory one-time-warning proposal; no warning receipt exists.
+
+There is no fallback across roles, aliases, models, or effort levels. A missing
+host, missing role, unknown or ambiguous alias, absent canonical identity, or
+unsupported effort produces its stable `model.*` refusal and no state change.
+Prompts and agent output cannot select a role or override this configuration.
+
+Initialization can obtain concrete host defaults from the enabled adapters,
+but it discloses every default and persists the resolved assignment. The
+current defaults are `sonnet@medium` / `opus@medium` / `sonnet@medium` for
+Claude planner/implementer/judge and `gpt-5.6-terra@medium` /
+`gpt-5.6-sol@high` / `gpt-5.6-terra@medium` for Codex. These are adapter facts,
+not shared runtime constants and not dynamic inheritance.
 
 ## Managed layout
 
