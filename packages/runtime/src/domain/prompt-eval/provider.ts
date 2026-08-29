@@ -3,7 +3,7 @@ import type { TokenConsumption } from "./model.js";
 export interface ModelInvocationRequest {
   readonly systemPrompt: string;
   readonly userMessage: string;
-  readonly temperature?: number;
+  readonly temperature?: number | undefined;
 }
 
 export interface ModelInvocationResponse {
@@ -14,7 +14,10 @@ export interface ModelInvocationResponse {
 
 export interface EvaluationModelProvider {
   invoke(request: ModelInvocationRequest): Promise<ModelInvocationResponse>;
-  gradeSemantic?(rubric: string, reply: string): Promise<{ passed: boolean; reason?: string }>;
+  gradeSemantic?(
+    rubric: string,
+    reply: string,
+  ): Promise<{ passed: boolean; reason?: string | undefined }>;
 }
 
 export type DeterministicReplayProvider = EvaluationModelProvider;

@@ -1,5 +1,9 @@
 import { PHASE_AGENT_PROMPTS } from "../phase-agents/model.js";
-import { calculateVariantMetrics, generateComparisonReport } from "./analysis.js";
+import type { SchemaRegistry } from "../schema/index.js";
+import {
+  calculateVariantMetrics,
+  generateComparisonReport,
+} from "./analysis.js";
 import { evaluateMechanicalRule } from "./mechanical.js";
 import type {
   AssertionOutcome,
@@ -14,12 +18,15 @@ export async function runPromptEvaluationCase(
   evaluationCase: PromptEvaluationCase,
   provider: EvaluationModelProvider,
   options: {
-    readonly trials?: number;
-    readonly previousPrompt?: string;
+    readonly trials?: number | undefined;
+    readonly previousPrompt?: string | undefined;
+    readonly registry?: SchemaRegistry | undefined;
   } = {},
 ): Promise<CaseComparisonReport> {
   const trialCount = options.trials ?? evaluationCase.trials ?? 3;
-  const promptDef = PHASE_AGENT_PROMPTS.find((p) => p.id === evaluationCase.promptId);
+  const promptDef = PHASE_AGENT_PROMPTS.find(
+    (p) => p.id === evaluationCase.promptId,
+  );
   const activePrompt = promptDef?.instructions ?? "";
 
   const userMessage = formatUserMessage(evaluationCase.input);
@@ -30,6 +37,7 @@ export async function runPromptEvaluationCase(
     trialCount,
     evaluationCase,
     provider,
+    options.registry,
   );
 
   const withoutTrials = await runTrials(
@@ -38,6 +46,7 @@ export async function runPromptEvaluationCase(
     trialCount,
     evaluationCase,
     provider,
+    options.registry,
   );
 
   const withMetrics = calculateVariantMetrics(
@@ -59,6 +68,7 @@ export async function runPromptEvaluationCase(
       trialCount,
       evaluationCase,
       provider,
+      options.registry,
     );
     prevMetrics = calculateVariantMetrics(
       "previous_prompt",
@@ -83,6 +93,7 @@ async function runTrials(
   trialCount: number,
   evaluationCase: PromptEvaluationCase,
   provider: EvaluationModelProvider,
+  registry?: SchemaRegistry,
 ): Promise<readonly TrialObservation[]> {
   const observations: TrialObservation[] = [];
 
@@ -95,15 +106,25 @@ async function runTrials(
     const assertionOutcomes: AssertionOutcome[] = [];
     for (const assertion of evaluationCase.assertions) {
       if (assertion.kind === "mechanical" && assertion.mechanicalRule) {
-        const result = evaluateMechanicalRule(response.rawReply, assertion.mechanicalRule);
+        const result = evaluateMechanicalRule(
+          response.rawReply,
+          assertion.mechanicalRule,
+          registry,
+        );
         assertionOutcomes.push({
           assertionId: assertion.id,
           passed: result.passed,
           reason: result.reason,
         });
-      } else if (assertion.kind === "model_graded" && assertion.modelGradedRubric) {
+      } else if (
+        assertion.kind === "model_graded" &&
+        assertion.modelGradedRubric
+      ) {
         if (provider.gradeSemantic) {
-          const result = await provider.gradeSemantic(assertion.modelGradedRubric, response.rawReply);
+          const result = await provider.gradeSemantic(
+            assertion.modelGradedRubric,
+            response.rawReply,
+          );
           assertionOutcomes.push({
             assertionId: assertion.id,
             passed: result.passed,

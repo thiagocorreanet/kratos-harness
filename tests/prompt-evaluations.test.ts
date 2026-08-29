@@ -29,10 +29,10 @@ describe("prompt evaluation against baseline acceptance criteria", () => {
     let withoutCount = 0;
 
     const provider: DeterministicReplayProvider = {
-      invoke: async ({ systemPrompt }) => {
+      invoke: ({ systemPrompt }) => {
         if (systemPrompt !== "") {
           withCount++;
-          return {
+          return Promise.resolve({
             rawReply: `===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
@@ -50,14 +50,14 @@ describe("prompt evaluation against baseline acceptance criteria", () => {
               outputTokens: 50,
               totalTokens: 250,
             },
-          };
+          });
         } else {
           withoutCount++;
-          return {
+          return Promise.resolve({
             rawReply: "Regular assistant text",
             durationMs: 40,
             consumption: { inputTokens: 30, outputTokens: 20, totalTokens: 50 },
-          };
+          });
         }
       },
     };
@@ -89,11 +89,12 @@ describe("prompt evaluation against baseline acceptance criteria", () => {
     };
 
     const provider: DeterministicReplayProvider = {
-      invoke: async () => ({
-        rawReply: "Plain text with no block",
-        durationMs: 50,
-        consumption: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
-      }),
+      invoke: () =>
+        Promise.resolve({
+          rawReply: "Plain text with no block",
+          durationMs: 50,
+          consumption: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+        }),
     };
 
     const report = await runPromptEvaluationCase(testCase, provider);
@@ -148,12 +149,13 @@ describe("prompt evaluation against baseline acceptance criteria", () => {
     };
 
     const provider: DeterministicReplayProvider = {
-      invoke: async () => ({
-        rawReply: "reply",
-        durationMs: 50,
-        consumption: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
-      }),
-      gradeSemantic: async () => ({ passed: true }),
+      invoke: () =>
+        Promise.resolve({
+          rawReply: "reply",
+          durationMs: 50,
+          consumption: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+        }),
+      gradeSemantic: () => Promise.resolve({ passed: true }),
     };
 
     const report = await runPromptEvaluationCase(testCase, provider);
@@ -164,7 +166,10 @@ describe("prompt evaluation against baseline acceptance criteria", () => {
   });
 
   it("AC6: verifies the evaluation runner is excluded from the default npm run verify command", async () => {
-    const pkgJson = JSON.parse(await readFile("package.json", "utf8"));
+    const pkgContent = await readFile("package.json", "utf8");
+    const pkgJson = JSON.parse(pkgContent) as {
+      scripts: Record<string, string>;
+    };
     expect(pkgJson.scripts.verify).not.toContain("eval:prompts");
     expect(pkgJson.scripts["eval:prompts"]).toBeDefined();
   });

@@ -102,26 +102,52 @@ describe("mechanical assertion evaluator", () => {
 ===END-KRATOS-AGENT-OUTPUT-V1===`;
 
   it("evaluates schema_valid and coherence_valid", () => {
-    expect(evaluateMechanicalRule(validCodeReply, { type: "schema_valid" })).toEqual({ passed: true });
-    expect(evaluateMechanicalRule(validCodeReply, { type: "coherence_valid" })).toEqual({ passed: true });
-    expect(evaluateMechanicalRule("No block here", { type: "schema_valid" }).passed).toBe(false);
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "schema_valid" }),
+    ).toEqual({ passed: true });
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "coherence_valid" }),
+    ).toEqual({ passed: true });
+    expect(
+      evaluateMechanicalRule("No block here", { type: "schema_valid" }).passed,
+    ).toBe(false);
     expect(
       evaluateMechanicalRule(
-        "===KRATOS-AGENT-OUTPUT-V1===\n{\"invalid\": 123}\n===END-KRATOS-AGENT-OUTPUT-V1===",
+        '===KRATOS-AGENT-OUTPUT-V1===\n{"invalid": 123}\n===END-KRATOS-AGENT-OUTPUT-V1===',
         { type: "schema_valid" },
       ).passed,
     ).toBe(false);
   });
 
   it("evaluates agent, status, and routing hint matches", () => {
-    expect(evaluateMechanicalRule(validCodeReply, { type: "agent_equals", expected: "code" })).toEqual({
+    expect(
+      evaluateMechanicalRule(validCodeReply, {
+        type: "agent_equals",
+        expected: "code",
+      }),
+    ).toEqual({
       passed: true,
     });
-    expect(evaluateMechanicalRule(validCodeReply, { type: "agent_equals", expected: "spec" }).passed).toBe(false);
-    expect(evaluateMechanicalRule(validCodeReply, { type: "status_equals", expected: "completed" })).toEqual({
+    expect(
+      evaluateMechanicalRule(validCodeReply, {
+        type: "agent_equals",
+        expected: "spec",
+      }).passed,
+    ).toBe(false);
+    expect(
+      evaluateMechanicalRule(validCodeReply, {
+        type: "status_equals",
+        expected: "completed",
+      }),
+    ).toEqual({
       passed: true,
     });
-    expect(evaluateMechanicalRule(validCodeReply, { type: "routing_hint_equals", expected: "proceed" })).toEqual({
+    expect(
+      evaluateMechanicalRule(validCodeReply, {
+        type: "routing_hint_equals",
+        expected: "proceed",
+      }),
+    ).toEqual({
       passed: true,
     });
   });
@@ -139,9 +165,16 @@ describe("mechanical assertion evaluator", () => {
         allowedPrefixes: ["packages/adapters/"],
       }).passed,
     ).toBe(false);
-    expect(evaluateMechanicalRule(validCodeReply, { type: "artifacts_empty" })).toEqual({ passed: true });
-    expect(evaluateMechanicalRule(validCodeReply, { type: "changed_files_empty" }).passed).toBe(false);
-    expect(evaluateMechanicalRule(validCodeReply, { type: "no_blockers" })).toEqual({ passed: true });
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "artifacts_empty" }),
+    ).toEqual({ passed: true });
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "changed_files_empty" })
+        .passed,
+    ).toBe(false);
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "no_blockers" }),
+    ).toEqual({ passed: true });
   });
 
   it("evaluates artifacts_contains and question/blocker rules", () => {
@@ -158,20 +191,45 @@ describe("mechanical assertion evaluator", () => {
       }).passed,
     ).toBe(false);
 
-    expect(evaluateMechanicalRule(awaitingInputReply, { type: "has_blocking_question" })).toEqual({ passed: true });
-    expect(evaluateMechanicalRule(validCodeReply, { type: "has_blocking_question" }).passed).toBe(false);
+    expect(
+      evaluateMechanicalRule(awaitingInputReply, {
+        type: "has_blocking_question",
+      }),
+    ).toEqual({ passed: true });
+    expect(
+      evaluateMechanicalRule(validCodeReply, { type: "has_blocking_question" })
+        .passed,
+    ).toBe(false);
   });
 
   it("evaluates verdict_equals for review and acceptance payloads", () => {
-    expect(evaluateMechanicalRule(validReviewReply, { type: "verdict_equals", expected: "pass" })).toEqual({
+    expect(
+      evaluateMechanicalRule(validReviewReply, {
+        type: "verdict_equals",
+        expected: "pass",
+      }),
+    ).toEqual({
       passed: true,
     });
-    expect(evaluateMechanicalRule(validReviewReply, { type: "verdict_equals", expected: "fail" }).passed).toBe(false);
-    expect(evaluateMechanicalRule(validAcceptanceReply, { type: "verdict_equals", expected: "accepted" })).toEqual({
+    expect(
+      evaluateMechanicalRule(validReviewReply, {
+        type: "verdict_equals",
+        expected: "fail",
+      }).passed,
+    ).toBe(false);
+    expect(
+      evaluateMechanicalRule(validAcceptanceReply, {
+        type: "verdict_equals",
+        expected: "accepted",
+      }),
+    ).toEqual({
       passed: true,
     });
-    expect(evaluateMechanicalRule(validAcceptanceReply, { type: "verdict_equals", expected: "rejected" }).passed).toBe(
-      false,
-    );
+    expect(
+      evaluateMechanicalRule(validAcceptanceReply, {
+        type: "verdict_equals",
+        expected: "rejected",
+      }).passed,
+    ).toBe(false);
   });
 });

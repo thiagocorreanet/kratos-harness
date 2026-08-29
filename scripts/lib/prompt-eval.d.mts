@@ -63,7 +63,11 @@ export interface CaseComparisonReport {
 export function extractAgentBlock(reply: string):
   | { readonly kind: "absent" }
   | { readonly kind: "malformed"; readonly reason: string }
-  | { readonly kind: "extracted"; readonly value: unknown; readonly text: string };
+  | {
+      readonly kind: "extracted";
+      readonly value: unknown;
+      readonly text: string;
+    };
 
 export function evaluateMechanicalRule(
   rawReply: string,

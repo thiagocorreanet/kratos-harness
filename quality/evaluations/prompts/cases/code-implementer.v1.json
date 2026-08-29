@@ -32,7 +32,10 @@
       "id": "scope-bounded",
       "description": "Changed files are restricted to packages/runtime/src/domain/",
       "kind": "mechanical",
-      "mechanicalRule": { "type": "scope_bounded", "allowedPrefixes": ["packages/runtime/src/domain/"] }
+      "mechanicalRule": {
+        "type": "scope_bounded",
+        "allowedPrefixes": ["packages/runtime/src/domain/"]
+      }
     },
     {
       "id": "artifacts-empty",

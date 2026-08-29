@@ -4,7 +4,9 @@ const AGENT_BLOCK_OPEN = "===KRATOS-AGENT-OUTPUT-V1===";
 const AGENT_BLOCK_CLOSE = "===END-KRATOS-AGENT-OUTPUT-V1===";
 
 export function extractAgentBlock(reply) {
-  const lines = reply.split("\n").map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+  const lines = reply
+    .split("\n")
+    .map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
   const opens = [];
   const closes = [];
 
@@ -15,7 +17,8 @@ export function extractAgentBlock(reply) {
 
   if (opens.length === 0 && closes.length === 0) return { kind: "absent" };
   if (opens.length > 1) return { kind: "malformed", reason: "duplicate-open" };
-  if (closes.length > 1) return { kind: "malformed", reason: "duplicate-close" };
+  if (closes.length > 1)
+    return { kind: "malformed", reason: "duplicate-close" };
   if (opens.length === 0) return { kind: "malformed", reason: "unopened" };
   if (closes.length === 0) return { kind: "malformed", reason: "unterminated" };
   if (closes[0] < opens[0]) return { kind: "malformed", reason: "misordered" };
@@ -58,14 +61,21 @@ export function evaluateMechanicalRule(rawReply, rule, schema) {
 
   let schemaValid = true;
   if (schema) {
-    const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(schema);
+    const validate = new Ajv2020({
+      allErrors: true,
+      strict: false,
+      validateFormats: false,
+    }).compile(schema);
     schemaValid = Boolean(validate(extracted.value));
   }
 
   if (rule.type === "schema_valid") {
     return schemaValid
       ? { passed: true }
-      : { passed: false, reason: "Machine block does not satisfy agent-output schema" };
+      : {
+          passed: false,
+          reason: "Machine block does not satisfy agent-output schema",
+        };
   }
 
   if (!schemaValid) {
@@ -80,36 +90,58 @@ export function evaluateMechanicalRule(rawReply, rule, schema) {
     case "agent_equals":
       return output.agent === rule.expected
         ? { passed: true }
-        : { passed: false, reason: `Expected agent '${rule.expected}', got '${output.agent}'` };
+        : {
+            passed: false,
+            reason: `Expected agent '${rule.expected}', got '${output.agent}'`,
+          };
     case "status_equals":
       return output.outcome?.status === rule.expected
         ? { passed: true }
-        : { passed: false, reason: `Expected status '${rule.expected}', got '${output.outcome?.status}'` };
+        : {
+            passed: false,
+            reason: `Expected status '${rule.expected}', got '${output.outcome?.status}'`,
+          };
     case "routing_hint_equals":
       return output.outcome?.next === rule.expected
         ? { passed: true }
-        : { passed: false, reason: `Expected routing hint '${rule.expected}', got '${output.outcome?.next}'` };
+        : {
+            passed: false,
+            reason: `Expected routing hint '${rule.expected}', got '${output.outcome?.next}'`,
+          };
     case "scope_bounded": {
       const changed = output.changedFiles || [];
       const outOfScope = changed.filter(
-        (file) => !rule.allowedPrefixes.some((prefix) => file.ref.startsWith(prefix)),
+        (file) =>
+          !rule.allowedPrefixes.some((prefix) => file.ref.startsWith(prefix)),
       );
       return outOfScope.length === 0
         ? { passed: true }
-        : { passed: false, reason: `Files out of scope: ${outOfScope.map((f) => f.ref).join(", ")}` };
+        : {
+            passed: false,
+            reason: `Files out of scope: ${outOfScope.map((f) => f.ref).join(", ")}`,
+          };
     }
     case "artifacts_contains":
       return (output.artifacts || []).includes(rule.path)
         ? { passed: true }
-        : { passed: false, reason: `Artifacts does not contain '${rule.path}'` };
+        : {
+            passed: false,
+            reason: `Artifacts does not contain '${rule.path}'`,
+          };
     case "artifacts_empty":
       return (output.artifacts || []).length === 0
         ? { passed: true }
-        : { passed: false, reason: `Expected empty artifacts, found ${output.artifacts?.length}` };
+        : {
+            passed: false,
+            reason: `Expected empty artifacts, found ${output.artifacts?.length}`,
+          };
     case "changed_files_empty":
       return (output.changedFiles || []).length === 0
         ? { passed: true }
-        : { passed: false, reason: `Expected empty changedFiles, found ${output.changedFiles?.length}` };
+        : {
+            passed: false,
+            reason: `Expected empty changedFiles, found ${output.changedFiles?.length}`,
+          };
     case "has_blocking_question":
       return (output.outcome?.questions || []).length > 0
         ? { passed: true }
@@ -117,23 +149,34 @@ export function evaluateMechanicalRule(rawReply, rule, schema) {
     case "no_blockers":
       return (output.outcome?.blockers || []).length === 0
         ? { passed: true }
-        : { passed: false, reason: `Expected no blockers, found ${output.outcome?.blockers?.length}` };
+        : {
+            passed: false,
+            reason: `Expected no blockers, found ${output.outcome?.blockers?.length}`,
+          };
     case "verdict_equals": {
       const verdict = output.payload?.verdict;
       return verdict === rule.expected
         ? { passed: true }
-        : { passed: false, reason: `Expected verdict '${rule.expected}', got '${verdict}'` };
+        : {
+            passed: false,
+            reason: `Expected verdict '${rule.expected}', got '${verdict}'`,
+          };
     }
     default:
       return { passed: false, reason: `Unknown mechanical rule: ${rule.type}` };
   }
 }
 
-export function classifyDiscrimination(withPromptPassRate, withoutPromptPassRate) {
+export function classifyDiscrimination(
+  withPromptPassRate,
+  withoutPromptPassRate,
+) {
   if (withPromptPassRate === withoutPromptPassRate) {
     return {
       discrimination:
-        withPromptPassRate > 0 ? "non_discriminating_pass" : "non_discriminating_fail",
+        withPromptPassRate > 0
+          ? "non_discriminating_pass"
+          : "non_discriminating_fail",
       isDiscriminating: false,
     };
   }
@@ -165,22 +208,28 @@ export function calculateVariantMetrics(variant, trials, assertions) {
   const passRateByAssertion = {};
   for (const assertion of assertions) {
     const passedCount = trials.filter((t) =>
-      t.assertionOutcomes.some((o) => o.assertionId === assertion.id && o.passed),
+      t.assertionOutcomes.some(
+        (o) => o.assertionId === assertion.id && o.passed,
+      ),
     ).length;
     passRateByAssertion[assertion.id] = passedCount / trials.length;
   }
 
   const trialPassRates = trials.map((trial) => {
     const passed = trial.assertionOutcomes.filter((o) => o.passed).length;
-    return trial.assertionOutcomes.length > 0 ? passed / trial.assertionOutcomes.length : 0;
+    return trial.assertionOutcomes.length > 0
+      ? passed / trial.assertionOutcomes.length
+      : 0;
   });
 
   const overallPassRate =
     trialPassRates.reduce((acc, curr) => acc + curr, 0) / trialPassRates.length;
 
   const variance =
-    trialPassRates.reduce((acc, curr) => acc + Math.pow(curr - overallPassRate, 2), 0) /
-    trialPassRates.length;
+    trialPassRates.reduce(
+      (acc, curr) => acc + Math.pow(curr - overallPassRate, 2),
+      0,
+    ) / trialPassRates.length;
   const spread = Math.sqrt(variance);
 
   const totalDuration = trials.reduce((acc, t) => acc + t.durationMs, 0);
@@ -225,9 +274,12 @@ export function generateComparisonReport(
     const withoutRate = withoutPrompt.passRateByAssertion[assertion.id] ?? 0;
     const prevRate =
       previousPrompt !== undefined
-        ? previousPrompt.passRateByAssertion[assertion.id] ?? 0
+        ? (previousPrompt.passRateByAssertion[assertion.id] ?? 0)
         : undefined;
-    const { discrimination, isDiscriminating } = classifyDiscrimination(withRate, withoutRate);
+    const { discrimination, isDiscriminating } = classifyDiscrimination(
+      withRate,
+      withoutRate,
+    );
 
     return {
       assertionId: assertion.id,
@@ -240,12 +292,17 @@ export function generateComparisonReport(
     };
   });
 
-  const nonDiscriminatingCount = assertionAnalyses.filter((a) => !a.isDiscriminating).length;
-  const modelGradedCount = assertions.filter((a) => a.kind === "model_graded").length;
+  const nonDiscriminatingCount = assertionAnalyses.filter(
+    (a) => !a.isDiscriminating,
+  ).length;
+  const modelGradedCount = assertions.filter(
+    (a) => a.kind === "model_graded",
+  ).length;
 
   const costMultiplier =
     withoutPrompt.averageConsumption.totalTokens > 0
-      ? withPrompt.averageConsumption.totalTokens / withoutPrompt.averageConsumption.totalTokens
+      ? withPrompt.averageConsumption.totalTokens /
+        withoutPrompt.averageConsumption.totalTokens
       : 1;
 
   const latencyMultiplier =

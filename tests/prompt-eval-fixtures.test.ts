@@ -15,8 +15,9 @@ describe("prompt evaluation fixtures", () => {
     const evalCase = JSON.parse(fileContent) as PromptEvaluationCase;
 
     const replayProvider: DeterministicReplayProvider = {
-      invoke: async () => ({
-        rawReply: `===KRATOS-AGENT-OUTPUT-V1===
+      invoke: () =>
+        Promise.resolve({
+          rawReply: `===KRATOS-AGENT-OUTPUT-V1===
 {
   "contractVersion": "1.0.0",
   "hostContract": "1.0.0",
@@ -27,9 +28,13 @@ describe("prompt evaluation fixtures", () => {
   "payload": { "objective": "test", "requirementIds": ["R-1"], "gapIds": [] }
 }
 ===END-KRATOS-AGENT-OUTPUT-V1===`,
-        durationMs: 100,
-        consumption: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
-      }),
+          durationMs: 100,
+          consumption: {
+            inputTokens: 100,
+            outputTokens: 50,
+            totalTokens: 150,
+          },
+        }),
     };
 
     const report = await runPromptEvaluationCase(evalCase, replayProvider);
@@ -57,11 +62,16 @@ describe("prompt evaluation fixtures", () => {
 ===END-KRATOS-AGENT-OUTPUT-V1===`;
 
     const replayProvider: DeterministicReplayProvider = {
-      invoke: async ({ systemPrompt }) => ({
-        rawReply: systemPrompt ? validCodeReply : "Baseline without prompt",
-        durationMs: systemPrompt ? 200 : 50,
-        consumption: { inputTokens: 400, outputTokens: 50, totalTokens: 450 },
-      }),
+      invoke: ({ systemPrompt }) =>
+        Promise.resolve({
+          rawReply: systemPrompt ? validCodeReply : "Baseline without prompt",
+          durationMs: systemPrompt ? 200 : 50,
+          consumption: {
+            inputTokens: 400,
+            outputTokens: 50,
+            totalTokens: 450,
+          },
+        }),
     };
 
     const report = await runPromptEvaluationCase(evalCase, replayProvider);

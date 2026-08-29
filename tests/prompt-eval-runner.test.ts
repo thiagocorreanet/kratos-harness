@@ -46,9 +46,9 @@ describe("prompt evaluation dual-run runner", () => {
     const emptyBaselineReply = "I am a helpful assistant without instructions.";
 
     const mockProvider: DeterministicReplayProvider = {
-      invoke: async ({ systemPrompt }) => {
+      invoke: ({ systemPrompt }) => {
         const isWithPrompt = systemPrompt !== "";
-        return {
+        return Promise.resolve({
           rawReply: isWithPrompt ? validCodeReply : emptyBaselineReply,
           durationMs: isWithPrompt ? 200 : 50,
           consumption: {
@@ -56,7 +56,7 @@ describe("prompt evaluation dual-run runner", () => {
             outputTokens: 100,
             totalTokens: isWithPrompt ? 600 : 150,
           },
-        };
+        });
       },
     };
 
@@ -82,11 +82,16 @@ describe("prompt evaluation dual-run runner", () => {
 ===END-KRATOS-AGENT-OUTPUT-V1===`;
 
     const mockProvider: DeterministicReplayProvider = {
-      invoke: async ({ systemPrompt }) => ({
-        rawReply: systemPrompt ? validCodeReply : "baseline",
-        durationMs: 100,
-        consumption: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
-      }),
+      invoke: ({ systemPrompt }) =>
+        Promise.resolve({
+          rawReply: systemPrompt !== "" ? validCodeReply : "baseline",
+          durationMs: 100,
+          consumption: {
+            inputTokens: 100,
+            outputTokens: 50,
+            totalTokens: 150,
+          },
+        }),
     };
 
     const report = await runPromptEvaluationCase(sampleCase, mockProvider, {

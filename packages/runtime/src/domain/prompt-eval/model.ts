@@ -29,8 +29,8 @@ export interface PromptAssertion {
   readonly id: string;
   readonly description: string;
   readonly kind: PromptAssertionKind;
-  readonly mechanicalRule?: MechanicalRule;
-  readonly modelGradedRubric?: string;
+  readonly mechanicalRule?: MechanicalRule | undefined;
+  readonly modelGradedRubric?: string | undefined;
 }
 
 export function isMechanicalAssertion(
@@ -46,11 +46,11 @@ export interface PromptEvaluationCase {
   readonly description: string;
   readonly promptId: PhaseAgentId;
   readonly input: {
-    readonly featureDocuments?: Record<string, string>;
+    readonly featureDocuments?: Record<string, string> | undefined;
     readonly context: string;
   };
   readonly assertions: readonly PromptAssertion[];
-  readonly trials?: number;
+  readonly trials?: number | undefined;
 }
 
 export interface TokenConsumption {
@@ -62,7 +62,7 @@ export interface TokenConsumption {
 export interface AssertionOutcome {
   readonly assertionId: string;
   readonly passed: boolean;
-  readonly reason?: string;
+  readonly reason?: string | undefined;
 }
 
 export interface TrialObservation {
@@ -94,7 +94,7 @@ export interface AssertionAnalysis {
   readonly kind: PromptAssertionKind;
   readonly withPromptPassRate: number;
   readonly withoutPromptPassRate: number;
-  readonly previousPromptPassRate?: number;
+  readonly previousPromptPassRate?: number | undefined;
   readonly discrimination: AssertionDiscrimination;
   readonly isDiscriminating: boolean;
 }
@@ -104,7 +104,7 @@ export interface CaseComparisonReport {
   readonly promptId: PhaseAgentId;
   readonly withPrompt: VariantMetrics;
   readonly withoutPrompt: VariantMetrics;
-  readonly previousPrompt?: VariantMetrics;
+  readonly previousPrompt?: VariantMetrics | undefined;
   readonly assertions: readonly AssertionAnalysis[];
   readonly nonDiscriminatingCount: number;
   readonly modelGradedCount: number;

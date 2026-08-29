@@ -10,7 +10,11 @@ import {
 describe("prompt evaluation analysis engine", () => {
   const assertions: readonly PromptAssertion[] = [
     { id: "a1", description: "Mechanical valid block", kind: "mechanical" },
-    { id: "a2", description: "Follows specific prompt instruction", kind: "mechanical" },
+    {
+      id: "a2",
+      description: "Follows specific prompt instruction",
+      kind: "mechanical",
+    },
     { id: "a3", description: "Always passes everywhere", kind: "mechanical" },
   ];
 
@@ -60,9 +64,13 @@ describe("prompt evaluation analysis engine", () => {
       },
     ];
 
-    const metrics = calculateVariantMetrics("with_prompt", trials, assertions.slice(0, 2));
-    expect(metrics.passRateByAssertion["a1"]).toBe(1.0);
-    expect(metrics.passRateByAssertion["a2"]).toBe(0.5);
+    const metrics = calculateVariantMetrics(
+      "with_prompt",
+      trials,
+      assertions.slice(0, 2),
+    );
+    expect(metrics.passRateByAssertion.a1).toBe(1.0);
+    expect(metrics.passRateByAssertion.a2).toBe(0.5);
     expect(metrics.overallPassRate).toBe(0.75);
     expect(metrics.averageDurationMs).toBe(150);
     expect(metrics.averageConsumption.totalTokens).toBe(75);
@@ -96,12 +104,28 @@ describe("prompt evaluation analysis engine", () => {
       },
     ];
 
-    const withMetrics = calculateVariantMetrics("with_prompt", withTrials, assertions);
-    const withoutMetrics = calculateVariantMetrics("without_prompt", withoutTrials, assertions);
+    const withMetrics = calculateVariantMetrics(
+      "with_prompt",
+      withTrials,
+      assertions,
+    );
+    const withoutMetrics = calculateVariantMetrics(
+      "without_prompt",
+      withoutTrials,
+      assertions,
+    );
 
-    const report = generateComparisonReport("case-1", "code-implementer", withMetrics, withoutMetrics, assertions);
+    const report = generateComparisonReport(
+      "case-1",
+      "code-implementer",
+      withMetrics,
+      withoutMetrics,
+      assertions,
+    );
     expect(report.nonDiscriminatingCount).toBe(1);
-    expect(report.assertions.find((a) => a.assertionId === "a3")?.isDiscriminating).toBe(false);
+    expect(
+      report.assertions.find((a) => a.assertionId === "a3")?.isDiscriminating,
+    ).toBe(false);
     expect(report.costMultiplier).toBe(5);
     expect(report.latencyMultiplier).toBe(2);
     expect(report.passingAuthorized).toBe(true);

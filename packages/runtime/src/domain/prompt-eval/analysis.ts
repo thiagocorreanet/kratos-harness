@@ -12,11 +12,16 @@ import type {
 export function classifyDiscrimination(
   withPromptPassRate: number,
   withoutPromptPassRate: number,
-): { readonly discrimination: AssertionDiscrimination; readonly isDiscriminating: boolean } {
+): {
+  readonly discrimination: AssertionDiscrimination;
+  readonly isDiscriminating: boolean;
+} {
   if (withPromptPassRate === withoutPromptPassRate) {
     return {
       discrimination:
-        withPromptPassRate > 0 ? "non_discriminating_pass" : "non_discriminating_fail",
+        withPromptPassRate > 0
+          ? "non_discriminating_pass"
+          : "non_discriminating_fail",
       isDiscriminating: false,
     };
   }
@@ -52,22 +57,28 @@ export function calculateVariantMetrics(
   const passRateByAssertion: Record<string, number> = {};
   for (const assertion of assertions) {
     const passedCount = trials.filter((t) =>
-      t.assertionOutcomes.some((o) => o.assertionId === assertion.id && o.passed),
+      t.assertionOutcomes.some(
+        (o) => o.assertionId === assertion.id && o.passed,
+      ),
     ).length;
     passRateByAssertion[assertion.id] = passedCount / trials.length;
   }
 
   const trialPassRates = trials.map((trial) => {
     const passed = trial.assertionOutcomes.filter((o) => o.passed).length;
-    return trial.assertionOutcomes.length > 0 ? passed / trial.assertionOutcomes.length : 0;
+    return trial.assertionOutcomes.length > 0
+      ? passed / trial.assertionOutcomes.length
+      : 0;
   });
 
   const overallPassRate =
     trialPassRates.reduce((acc, curr) => acc + curr, 0) / trialPassRates.length;
 
   const variance =
-    trialPassRates.reduce((acc, curr) => acc + Math.pow(curr - overallPassRate, 2), 0) /
-    trialPassRates.length;
+    trialPassRates.reduce(
+      (acc, curr) => acc + Math.pow(curr - overallPassRate, 2),
+      0,
+    ) / trialPassRates.length;
   const spread = Math.sqrt(variance);
 
   const totalDuration = trials.reduce((acc, t) => acc + t.durationMs, 0);
@@ -112,9 +123,12 @@ export function generateComparisonReport(
     const withoutRate = withoutPrompt.passRateByAssertion[assertion.id] ?? 0;
     const prevRate =
       previousPrompt !== undefined
-        ? previousPrompt.passRateByAssertion[assertion.id] ?? 0
+        ? (previousPrompt.passRateByAssertion[assertion.id] ?? 0)
         : undefined;
-    const { discrimination, isDiscriminating } = classifyDiscrimination(withRate, withoutRate);
+    const { discrimination, isDiscriminating } = classifyDiscrimination(
+      withRate,
+      withoutRate,
+    );
 
     return {
       assertionId: assertion.id,
@@ -127,12 +141,17 @@ export function generateComparisonReport(
     };
   });
 
-  const nonDiscriminatingCount = assertionAnalyses.filter((a) => !a.isDiscriminating).length;
-  const modelGradedCount = assertions.filter((a) => a.kind === "model_graded").length;
+  const nonDiscriminatingCount = assertionAnalyses.filter(
+    (a) => !a.isDiscriminating,
+  ).length;
+  const modelGradedCount = assertions.filter(
+    (a) => a.kind === "model_graded",
+  ).length;
 
   const costMultiplier =
     withoutPrompt.averageConsumption.totalTokens > 0
-      ? withPrompt.averageConsumption.totalTokens / withoutPrompt.averageConsumption.totalTokens
+      ? withPrompt.averageConsumption.totalTokens /
+        withoutPrompt.averageConsumption.totalTokens
       : 1;
 
   const latencyMultiplier =
