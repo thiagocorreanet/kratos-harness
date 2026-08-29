@@ -24,9 +24,18 @@ const NOW = "2026-08-14T12:00:00.000Z";
 const TEXT = "Ship the export pipeline";
 const FEATURE = "ship-the-export-pipeline";
 const ANSWERS_FOR_INIT = JSON.stringify({
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   hosts: ["claude"],
+  language: {
+    conversation: "en",
+    documentation: "en",
+    comments: "en",
+    identifiers: "en",
+    commits: "en",
+    preserveConventions: true,
+    enforcement: "advisory",
+  },
   modelRoles: {
     claude: {
       planner: "sonnet",

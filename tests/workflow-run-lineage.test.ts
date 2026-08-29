@@ -58,10 +58,18 @@ const TASK_DOCUMENT = [
   "",
 ].join("\n");
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   hosts: ["claude"],
-  language: "en",
+  language: {
+    conversation: "en",
+    documentation: "en",
+    comments: "en",
+    identifiers: "en",
+    commits: "en",
+    preserveConventions: true,
+    enforcement: "advisory",
+  },
   policyMode: "standard",
   snapshots: true,
 });
