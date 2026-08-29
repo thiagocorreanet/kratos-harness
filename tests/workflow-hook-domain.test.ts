@@ -52,6 +52,11 @@ describe("workflow hook domain", () => {
       "failed in /tmp/kratos-test-xy34z5/output",
     ],
     [
+      "marked hexadecimal temporary path nonces",
+      "failed in /tmp/kratos-cache-deadbeef/output",
+      "failed in /tmp/kratos-cache-cafebabe/output",
+    ],
+    [
       "line and column locations",
       "src/a.ts:12:34 failed",
       "src/a.ts:99:1 failed",
@@ -94,6 +99,11 @@ describe("workflow hook domain", () => {
       "substantive numbered temporary paths",
       "failed in /tmp/kratos-release-v1beta/output",
       "failed in /tmp/kratos-release-v2beta/output",
+    ],
+    [
+      "semantic six-character temporary paths",
+      "failed in /tmp/kratos-release-v12bet/output",
+      "failed in /tmp/kratos-release-v13bet/output",
     ],
     ["non-location colon numbers", "ports 10:20", "ports 11:21"],
     ["non-location coordinate numbers", "limit 10:20:30", "limit 10:21:31"],

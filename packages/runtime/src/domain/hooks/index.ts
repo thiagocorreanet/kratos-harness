@@ -125,6 +125,10 @@ const ansiEscape = new RegExp(
   `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
   "gu",
 );
+// A temporary location alone is not enough evidence that a trailing token is
+// generated. These finite terminal markers keep release/version names intact.
+const temporaryNonce =
+  /((?:\/tmp|\/var\/tmp)\/[^\s/]+?-(?:test|tmp|temp|run|build|cache))-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=(?:[A-Za-z0-9]*[A-Za-z]){2}[A-Za-z0-9]*(?=\/|\s|$))(?=(?:[A-Za-z0-9]*\d){2}[A-Za-z0-9]*(?=\/|\s|$))[A-Za-z0-9]{6})(?=\/|\s|$)/gu;
 
 function stripAnsi(value: string): string {
   return value.replace(ansiEscape, "");
@@ -226,10 +230,7 @@ function normalizeCandidateDiagnostic(value: string): string {
       /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/giu,
       "<uuid>",
     )
-    .replace(
-      /((?:\/tmp|\/var\/tmp)\/[^\s/]+?)-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=(?:[A-Za-z0-9]*[A-Za-z]){2}[A-Za-z0-9]*(?=\/|\s|$))(?=(?:[A-Za-z0-9]*\d){2}[A-Za-z0-9]*(?=\/|\s|$))[A-Za-z0-9]{6})(?=\/|\s|$)/gu,
-      "$1-<nonce>",
-    )
+    .replace(temporaryNonce, "$1-<nonce>")
     .replace(
       /(^|[\s(])([^\s:()]+?\.[A-Za-z0-9]{1,10}):\d+:\d+\b/gu,
       "$1$2:<line>:<column>",

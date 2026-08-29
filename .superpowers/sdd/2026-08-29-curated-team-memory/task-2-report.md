@@ -161,3 +161,37 @@ deduplicated `/tmp/kratos-release-v1beta/output` and
   with at least two letters and two digits.
 - Preservation tests cover letter-only suffixes and the exact substantive
   `v1beta` versus `v2beta` temporary paths.
+
+## Fix Round 3
+
+### Scope
+
+Replaced the remaining content-only temporary-suffix heuristic with structural
+evidence in the basename. A nonce must follow one terminal marker from the
+finite reviewed allowlist: `test`, `tmp`, `temp`, `run`, `build`, or `cache`.
+The marker restriction applies equally to numeric, hexadecimal, and
+six-character mixed-alphanumeric suffixes.
+
+### RED evidence
+
+`npm test -- tests/workflow-hook-domain.test.ts`
+
+Result: **1 failure / 29 passes**. The former two-letter/two-digit rule still
+deduplicated the semantic `/tmp/kratos-release-v12bet/output` and
+`/tmp/kratos-release-v13bet/output` paths.
+
+### GREEN evidence
+
+- `npm test -- tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts`
+  - **2 files passed, 37 tests passed**.
+- `npm test -- tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/cli-commands.test.ts tests/workflow-hook-distribution.test.ts tests/workflow-hooks-contracts.test.ts tests/schema-registry-fixtures.test.ts tests/cli-help.test.ts tests/memory-capture-distribution.test.ts`
+  - **8 files passed, 327 tests passed**.
+- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`,
+  and `git diff --check` — passed.
+
+### Regression coverage
+
+- `/tmp/kratos-test-ab12cd` and `/tmp/kratos-test-xy34z5` still deduplicate.
+- Marked hexadecimal cache nonces deduplicate.
+- Both required semantic version pairs (`v1beta`/`v2beta` and
+  `v12bet`/`v13bet`) remain distinct.
