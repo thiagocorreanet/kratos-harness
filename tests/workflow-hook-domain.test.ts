@@ -1,5 +1,6 @@
 import {
   candidateNormalizationKey,
+  captureCandidate,
   failureCandidate,
   initialRunUsage,
   recordUsageSample,
@@ -21,14 +22,29 @@ describe("workflow hook domain", () => {
       "Build failed at 2026-08-28T12:01:00.000Z",
     ],
     [
+      "ISO timestamps with offsets",
+      "Build failed at 2026-08-28T12:00:00.000+03:00",
+      "Build failed at 2026-08-28T12:01:00.000-05:00",
+    ],
+    [
       "UUIDs",
       "request 123e4567-e89b-12d3-a456-426614174000 failed",
       "request 123e4567-e89b-12d3-a456-426614174001 failed",
     ],
     [
+      "UUID v7s",
+      "request 018f8f1e-57f7-7c32-8a5d-96b5e20a5a17 failed",
+      "request 018f8f1e-57f8-7c32-8a5d-96b5e20a5a18 failed",
+    ],
+    [
       "temporary path nonces",
       "failed in /tmp/kratos-test-123456/output",
       "failed in /tmp/kratos-test-654321/output",
+    ],
+    [
+      "mixed temporary path nonces",
+      "failed in /tmp/kratos-test-a1B2c3/output",
+      "failed in /tmp/kratos-test-z9Y8x7/output",
     ],
     [
       "line and column locations",
@@ -64,6 +80,11 @@ describe("workflow hook domain", () => {
   it.each([
     ["case", "Build failed", "build failed"],
     ["substantive numbers", "exit 1", "exit 2"],
+    [
+      "stable temporary path suffixes",
+      "failed in /tmp/kratos-test-stable/output",
+      "failed in /tmp/kratos-test-fixedx/output",
+    ],
     ["non-location colon numbers", "ports 10:20", "ports 11:21"],
     ["non-location coordinate numbers", "limit 10:20:30", "limit 10:21:31"],
     ["relative paths", "src/a.ts failed", "src/b.ts failed"],
@@ -198,5 +219,76 @@ describe("workflow hook domain", () => {
     );
     expect(two.candidateId).toBe(one.candidateId);
     expect(two.firstObservedAt).not.toBe(one.firstObservedAt);
+  });
+
+  it("deduplicates ANSI-only failures after the capture sanitization pipeline", () => {
+    const digest = (text: string): string => `digest:${text}`;
+    const one = failureCandidate(
+      {
+        toolFamily: "shell",
+        failureClass: "nonzero_exit",
+        exitCode: 1,
+        diagnostic: sanitizeDiagnostic(
+          "\u001b[31mBuild failed\u001b[0m",
+          "/project",
+        ),
+        observedAt: first,
+      },
+      digest,
+    );
+    const two = failureCandidate(
+      {
+        toolFamily: "shell",
+        failureClass: "nonzero_exit",
+        exitCode: 1,
+        diagnostic: sanitizeDiagnostic("Build failed", "/project"),
+        observedAt: later,
+      },
+      digest,
+    );
+
+    expect(one.candidateId).toBe(two.candidateId);
+  });
+
+  it.each([
+    ["accented", "é".repeat(1025), "é".repeat(1024)],
+    ["emoji", "😀".repeat(513), "😀".repeat(512)],
+  ])("bounds %s diagnostics by UTF-8 bytes", (_name, value, expected) => {
+    const diagnostic = sanitizeDiagnostic(value, "/project");
+
+    expect(diagnostic).toBe(expected);
+    expect(Buffer.byteLength(diagnostic, "utf8")).toBeLessThanOrEqual(2048);
+    expect(diagnostic).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/u);
+  });
+
+  it("matches a readable legacy candidate whose ID predates normalized identity", () => {
+    const digest = (text: string): string => `digest:${text}`;
+    const decision = captureCandidate(
+      {
+        toolFamily: "shell",
+        failureClass: "nonzero_exit",
+        exitCode: 1,
+        diagnostic: "Build failed at 2026-08-28T12:01:00.000+03:00",
+        observedAt: later,
+      },
+      [
+        {
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          candidateId: "a".repeat(64),
+          toolFamily: "shell",
+          failureClass: "nonzero_exit",
+          exitCode: 1,
+          diagnostic: "Build failed at 2026-08-28T12:00:00.000+03:00",
+          firstObservedAt: first,
+        },
+      ],
+      digest,
+    );
+
+    expect(decision).toMatchObject({
+      write: false,
+      candidate: { candidateId: "a".repeat(64) },
+    });
   });
 });

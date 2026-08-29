@@ -108,15 +108,26 @@ export function unlockStopLoss(current: RunUsageV1, now: string): RunUsageV1 {
 
 export function sanitizeDiagnostic(value: string, projectRoot: string): string {
   const root = projectRoot.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return stripControls(value)
-    .replace(/\r\n?/gu, "\n")
-    .replace(new RegExp(root, "gu"), "<project>")
-    .replace(/\b(authorization\s*:\s*bearer\s+)[^\s]+/giu, "$1<redacted>")
-    .replace(
-      /\b(api[_-]?key|token|password|secret)\s*[=:]\s*[^\s]+/giu,
-      "$1=<redacted>",
-    )
-    .slice(0, 2048);
+  return truncateDiagnostic(
+    stripControls(stripAnsi(value))
+      .replace(/\r\n?/gu, "\n")
+      .replace(new RegExp(root, "gu"), "<project>")
+      .replace(/\b(authorization\s*:\s*bearer\s+)[^\s]+/giu, "$1<redacted>")
+      .replace(
+        /\b(api[_-]?key|token|password|secret)\s*[=:]\s*[^\s]+/giu,
+        "$1=<redacted>",
+      ),
+  );
+}
+
+const MAX_DIAGNOSTIC_BYTES = 2048;
+const ansiEscape = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+  "gu",
+);
+
+function stripAnsi(value: string): string {
+  return value.replace(ansiEscape, "");
 }
 
 function stripControls(value: string): string {
@@ -127,6 +138,19 @@ function stripControls(value: string): string {
     })
     .filter((character) => character.codePointAt(0) !== 0x7f)
     .join("");
+}
+
+function truncateDiagnostic(value: string): string {
+  let bytes = 0;
+  let result = "";
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    const width = code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+    if (bytes + width > MAX_DIAGNOSTIC_BYTES) break;
+    result += character;
+    bytes += width;
+  }
+  return result;
 }
 
 export interface FailureObservation {
@@ -193,21 +217,17 @@ export function captureCandidate(
 }
 
 function normalizeCandidateDiagnostic(value: string): string {
-  const ansiEscape = new RegExp(
-    `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
-    "gu",
-  );
-  return stripControls(value.replace(ansiEscape, ""))
+  return stripControls(stripAnsi(value))
     .replace(
-      /\b\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?Z\b/gu,
+      /\b\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)\b/gu,
       "<timestamp>",
     )
     .replace(
-      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu,
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/giu,
       "<uuid>",
     )
     .replace(
-      /((?:\/tmp|\/var\/tmp)\/[^\s/]+?)-(?:[0-9]{6,}|[a-f0-9]{8,})(?=\/|\s|$)/giu,
+      /((?:\/tmp|\/var\/tmp)\/[^\s/]+?)-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6})(?=\/|\s|$)/gu,
       "$1-<nonce>",
     )
     .replace(

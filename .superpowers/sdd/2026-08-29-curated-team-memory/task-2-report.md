@@ -80,3 +80,51 @@ passes. A concurrent worktree also uses the fixed
 `/tmp/kratos-plugin-vitest-build` test output, which can race the legacy
 runtime-distribution suite; the new test deliberately uses a unique temporary
 build directory.
+
+## Fix Round 1
+
+### Scope
+
+Hardened capture without expanding normalization beyond the approved volatile
+categories. ANSI escapes are removed before controls; diagnostics are limited
+to 2,048 UTF-8 bytes at Unicode-scalar boundaries; timestamps now include
+offset forms; canonical UUIDs include v7/general forms; and temporary suffixes
+include exactly six mixed-alphanumeric characters. Case, ordinary numbers,
+relative paths, commands, test names, and letter-only temporary suffixes remain
+significant.
+
+### RED evidence
+
+1. `npm test -- tests/workflow-hook-domain.test.ts`
+
+   Result: **7 failures / 19 passes**. The failures covered offset timestamps,
+   v7 UUIDs, six-character mixed temporary suffixes, sanitize-then-capture ANSI
+   identity, both byte-limit cases, and matching a legacy v1 candidate whose ID
+   predates normalized identity.
+
+2. `npm test -- tests/workflow-hook-runtime.test.ts`
+
+   Result: **1 failure / 5 passes**. An automatic hook candidate persisted 1,024
+   emoji as 4,096 UTF-8 bytes rather than the 2,048-byte limit.
+
+### GREEN evidence
+
+- `npm test -- tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/cli-commands.test.ts tests/workflow-hook-distribution.test.ts tests/workflow-hooks-contracts.test.ts tests/schema-registry-fixtures.test.ts tests/cli-help.test.ts tests/memory-capture-distribution.test.ts`
+  - **8 files passed, 323 tests passed**.
+- `npm run typecheck` — passed.
+- `npm run lint` — passed.
+- `npm run format:check` — passed.
+- `npm run build` — passed; both host packages were produced.
+- `git diff --check` — passed.
+
+### Regression coverage
+
+- The hook runtime now exercises an ANSI-coloured failure followed by its plain
+  equivalent and leaves one candidate.
+- Domain and runtime tests prove byte-bounded accented/emoji diagnostics for
+  automatic and manual capture, without splitting Unicode scalars.
+- Tests cover offset timestamps, v7 UUIDs, mixed temporary suffixes, and their
+  conservative preservation boundaries.
+- A persisted, schema-valid legacy v1 inbox record with a different candidate
+  ID is matched in memory; invalid manual proposals are rejected; and capture
+  and list still leave curated memory unpromoted.
