@@ -14,7 +14,13 @@ import {
 import type { StackProfile } from "./stack.js";
 import type { ResolvedAnswers } from "./answers.js";
 
-type Answers = ResolvedAnswers;
+type Answers = Omit<
+  ResolvedAnswers,
+  "projectProfile" | "contractVersion" | "hostContract"
+> & {
+  readonly contractVersion: "1.2.0" | "1.3.0";
+  readonly hostContract: "1.2.0" | "1.3.0";
+};
 type Host = Answers["hosts"][number];
 
 interface HostSurface {

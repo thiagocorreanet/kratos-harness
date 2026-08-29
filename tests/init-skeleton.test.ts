@@ -12,6 +12,7 @@ import {
   profileStack,
   type ResolvedAnswers,
   skeletonEffects,
+  unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
 import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
@@ -52,8 +53,8 @@ const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
 function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
-    contractVersion: "1.2.0",
-    hostContract: "1.2.0",
+    contractVersion: "1.3.0",
+    hostContract: "1.3.0",
     hosts: ["claude", "codex"],
     language: {
       conversation: "en",
@@ -78,6 +79,7 @@ function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
         judge: { model: "codex-judge", effort: "medium" },
       },
     },
+    projectProfile: unresolvedProjectProfile(),
     ...overrides,
   };
 }

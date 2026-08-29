@@ -825,11 +825,13 @@ describe("composed command line", () => {
       const { payload, wasAccessed } = hostile();
       const validationRequests: unknown[] = [];
       const productionRegistry = createSchemaRegistry();
+      const validate = (request: unknown): unknown =>
+        productionRegistry.validate(request as never);
       const schemaRegistry: SchemaRegistry = {
-        validate(request) {
+        validate: ((request: unknown) => {
           validationRequests.push(request);
-          return productionRegistry.validate(request);
-        },
+          return validate(request);
+        }) as SchemaRegistry["validate"],
       };
       const hostileAdapter = [
         {
@@ -880,11 +882,13 @@ describe("composed command line", () => {
       directories: [".brain", ".brain/transactions"],
     });
     const productionRegistry = createSchemaRegistry();
+    const validate = (request: unknown): unknown =>
+      productionRegistry.validate(request as never);
     const schemaRegistry: SchemaRegistry = {
-      validate(request) {
+      validate: ((request: unknown) => {
         events.push("validate");
-        return productionRegistry.validate(request);
-      },
+        return validate(request);
+      }) as SchemaRegistry["validate"],
     };
     const ordered = [
       {

@@ -7,6 +7,16 @@ export type {
   ResolvedModelRoles,
   ResolvedRoleMap,
 } from "./answers.js";
+export {
+  resolveProjectProfile,
+  unresolvedProjectProfile,
+  unresolvedProjectProfileKeys,
+} from "./profile.js";
+export type {
+  PartialProjectProfile,
+  ProjectProfileLeaf,
+  ResolvedProjectProfile,
+} from "./profile.js";
 export { detectLanguageConventions } from "./detect.js";
 export type {
   DetectedLanguageConventions,

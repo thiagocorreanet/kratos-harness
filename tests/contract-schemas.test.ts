@@ -99,6 +99,156 @@ function contractAjv(): Ajv2020 {
 }
 
 describe("versioned state and host schemas", () => {
+  it("validates the closed v1.3 project profile leaves and their limits", async () => {
+    const [initSchema, projectSchema] = await Promise.all([
+      readJson(join(schemaRoot, "host/init-answers.v1.3.schema.json")),
+      readJson(join(schemaRoot, "state/project-config.v1.3.schema.json")),
+    ]);
+    const ajv = contractAjv();
+    const initValidate = ajv.compile(initSchema);
+    const projectValidate = ajv.compile(projectSchema);
+    const completeProfile = {
+      commands: {
+        test: { status: "resolved", value: "npm test" },
+        lint: { status: "not-applicable", reason: "No linter is configured." },
+        build: { status: "unresolved" },
+        run: { status: "resolved", value: "npm run dev" },
+      },
+      paths: {
+        source: { status: "resolved", value: ["src"] },
+        tests: {
+          status: "not-applicable",
+          reason: "No automated tests exist.",
+        },
+        configuration: { status: "unresolved" },
+      },
+      conventions: {
+        directoryLayout: { status: "resolved", value: "Feature directories." },
+        naming: {
+          status: "not-applicable",
+          reason: "No naming convention is documented.",
+        },
+        implementationLanguages: {
+          status: "resolved",
+          value: ["TypeScript", "SQL"],
+        },
+      },
+    };
+    const init = {
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: { test: completeProfile.commands.test },
+        paths: { source: completeProfile.paths.source },
+        conventions: {
+          implementationLanguages:
+            completeProfile.conventions.implementationLanguages,
+        },
+      },
+    };
+    const project = {
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.3.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: {} },
+      projectProfile: completeProfile,
+    };
+
+    expect(initValidate(init)).toBe(true);
+    expect(projectValidate(project)).toBe(true);
+    expect(
+      initValidate({
+        ...init,
+        projectProfile: {
+          ...init.projectProfile,
+          commands: { ...init.projectProfile.commands, unexpected: {} },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          commands: {
+            ...completeProfile.commands,
+            test: { status: "unresolved", value: "npm test" },
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          commands: {
+            ...completeProfile.commands,
+            test: { status: "resolved", value: "x".repeat(2049) },
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          conventions: {
+            ...completeProfile.conventions,
+            naming: { status: "not-applicable", reason: "x".repeat(257) },
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses unsafe project-relative paths in v1.3 profiles", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "host/init-answers.v1.3.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const answer = (path: string) => ({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude"],
+      projectProfile: {
+        paths: { source: { status: "resolved", value: [path] } },
+      },
+    });
+
+    expect(validate(answer("src/index.ts"))).toBe(true);
+    for (const path of [
+      "/absolute/path",
+      "C:/drive/path",
+      "src\\windows",
+      "../outside",
+      "src/../outside",
+      "https://example.test/source",
+      "src/\u0000hidden",
+      "x".repeat(513),
+    ]) {
+      expect(validate(answer(path)), path).toBe(false);
+    }
+  });
+
   it.each([
     [
       "state/project-config.v1.schema.json",

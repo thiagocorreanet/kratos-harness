@@ -60,10 +60,13 @@ describe("transaction schema boundary", () => {
     const production = createSchemaRegistry();
     const requests: { readonly id: string; readonly version: unknown }[] = [];
     const tracking: SchemaRegistry = {
-      validate: (request) => {
+      validate: ((request: {
+        readonly id: string;
+        readonly version: unknown;
+      }) => {
         requests.push({ id: request.id, version: request.version });
-        return production.validate(request);
-      },
+        return (production.validate as (request: unknown) => unknown)(request);
+      }) as SchemaRegistry["validate"],
     };
     const injected = services(storage, tracking);
 
@@ -343,10 +346,12 @@ describe("transaction schema boundary", () => {
     });
     const production = createSchemaRegistry();
     const rejecting: SchemaRegistry = {
-      validate: (request) =>
+      validate: ((request: { readonly id: string }) =>
         request.id === "state.transaction-manifest"
           ? { kind: "invalid", diagnostics: [] }
-          : production.validate(request),
+          : (production.validate as (request: unknown) => unknown)(
+              request,
+            )) as SchemaRegistry["validate"],
     };
 
     await expect(
@@ -515,12 +520,12 @@ describe("transaction schema boundary", () => {
       services(storage, production),
     );
     const throwing: SchemaRegistry = {
-      validate: (request) => {
+      validate: ((request: { readonly id: string }) => {
         if (request.id === "state.transaction-manifest") {
           throw new Error("registry detail");
         }
-        return production.validate(request);
-      },
+        return (production.validate as (request: unknown) => unknown)(request);
+      }) as SchemaRegistry["validate"],
     };
 
     await expect(

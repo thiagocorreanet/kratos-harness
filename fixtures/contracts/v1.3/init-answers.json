@@ -1,0 +1,19 @@
+{
+  "contractVersion": "1.3.0",
+  "hostContract": "1.3.0",
+  "hosts": ["codex"],
+  "projectProfile": {
+    "commands": {
+      "test": { "status": "resolved", "value": "npm test" }
+    },
+    "paths": {
+      "source": { "status": "resolved", "value": ["src"] }
+    },
+    "conventions": {
+      "implementationLanguages": {
+        "status": "resolved",
+        "value": ["TypeScript"]
+      }
+    }
+  }
+}

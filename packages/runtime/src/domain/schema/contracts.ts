@@ -9,6 +9,7 @@ import type {
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
+  InitAnswersV1_3,
   EventV1,
   EventV1_1,
   EvidenceV1,
@@ -26,6 +27,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -42,7 +44,7 @@ export interface ContractValues {
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers":
-    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2;
+    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "host.phase-handoff": PhaseHandoffV1_1;
   readonly "host.pre-tool-use": PreToolUseV1;
@@ -60,7 +62,7 @@ export interface ContractValues {
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
   readonly "state.project-config":
-    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2;
+    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.run-usage": RunUsageV1;
   readonly "state.session-telemetry": SessionTelemetryV1;
@@ -70,7 +72,9 @@ export interface ContractValues {
 }
 
 export type ContractId = keyof ContractValues;
-export type ContractValue<I extends ContractId, V = unknown> = V extends string
+export type ContractValue<I extends ContractId, V = unknown> = [V] extends [
+  string,
+]
   ? Extract<ContractValues[I], { readonly contractVersion: V }> extends never
     ? ContractValues[I]
     : Extract<ContractValues[I], { readonly contractVersion: V }>

@@ -193,10 +193,12 @@ describe("event hash-chain verification", () => {
     );
     const versions: unknown[] = [];
     const schemaRegistry: SchemaRegistry = {
-      validate: (request) => {
+      validate: ((request: { readonly version: unknown }) => {
         versions.push(request.version);
-        return services.schemaRegistry.validate(request);
-      },
+        return (
+          services.schemaRegistry.validate as (request: unknown) => unknown
+        )(request);
+      }) as SchemaRegistry["validate"],
     };
 
     parseEventLines(

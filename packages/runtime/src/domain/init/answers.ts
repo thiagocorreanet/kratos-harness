@@ -1,4 +1,4 @@
-import type { InitAnswersV1_2, LanguagePolicyV1 } from "@kratos/contracts";
+import type { InitAnswersV1_3, LanguagePolicyV1 } from "@kratos/contracts";
 
 import {
   resolveModelRoleAssignment,
@@ -10,10 +10,18 @@ import {
 } from "../model-roles/index.js";
 import type { ModelRouting } from "../../ports/model-routing.js";
 import type { SchemaRegistry } from "../schema/index.js";
+import {
+  resolveProjectProfile,
+  type ResolvedProjectProfile,
+} from "./profile.js";
 
 /** Answers after every default has been made visible and every model resolved. */
-export type ResolvedAnswers = Omit<Required<InitAnswersV1_2>, "modelRoles"> & {
+export type ResolvedAnswers = Omit<
+  Required<InitAnswersV1_3>,
+  "modelRoles" | "projectProfile"
+> & {
   readonly modelRoles: ResolvedModelRoles;
+  readonly projectProfile: ResolvedProjectProfile;
 };
 
 export const DEFAULT_LANGUAGE_POLICY: LanguagePolicyV1 = {
@@ -37,7 +45,7 @@ const HOSTS = ["claude", "codex"] as const;
 const ROLES = ["planner", "implementer", "judge"] as const;
 
 type Host = "claude" | "codex";
-type ExplicitRoleMap = NonNullable<InitAnswersV1_2["modelRoles"]>[Host];
+type ExplicitRoleMap = NonNullable<InitAnswersV1_3["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */
 export type ResolvedRoleMap = Readonly<
@@ -94,7 +102,7 @@ export async function resolveInitAnswers(
       reasonCode: first?.reasonCode ?? "trail.output_invalido",
     };
   }
-  if (validated.value.contractVersion !== "1.2.0") {
+  if (validated.value.contractVersion !== "1.3.0") {
     return { kind: "invalid", reasonCode: "trail.output_invalido" };
   }
 
@@ -140,6 +148,7 @@ export async function resolveInitAnswers(
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
       snapshots: supplied.snapshots ?? DEFAULTS.snapshots,
       modelRoles,
+      projectProfile: resolveProjectProfile(supplied.projectProfile, undefined),
     },
     defaulted,
   };

@@ -36,7 +36,9 @@ The state family contains:
 - [`project-config.v1.schema.json`](state/project-config.v1.schema.json);
 - [`project-config.v1.1.schema.json`](state/project-config.v1.1.schema.json);
 - [`project-config.v1.2.schema.json`](state/project-config.v1.2.schema.json), the
-  current configuration with closed per-artifact language policy;
+  configuration with closed per-artifact language policy;
+- [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
+  current configuration with complete project-profile answers;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
@@ -67,8 +69,9 @@ current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.js
 [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
 [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
-current [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json)
-per-artifact language policy revision, plus
+[`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
+current [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json)
+with partial project-profile answers, plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
