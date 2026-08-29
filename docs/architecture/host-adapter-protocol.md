@@ -13,8 +13,8 @@ protocol the runtime carries today.
 interface HostAdapter {
   readonly name: string;
   describe(): HostDescriptor;
-  translate(invocation: HostInvocation): AdapterMessageV1;
-  relay(response: AdapterMessageV1): HostRendering;
+  translate(invocation: HostInvocation): AdapterMessageV1_1;
+  relay(response: AdapterMessageV1_1): HostRendering;
 }
 ```
 
@@ -30,25 +30,78 @@ accident.
 
 ## Describing a host
 
-An adapter states its identity, its contract revision, its capabilities, and
-who is running:
+An adapter states its identity, configuration host, contract revision,
+capabilities, model catalog, and who is running:
 
 | Field | Meaning |
 | --- | --- |
 | `host` | The identity carried on every message this adapter sends |
+| `configurationHost` | The `claude` or `codex` configuration key |
 | `hostContract` | The host contract revision this adapter speaks |
 | `capabilities` | Every capability the host offers, as declared |
+| `modelRouting` | Host-native defaults, aliases, canonical identities, and supported efforts |
 | `observedIdentity.adapterVersion` | The adapter build |
 | `observedIdentity.model` | The model the host reported, or `null` |
+| `observedIdentity.effort` | The effort the host reported, or `null` |
 
-`model: null` means the host was handed no model identity. It never means the
-adapter chose one. ADR-0004 requires the limitation to be recorded rather than
-filled in, because a substituted identity is indistinguishable from an observed
-one once it reaches an event.
+`model: null` or `effort: null` means the host did not report that execution
+fact. It never means the adapter selected a replacement or that the runtime may
+copy configured values into observation. ADR-0004 requires the limitation to be
+recorded rather than filled in, because a substituted identity is
+indistinguishable from an observed one once it reaches an event.
+
+## Model routing facts and runtime policy
+
+The adapter owns host facts, not the routing decision. Its closed catalog gives
+the runtime concrete defaults, aliases, canonical model identities, and
+supported effort names. The runtime owns the fixed phase-to-role map, resolves
+all three configured roles, compares canonical implementer and judge identities,
+and refuses missing, ambiguous, unsupported, or non-independent routing. An
+adapter cannot remap a phase, choose a fallback role, downgrade effort, or turn
+`model.independence_violation` into a warning.
+
+The current bundled defaults are versioned with each adapter:
+
+| Host | Planner | Implementer | Judge |
+| --- | --- | --- | --- |
+| Claude Code (`claude`) | `sonnet@medium` | `opus@medium` | `sonnet@medium` |
+| Codex (`codex`) | `gpt-5.6-terra@medium` | `gpt-5.6-sol@high` | `gpt-5.6-terra@medium` |
+
+Initialization persists the canonical resolved objects, so an existing project
+does not silently inherit different defaults from a later adapter version.
+Concrete names remain adapter data; shared workflow policy is host neutral.
+
+## Packaged phase-agent relay
+
+Each packaged host ships `skills/kratos/scripts/phase-agent-relay.mjs`. The
+host-specific module pins only the host identity and delegates to the shared
+adapter protocol. For one phase it:
+
+1. obtains the validated handoff through the runtime transport;
+2. refuses to start phase work unless the native launcher declares exact model
+   and effort selection;
+3. passes the runtime-selected phase, role, model, and effort unchanged to that
+   launcher; and
+4. translates the launch result into an `sdd.agent.record:<correlation>`
+   request carrying the original `assignmentDigest` in `phaseExecution`.
+
+The launcher returns nullable host-observed identity separately from the
+selected assignment. The relay never fills a missing observation from the
+handoff. Runtime handoff refusals are returned unchanged, and an unavailable
+exact selector is a host capability refusal before work, not permission to
+choose a fallback.
+
+The repository cannot invoke proprietary Codex or Claude Code phase-agent APIs
+in a portable test process. The packaged-host conformance suite therefore
+imports both built relay modules and supplies controlled runtime and launcher
+ports. It executes the complete handoff-to-launch-to-record binding and proves
+that an unsupported selector calls neither launch nor record. This verifies the
+shipped integration contract; it is not a claim that a proprietary host API
+ran end to end in the test environment.
 
 ## Contract negotiation
 
-`adapter-message.v1` pins `hostContract` to a constant. A host speaking a
+Each adapter-message revision pins `hostContract` to a constant. A host speaking a
 different revision would therefore fail schema validation as a bad property,
 which names a field instead of naming the contract. So the runtime reads the
 declared revision structurally, before anything validates the message, and
@@ -65,6 +118,10 @@ hostile would otherwise have it echoed back to whoever reads the failure.
 
 This is the same ordering the answers document already uses, for the same
 reason.
+
+Routing-capable operations require `host.adapter-message@1.1.0`. The registered
+`1.0.0` revision remains accepted only for the legacy payloads it defines; it
+cannot carry a phase handoff, model catalog, or execution observation.
 
 ## Capabilities
 
@@ -91,6 +148,21 @@ than the bytes it was told about, and the reference pattern refuses absolute
 paths, drive-qualified paths, backslashes, parent segments, URI schemes, and
 control characters.
 
+For phase output, a request additionally carries `phaseExecution` with the
+handoff's `assignmentDigest` and the host-observed nullable `model` and
+`effort`. The runtime binds that envelope to the operation, correlation, path,
+and inspected content digest before reading agent content. Response,
+model-catalog, and phase-execution message variants forbid this top-level field;
+their generated TypeScript variants preserve the same closed shape as the
+schema.
+
+The host returns the assignment digest selected by `kratos handoff`; it does
+not calculate a new assignment. Before append, the runtime re-resolves current
+configuration, run revision, phase, host, role, model, and effort. Drift returns
+`model.assignment_stale`; a known observed mismatch returns
+`model.execution_mismatch`. When the host reports neither value, observed model
+and effort remain `null` in the event.
+
 ## Relaying a decision
 
 The response payload is a universal result. An adapter publishes it; it does
@@ -103,11 +175,9 @@ checks the verdict survives.
 `describeHostAdapterContract(label, factory)` follows the same shape as the
 port contracts already in this repository: one suite, run against every
 implementation, so a host that quietly diverges fails there rather than in
-production. A minimal fake adapter passes it today, which is what lets the
-suite exist before either real host does.
-
-`ADP-02` and `ADP-03` add Claude Code and Codex by passing this suite, not by
-branching the core.
+production. The fake, Claude Code, and Codex adapters pass the same suite.
+Host-specific catalog data changes the facts supplied to the shared runtime,
+not its decision path or stable reason codes.
 
 ## Operation lifecycle messages
 

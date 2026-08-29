@@ -1,4 +1,4 @@
-import type { EventV1, LockLeaseV1 } from "@kratos/contracts";
+import type { EventV1, LockLeaseV1, ReadableEvent } from "@kratos/contracts";
 import type { PathFingerprint } from "../transactions/index.js";
 
 export const DEFAULT_LEASE_TTL_MS = 30_000;
@@ -74,25 +74,25 @@ export type LeaseOutcome =
           readonly kind: "acquired";
           readonly lease: LockLeaseV1;
           readonly guard: LeaseGuard;
-          readonly event: EventV1;
+          readonly event: ReadableEvent;
         }
       | {
           readonly kind: "renewed";
           readonly lease: LockLeaseV1;
           readonly guard: LeaseGuard;
-          readonly event: EventV1;
+          readonly event: ReadableEvent;
         }
       | {
           readonly kind: "released";
           readonly lease: LockLeaseV1;
           readonly guard: LeaseGuard;
-          readonly event: EventV1;
+          readonly event: ReadableEvent;
         }
       | {
           readonly kind: "taken_over";
           readonly lease: LockLeaseV1;
           readonly guard: LeaseGuard;
-          readonly event: EventV1;
+          readonly event: ReadableEvent;
         }
     )
   | { readonly kind: "empty" }

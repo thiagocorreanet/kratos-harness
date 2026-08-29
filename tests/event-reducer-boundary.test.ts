@@ -2,7 +2,7 @@ import { types } from "node:util";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { ReadableEvent, SnapshotV1 } from "@kratos/contracts";
 import {
   EventIntegrityError,
   isRecognizedReducerRegistryFailure,
@@ -10,7 +10,7 @@ import {
   sealEvent,
   snapshotEventReducerRegistry,
   verifyEventStream,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
@@ -70,14 +70,14 @@ it("snapshots a closed deeply frozen reducer registry without retaining source m
   expect(Object.keys(frozen.reducers)).toEqual(["policy-01"]);
 });
 
-function draft(): EventDraftV1 {
+function draft(): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: "event-01",
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: "2026-08-10T00:01:00Z",
-    operation: "sdd.continue",
+    operation: "runtime.test:event-01",
     policyVersion: "policy-01",
     priorRevision: 0,
     resultingRevision: 1,
@@ -85,7 +85,7 @@ function draft(): EventDraftV1 {
     effect: "state",
     artifactRefs: [".brain/features/feature-01.md"],
     evidenceRefs: [".brain/evidence/event-01.json"],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: null },
   };
 }
 
@@ -116,7 +116,8 @@ function snapshot(
 }
 
 function registry(
-  reducer: (state: TestState, event: EventV1) => TestState = (state) => state,
+  reducer: (state: TestState, event: ReadableEvent) => TestState = (state) =>
+    state,
   materialize: EventReducerRegistry<TestState>["materialize"] = snapshot,
 ): EventReducerRegistry<TestState> {
   return { seed, reducers: { "policy-01": reducer }, materialize };
@@ -618,7 +619,7 @@ describe("event reducer replay boundary", () => {
     ],
     [
       "event",
-      (state: TestState, event: EventV1) => {
+      (state: TestState, event: ReadableEvent) => {
         try {
           (event as { operation: string }).operation = "private";
         } catch {

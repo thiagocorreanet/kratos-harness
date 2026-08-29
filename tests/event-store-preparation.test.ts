@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
+import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
 
 import type { EventV1, SnapshotV1 } from "@kratos/contracts";
 import {
@@ -10,7 +11,7 @@ import {
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { TransactionFailure } from "@kratos/runtime/composition";
 import type {
-  EventDraftV1,
+  CurrentEventDraft,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { EventIntegrityError } from "@kratos/runtime/domain/events";
@@ -41,14 +42,14 @@ const seed: State = {
   createdAt: "2026-08-10T00:00:00Z",
 };
 
-function draft(index: number): EventDraftV1 {
+function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -56,7 +57,7 @@ function draft(index: number): EventDraftV1 {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
   };
 }
 
@@ -149,6 +150,41 @@ async function failureCode(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe("event-store append preparation", () => {
+  it("appends a current event without rewriting a legacy event line", async () => {
+    const oldEvent = {
+      ...(JSON.parse(goldenV1.unsignedCanonical) as Omit<EventV1, "eventHash">),
+      eventHash: goldenV1.eventHash,
+    };
+    const oldLine = `${canonicalizeJson(oldEvent)}\n`;
+    const oldSnapshot = `${canonicalizeJson({
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      projectId: seed.projectId,
+      runId: seed.runId,
+      status: "active",
+      currentStep: oldEvent.operation,
+      eventCursor: 1,
+      eventHash: oldEvent.eventHash,
+      policyVersion: oldEvent.policyVersion,
+      lineage: seed.lineage,
+      createdAt: seed.createdAt,
+      updatedAt: oldEvent.occurredAt,
+    })}\n`;
+    const storage = persistedStorage({
+      events: oldLine,
+      snapshot: oldSnapshot,
+    });
+
+    const prepared = await prepareEventAppend(
+      { feature: "sample-feature", runId: "run-01", event: draft(2) },
+      services(storage),
+    );
+
+    expect(prepared.effects[0].content.startsWith(oldLine)).toBe(true);
+    expect(prepared.effects[0].content.slice(0, oldLine.length)).toBe(oldLine);
+    expect(prepared.event.stateContract).toBe("1.1.0");
+  });
+
   it("derives only the two canonical paths for a valid run ID", () => {
     expect(
       eventStorePaths({ feature: "sample-feature", runId: "run-01" }),
@@ -916,7 +952,7 @@ describe("event-store append preparation", () => {
   it("snapshots an in-flight draft mutation before the first read", async () => {
     const files = await firstFiles();
     const storage = persistedStorage(files);
-    const mutable = draft(2) as EventDraftV1 & { operation: string };
+    const mutable = draft(2) as CurrentEventDraft & { operation: string };
     let release: (() => void) | undefined;
     const wait = new Promise<void>((resolve) => {
       release = resolve;
@@ -936,7 +972,7 @@ describe("event-store append preparation", () => {
     release?.();
 
     const prepared = await pending;
-    expect(prepared.event.operation).toBe("sdd.step-2");
+    expect(prepared.event.operation).toBe("runtime.test:step-2");
   });
 
   it("snapshots reducers before the first durable await", async () => {

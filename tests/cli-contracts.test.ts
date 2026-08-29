@@ -20,6 +20,7 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const schemaPaths = new Map([
   ["result@1.0.0", "schemas/result.v1.schema.json"],
   ["adapter-message@1.0.0", "schemas/host/adapter-message.v1.schema.json"],
+  ["phase-handoff@1.1.0", "schemas/host/phase-handoff.v1.1.schema.json"],
 ]);
 const validators = new Map<string, (value: unknown) => boolean>();
 
@@ -69,7 +70,9 @@ describe("declared JSON contracts", () => {
   it("emits output satisfying the declared schema", async () => {
     for (const spec of DEFAULT_REGISTRY) {
       const result = await run(["--json", ...spec.path]);
-      const validate = validators.get(spec.jsonContract);
+      const validate = validators.get(
+        result.exitCode === 0 ? spec.jsonContract : "result@1.0.0",
+      );
       expect(validate?.(JSON.parse(result.stdout)), spec.path.join(" ")).toBe(
         true,
       );

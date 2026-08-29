@@ -1,14 +1,17 @@
-import { CONTRACT_IDENTITIES, type EventV1 } from "@kratos/contracts";
+import type { EventV1_1 } from "@kratos/contracts";
 
 import { canonicalizeJson } from "../schema/index.js";
 import {
   EventIntegrityError,
   type EventChainCursor,
   type EventServices,
+  type ReadableEvent,
 } from "./model.js";
 import { snapshotEventDraft } from "./redaction.js";
 
-export function unsignedEvent(event: EventV1): Omit<EventV1, "eventHash"> {
+export function unsignedEvent<Event extends ReadableEvent>(
+  event: Event,
+): Omit<Event, "eventHash"> {
   const { eventHash, ...unsigned } = event;
   void eventHash;
   return unsigned;
@@ -18,7 +21,7 @@ export function sealEvent(
   input: unknown,
   cursor: EventChainCursor,
   services: EventServices,
-): EventV1 {
+): EventV1_1 {
   const draft = snapshotEventDraft(input, services.isProxy);
   if (
     draft.priorRevision !== cursor.revision ||
@@ -34,7 +37,7 @@ export function sealEvent(
   };
   const validated = services.schemaRegistry.validate({
     id: "state.event",
-    version: CONTRACT_IDENTITIES.state,
+    version: event.stateContract,
     value: event,
     structuralReasonCode: "runtime.state_corrupt",
   });

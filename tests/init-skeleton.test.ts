@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { KRATOS_VERSION, type InitAnswersV1 } from "@kratos/contracts";
+import { KRATOS_VERSION } from "@kratos/contracts";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import type { Effect } from "@kratos/runtime/domain/effects";
 import {
@@ -10,9 +10,10 @@ import {
   MANAGED_SECTION_END,
   destinationsOf,
   profileStack,
+  type ResolvedAnswers,
   skeletonEffects,
 } from "@kratos/runtime/domain/init";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 const discoveryPath = join(
   fileURLToPath(new URL("../", import.meta.url)),
@@ -47,16 +48,26 @@ beforeAll(async () => {
 const registry = createSchemaRegistry();
 const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
-function answers(
-  overrides: Partial<Required<InitAnswersV1>> = {},
-): Required<InitAnswersV1> {
+function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
+    contractVersion: "1.1.0",
+    hostContract: "1.1.0",
     hosts: ["claude", "codex"],
     language: "en",
     policyMode: "standard",
     snapshots: true,
+    modelRoles: {
+      claude: {
+        planner: { model: "claude-planner", effort: "medium" },
+        implementer: { model: "claude-implementer", effort: "medium" },
+        judge: { model: "claude-judge", effort: "medium" },
+      },
+      codex: {
+        planner: { model: "codex-planner", effort: "medium" },
+        implementer: { model: "codex-implementer", effort: "high" },
+        judge: { model: "codex-judge", effort: "medium" },
+      },
+    },
     ...overrides,
   };
 }
@@ -76,6 +87,28 @@ function underBrain(path: string): boolean {
 }
 
 describe("the generated skeleton", () => {
+  it("accepts resolved model-role objects but rejects raw assignments at its public boundary", () => {
+    interface RawAssignments {
+      readonly contractVersion: "1.1.0";
+      readonly hostContract: "1.1.0";
+      readonly hosts: readonly ["codex"];
+      readonly language: "en";
+      readonly policyMode: "standard";
+      readonly snapshots: true;
+      readonly modelRoles: {
+        readonly codex: {
+          readonly planner: "planner";
+          readonly implementer: "implementer";
+          readonly judge: "judge";
+        };
+      };
+    }
+
+    expectTypeOf<RawAssignments["modelRoles"]>().not.toExtend<
+      Parameters<typeof skeletonEffects>[0]["modelRoles"]
+    >();
+  });
+
   it("generates exactly the frozen initialization surface", () => {
     expect(destinationsOf(skeletonEffects(answers(), nodeProject))).toEqual(
       frozen,
@@ -169,10 +202,10 @@ describe("the generated skeleton", () => {
     );
 
     expect(config).toEqual({
-      contractVersion: "1.0.0",
-      stateContract: "1.0.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       pluginVersion: KRATOS_VERSION,
-      hostContract: "1.0.0",
+      hostContract: "1.1.0",
       language: "pt-BR",
       policyMode: "strict",
       managedState: {
@@ -180,11 +213,23 @@ describe("the generated skeleton", () => {
         eventLog: "events.jsonl",
         snapshots: false,
       },
+      modelRoles: {
+        claude: {
+          planner: { model: "claude-planner", effort: "medium" },
+          implementer: { model: "claude-implementer", effort: "medium" },
+          judge: { model: "claude-judge", effort: "medium" },
+        },
+        codex: {
+          planner: { model: "codex-planner", effort: "medium" },
+          implementer: { model: "codex-implementer", effort: "high" },
+          judge: { model: "codex-judge", effort: "medium" },
+        },
+      },
     });
     expect(
       registry.validate({
         id: "state.project-config",
-        version: "1.0.0",
+        version: "1.1.0",
         value: config,
         structuralReasonCode: "guard.config_corrupt",
       }).kind,

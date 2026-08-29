@@ -8,7 +8,7 @@ import {
   validateTokenTransition,
   verifyLeaseBinding,
 } from "@kratos/runtime/domain/locks";
-import { sealEvent } from "@kratos/runtime/domain/events";
+import { EventIntegrityError, sealEvent } from "@kratos/runtime/domain/events";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
@@ -232,7 +232,11 @@ describe("lease lifecycle history", () => {
     ["evidence", { evidenceRefs: [".brain/evidence/one.json"] }],
   ] as const)(
     "rejects a lifecycle event with an invalid %s",
-    (_name, changes) => {
+    (name, changes) => {
+      if (name === "event type" || name === "reason" || name === "effect") {
+        expect(() => resealedAcquire(changes)).toThrow(EventIntegrityError);
+        return;
+      }
       const event = resealedAcquire(changes);
       expect(() =>
         verifyLeaseBinding(

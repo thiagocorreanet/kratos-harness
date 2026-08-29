@@ -1,6 +1,14 @@
+import type {
+  EventV1,
+  EventV1_1,
+  ProjectConfigV1,
+  ProjectConfigV1_1,
+} from "./generated/contracts.js";
+
 export { KRATOS_VERSION } from "./version.js";
 export {
   CONTRACT_IDENTITIES,
+  CONTRACT_VERSIONS,
   classifyContractVersion,
   contractFailureResult,
 } from "./compatibility.js";
@@ -30,11 +38,14 @@ export type {
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   AdapterMessageV1,
+  AdapterMessageV1_1,
   AgentOutputV1,
   ApprovalV1,
   InitAnswersV1,
+  InitAnswersV1_1,
   HostOperationMessageV1,
   EventV1,
+  EventV1_1,
   EvidenceV1,
   FeatureStateV1,
   FeatureScopeV1,
@@ -45,7 +56,10 @@ export type {
   GuardrailsV1,
   LockLeaseV1,
   MigrationV1,
+  MigrationV1_1,
+  PhaseHandoffV1_1,
   ProjectConfigV1,
+  ProjectConfigV1_1,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -55,3 +69,11 @@ export type {
   TransactionProgressV1,
   FailureCandidateV1,
 } from "./generated/contracts.js";
+
+export type ModelRole = "planner" | "implementer" | "judge";
+export type ModelAssignmentV1_1 =
+  string | { readonly model: string; readonly effort: string };
+export type CurrentEvent = EventV1_1;
+export type ReadableEvent = EventV1 | EventV1_1;
+export type CurrentProjectConfig = ProjectConfigV1_1;
+export type ReadableProjectConfig = ProjectConfigV1 | ProjectConfigV1_1;

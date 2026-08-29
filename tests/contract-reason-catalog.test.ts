@@ -35,6 +35,10 @@ const catalogV16Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.6.json",
 );
+const catalogV17Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.7.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -71,6 +75,7 @@ let catalogV13: Catalog;
 let catalogV14: Catalog;
 let catalogV15: Catalog;
 let catalogV16: Catalog;
+let catalogV17: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -78,6 +83,7 @@ let catalogV13Text: string;
 let catalogV14Text: string;
 let catalogV15Text: string;
 let catalogV16Text: string;
+let catalogV17Text: string;
 
 beforeAll(async () => {
   [
@@ -88,6 +94,7 @@ beforeAll(async () => {
     catalogV14Text,
     catalogV15Text,
     catalogV16Text,
+    catalogV17Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -96,6 +103,7 @@ beforeAll(async () => {
     readFile(catalogV14Path, "utf8"),
     readFile(catalogV15Path, "utf8"),
     readFile(catalogV16Path, "utf8"),
+    readFile(catalogV17Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -104,6 +112,7 @@ beforeAll(async () => {
   catalogV14 = JSON.parse(catalogV14Text) as Catalog;
   catalogV15 = JSON.parse(catalogV15Text) as Catalog;
   catalogV16 = JSON.parse(catalogV16Text) as Catalog;
+  catalogV17 = JSON.parse(catalogV17Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -273,6 +282,35 @@ describe("contract reason catalog revision", () => {
         stateChanged: false,
         retryable: true,
       });
+    }
+  });
+
+  it("preserves revision 1.6 and appends the eight model-role refusals", () => {
+    const codes = [
+      "model.role_missing",
+      "model.host_missing",
+      "model.resolution_unavailable",
+      "model.effort_unsupported",
+      "model.independence_violation",
+      "model.assignment_stale",
+      "model.execution_mismatch",
+      "model.config_migration_required",
+    ];
+    expect(catalogV17.reasons.slice(0, catalogV16.reasons.length)).toEqual(
+      catalogV16.reasons,
+    );
+    expect(
+      catalogV17.reasons
+        .slice(catalogV16.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(codes);
+    for (const reason of catalogV17.reasons.slice(catalogV16.reasons.length)) {
+      expect(reason).toMatchObject({
+        status: "blocked",
+        exitCode: reason.code === "model.config_migration_required" ? 4 : 3,
+        stateChanged: false,
+      });
+      expect(reason.recovery).not.toBeNull();
     }
   });
 

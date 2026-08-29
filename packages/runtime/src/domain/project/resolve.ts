@@ -17,7 +17,7 @@ export function resolveProject(
     root.probe.configuration,
     validateConfiguration,
   );
-  if (configuration.kind === "failure") {
+  if (configuration.kind !== "valid") {
     return {
       kind: "configuration-unusable",
       root: root.root,

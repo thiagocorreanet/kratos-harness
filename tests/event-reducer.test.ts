@@ -1,12 +1,13 @@
 import { types } from "node:util";
+import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
 
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, SnapshotV1 } from "@kratos/contracts";
 import {
   EventIntegrityError,
   replayEventStream,
   sealEvent,
   verifyEventStream,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
@@ -45,28 +46,34 @@ const seed: TestState = {
   createdAt: "2026-08-10T00:00:00Z",
 };
 
-function draft(index: number): EventDraftV1 {
+function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
     eventType: "transition",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `sdd.continue:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
-    reasonCode: "ok",
+    reasonCode: "run.transition.accepted",
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
+    resolvedAssignment: {
+      phase: "code",
+      role: "implementer",
+      model: "gpt-5",
+      effort: "medium",
+    },
   };
 }
 
 function stream(events = 2) {
   let cursor = { revision: 0, hash: null as string | null };
-  const sealed: EventV1[] = [];
+  const sealed: EventV1_1[] = [];
   for (let index = 1; index <= events; index += 1) {
     const event = sealEvent(draft(index), cursor, services);
     sealed.push(event);
@@ -111,6 +118,19 @@ const registry: EventReducerRegistry<TestState> = {
   materialize,
 };
 
+const legacyOnlyRegistry: EventReducerRegistry<TestState> = {
+  seed,
+  reducers: {
+    // @ts-expect-error Reducers must consume every readable event revision.
+    "policy-01": (state: TestState, event: EventV1) => {
+      void event;
+      return state;
+    },
+  },
+  materialize: (state, cursor) => registry.materialize(state, cursor),
+};
+void legacyOnlyRegistry;
+
 function errorKind(run: () => unknown): EventIntegrityError["kind"] {
   try {
     run();
@@ -122,6 +142,27 @@ function errorKind(run: () => unknown): EventIntegrityError["kind"] {
 }
 
 describe("event reducer replay", () => {
+  it("replays mixed event revisions through the existing reducer policy", () => {
+    const oldEvent = {
+      ...(JSON.parse(goldenV1.unsignedCanonical) as Omit<EventV1, "eventHash">),
+      eventHash: goldenV1.eventHash,
+    };
+    const current = sealEvent(
+      draft(2),
+      { revision: 1, hash: oldEvent.eventHash },
+      services,
+    );
+    const verified = verifyEventStream(
+      `${canonicalizeJson(oldEvent)}\n${canonicalizeJson(current)}\n`,
+      services,
+    );
+
+    const replay = replayEventStream(verified, registry, services);
+
+    expect(replay.state.currentStep).toBe(current.operation);
+    expect(replay.snapshot.eventHash).toBe(current.eventHash);
+  });
+
   it("replays verified events into a snapshot bound to the final cursor", () => {
     const verified = stream();
 

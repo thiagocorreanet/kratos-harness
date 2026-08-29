@@ -1,4 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +9,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const schemaRoot = join(repositoryRoot, "schemas");
 const fixtureRoot = join(repositoryRoot, "fixtures/contracts/v1");
+const currentFixtureRoot = join(repositoryRoot, "fixtures/contracts/v1.1");
 const artifacts = [
   ["host/init-answers.v1.schema.json", "init-answers.json", "host"],
   ["state/project-config.v1.schema.json", "project-config.json", "state"],
@@ -97,6 +99,225 @@ function contractAjv(): Ajv2020 {
 }
 
 describe("versioned state and host schemas", () => {
+  it.each([
+    [
+      "state/project-config.v1.schema.json",
+      "0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf",
+    ],
+    [
+      "state/event.v1.schema.json",
+      "83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d",
+    ],
+    [
+      "host/init-answers.v1.schema.json",
+      "c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806",
+    ],
+    [
+      "host/adapter-message.v1.schema.json",
+      "40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd",
+    ],
+  ])("keeps the published %s schema byte-identical", async (path, digest) => {
+    const bytes = await readFile(join(schemaRoot, path));
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(digest);
+  });
+
+  it("publishes closed current model-role schema shapes", async () => {
+    const paths = [
+      "state/project-config.v1.1.schema.json",
+      "state/event.v1.1.schema.json",
+      "state/migration.v1.1.schema.json",
+      "host/init-answers.v1.1.schema.json",
+      "host/adapter-message.v1.1.schema.json",
+      "host/phase-handoff.v1.1.schema.json",
+    ] as const;
+    const fixtures = [
+      "project-config.json",
+      "event.json",
+      "migration.json",
+      "init-answers.json",
+      "adapter-message.json",
+      "phase-handoff.json",
+    ] as const;
+    const current = await Promise.all(
+      paths.map(async (path, index) => {
+        const fixture = fixtures[index];
+        if (fixture === undefined)
+          throw new Error("current fixture unavailable");
+        return {
+          schema: await readJson(join(schemaRoot, path)),
+          fixture: await readJson(join(currentFixtureRoot, fixture)),
+        };
+      }),
+    );
+    const ajv = contractAjv();
+    for (const { schema, fixture } of current) {
+      expect(ajv.compile(schema)(fixture)).toBe(true);
+    }
+
+    const project = current[0];
+    const event = current[1];
+    const migration = current[2];
+    const init = current[3];
+    const adapter = current[4];
+    const handoff = current[5];
+    if (
+      project === undefined ||
+      event === undefined ||
+      migration === undefined ||
+      init === undefined ||
+      adapter === undefined ||
+      handoff === undefined
+    ) {
+      throw new Error("current contract fixture unavailable");
+    }
+
+    const projectValidate = ajv.compile(project.schema);
+    expect(projectValidate({ ...project.fixture, modelRoles: {} })).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: { unexpected: {} },
+      }),
+    ).toBe(false);
+    const roles = (project.fixture.modelRoles as JsonObject)
+      .codex as JsonObject;
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: { codex: { ...roles, planner: { model: "model-x" } } },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: {
+          codex: {
+            ...roles,
+            planner: { model: "model-x", effort: "medium", extra: true },
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: { codex: { ...roles, planner: "invalid model" } },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project.fixture,
+        modelRoles: {
+          codex: {
+            ...roles,
+            planner: { model: "model-x", effort: "invalid effort" },
+          },
+        },
+      }),
+    ).toBe(false);
+
+    const eventValidate = ajv.compile(event.schema);
+    const observed = event.fixture.observedIdentity as JsonObject;
+    const assignment = event.fixture.resolvedAssignment as JsonObject;
+    expect(
+      eventValidate({
+        ...event.fixture,
+        observedIdentity: { ...observed, effort: "medium" },
+      }),
+    ).toBe(true);
+    expect(
+      eventValidate({
+        ...event.fixture,
+        resolvedAssignment: { ...assignment, extra: true },
+      }),
+    ).toBe(false);
+
+    const migrationValidate = ajv.compile(migration.schema);
+    expect(
+      migrationValidate({
+        ...migration.fixture,
+        rollback: {
+          kind: "copy",
+          backupRef: ".brain/backups/config.json",
+          destinationRef: ".brain/config.json",
+        },
+      }),
+    ).toBe(true);
+    expect(
+      migrationValidate({
+        ...migration.fixture,
+        rollback: {
+          kind: "replace",
+          backupRef: ".brain/backups/config.json",
+          destinationRef: ".brain/config.json",
+        },
+      }),
+    ).toBe(false);
+
+    const initValidate = ajv.compile(init.schema);
+    expect(
+      initValidate({
+        ...init.fixture,
+        modelRoles: { codex: { ...roles, judge: "model-z" } },
+      }),
+    ).toBe(true);
+    expect(
+      initValidate({
+        ...init.fixture,
+        modelRoles: { codex: { ...roles, reviewer: "model-z" } },
+      }),
+    ).toBe(false);
+
+    const adapterValidate = ajv.compile(adapter.schema);
+    const catalogPayload = adapter.fixture.payload as JsonObject;
+    expect(
+      adapterValidate({
+        ...adapter.fixture,
+        payload: { ...catalogPayload, unexpected: true },
+      }),
+    ).toBe(false);
+    const phaseExecution = {
+      ...adapter.fixture,
+      messageType: "phase-execution",
+      payloadContract: "host.phase-execution@1.1.0",
+      payload: {
+        assignmentDigest: "a".repeat(64),
+        model: null,
+        effort: null,
+      },
+    };
+    expect(adapterValidate(phaseExecution)).toBe(true);
+    expect(
+      adapterValidate({
+        ...phaseExecution,
+        payload: { ...phaseExecution.payload, unexpected: true },
+      }),
+    ).toBe(false);
+
+    expect(
+      adapterValidate({
+        ...adapter.fixture,
+        messageType: "request",
+        operation: "sdd.agent.record:correlation-01",
+        payloadContract: "host.agent-output@1.0.0",
+        payload: {
+          ref: ".brain/agent-replies/prd.md",
+          sha256: "b".repeat(64),
+        },
+        phaseExecution: {
+          assignmentDigest: "a".repeat(64),
+          model: null,
+          effort: null,
+        },
+      }),
+    ).toBe(true);
+
+    const handoffValidate = ajv.compile(handoff.schema);
+    expect(
+      handoffValidate({ ...handoff.fixture, assignmentDigest: "not-a-sha256" }),
+    ).toBe(false);
+  });
+
   it("strictly compiles every closed schema and accepts its fixture", () => {
     const ajv = contractAjv();
 

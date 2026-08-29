@@ -33,4 +33,55 @@ describe("schema composition", () => {
       kind: "invalid",
     });
   });
+
+  it.each([
+    [
+      "accessor",
+      () => {
+        let accessed = false;
+        const value = Object.defineProperty(
+          structuredClone(projectConfig),
+          "stateContract",
+          {
+            enumerable: true,
+            get() {
+              accessed = true;
+              throw new Error("hostile accessor invoked");
+            },
+          },
+        );
+        return { value, wasAccessed: () => accessed };
+      },
+    ],
+    [
+      "Proxy",
+      () => {
+        let accessed = false;
+        const value = new Proxy(structuredClone(projectConfig), {
+          get() {
+            accessed = true;
+            throw new Error("hostile Proxy trap invoked");
+          },
+        });
+        return { value, wasAccessed: () => accessed };
+      },
+    ],
+    [
+      "revoked Proxy",
+      () => {
+        const { proxy, revoke } = Proxy.revocable(
+          structuredClone(projectConfig),
+          {},
+        );
+        revoke();
+        return { value: proxy, wasAccessed: () => false };
+      },
+    ],
+  ])("rejects a project configuration with a hostile %s", (_, hostile) => {
+    const validate = configurationValidator(createSchemaRegistry());
+    const { value, wasAccessed } = hostile();
+
+    expect(validate(value)).toEqual({ kind: "invalid" });
+    expect(wasAccessed()).toBe(false);
+  });
 });

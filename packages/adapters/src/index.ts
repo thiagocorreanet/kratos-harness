@@ -1,4 +1,100 @@
-import { KRATOS_VERSION, type AdapterMessageV1 } from "@kratos/contracts";
+import {
+  CONTRACT_VERSIONS,
+  KRATOS_VERSION,
+  type AdapterMessageV1_1,
+  type PhaseHandoffV1_1,
+} from "@kratos/contracts";
+
+export interface HostModelAssignment {
+  readonly model: string;
+  readonly effort: string;
+}
+
+/** Host-owned, versioned capability facts; never a runtime policy choice. */
+export interface HostModelCatalog {
+  readonly host: "claude" | "codex";
+  readonly defaults: Readonly<
+    Record<"planner" | "implementer" | "judge", HostModelAssignment>
+  >;
+  readonly models: readonly {
+    readonly canonicalModel: string;
+    readonly aliases: readonly string[];
+    readonly efforts: readonly string[];
+  }[];
+}
+
+/** The read-only capability shape the runtime composition consumes structurally. */
+export interface HostModelRouting {
+  observe(host: "claude" | "codex"): Promise<HostModelCatalog | null>;
+}
+
+function frozenCatalog(catalog: HostModelCatalog): HostModelCatalog {
+  return Object.freeze({
+    host: catalog.host,
+    defaults: Object.freeze({
+      planner: Object.freeze({ ...catalog.defaults.planner }),
+      implementer: Object.freeze({ ...catalog.defaults.implementer }),
+      judge: Object.freeze({ ...catalog.defaults.judge }),
+    }),
+    models: Object.freeze(
+      catalog.models.map(({ canonicalModel, aliases, efforts }) =>
+        Object.freeze({
+          canonicalModel,
+          aliases: Object.freeze([...aliases]),
+          efforts: Object.freeze([...efforts]),
+        }),
+      ),
+    ),
+  });
+}
+
+const DEFAULT_CATALOGS: Readonly<Record<"claude" | "codex", HostModelCatalog>> =
+  Object.freeze({
+    claude: frozenCatalog({
+      host: "claude",
+      defaults: {
+        planner: { model: "sonnet", effort: "medium" },
+        implementer: { model: "opus", effort: "medium" },
+        judge: { model: "sonnet", effort: "medium" },
+      },
+      models: [
+        { canonicalModel: "opus", aliases: ["opus"], efforts: ["medium"] },
+        {
+          canonicalModel: "sonnet",
+          aliases: ["sonnet"],
+          efforts: ["medium"],
+        },
+      ],
+    }),
+    codex: frozenCatalog({
+      host: "codex",
+      defaults: {
+        planner: { model: "gpt-5.6-terra", effort: "medium" },
+        implementer: { model: "gpt-5.6-sol", effort: "high" },
+        judge: { model: "gpt-5.6-terra", effort: "medium" },
+      },
+      models: [
+        {
+          canonicalModel: "gpt-5.6-sol",
+          aliases: ["gpt-5.6", "gpt-5.6-sol"],
+          efforts: ["low", "medium", "high", "xhigh"],
+        },
+        {
+          canonicalModel: "gpt-5.6-terra",
+          aliases: ["gpt-5.6-terra"],
+          efforts: ["low", "medium", "high"],
+        },
+      ],
+    }),
+  });
+
+/** Current host capability catalogs bundled with this adapter revision. */
+export function defaultModelRouting(): HostModelRouting {
+  return Object.freeze({
+    observe: (host: "claude" | "codex") =>
+      Promise.resolve(DEFAULT_CATALOGS[host]),
+  });
+}
 
 /**
  * What a host is and what it can do, as explicit data.
@@ -11,10 +107,14 @@ import { KRATOS_VERSION, type AdapterMessageV1 } from "@kratos/contracts";
 export interface HostDescriptor {
   /** The host identity carried on every message this adapter sends. */
   readonly host: string;
+  /** The configuration key to which this host's catalog belongs. */
+  readonly configurationHost: "claude" | "codex";
   /** The host contract revision this adapter speaks. */
   readonly hostContract: string;
   /** Every capability this host offers, as declared. */
   readonly capabilities: readonly string[];
+  /** Immutable host-native facts used by the runtime to resolve assignments. */
+  readonly modelRouting: HostModelCatalog;
   /**
    * Who is running, so far as the host can honestly say.
    *
@@ -24,6 +124,7 @@ export interface HostDescriptor {
   readonly observedIdentity: {
     readonly adapterVersion: string;
     readonly model: string | null;
+    readonly effort: string | null;
   };
 }
 
@@ -40,6 +141,12 @@ export interface HostInvocation {
    * runtime reads the bytes it verifies instead of the bytes it was told about.
    */
   readonly payload: { readonly ref: string; readonly sha256: string };
+  /** Host-observed phase execution, bound to this exact referenced payload. */
+  readonly phaseExecution?: {
+    readonly assignmentDigest: string;
+    readonly model: string | null;
+    readonly effort: string | null;
+  };
 }
 
 /** What a host publishes for one runtime response. */
@@ -48,6 +155,53 @@ export interface HostRendering {
   readonly stderr: string;
   readonly exitCode: number;
 }
+
+export interface HostPhaseRuntime {
+  handoff(): Promise<
+    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_1 }
+    | { readonly kind: "refused"; readonly rendering: HostRendering }
+  >;
+  record(message: AdapterMessageV1_1): Promise<HostRendering>;
+}
+
+export interface HostPhaseLauncher {
+  /** Both selectors must be exact or the phase is not allowed to begin. */
+  readonly exactSelection: {
+    readonly model: boolean;
+    readonly effort: boolean;
+  };
+  launch(request: {
+    readonly phase: PhaseHandoffV1_1["phase"];
+    readonly role: PhaseHandoffV1_1["assignment"]["role"];
+    readonly model: string;
+    readonly effort: string;
+  }): Promise<{
+    readonly payload: { readonly ref: string; readonly sha256: string };
+    /** Host observation only; nullable values are never filled from selection. */
+    readonly observedIdentity: {
+      readonly model: string | null;
+      readonly effort: string | null;
+    };
+  }>;
+}
+
+export interface HostPhaseRelayInput {
+  readonly modelRouting: HostModelCatalog;
+  readonly messageId: string;
+  readonly correlationId: string;
+  readonly runtime: HostPhaseRuntime;
+  readonly launcher: HostPhaseLauncher;
+  readonly adapterVersion?: string;
+  readonly capabilities?: readonly string[];
+}
+
+export type HostPhaseRelayOutcome =
+  | { readonly kind: "recorded"; readonly rendering: HostRendering }
+  | { readonly kind: "runtime-refused"; readonly rendering: HostRendering }
+  | {
+      readonly kind: "exact-selection-unsupported";
+      readonly phaseExecuted: false;
+    };
 
 /**
  * The runtime's half of a host conversation, from the host side.
@@ -62,9 +216,9 @@ export interface HostAdapter {
   /** State this host's identity, contract, and capabilities. */
   describe(): HostDescriptor;
   /** Turn one host invocation into a request message for the runtime. */
-  translate(invocation: HostInvocation): AdapterMessageV1;
+  translate(invocation: HostInvocation): AdapterMessageV1_1;
   /** Publish one runtime response without reinterpreting it. */
-  relay(response: AdapterMessageV1): HostRendering;
+  relay(response: AdapterMessageV1_1): HostRendering;
 }
 
 /** Every method a conforming adapter exposes, and nothing else. */
@@ -106,9 +260,20 @@ export function hostInstallManifest(host: SupportedHost): HostInstallManifest {
 }
 
 export interface HostAdapterOptions {
+  readonly modelRouting: HostModelCatalog;
   readonly model?: string | null;
+  readonly effort?: string | null;
   readonly adapterVersion?: string;
   readonly capabilities?: readonly string[];
+}
+
+function configurationHostFor(host: SupportedHost): "claude" | "codex" {
+  return host === "claude-code" ? "claude" : "codex";
+}
+
+/** Copy only the catalog contract fields so host-supplied extras cannot leak. */
+function snapshotCatalog(catalog: HostModelCatalog): HostModelCatalog {
+  return frozenCatalog(catalog);
 }
 
 function normalized(values: readonly string[]): readonly string[] {
@@ -126,34 +291,44 @@ function normalized(values: readonly string[]): readonly string[] {
  */
 export function createHostAdapter(
   host: SupportedHost,
-  options: HostAdapterOptions = {},
+  options: HostAdapterOptions,
 ): HostAdapter {
+  const configurationHost = configurationHostFor(host);
+  if (options.modelRouting.host !== configurationHost) {
+    throw new Error("Host model catalog does not match the adapter host");
+  }
   const descriptor: HostDescriptor = Object.freeze({
     host,
-    hostContract: "1.0.0",
+    configurationHost,
+    hostContract: CONTRACT_VERSIONS["host.adapter-message"],
     capabilities: normalized(options.capabilities ?? CAPABILITIES),
+    modelRouting: snapshotCatalog(options.modelRouting),
     observedIdentity: Object.freeze({
       adapterVersion: options.adapterVersion ?? KRATOS_VERSION,
       model: options.model ?? null,
+      effort: options.effort ?? null,
     }),
   });
   return Object.freeze({
     name: host,
     describe: () => descriptor,
-    translate: (invocation: HostInvocation): AdapterMessageV1 => ({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    translate: (invocation: HostInvocation): AdapterMessageV1_1 => ({
+      contractVersion: CONTRACT_VERSIONS["host.adapter-message"],
+      hostContract: CONTRACT_VERSIONS["host.adapter-message"],
       messageId: invocation.messageId,
       messageType: "request",
-      host: descriptor.host,
+      host: descriptor.configurationHost,
       operation: invocation.operation,
       capabilities: [...descriptor.capabilities],
       observedIdentity: descriptor.observedIdentity,
       payloadContract: invocation.payloadContract,
       payload: invocation.payload,
+      ...(invocation.phaseExecution === undefined
+        ? {}
+        : { phaseExecution: { ...invocation.phaseExecution } }),
       correlationId: invocation.correlationId,
     }),
-    relay: (response: AdapterMessageV1): HostRendering => {
+    relay: (response: AdapterMessageV1_1): HostRendering => {
       if (response.messageType !== "response") {
         throw new Error("Expected a runtime response message");
       }
@@ -166,12 +341,88 @@ export function createHostAdapter(
   });
 }
 
-export const codexAdapter = (options: HostAdapterOptions = {}): HostAdapter =>
+export const codexAdapter = (options: HostAdapterOptions): HostAdapter =>
   createHostAdapter("codex", options);
 
-export const claudeCodeAdapter = (
-  options: HostAdapterOptions = {},
-): HostAdapter => createHostAdapter("claude-code", options);
+export const claudeCodeAdapter = (options: HostAdapterOptions): HostAdapter =>
+  createHostAdapter("claude-code", options);
+
+/**
+ * Relay one runtime-selected assignment through an exact host launch and back
+ * into `agent record`. The launcher supplies observation, never selection.
+ */
+export async function relaySelectedPhase(
+  host: SupportedHost,
+  input: HostPhaseRelayInput,
+): Promise<HostPhaseRelayOutcome> {
+  const runtimeHandoff = await input.runtime.handoff();
+  if (runtimeHandoff.kind === "refused") {
+    return {
+      kind: "runtime-refused",
+      rendering: runtimeHandoff.rendering,
+    };
+  }
+  const { handoff } = runtimeHandoff;
+  if (
+    handoff.host !== configurationHostFor(host) ||
+    handoff.phase !== handoff.assignment.phase
+  ) {
+    throw new Error("Runtime handoff does not match the host relay");
+  }
+
+  // Validate and snapshot host facts before any proprietary phase work starts.
+  createHostAdapter(host, {
+    modelRouting: input.modelRouting,
+    ...(input.adapterVersion === undefined
+      ? {}
+      : { adapterVersion: input.adapterVersion }),
+    ...(input.capabilities === undefined
+      ? {}
+      : { capabilities: input.capabilities }),
+  });
+  if (
+    !input.launcher.exactSelection.model ||
+    !input.launcher.exactSelection.effort
+  ) {
+    return { kind: "exact-selection-unsupported", phaseExecuted: false };
+  }
+
+  const execution = await input.launcher.launch(
+    Object.freeze({
+      phase: handoff.assignment.phase,
+      role: handoff.assignment.role,
+      model: handoff.assignment.model,
+      effort: handoff.assignment.effort,
+    }),
+  );
+  const adapter = createHostAdapter(host, {
+    modelRouting: input.modelRouting,
+    model: execution.observedIdentity.model,
+    effort: execution.observedIdentity.effort,
+    ...(input.adapterVersion === undefined
+      ? {}
+      : { adapterVersion: input.adapterVersion }),
+    ...(input.capabilities === undefined
+      ? {}
+      : { capabilities: input.capabilities }),
+  });
+  const request = adapter.translate({
+    messageId: input.messageId,
+    correlationId: input.correlationId,
+    operation: `sdd.agent.record:${input.correlationId}`,
+    payloadContract: "host.agent-output@1.0.0",
+    payload: { ...execution.payload },
+    phaseExecution: {
+      assignmentDigest: handoff.assignmentDigest,
+      model: execution.observedIdentity.model,
+      effort: execution.observedIdentity.effort,
+    },
+  });
+  return {
+    kind: "recorded",
+    rendering: await input.runtime.record(request),
+  };
+}
 
 export {
   type GuardExecution,

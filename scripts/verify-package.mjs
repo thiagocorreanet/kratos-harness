@@ -161,11 +161,22 @@ async function verifyProjectFlow(runtime, host, workRoot) {
   run("git", ["init", "-q", project]);
   run("git", ["-C", project, "config", "user.email", "kratos@example.invalid"]);
   run("git", ["-C", project, "config", "user.name", "Kratos"]);
-  const answers = await readFile(
-    join(repositoryRoot, "fixtures/contracts/v1/init-answers.json"),
-    "utf8",
-  );
   const initHost = host === "codex" ? "codex" : "claude";
+  const fixture = JSON.parse(
+    await readFile(
+      join(repositoryRoot, "fixtures/contracts/v1.1/init-answers.json"),
+      "utf8",
+    ),
+  );
+  const hostRoles = fixture.modelRoles?.[initHost];
+  if (hostRoles === undefined) {
+    fail(`current init fixture lacks ${initHost} model routing`);
+  }
+  const answers = `${JSON.stringify({
+    ...fixture,
+    hosts: [initHost],
+    modelRoles: { [initHost]: hostRoles },
+  })}\n`;
   run(runtime, ["init", "--host", initHost, "--root", project], {
     input: answers,
   });

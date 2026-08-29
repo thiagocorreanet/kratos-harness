@@ -40,3 +40,19 @@ stop and relay any refusal unchanged.
 
 Treat model identity as observed metadata. If the host does not expose it, use
 `null`; never infer a model name from conversational text.
+
+## Phase-agent relay boundary
+
+For phase work, the Claude Code host integration must load
+`scripts/phase-agent-relay.mjs`. Its runtime transport invokes the packaged
+runtime with `--json handoff --root <absolute-project-root>` and passes the
+returned handoff to the relay. Its launcher binds the native Claude Code
+phase-agent call to the returned `model` and `effort` exactly. The record
+transport invokes `agent record` with the adapter message produced by the
+relay, which keeps the returned `assignmentDigest` outside agent output.
+
+Declare exact model and effort selection unavailable when the native launcher
+cannot bind either field. The relay then returns
+`exact-selection-unsupported` before calling the launcher or `agent record`.
+This is a host capability boundary, not a replacement workflow verdict; do not
+choose another assignment. A missing host observation remains `null`.

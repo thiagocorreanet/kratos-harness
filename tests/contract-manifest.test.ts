@@ -108,13 +108,13 @@ describe("contract family manifest", () => {
       contractVersion: "1.0.0",
       pluginVersion: "0.0.0-development",
       resultContract: "1.0.0",
-      reasonCatalog: "1.6.0",
+      reasonCatalog: "1.7.0",
       stateContract: {
-        current: "1.0.0",
-        readable: ["1.0.0"],
+        current: "1.1.0",
+        readable: ["1.0.0", "1.1.0"],
         migrationOnly: ["0.9.0", "go-v3@0.6.5"],
       },
-      hostContract: { current: "1.0.0", accepted: ["1.0.0"] },
+      hostContract: { current: "1.1.0", accepted: ["1.0.0", "1.1.0"] },
     });
     const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
       manifestSchema,
@@ -122,12 +122,11 @@ describe("contract family manifest", () => {
     expect(validate(manifest), JSON.stringify(validate.errors)).toBe(true);
   });
 
-  it("registers every current payload schema once with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(27);
-    const ids = manifest.schemas.map(({ id }) => id);
+  it("registers every readable payload schema by id and version with safe paths", async () => {
+    expect(manifest.schemas).toHaveLength(33);
+    const keys = manifest.schemas.map(({ id, version }) => `${id}@${version}`);
     const paths = manifest.schemas.map(({ path }) => path);
-    expect(ids).toEqual([...ids].sort());
-    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(keys).size).toBe(keys.length);
     expect(new Set(paths).size).toBe(paths.length);
     expect(paths.sort()).toEqual(
       [
@@ -137,7 +136,7 @@ describe("contract family manifest", () => {
     );
     for (const path of paths) {
       expect(path).toMatch(
-        /^schemas\/(?:state|host)\/[a-z-]+\.v1\.schema\.json$/u,
+        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.1)?\.schema\.json$/u,
       );
     }
   });
@@ -176,7 +175,7 @@ describe("contract family manifest", () => {
 
   it.each([
     [
-      "duplicate schema id",
+      "duplicate schema id and version",
       (value: Manifest) => {
         const original = value.schemas[1];
         if (original === undefined) throw new Error("missing schema fixture");

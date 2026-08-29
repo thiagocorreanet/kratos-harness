@@ -1,0 +1,20 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "pluginVersion": "0.0.0-development",
+  "hostContract": "1.1.0",
+  "language": "en",
+  "policyMode": "strict",
+  "managedState": {
+    "directory": ".brain",
+    "eventLog": "events.jsonl",
+    "snapshots": true
+  },
+  "modelRoles": {
+    "codex": {
+      "planner": "gpt-5-plan",
+      "implementer": { "model": "gpt-5-code", "effort": "high" },
+      "judge": { "model": "gpt-5-review", "effort": "medium" }
+    }
+  }
+}

@@ -1,12 +1,12 @@
 import { types } from "node:util";
 
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { EventV1_1, ReadableEvent, SnapshotV1 } from "@kratos/contracts";
 import {
   EventIntegrityError,
   replayEventStream,
   sealEvent,
   verifyEventStream,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
@@ -53,29 +53,35 @@ function generator(seedValue: number): () => number {
   };
 }
 
-function draft(index: number, random: () => number): EventDraftV1 {
+function draft(index: number, random: () => number): CurrentEventDraft {
   const suffix = String(random());
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}-${suffix}`,
     eventType: "transition",
     occurredAt: "2026-08-10T00:01:00Z",
-    operation: `sdd.step-${suffix}`,
+    operation: `sdd.continue:${suffix}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
-    reasonCode: "ok",
+    reasonCode: "run.transition.accepted",
     effect: "state",
     artifactRefs: [`.brain/features/${suffix}.md`],
     evidenceRefs: [`.brain/evidence/${suffix}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
+    resolvedAssignment: {
+      phase: "code",
+      role: "implementer",
+      model: "gpt-5",
+      effort: "medium",
+    },
   };
 }
 
 function stream(count: number, random: () => number) {
   let cursor = { revision: 0, hash: null as string | null };
-  const events: EventV1[] = [];
+  const events: EventV1_1[] = [];
   for (let index = 1; index <= count; index += 1) {
     const event = sealEvent(draft(index, random), cursor, services);
     events.push(event);
@@ -200,7 +206,7 @@ describe("event reducer replay properties", () => {
     ],
     [
       "mutates event",
-      (state: TestState, event: EventV1) => {
+      (state: TestState, event: ReadableEvent) => {
         (event as { operation: string }).operation = "attacker-operation";
         return state;
       },

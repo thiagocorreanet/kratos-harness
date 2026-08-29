@@ -1,4 +1,4 @@
-import { CONTRACT_IDENTITIES } from "@kratos/contracts";
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 
 import {
   DEFAULT_REGISTRY,
@@ -10,6 +10,7 @@ import {
   internalFailure,
   renderResultHuman,
   renderResultJson,
+  resultFor,
   transactionFailureResult,
   validatePublicText,
   validateResult,
@@ -22,12 +23,14 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { applyPlan, previewPlan, type MutationPreview } from "./index.js";
+import { declaredContractVersion } from "./contract-version.js";
 import { observeInitialization } from "./init.js";
 import { observeHostOperation } from "./host.js";
 import { observeStopLossUnlock } from "./unlock.js";
 import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
+import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
@@ -65,9 +68,14 @@ function prepareAdapterPayload(
   payload: unknown,
   registry: SchemaRegistry,
 ): string {
+  const version = declaredContractVersion(
+    payload,
+    "hostContract",
+    CONTRACT_VERSIONS["host.adapter-message"],
+  );
   const prepared = prepareContract(registry, {
     id: "host.adapter-message",
-    version: CONTRACT_IDENTITIES.host,
+    version,
     value: payload,
     structuralReasonCode: "trail.output_invalido",
   });
@@ -76,6 +84,31 @@ function prepareAdapterPayload(
   }
   validatePublicText(prepared.canonical);
   return `${prepared.canonical}\n`;
+}
+
+function preparePhaseHandoffPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): {
+  readonly canonical: string;
+  readonly value: Parameters<typeof renderPhaseHandoffHuman>[0];
+} {
+  const version = declaredContractVersion(
+    payload,
+    "hostContract",
+    CONTRACT_VERSIONS["host.phase-handoff"],
+  );
+  const prepared = prepareContract(registry, {
+    id: "host.phase-handoff",
+    version,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicText(prepared.canonical);
+  return { canonical: prepared.canonical, value: prepared.value };
 }
 
 /** Parse, validate, apply, and publish one command line. */
@@ -149,11 +182,52 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
+    } else if (invocation.command.jsonContract === "phase-handoff@1.1.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const handoff = preparePhaseHandoffPayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${handoff.canonical}\n`
+        : renderPhaseHandoffHuman(handoff.value);
     } else if (!json) {
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);
     }
     let expectedPreview: MutationPreview | undefined;
+    if (decision.revalidatePhaseAssignmentDigest !== undefined) {
+      const refreshed = await observeWorkflow(
+        invocation,
+        applyPorts,
+        schemaRegistry,
+      );
+      if (
+        refreshed.kind !== "observed" ||
+        refreshed.observation.kind !== "workflow" ||
+        refreshed.observation.phaseAssignment.kind !== "resolved" ||
+        refreshed.observation.phaseAssignment.value.assignmentDigest !==
+          decision.revalidatePhaseAssignmentDigest
+      ) {
+        return publish(
+          resultFor("model.assignment_stale", {
+            why: [
+              "The phase assignment changed before its event could be appended.",
+            ],
+            evidence: [
+              {
+                kind: "observation",
+                ref: "model-routing/phase-execution",
+              },
+            ],
+          }),
+          json,
+          ports,
+        );
+      }
+    }
     if (decision.revalidateRepairDigest !== undefined) {
       const refreshed = await observeWorkflow(
         invocation,

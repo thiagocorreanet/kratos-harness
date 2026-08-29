@@ -90,31 +90,57 @@ export const handoffCommand: CommandSpec = observed(
     if (observation.workflow.kind !== "present") {
       return absentOrCorrupt(observation);
     }
-    const state = observation.workflow.state;
-    const blockers = observation.gateDecision.failures.map(
-      ({ gateId }) => gateId,
-    );
-    const nextAction =
-      observation.gateDecision.outcome === "block"
-        ? "Resolve the reported gate blockers and rerun kratos doctor."
-        : state.currentStep === "acceptance"
-          ? "Review the evidence bundle, record final approval, and run kratos done."
-          : `Complete the ${state.currentStep ?? "current"} phase and run kratos continue.`;
-    return orientation(
-      `Run ${state.runId} handoff is ready for ${state.currentStep ?? "completion"}.`,
-      [
-        `Objective: feature ${state.feature}, digest ${observation.objectiveDigest}`,
-        `Run: ${state.runId}`,
-        `Status: ${state.status}`,
-        `Phase: ${state.currentStep ?? "none"}`,
-        `Gate outcome: ${observation.gateDecision.outcome}`,
-        `Blockers: ${blockers.length === 0 ? "none" : blockers.join(", ")}`,
-        `Open gaps: ${String(observation.openGaps)}`,
-        `Next action: ${nextAction}`,
-      ],
-    );
+    if (observation.phaseAssignment.kind === "refused") {
+      return handoffRefusal(
+        observation.phaseAssignment.reasonCode,
+        observation.phaseAssignment.subject,
+      );
+    }
+    const payload = observation.phaseAssignment.value;
+    return {
+      result: resultFor("runtime.orientation_ok", {
+        summary: `Run ${payload.runId} handoff is ready for ${payload.phase}.`,
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload,
+    };
   },
 );
+
+export function renderPhaseHandoffHuman(payload: {
+  readonly feature: string;
+  readonly objectiveDigest: string;
+  readonly runId: string;
+  readonly status: string;
+  readonly phase: string;
+  readonly gateOutcome: string;
+  readonly blockers: readonly string[];
+  readonly openGaps: number;
+  readonly nextAction: string;
+  readonly host: string;
+  readonly assignment: {
+    readonly role: string;
+    readonly model: string;
+    readonly effort: string;
+  };
+  readonly assignmentDigest: string;
+}): string {
+  return [
+    `Objective: feature ${payload.feature}, digest ${payload.objectiveDigest}`,
+    `Run: ${payload.runId}`,
+    `Status: ${payload.status}`,
+    `Phase: ${payload.phase}`,
+    `Gate outcome: ${payload.gateOutcome}`,
+    `Blockers: ${payload.blockers.length === 0 ? "none" : payload.blockers.join(", ")}`,
+    `Open gaps: ${String(payload.openGaps)}`,
+    `Next action: ${payload.nextAction}`,
+    `Host: ${payload.host}`,
+    `Assignment: ${payload.assignment.role} ${payload.assignment.model} (${payload.assignment.effort})`,
+    `Assignment digest: ${payload.assignmentDigest}`,
+    "",
+  ].join("\n");
+}
 
 export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
   const report = diagnose([
@@ -235,7 +261,7 @@ function observed(
       summary: `${name === "doctor" ? "Diagnose" : "Report"} ${name === "doctor" ? "managed state integrity" : `the active run ${name}`} without mutation.`,
       flags: ROOT_FLAG,
       positionals: { min: 0, max: 0 },
-      jsonContract: "result@1.0.0",
+      jsonContract: name === "handoff" ? "phase-handoff@1.1.0" : "result@1.0.0",
     },
     (_invocation, observation) => handler(observation),
   );
@@ -255,6 +281,45 @@ function absentOrCorrupt(observation: Observation): Decision {
           ],
         })
       : resultFor("trail.sem_run"),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function handoffRefusal(reasonCode: string, subject: string): Decision {
+  if (subject === "launcher:absent" || subject === "launcher:unsupported") {
+    const missing = subject === "launcher:absent";
+    return {
+      result: resultFor(reasonCode, {
+        why: [
+          missing
+            ? "A launcher identity is required for handoff routing."
+            : "The launcher identity is unsupported for handoff routing.",
+          "Accepted launcher identities are claude-code and codex.",
+        ],
+        evidence: [
+          {
+            kind: "observation",
+            ref: "model-routing/launcher",
+          },
+        ],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
+  return {
+    result: resultFor(reasonCode, {
+      why: [`Model routing could not resolve the bounded subject ${subject}.`],
+      evidence: [
+        {
+          kind: "observation",
+          ref: `model-routing/${subject}`,
+        },
+      ],
+    }),
     plan: planOf(),
     humanStdout: null,
     payload: null,

@@ -5,7 +5,7 @@ import {
   type HostAdapter,
   type HostInvocation,
 } from "@kratos/adapters";
-import type { AdapterMessageV1 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type AdapterMessageV1_1 } from "@kratos/contracts";
 import {
   classifyHostContract,
   normalizeCapabilities,
@@ -34,17 +34,21 @@ export function conformanceInvocation(
 
 /** A response an adapter is asked to relay without reinterpreting it. */
 export function conformanceResponse(
-  overrides: Partial<AdapterMessageV1> = {},
-): AdapterMessageV1 {
+  overrides: Partial<AdapterMessageV1_1> = {},
+): AdapterMessageV1_1 {
   return {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
+    contractVersion: CONTRACT_VERSIONS["host.adapter-message"],
+    hostContract: CONTRACT_VERSIONS["host.adapter-message"],
     messageId: "conformance-response-01",
     messageType: "response",
     host: "codex",
     operation: "handshake",
     capabilities: [],
-    observedIdentity: { adapterVersion: "0.0.0-development", model: null },
+    observedIdentity: {
+      adapterVersion: "0.0.0-development",
+      model: null,
+      effort: null,
+    },
     payloadContract: "result@1.0.0",
     payload: {
       contractVersion: "1.0.0",
@@ -61,7 +65,7 @@ export function conformanceResponse(
     },
     correlationId: "conformance-01",
     ...overrides,
-  } as AdapterMessageV1;
+  } as AdapterMessageV1_1;
 }
 
 /** Every callable name an adapter carries, own and inherited. */
@@ -83,8 +87,8 @@ function methodsOf(adapter: HostAdapter): readonly string[] {
 }
 
 function request(
-  message: AdapterMessageV1,
-): Extract<AdapterMessageV1, { messageType: "request" }> {
+  message: AdapterMessageV1_1,
+): Extract<AdapterMessageV1_1, { messageType: "request" }> {
   if (message.messageType !== "request") {
     throw new Error("Expected a request message");
   }
@@ -93,8 +97,8 @@ function request(
 
 /** The result a response carries, narrowed away from the request payload. */
 export function responsePayload(
-  message: AdapterMessageV1,
-): Extract<AdapterMessageV1, { messageType: "response" }>["payload"] {
+  message: AdapterMessageV1_1,
+): Extract<AdapterMessageV1_1, { messageType: "response" }>["payload"] {
   if (message.messageType !== "response") {
     throw new Error("Expected a response message");
   }
@@ -126,6 +130,19 @@ export function describeHostAdapterContract(
       expect(capabilities).toEqual(normalizeCapabilities(capabilities));
     });
 
+    it("publishes a frozen catalog for its configuration host", () => {
+      const { configurationHost, modelRouting } = factory().describe();
+      expect(modelRouting.host).toBe(configurationHost);
+      expect(Object.keys(modelRouting.defaults).sort()).toEqual([
+        "implementer",
+        "judge",
+        "planner",
+      ]);
+      expect(Object.isFrozen(modelRouting)).toBe(true);
+      expect(Object.isFrozen(modelRouting.defaults)).toBe(true);
+      expect(Object.isFrozen(modelRouting.models)).toBe(true);
+    });
+
     it("never substitutes an observed identity it was not given", () => {
       const { observedIdentity } = factory().describe();
       expect(observedIdentity.adapterVersion).toMatch(identifier);
@@ -134,6 +151,9 @@ export function describeHostAdapterContract(
       if (observedIdentity.model !== null) {
         expect(observedIdentity.model).toMatch(identifier);
       }
+      if (observedIdentity.effort !== null) {
+        expect(observedIdentity.effort).toMatch(identifier);
+      }
     });
 
     it("translates an invocation into a request carrying its own identity", () => {
@@ -141,7 +161,7 @@ export function describeHostAdapterContract(
       const descriptor = adapter.describe();
       const invocation = conformanceInvocation();
       const message = request(adapter.translate(invocation));
-      expect(message.host).toBe(descriptor.host);
+      expect(message.host).toBe(descriptor.configurationHost);
       expect(message.hostContract).toBe(descriptor.hostContract);
       expect(message.capabilities).toEqual(descriptor.capabilities);
       expect(message.observedIdentity).toEqual(descriptor.observedIdentity);
@@ -156,6 +176,25 @@ export function describeHostAdapterContract(
       // verified. The digest is what makes the two agree.
       expect(message.payload).toEqual(invocation.payload);
       expect(Object.keys(message.payload).sort()).toEqual(["ref", "sha256"]);
+    });
+
+    it("binds phase execution to the referenced request", () => {
+      const phaseExecution = {
+        assignmentDigest: "b".repeat(64),
+        model: null,
+        effort: null,
+      };
+      const invocation = conformanceInvocation({
+        operation: "sdd.agent.record:conformance-01",
+        payloadContract: "host.agent-output@1.0.0",
+        phaseExecution,
+      });
+
+      expect(request(factory().translate(invocation))).toMatchObject({
+        operation: invocation.operation,
+        payload: invocation.payload,
+        phaseExecution,
+      });
     });
 
     it("translates the same invocation into the same bytes", () => {
@@ -179,7 +218,7 @@ export function describeHostAdapterContract(
         const base = conformanceResponse();
         const response = conformanceResponse({
           payload: { ...responsePayload(base), exitCode },
-        } as Partial<AdapterMessageV1>);
+        } as Partial<AdapterMessageV1_1>);
         expect(factory().relay(response).exitCode).toBe(exitCode);
       }
     });

@@ -1,16 +1,15 @@
-import type { EventV1 } from "@kratos/contracts";
-
 import { canonicalizeJson } from "../schema/index.js";
 import {
   EventIntegrityError,
   type EventChainCursor,
   type EventServices,
+  type ReadableEvent,
 } from "./model.js";
 import { parseEventLines } from "./parse.js";
 import { unsignedEvent } from "./seal.js";
 
 export interface VerifiedEventStream {
-  readonly events: readonly EventV1[];
+  readonly events: readonly ReadableEvent[];
   readonly cursor: EventChainCursor;
   readonly canonical: string;
 }

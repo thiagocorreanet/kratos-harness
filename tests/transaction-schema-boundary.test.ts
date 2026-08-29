@@ -58,10 +58,10 @@ describe("transaction schema boundary", () => {
       directories: [".brain/transactions"],
     });
     const production = createSchemaRegistry();
-    const ids: string[] = [];
+    const requests: { readonly id: string; readonly version: unknown }[] = [];
     const tracking: SchemaRegistry = {
       validate: (request) => {
-        ids.push(request.id);
+        requests.push({ id: request.id, version: request.version });
         return production.validate(request);
       },
     };
@@ -72,17 +72,35 @@ describe("transaction schema boundary", () => {
       { rootMode: "existing" },
       injected,
     );
-    const writes = [...ids];
-    ids.length = 0;
+    const writes = [...requests];
+    requests.length = 0;
     await inspectManagedTransactions(injected);
 
-    expect(writes).toContain("state.transaction-manifest");
+    expect(writes.map(({ id }) => id)).toContain("state.transaction-manifest");
     expect(
-      writes.filter((id) => id === "state.transaction-progress").length,
+      writes.filter(({ id }) => id === "state.transaction-progress").length,
     ).toBeGreaterThan(4);
-    expect(ids).toEqual([
-      "state.transaction-progress",
-      "state.transaction-manifest",
+    expect(
+      writes.filter(
+        ({ id }) =>
+          id === "state.transaction-manifest" ||
+          id === "state.transaction-progress",
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "state.transaction-manifest",
+          version: "1.0.0",
+        }),
+        expect.objectContaining({
+          id: "state.transaction-progress",
+          version: "1.0.0",
+        }),
+      ]),
+    );
+    expect(requests).toEqual([
+      { id: "state.transaction-progress", version: "1.0.0" },
+      { id: "state.transaction-manifest", version: "1.0.0" },
     ]);
   });
 

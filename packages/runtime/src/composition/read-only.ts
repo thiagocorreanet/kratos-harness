@@ -103,6 +103,7 @@ export function readOnlyPorts(ports: RuntimePorts): RuntimePorts {
     fileSystem: readOnlyFileSystem(ports.fileSystem),
     git: ports.git,
     locks: readOnlyLocks(ports.locks),
+    modelRouting: ports.modelRouting,
     environment: ports.environment,
     output: ports.output,
     // Reading a piped document changes nothing, and a preview that could not

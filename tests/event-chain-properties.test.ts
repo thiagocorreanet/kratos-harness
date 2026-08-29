@@ -1,11 +1,11 @@
 import { types } from "node:util";
 
-import type { EventV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, ReadableEvent } from "@kratos/contracts";
 import {
   EventIntegrityError,
   verifyEventStream,
   sealEvent,
-  type EventDraftV1,
+  type CurrentEventDraft,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
@@ -27,28 +27,34 @@ function generator(seed: number): () => number {
   };
 }
 
-function draft(index: number, random: () => number): EventDraftV1 {
+function draft(index: number, random: () => number): CurrentEventDraft {
   const suffix = String(random());
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}-${suffix}`,
     eventType: "transition",
     occurredAt: "2026-08-10T00:01:00Z",
-    operation: `sdd.step-${suffix}`,
+    operation: `sdd.continue:${suffix}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
-    reasonCode: "ok",
+    reasonCode: "run.transition.accepted",
     effect: "state",
     artifactRefs: [`.brain/features/${suffix}.md`],
     evidenceRefs: [`.brain/evidence/${suffix}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
+    resolvedAssignment: {
+      phase: "code",
+      role: "implementer",
+      model: "gpt-5",
+      effort: "medium",
+    },
   };
 }
 
-function makeStream(count: number, random: () => number): readonly EventV1[] {
-  const events: EventV1[] = [];
+function makeStream(count: number, random: () => number): readonly EventV1_1[] {
+  const events: EventV1_1[] = [];
   let cursor = { revision: 0, hash: null as string | null };
   for (let index = 1; index <= count; index += 1) {
     const event = sealEvent(draft(index, random), cursor, services);
@@ -58,7 +64,7 @@ function makeStream(count: number, random: () => number): readonly EventV1[] {
   return events;
 }
 
-function textOf(events: readonly EventV1[]): string {
+function textOf(events: readonly ReadableEvent[]): string {
   return `${events.map(canonicalizeJson).join("\n")}\n`;
 }
 
@@ -71,7 +77,7 @@ interface ProtectedScalar {
 interface Scenario {
   readonly streamIndex: number;
   readonly count: number;
-  readonly events: readonly EventV1[];
+  readonly events: readonly ReadableEvent[];
   readonly lines: readonly string[];
   readonly text: string;
 }
@@ -101,10 +107,10 @@ function requiredEventIntegrityError(run: () => unknown): EventIntegrityError {
 }
 
 function protectedScalars(
-  event: EventV1,
+  event: ReadableEvent,
   line: string,
 ): readonly ProtectedScalar[] {
-  const values: readonly [string, string | number | null, string][] = [
+  const values: [string, string | number | null, string][] = [
     ["artifactRefs[0]", required(event.artifactRefs[0]), "artifactRefs"],
     ["contractVersion", event.contractVersion, "contractVersion"],
     ["effect", event.effect, "effect"],
@@ -123,6 +129,38 @@ function protectedScalars(
     ["resultingRevision", event.resultingRevision, "resultingRevision"],
     ["stateContract", event.stateContract, "stateContract"],
   ];
+
+  if (event.stateContract === "1.1.0") {
+    values.push([
+      "observedIdentity.effort",
+      event.observedIdentity.effort,
+      "observedIdentity",
+    ]);
+    if (event.resolvedAssignment !== undefined) {
+      values.push(
+        [
+          "resolvedAssignment.phase",
+          event.resolvedAssignment.phase,
+          "resolvedAssignment",
+        ],
+        [
+          "resolvedAssignment.role",
+          event.resolvedAssignment.role,
+          "resolvedAssignment",
+        ],
+        [
+          "resolvedAssignment.model",
+          event.resolvedAssignment.model,
+          "resolvedAssignment",
+        ],
+        [
+          "resolvedAssignment.effort",
+          event.resolvedAssignment.effort,
+          "resolvedAssignment",
+        ],
+      );
+    }
+  }
 
   return values.map(([field, value, container]) => {
     const containerStart = line.indexOf(`"${container}":`);
@@ -213,6 +251,70 @@ const recordScenarios: readonly RecordScenario[] = scenarios.flatMap(
 );
 
 describe("event hash-chain generated corruption cases", () => {
+  it("verifies deterministic chains that randomly alternate readable versions", () => {
+    for (const streamSeed of [0x10, 0x11, 0x12, 0x13]) {
+      const random = generator(streamSeed);
+      const events: ReadableEvent[] = [];
+      let cursor = { revision: 0, hash: null as string | null };
+      for (let revision = 1; revision <= 16; revision += 1) {
+        const common = {
+          eventId: `mixed-${String(streamSeed)}-${String(revision)}`,
+          eventType: "transition" as const,
+          occurredAt: "2026-08-10T00:01:00Z",
+          operation: `sdd.continue:mixed-${String(revision)}`,
+          policyVersion: "policy-01",
+          priorRevision: revision - 1,
+          resultingRevision: revision,
+          reasonCode: "run.transition.accepted",
+          effect: "state" as const,
+          artifactRefs: [`.brain/features/mixed-${String(revision)}.md`],
+          evidenceRefs: [`.brain/evidence/mixed-${String(revision)}.json`],
+        };
+        let event: ReadableEvent;
+        if ((random() & 1) === 0) {
+          const unsigned: Omit<EventV1, "eventHash"> = {
+            ...common,
+            contractVersion: "1.0.0",
+            stateContract: "1.0.0",
+            observedIdentity: { host: "codex", model: "gpt-5" },
+            previousHash: cursor.hash,
+          };
+          event = {
+            ...unsigned,
+            eventHash: services.digests.sha256(canonicalizeJson(unsigned)),
+          };
+        } else {
+          const draft: Omit<EventV1_1, "previousHash" | "eventHash"> = {
+            ...common,
+            contractVersion: "1.1.0",
+            stateContract: "1.1.0",
+            observedIdentity: {
+              host: "codex",
+              model: "gpt-5",
+              effort: "medium",
+            },
+            resolvedAssignment: {
+              phase: "code",
+              role: "implementer",
+              model: "gpt-5",
+              effort: "medium",
+            },
+          };
+          event = sealEvent(draft, cursor, services);
+        }
+        events.push(event);
+        cursor = { revision: event.resultingRevision, hash: event.eventHash };
+      }
+
+      expect(verifyEventStream(textOf(events), services).events).toEqual(
+        events,
+      );
+      expect(new Set(events.map((event) => event.stateContract))).toEqual(
+        new Set(["1.0.0", "1.1.0"]),
+      );
+    }
+  });
+
   it("covers every generated length from one through 32", () => {
     expect(new Set(scenarios.map(({ count }) => count))).toEqual(
       new Set(Array.from({ length: 32 }, (_, index) => index + 1)),

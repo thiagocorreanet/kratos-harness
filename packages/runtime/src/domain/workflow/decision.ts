@@ -1,14 +1,19 @@
-import type { EventDraftV1 } from "../events/index.js";
+import type { CurrentEventDraft } from "../events/index.js";
+import {
+  WORKFLOW_OPERATION_FACTS,
+  WORKFLOW_TRANSITION_FACTS,
+} from "../events/semantics.js";
 
 import {
-  FACT_EVENT_REASONS,
   RUN_PHASES,
   WORKFLOW_POLICY_VERSION,
   type ContinueWorkflowRequest,
   type FactOperation,
+  type PhaseExecutionObservation,
   type StartWorkflowRequest,
   type WorkflowDecision,
   type WorkflowIdentity,
+  type WorkflowAssignment,
   type WorkflowObservation,
 } from "./model.js";
 
@@ -54,8 +59,61 @@ function validContinueRequest(request: ContinueWorkflowRequest): boolean {
     request.expectedRevision >= 0 &&
     id.test(request.observedIdentity.host) &&
     (request.observedIdentity.model === null ||
-      id.test(request.observedIdentity.model))
+      id.test(request.observedIdentity.model)) &&
+    (request.phaseExecution === undefined ||
+      validPhaseExecution(request.phaseExecution))
   );
+}
+
+type RuntimePhaseExecution = Omit<PhaseExecutionObservation, "provenance"> & {
+  readonly provenance: unknown;
+};
+
+function validPhaseExecution(execution: RuntimePhaseExecution): boolean {
+  return (
+    (execution.provenance === "host-reported" ||
+      execution.provenance === "unknown") &&
+    sha256.test(execution.assignmentDigest) &&
+    (execution.model === null || id.test(execution.model)) &&
+    (execution.effort === null || id.test(execution.effort))
+  );
+}
+
+function executionMismatch(
+  assignment: WorkflowAssignment,
+  execution: PhaseExecutionObservation,
+): boolean {
+  return (
+    execution.provenance === "host-reported" &&
+    ((execution.model !== null && execution.model !== assignment.model) ||
+      (execution.effort !== null && execution.effort !== assignment.effort))
+  );
+}
+
+function phaseIdentity(
+  identity: WorkflowIdentity,
+  execution: PhaseExecutionObservation | undefined,
+): CurrentEventDraft["observedIdentity"] {
+  if (execution === undefined) {
+    return { ...identity, effort: null };
+  }
+  const provenance = execution.provenance;
+  switch (provenance) {
+    case "host-reported":
+      return {
+        host: identity.host,
+        model: execution.model,
+        effort: execution.effort,
+      };
+    case "unknown":
+      return { host: identity.host, model: null, effort: null };
+  }
+  return unreachablePhaseProvenance(provenance);
+}
+
+function unreachablePhaseProvenance(provenance: never): never {
+  void provenance;
+  throw new Error("Unvalidated phase execution provenance");
 }
 
 function hasOperation(
@@ -83,29 +141,26 @@ function event(
   transition: MovingTransition,
   artifactRefs: readonly string[] = [],
   evidenceRefs: readonly string[] = [],
-): EventDraftV1 {
-  const reasonCode: Readonly<Record<MovingTransition, string>> = {
-    accepted: "run.transition.accepted",
-    completed: "run.completed",
-    rejected: "run.transition.rejected",
-    resumed: "run.resumed",
-    started: "run.started",
-  };
+  resolvedAssignment?: WorkflowAssignment,
+  phaseExecution?: PhaseExecutionObservation,
+): CurrentEventDraft {
+  const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: input.eventId,
-    eventType: transition === "rejected" ? "decision" : "transition",
+    eventType: fact.eventType,
     occurredAt: input.occurredAt,
     operation: input.operation,
     policyVersion: WORKFLOW_POLICY_VERSION,
     priorRevision: input.revision,
     resultingRevision: input.revision + 1,
-    reasonCode: reasonCode[transition],
-    effect: "state",
+    reasonCode: fact.reasonCode,
+    effect: fact.effect,
     artifactRefs: [...artifactRefs],
     evidenceRefs: [...evidenceRefs],
-    observedIdentity: input.identity,
+    observedIdentity: phaseIdentity(input.identity, phaseExecution),
+    ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
   };
 }
 
@@ -242,6 +297,15 @@ export function decideContinueWorkflow(
       ["final-completion-not-allowed"],
     );
   }
+  if (request.resolvedAssignment === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (request.phaseExecution === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (executionMismatch(request.resolvedAssignment, request.phaseExecution)) {
+    return { kind: "refused", reasonCode: "model.execution_mismatch" };
+  }
   return recorded(
     request,
     operation,
@@ -297,6 +361,12 @@ function recorded(
       transition,
       artifactRefs,
       evidenceRefs,
+      transition === "accepted" || transition === "completed"
+        ? request.resolvedAssignment
+        : undefined,
+      transition === "accepted" || transition === "completed"
+        ? request.phaseExecution
+        : undefined,
     ),
     ...(why === undefined ? {} : { why: [...why] }),
   };
@@ -312,6 +382,8 @@ export interface RecordFactRequest {
   readonly operation: FactOperation;
   readonly artifactRefs: readonly string[];
   readonly observedIdentity: WorkflowIdentity;
+  readonly resolvedAssignment?: WorkflowAssignment;
+  readonly phaseExecution?: PhaseExecutionObservation;
 }
 
 /**
@@ -336,6 +408,8 @@ export function decideRecordFact(
     !id.test(request.observedIdentity.host) ||
     (request.observedIdentity.model !== null &&
       !id.test(request.observedIdentity.model)) ||
+    (request.phaseExecution !== undefined &&
+      !validPhaseExecution(request.phaseExecution)) ||
     !request.artifactRefs.every((ref) => ref.length > 0)
   ) {
     return { kind: "refused", reasonCode: "trail.uso" };
@@ -363,24 +437,52 @@ export function decideRecordFact(
   if (request.expectedRevision !== state.revision) {
     return { kind: "refused", reasonCode: "runtime.revision_conflict" };
   }
+  const requiresAssignment = request.operation === "agent.record";
+  if (
+    requiresAssignment &&
+    (request.resolvedAssignment === undefined ||
+      request.phaseExecution === undefined)
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (
+    !requiresAssignment &&
+    (request.resolvedAssignment !== undefined ||
+      request.phaseExecution !== undefined)
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (
+    request.resolvedAssignment !== undefined &&
+    request.phaseExecution !== undefined &&
+    executionMismatch(request.resolvedAssignment, request.phaseExecution)
+  ) {
+    return { kind: "refused", reasonCode: "model.execution_mismatch" };
+  }
   return {
     kind: "recorded",
     transition: "observed",
     event: {
-      contractVersion: "1.0.0",
-      stateContract: "1.0.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: request.eventId,
-      eventType: "decision",
+      eventType: WORKFLOW_OPERATION_FACTS[request.operation].eventType,
       occurredAt: request.occurredAt,
       operation,
       policyVersion: WORKFLOW_POLICY_VERSION,
       priorRevision: state.revision,
       resultingRevision: state.revision + 1,
-      reasonCode: FACT_EVENT_REASONS[request.operation],
-      effect: "state-and-artifact",
+      reasonCode: WORKFLOW_OPERATION_FACTS[request.operation].reasonCode,
+      effect: WORKFLOW_OPERATION_FACTS[request.operation].effect,
       artifactRefs: [...request.artifactRefs],
       evidenceRefs: [],
-      observedIdentity: request.observedIdentity,
+      observedIdentity: phaseIdentity(
+        request.observedIdentity,
+        request.phaseExecution,
+      ),
+      ...(request.resolvedAssignment === undefined
+        ? {}
+        : { resolvedAssignment: request.resolvedAssignment }),
     },
   };
 }

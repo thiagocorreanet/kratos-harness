@@ -1,0 +1,30 @@
+{
+  "contractVersion": "1.1.0",
+  "hostContract": "1.1.0",
+  "messageId": "message-01",
+  "messageType": "model-catalog",
+  "host": "codex",
+  "operation": "model.routing",
+  "capabilities": ["model-routing"],
+  "observedIdentity": {
+    "adapterVersion": "1.1.0",
+    "model": null,
+    "effort": null
+  },
+  "payloadContract": "host.model-catalog@1.1.0",
+  "payload": {
+    "defaults": {
+      "planner": "gpt-5-plan",
+      "implementer": "gpt-5-code",
+      "judge": "gpt-5-review"
+    },
+    "models": [
+      {
+        "model": "gpt-5-review",
+        "canonicalModel": "gpt-5-review",
+        "efforts": ["medium", "high"]
+      }
+    ]
+  },
+  "correlationId": "correlation-01"
+}

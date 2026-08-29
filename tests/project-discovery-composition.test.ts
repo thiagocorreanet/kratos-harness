@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ProjectConfigV1 } from "@kratos/contracts";
-import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import type { ProjectConfigV1_1 } from "@kratos/contracts";
+import projectConfig from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import {
   createDiscoveryPorts,
   createRuntimeAt,
@@ -14,17 +14,24 @@ import { fixedEnvironment, memoryWorkspace } from "@kratos/runtime/infra/fake";
 import type { Workspace } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
-const configuration: ProjectConfigV1 = {
-  contractVersion: "1.0.0",
-  stateContract: "1.0.0",
+const configuration: ProjectConfigV1_1 = {
+  contractVersion: "1.1.0",
+  stateContract: "1.1.0",
   pluginVersion: "0.0.0-development",
-  hostContract: "1.0.0",
+  hostContract: "1.1.0",
   language: "en",
   policyMode: "standard",
   managedState: {
     directory: ".brain",
     eventLog: "events.jsonl",
     snapshots: false,
+  },
+  modelRoles: {
+    codex: {
+      planner: "planner",
+      implementer: "implementer",
+      judge: "judge",
+    },
   },
 };
 
@@ -214,7 +221,7 @@ describe("project discovery composition", () => {
       workspace: memoryWorkspace({
         directories: [root, `${root}/.brain`],
         files: {
-          [`${root}/.brain/config.json`]: '{"stateContract":"1.0.0"}',
+          [`${root}/.brain/config.json`]: '{"stateContract":"1.1.0"}',
         },
       }),
       environment: fixedEnvironment({}, root),

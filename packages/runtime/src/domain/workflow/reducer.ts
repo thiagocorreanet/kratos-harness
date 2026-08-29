@@ -1,4 +1,4 @@
-import type { EventV1, SnapshotV1 } from "@kratos/contracts";
+import type { ReadableEvent, SnapshotV1 } from "@kratos/contracts";
 
 import type {
   EventChainCursor,
@@ -38,7 +38,7 @@ export function workflowSeed(
 
 export function reduceWorkflow(
   state: WorkflowState,
-  event: EventV1,
+  event: ReadableEvent,
 ): WorkflowState {
   if (
     event.policyVersion !== WORKFLOW_POLICY_VERSION ||

@@ -18,6 +18,7 @@ import type {
   FileStat,
   FileSystem,
   Ids,
+  ModelRouting,
   Output,
   StandardInput,
 } from "../../ports/index.js";
@@ -43,6 +44,14 @@ export function nodeClock(): Clock {
 /** Opaque identifiers, hyphen-free so they match the port's safe-id contract. */
 export function nodeIds(): Ids {
   return { next: () => randomUUID().replaceAll("-", "") };
+}
+
+/**
+ * The generic runtime has no host launcher catalog. A caller must inject one
+ * at the host boundary; absence remains observable for a later refusal.
+ */
+export function unavailableModelRouting(): ModelRouting {
+  return Object.freeze({ observe: () => Promise.resolve(null) });
 }
 
 function inside(root: string, candidate: string): boolean {

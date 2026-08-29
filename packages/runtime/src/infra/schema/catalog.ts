@@ -1,17 +1,21 @@
 import manifest from "../../../../contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
+import adapterMessageV1_1Schema from "../../../../../schemas/host/adapter-message.v1.1.schema.json" with { type: "json" };
 import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import hookObservationSchema from "../../../../../schemas/host/hook-observation.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
+import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
+import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
 import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-verdict.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
+import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
 import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
@@ -21,7 +25,9 @@ import gatesSchema from "../../../../../schemas/state/gates.v1.schema.json" with
 import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.json" with { type: "json" };
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
+import migrationV1_1Schema from "../../../../../schemas/state/migration.v1.1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
+import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
 import runUsageSchema from "../../../../../schemas/state/run-usage.v1.schema.json" with { type: "json" };
 import sessionTelemetrySchema from "../../../../../schemas/state/session-telemetry.v1.schema.json" with { type: "json" };
@@ -54,6 +60,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: adapterMessageSchema,
     },
     {
+      id: "host.adapter-message",
+      family: "host",
+      version: "1.1.0",
+      path: "schemas/host/adapter-message.v1.1.schema.json",
+      schema: adapterMessageV1_1Schema,
+    },
+    {
       id: "host.agent-output",
       family: "host",
       version: "1.0.0",
@@ -82,11 +95,25 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: initAnswersSchema,
     },
     {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.1.0",
+      path: "schemas/host/init-answers.v1.1.schema.json",
+      schema: initAnswersV1_1Schema,
+    },
+    {
       id: "host.operation-message",
       family: "host",
       version: "1.0.0",
       path: "schemas/host/operation-message.v1.schema.json",
       schema: operationMessageSchema,
+    },
+    {
+      id: "host.phase-handoff",
+      family: "host",
+      version: "1.1.0",
+      path: "schemas/host/phase-handoff.v1.1.schema.json",
+      schema: phaseHandoffV1_1Schema,
     },
     {
       id: "host.pre-tool-use",
@@ -122,6 +149,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/event.v1.schema.json",
       schema: eventSchema,
+    },
+    {
+      id: "state.event",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/event.v1.1.schema.json",
+      schema: eventV1_1Schema,
     },
     {
       id: "state.evidence",
@@ -187,11 +221,25 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: migrationSchema,
     },
     {
+      id: "state.migration",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/migration.v1.1.schema.json",
+      schema: migrationV1_1Schema,
+    },
+    {
       id: "state.project-config",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/project-config.v1.schema.json",
       schema: projectConfigSchema,
+    },
+    {
+      id: "state.project-config",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/project-config.v1.1.schema.json",
+      schema: projectConfigV1_1Schema,
     },
     {
       id: "state.requirement-discovery",
@@ -242,44 +290,12 @@ export const EMBEDDED_SCHEMA_DEPENDENCIES = deepFreeze([
   acceptanceCriterionIdSchema,
 ] as const satisfies readonly object[]);
 
-const EXPECTED_SCHEMA_IDS = {
-  "host.adapter-message": "https://kratos.dev/schemas/host/adapter-message/v1",
-  "host.agent-output": "https://kratos.dev/schemas/host/agent-output/v1",
-  "host.gap-proposal": "https://kratos.dev/schemas/host/gap-proposal/v1",
-  "host.hook-observation":
-    "https://kratos.dev/schemas/host/hook-observation/v1",
-  "host.init-answers": "https://kratos.dev/schemas/host/init-answers/v1",
-  "host.operation-message":
-    "https://kratos.dev/schemas/host/operation-message/v1",
-  "host.pre-tool-use": "https://kratos.dev/schemas/host/pre-tool-use/v1",
-  "state.approval": "https://kratos.dev/schemas/state/approval/v1",
-  "state.acceptance-criteria-snapshot":
-    "https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1",
-  "state.acceptance-verdict":
-    "https://kratos.dev/schemas/state/acceptance-verdict/v1",
-  "state.event": "https://kratos.dev/schemas/state/event/v1",
-  "state.evidence": "https://kratos.dev/schemas/state/evidence/v1",
-  "state.failure-candidate":
-    "https://kratos.dev/schemas/state/failure-candidate/v1",
-  "state.feature": "https://kratos.dev/schemas/state/feature/v1",
-  "state.feature-scope": "https://kratos.dev/schemas/state/feature-scope/v1",
-  "state.gap": "https://kratos.dev/schemas/state/gap/v1",
-  "state.gates": "https://kratos.dev/schemas/state/gates/v1",
-  "state.guardrails": "https://kratos.dev/schemas/state/guardrails/v1",
-  "state.lock": "https://kratos.dev/schemas/state/lock/v1",
-  "state.migration": "https://kratos.dev/schemas/state/migration/v1",
-  "state.project-config": "https://kratos.dev/schemas/state/project-config/v1",
-  "state.requirement-discovery":
-    "https://kratos.dev/schemas/state/requirement-discovery/v1",
-  "state.run-usage": "https://kratos.dev/schemas/state/run-usage/v1",
-  "state.session-telemetry":
-    "https://kratos.dev/schemas/state/session-telemetry/v1",
-  "state.snapshot": "https://kratos.dev/schemas/state/snapshot/v1",
-  "state.transaction-manifest":
-    "https://kratos.dev/schemas/state/transaction-manifest/v1",
-  "state.transaction-progress":
-    "https://kratos.dev/schemas/state/transaction-progress/v1",
-} as const satisfies Readonly<Record<EmbeddedSchemaEntry["id"], string>>;
+function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
+  const [family, name] = entry.id.split(".");
+  if (family === undefined || name === undefined) failCatalogIntegrity();
+  const revision = entry.version === "1.0.0" ? "1" : "1.1";
+  return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
+}
 
 function failCatalogIntegrity(): never {
   throw new Error("Embedded schema catalog is inconsistent");
@@ -353,7 +369,7 @@ export function assertSchemaCatalog(
       entry.family !== expected.family ||
       entry.version !== expected.version ||
       entry.path !== expected.path ||
-      id !== EXPECTED_SCHEMA_IDS[entry.id] ||
+      id !== expectedSchemaId(entry) ||
       !declaresVersion(entry)
     ) {
       failCatalogIntegrity();

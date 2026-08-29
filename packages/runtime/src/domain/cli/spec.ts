@@ -9,7 +9,7 @@ import type {
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
-  EventV1,
+  ReadableEvent,
   EvidenceV1,
   FeatureScopeV1,
   GapRecordV1,
@@ -18,12 +18,17 @@ import type {
   FailureCandidateV1,
   GateFactsV1,
   MigrationV1,
+  MigrationV1_1,
+  ProjectConfigV1_1,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
+import type { PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
+  PhaseExecutionObservation,
   RunLineage,
   WorkflowReducerConfiguration,
   WorkflowState,
@@ -77,7 +82,8 @@ export interface FlagSpec {
   readonly summary: string;
 }
 
-export type JsonContractId = "result@1.0.0" | "adapter-message@1.0.0";
+export type JsonContractId =
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.1.0";
 
 export interface Decision {
   readonly result: Result;
@@ -97,6 +103,8 @@ export interface Decision {
   readonly eventReducers?: EventReducerRegistry<WorkflowState>;
   /** Re-observe this authorized repair plan immediately before committing it. */
   readonly revalidateRepairDigest?: string;
+  /** Re-resolve this phase assignment immediately before appending its event. */
+  readonly revalidatePhaseAssignmentDigest?: string;
 }
 
 export interface Globals {
@@ -200,6 +208,22 @@ export type CommandObservation =
        * `spec` phases is to change them.
        */
       readonly observedLineage: RunLineage;
+      readonly phaseAssignment:
+        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+        | {
+            readonly kind: "refused";
+            readonly reasonCode:
+              | ModelRoleRefusal
+              | "model.config_migration_required"
+              | "guard.config_missing"
+              | "guard.config_corrupt"
+              | "contract.state_version_invalid"
+              | "contract.state_version_unsupported"
+              | "model.assignment_stale";
+            readonly subject: string;
+          };
+      /** Host-observed execution validated against the current assignment. */
+      readonly phaseExecution: PhaseExecutionObservation | null;
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;
@@ -288,7 +312,7 @@ export type CommandObservation =
       readonly gateDecision: GateDecision;
       readonly policyMode: GateMode;
       readonly tokenBudget: number | null;
-      readonly events: readonly EventV1[];
+      readonly events: readonly ReadableEvent[];
       readonly persistedSnapshot: SnapshotV1 | null;
       readonly replayedSnapshot: SnapshotV1 | null;
       readonly integrityAudit: IntegrityAudit | null;
@@ -312,10 +336,66 @@ export type CommandObservation =
             }[];
           }
         | {
+            readonly kind: "config";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly destination: ProjectConfigV1_1;
+            readonly destinationDigest: string;
+            /** Caller-carried authorization over every final write byte. */
+            readonly planDigest: string;
+            /** Stable receipt lineage digest embedded in migration records. */
+            readonly receiptPlanDigest: string;
+            readonly expected: WriteFilePrecondition;
+            readonly hosts: readonly ("claude" | "codex")[];
+            readonly answers: {
+              readonly ref: string;
+              readonly sha256: string;
+            };
+            readonly catalogs: readonly {
+              readonly host: "claude" | "codex";
+              readonly sha256: string;
+            }[];
+            readonly defaulted: readonly string[];
+            readonly guards: readonly {
+              readonly path: string;
+              readonly content: string;
+              readonly expected: WriteFilePrecondition;
+            }[];
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+              readonly sha256: string;
+              readonly expected: WriteFilePrecondition;
+            }[];
+          }
+        | {
+            readonly kind: "config-current";
+            readonly sha256: string;
+          }
+        | {
             readonly kind: "rollback";
             readonly migrationId: string;
-            readonly receipt: MigrationV1 | null;
+            readonly receipt: MigrationV1 | MigrationV1_1 | null;
             readonly targets: readonly string[];
+            readonly replacement: {
+              readonly destinationRef: string;
+              readonly content: string;
+              readonly expected: WriteFilePrecondition;
+              readonly backupRef: string;
+              readonly backupExpected: WriteFilePrecondition;
+              readonly receiptExpected: WriteFilePrecondition;
+              readonly guards: readonly {
+                readonly path: string;
+                readonly content: string;
+                readonly expected: WriteFilePrecondition;
+              }[];
+              readonly backupDigest: string;
+              readonly destinationDigest: string;
+            } | null;
             readonly now: string;
           };
     };

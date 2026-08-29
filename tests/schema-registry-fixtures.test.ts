@@ -1,15 +1,18 @@
 import manifest from "../packages/contracts/catalogs/contract-families.v1.json" with { type: "json" };
 import versionCases from "../fixtures/contracts/v1/version-cases.json" with { type: "json" };
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import adapterMessageV1_1 from "../fixtures/contracts/v1.1/adapter-message.json" with { type: "json" };
 import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
+import initAnswersV1_1 from "../fixtures/contracts/v1.1/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
 import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
+import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
@@ -19,7 +22,10 @@ import gates from "../fixtures/contracts/v1/gates.json" with { type: "json" };
 import guardrails from "../fixtures/contracts/v1/guardrails.json" with { type: "json" };
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
+import migrationV1_1 from "../fixtures/contracts/v1.1/migration.json" with { type: "json" };
+import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
@@ -36,7 +42,7 @@ import { describe, expect, it } from "vitest";
 
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0";
+  readonly version: "1.0.0" | "1.1.0";
   readonly versionField: "stateContract" | "hostContract";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
@@ -55,6 +61,16 @@ const fixtures = [
     requiredField: "messageId",
     structuralReasonCode: "trail.output_invalido",
     fixture: adapterMessage,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.adapter-message",
+    version: "1.1.0",
+    versionField: "hostContract",
+    requiredField: "messageId",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: adapterMessageV1_1,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -95,6 +111,26 @@ const fixtures = [
     requiredField: "hosts",
     structuralReasonCode: "trail.output_invalido",
     fixture: initAnswers,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.init-answers",
+    version: "1.1.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswersV1_1,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-handoff",
+    version: "1.1.0",
+    versionField: "hostContract",
+    requiredField: "runId",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseHandoffV1_1,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -155,6 +191,16 @@ const fixtures = [
     requiredField: "eventId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: event,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.event",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "eventId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: eventV1_1,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -249,12 +295,32 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.migration",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "migrationId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: migrationV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.project-config",
     version: "1.0.0",
     versionField: "stateContract",
     requiredField: "language",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfig,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.project-config",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "language",
+    structuralReasonCode: "guard.config_corrupt",
+    fixture: projectConfigV1_1,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -350,6 +416,30 @@ function expectInvalidWithReason(
 }
 
 describe("compiled schema registry fixtures", () => {
+  it.each([["model-x", { model: "model-x", effort: "medium" }]])(
+    "accepts equivalent model assignment forms",
+    (simple, object) => {
+      const validate = (planner: unknown) =>
+        registry.validate({
+          id: "state.project-config",
+          version: "1.1.0",
+          structuralReasonCode: "guard.config_corrupt",
+          value: {
+            ...projectConfigV1_1,
+            modelRoles: {
+              ...projectConfigV1_1.modelRoles,
+              codex: {
+                ...projectConfigV1_1.modelRoles.codex,
+                planner,
+              },
+            },
+          },
+        });
+      expect(validate(simple).kind).toBe("valid");
+      expect(validate(object).kind).toBe("valid");
+    },
+  );
+
   it("routes every published non-plugin version case through the registry", () => {
     expect(registryVersionCases.map(({ name }) => name)).toEqual(
       versionCases
@@ -359,9 +449,9 @@ describe("compiled schema registry fixtures", () => {
   });
 
   it("covers every manifest schema exactly once", () => {
-    expect(fixtures.map(({ id, version }) => ({ id, version }))).toEqual(
-      manifest.schemas.map(({ id, version }) => ({ id, version })),
-    );
+    const pairs = (items: readonly { id: string; version: string }[]) =>
+      items.map(({ id, version }) => `${id}@${version}`).sort();
+    expect(pairs(fixtures)).toEqual(pairs(manifest.schemas));
   });
 
   it.each(fixtures)("accepts the committed $id fixture", (fixture) => {
@@ -447,10 +537,13 @@ describe("compiled schema registry fixtures", () => {
       // Selected by family rather than by position: indexing assumed exactly
       // one host fixture, and adding a second silently pointed the state cases
       // at a host contract.
-      const fixture = fixtures.find(({ versionField }) =>
-        versionCase.family === "host"
-          ? versionField === "hostContract"
-          : versionField === "stateContract",
+      const fixture = fixtures.find(
+        ({ version, versionField }) =>
+          (versionCase.family === "host"
+            ? versionField === "hostContract"
+            : versionField === "stateContract") &&
+          (versionCase.classification !== "current" ||
+            version === versionCase.value),
       );
       if (fixture === undefined) throw new Error("No fixture for the family");
       const result = registry.validate({
@@ -469,7 +562,7 @@ describe("compiled schema registry fixtures", () => {
             ({ keyword, reasonCode, version }) =>
               keyword !== "version" &&
               reasonCode === fixture.structuralReasonCode &&
-              version === fixture.version,
+              version === versionCase.value,
           ),
         ).toBe(true);
         return;

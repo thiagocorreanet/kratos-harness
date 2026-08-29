@@ -1,18 +1,21 @@
-import type { EventV1, LockLeaseV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, LockLeaseV1 } from "@kratos/contracts";
 
 import {
   sealEvent,
   verifyEventStream,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventServices,
+  type ReadableEvent,
 } from "../events/index.js";
+import {
+  LOCK_EVENT_FACTS,
+  LOCK_OPERATION_PATTERN,
+  type LockLifecycleAction,
+} from "../events/semantics.js";
 import { canonicalizeJson, type SchemaRegistry } from "../schema/index.js";
 import { parseOwner, lockPaths } from "./scope.js";
 
-export type LockLifecycleAction = "acquire" | "renew" | "release" | "takeover";
-
-const operationPattern =
-  /^lock\.(acquire|renew|release|takeover)\.t(0|[1-9][0-9]*)\.d([a-f0-9]{64})$/u;
+export type { LockLifecycleAction } from "../events/semantics.js";
 
 export type LockLifecycleServices = EventServices;
 
@@ -27,7 +30,7 @@ export interface PrepareLeaseTransitionInput {
 }
 
 export interface PreparedLeaseTransition {
-  readonly event: EventV1;
+  readonly event: EventV1_1;
   readonly lease: LockLeaseV1;
   readonly leaseText: string;
   readonly eventsText: string;
@@ -35,8 +38,8 @@ export interface PreparedLeaseTransition {
 
 export interface LeaseBinding {
   readonly action: LockLifecycleAction;
-  readonly event: EventV1;
-  readonly events: readonly EventV1[];
+  readonly event: ReadableEvent;
+  readonly events: readonly ReadableEvent[];
   readonly lease: LockLeaseV1;
 }
 
@@ -105,7 +108,7 @@ export function parseLockOperation(operation: string): {
   readonly token: number;
   readonly digest: string;
 } {
-  const match = operationPattern.exec(operation);
+  const match = LOCK_OPERATION_PATTERN.exec(operation);
   if (match === null) integrityFailure();
   // The closed regular expression always captures all three groups.
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -139,7 +142,7 @@ function validateActionOrder(
 }
 
 function validateLifecycleEvents(
-  events: readonly EventV1[],
+  events: readonly ReadableEvent[],
   leaseRef: string,
 ): LockLifecycleAction {
   let previousAction: LockLifecycleAction | null = null;
@@ -147,14 +150,14 @@ function validateLifecycleEvents(
   let finalAction: LockLifecycleAction | null = null;
   for (const event of events) {
     const parsed = parseLockOperation(event.operation);
+    const fact = LOCK_EVENT_FACTS[parsed.action];
     validateActionOrder(parsed.action, previousAction);
     validateTokenTransition(parsed.action, previousToken, parsed.token);
     if (
-      event.eventType !==
-        (parsed.action === "takeover" ? "recovery" : "operation") ||
+      event.eventType !== fact.eventType ||
       event.policyVersion !== "locks-v1" ||
-      event.reasonCode !== "trail.ok" ||
-      event.effect !== "state" ||
+      event.reasonCode !== fact.reasonCode ||
+      event.effect !== fact.effect ||
       event.artifactRefs.length !== 1 ||
       event.artifactRefs[0] !== leaseRef ||
       event.evidenceRefs.length !== 0
@@ -169,7 +172,7 @@ function validateLifecycleEvents(
   return finalAction;
 }
 
-function lastEvent(events: readonly EventV1[]): EventV1 {
+function lastEvent(events: readonly ReadableEvent[]): ReadableEvent {
   // Callers validate non-emptiness before requesting the final event.
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return events[events.length - 1]!;
@@ -211,23 +214,24 @@ export function prepareLeaseTransition(
   validateTokenTransition(input.action, previousToken, lease.fencingToken);
   const leaseText = canonicalizeJson(lease);
   const digest = services.digests.sha256(leaseText);
-  const draft: EventDraftV1 = {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+  const fact = LOCK_EVENT_FACTS[input.action];
+  const draft: CurrentEventDraft = {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: input.eventId,
-    eventType: input.action === "takeover" ? "recovery" : "operation",
+    eventType: fact.eventType,
     occurredAt: input.occurredAt,
     operation: `lock.${input.action}.t${String(lease.fencingToken)}.d${digest}`,
     policyVersion: "locks-v1",
     priorRevision: prior.cursor.revision,
     resultingRevision: prior.cursor.revision + 1,
-    reasonCode: "trail.ok",
-    effect: "state",
+    reasonCode: fact.reasonCode,
+    effect: fact.effect,
     artifactRefs: [input.leaseRef],
     evidenceRefs: [],
-    observedIdentity: input.observedIdentity,
+    observedIdentity: { ...input.observedIdentity, effort: null },
   };
-  let sealed: EventV1;
+  let sealed: EventV1_1;
   try {
     sealed = sealEvent(draft, prior.cursor, services);
   } catch {

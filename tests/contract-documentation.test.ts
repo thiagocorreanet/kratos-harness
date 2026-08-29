@@ -241,8 +241,10 @@ describe("contract versioning documentation", () => {
   it("indexes all current artifact families and commands", () => {
     for (const token of [
       "project-config.v1.schema.json",
+      "project-config.v1.1.schema.json",
       "snapshot.v1.schema.json",
       "event.v1.schema.json",
+      "event.v1.1.schema.json",
       "approval.v1.schema.json",
       "evidence.v1.schema.json",
       "feature.v1.schema.json",
@@ -250,16 +252,21 @@ describe("contract versioning documentation", () => {
       "guardrails.v1.schema.json",
       "lock.v1.schema.json",
       "migration.v1.schema.json",
+      "migration.v1.1.schema.json",
       "transaction-manifest.v1.schema.json",
       "transaction-progress.v1.schema.json",
       "adapter-message.v1.schema.json",
+      "adapter-message.v1.1.schema.json",
       "agent-output.v1.schema.json",
       "operation-message.v1.schema.json",
       "pre-tool-use.v1.schema.json",
+      "init-answers.v1.1.schema.json",
+      "phase-handoff.v1.1.schema.json",
       "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",
+      "reason-codes.v1.7.json",
     ]) {
       expect(schemaIndex).toContain(token);
     }

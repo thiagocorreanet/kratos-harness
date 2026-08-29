@@ -4,6 +4,7 @@ import type {
   FileSystem,
   Git,
   Ids,
+  ModelRouting,
   Output,
 } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
@@ -295,6 +296,25 @@ export function describeOutputContract(
         output.structured("{}\n");
         output.human("ok\n");
       }).not.toThrow();
+    });
+  });
+}
+
+/**
+ * A model catalog is an observation, never a routing command. Its narrow
+ * surface prevents a host integration from acquiring project-write authority.
+ */
+export function describeModelRoutingContract(
+  label: string,
+  factory: () => ModelRouting,
+): void {
+  describe(`ModelRouting contract: ${label}`, () => {
+    it("returns null when no catalog was supplied for a host", async () => {
+      expect(await factory().observe("claude")).toBeNull();
+    });
+
+    it("exposes observation only", () => {
+      expect(Object.keys(factory()).sort()).toEqual(["observe"]);
     });
   });
 }

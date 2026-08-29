@@ -1,47 +1,75 @@
-import type { InitAnswersV1 } from "@kratos/contracts";
+import type { InitAnswersV1_1 } from "@kratos/contracts";
 
+import {
+  resolveModelRoleAssignment,
+  validateHostIndependence,
+  type HostModelCatalog,
+  type ModelRole,
+  type ModelRoleRefusal,
+  type NormalizedModelAssignment,
+} from "../model-roles/index.js";
+import type { ModelRouting } from "../../ports/model-routing.js";
 import type { SchemaRegistry } from "../schema/index.js";
 
-/**
- * Every answer the caller may leave out, with the value used instead.
- *
- * Defaults live here rather than scattered through generation so there is one
- * place to read to learn what an unanswered project becomes.
- */
+/** Answers after every default has been made visible and every model resolved. */
+export type ResolvedAnswers = Omit<Required<InitAnswersV1_1>, "modelRoles"> & {
+  readonly modelRoles: ResolvedModelRoles;
+};
+
 const DEFAULTS = {
   language: "en",
   policyMode: "standard",
   snapshots: true,
 } as const;
 
-type Defaultable = keyof typeof DEFAULTS;
+const DEFAULTABLE = ["language", "policyMode", "snapshots"] as const;
+const HOSTS = ["claude", "codex"] as const;
+const ROLES = ["planner", "implementer", "judge"] as const;
 
-const DEFAULTABLE: readonly Defaultable[] = [
-  "language",
-  "policyMode",
-  "snapshots",
-];
+type Host = "claude" | "codex";
+type ExplicitRoleMap = NonNullable<InitAnswersV1_1["modelRoles"]>[Host];
+
+/** The only model assignment shape a resolved initializer may persist. */
+export type ResolvedRoleMap = Readonly<
+  Record<ModelRole, NormalizedModelAssignment>
+>;
+export type ResolvedModelRoles = Partial<Record<Host, ResolvedRoleMap>>;
+
+export interface ModelResolutionSubject {
+  readonly host: Host;
+  readonly role?: ModelRole;
+}
+
+export interface ModelResolutionRefusal {
+  readonly kind: "invalid";
+  readonly reasonCode: ModelRoleRefusal;
+  readonly subject: ModelResolutionSubject;
+}
 
 export type ResolvedInitAnswers =
   | {
       readonly kind: "resolved";
-      readonly answers: Required<InitAnswersV1>;
+      readonly answers: ResolvedAnswers;
       /** Which answers the caller did not supply, in documented order. */
-      readonly defaulted: readonly Defaultable[];
+      readonly defaulted: readonly string[];
     }
-  | { readonly kind: "invalid"; readonly reasonCode: string };
+  | {
+      readonly kind: "invalid";
+      readonly reasonCode: string;
+      readonly subject?: never;
+    }
+  | ModelResolutionRefusal;
 
 /**
- * Validate an answers document and fill in what it left unanswered.
- *
- * The applied defaults are reported rather than silently merged. Somebody who
- * supplied three fields and initialized a project configured by six needs to
- * see the other three, or they will believe they chose them.
+ * Validate an answers document, resolve its host catalogs, and fill in every
+ * omitted answer. Persisted model assignments are always canonical objects;
+ * aliases and bare model names never leak into project state.
  */
-export function resolveInitAnswers(
+export async function resolveInitAnswers(
   document: unknown,
   registry: SchemaRegistry,
-): ResolvedInitAnswers {
+  modelRouting: ModelRouting,
+): Promise<ResolvedInitAnswers> {
   const validated = registry.validate({
     id: "host.init-answers",
     version: version(document),
@@ -56,8 +84,42 @@ export function resolveInitAnswers(
       reasonCode: first?.reasonCode ?? "trail.output_invalido",
     };
   }
+  if (validated.value.contractVersion !== "1.1.0") {
+    return { kind: "invalid", reasonCode: "trail.output_invalido" };
+  }
+
   const supplied = validated.value;
-  const defaulted = DEFAULTABLE.filter((key) => supplied[key] === undefined);
+  const defaulted: string[] = DEFAULTABLE.filter(
+    (key) => supplied[key] === undefined,
+  );
+  const resolvedByHost = new Map<Host, ResolvedRoleMap>();
+
+  // Catalog lookup is intentionally confined to enabled hosts. A role map for
+  // a disabled host is not project state and is neither selected nor observed.
+  for (const host of supplied.hosts) {
+    const catalog = await modelRouting.observe(host);
+    if (catalog === null) {
+      return modelRefusal("model.resolution_unavailable", { host });
+    }
+    const explicit = supplied.modelRoles?.[host];
+    const resolved = resolveHostRoles(host, explicit, catalog);
+    if (resolved.kind === "invalid") return resolved;
+    resolvedByHost.set(host, resolved.roles);
+  }
+  for (const host of HOSTS) {
+    if (
+      supplied.hosts.includes(host) &&
+      supplied.modelRoles?.[host] === undefined
+    ) {
+      for (const role of ROLES) defaulted.push(`modelRoles.${host}.${role}`);
+    }
+  }
+  const modelRoles: ResolvedModelRoles = {};
+  for (const host of HOSTS) {
+    const roles = resolvedByHost.get(host);
+    if (roles !== undefined) modelRoles[host] = roles;
+  }
+
   return {
     kind: "resolved",
     answers: {
@@ -67,18 +129,67 @@ export function resolveInitAnswers(
       language: supplied.language ?? DEFAULTS.language,
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
       snapshots: supplied.snapshots ?? DEFAULTS.snapshots,
+      modelRoles,
     },
     defaulted,
   };
 }
 
-/**
- * The host contract version the registry checks before the payload.
- *
- * Reading it structurally keeps a malformed document on the version path,
- * where the failure names the contract, instead of the payload path, where it
- * would name a field.
- */
+function resolveHostRoles(
+  host: Host,
+  explicit: ExplicitRoleMap | undefined,
+  catalog: HostModelCatalog,
+):
+  | { readonly kind: "resolved"; readonly roles: ResolvedRoleMap }
+  | ModelResolutionRefusal {
+  const selected = explicit ?? catalog.defaults;
+  const assignments = new Map<ModelRole, NormalizedModelAssignment>();
+
+  for (const role of ROLES) {
+    const resolved = resolveModelRoleAssignment({
+      host,
+      role,
+      roles: selected,
+      catalog,
+    });
+    if (resolved.kind === "refused") {
+      return modelRefusal(resolved.reasonCode, { host, role });
+    }
+    assignments.set(role, {
+      model: resolved.assignment.model,
+      effort: resolved.assignment.effort,
+    });
+  }
+
+  const planner = assignments.get("planner");
+  const implementer = assignments.get("implementer");
+  const judge = assignments.get("judge");
+  /* v8 ignore start -- the closed phase/role tuple above covers all entries */
+  if (
+    planner === undefined ||
+    implementer === undefined ||
+    judge === undefined
+  ) {
+    return modelRefusal("model.role_missing", { host, role: "planner" });
+  }
+  /* v8 ignore stop */
+  if (validateHostIndependence({ implementer, judge }) !== null) {
+    return modelRefusal("model.independence_violation", {
+      host,
+      role: "judge",
+    });
+  }
+  return { kind: "resolved", roles: { planner, implementer, judge } };
+}
+
+function modelRefusal(
+  reasonCode: ModelRoleRefusal,
+  subject: ModelResolutionSubject,
+): ModelResolutionRefusal {
+  return { kind: "invalid", reasonCode, subject };
+}
+
+/** The host contract version the registry checks before the payload. */
 function version(document: unknown): unknown {
   if (typeof document !== "object" || document === null) return undefined;
   return (document as Record<string, unknown>).hostContract;

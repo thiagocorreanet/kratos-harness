@@ -1,4 +1,4 @@
-import { reasonPolicy, type EventV1 } from "@kratos/contracts";
+import { reasonPolicy, type ReadableEvent } from "@kratos/contracts";
 
 import type { WorkflowState } from "../workflow/index.js";
 
@@ -49,7 +49,7 @@ export function deriveStatus(state: WorkflowState): RunStatusReport {
   };
 }
 
-export function deriveStats(events: readonly EventV1[]): RunStats {
+export function deriveStats(events: readonly ReadableEvent[]): RunStats {
   return {
     events: events.length,
     acceptedTransitions: events.filter(

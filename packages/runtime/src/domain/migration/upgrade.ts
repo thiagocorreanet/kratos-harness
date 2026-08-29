@@ -1,3 +1,5 @@
+import type { ProjectConfigV1, ProjectConfigV1_1 } from "@kratos/contracts";
+
 export interface StateUpgrade {
   readonly from: string;
   readonly to: string;
@@ -47,4 +49,28 @@ export function upgradeState(
     path.push(current);
   }
   return { kind: "upgraded", value: state, path };
+}
+
+/**
+ * Upgrade the one project payload whose old revision cannot execute phases.
+ *
+ * Every pre-existing setting comes from the validated source configuration.
+ * Migration answers contribute only the newly required, already normalized
+ * role map, so an upgrade cannot silently reset language, policy, or snapshot
+ * behavior to initialization defaults.
+ */
+export function upgradeProjectConfiguration(
+  source: ProjectConfigV1,
+  modelRoles: ProjectConfigV1_1["modelRoles"],
+): ProjectConfigV1_1 {
+  return {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.1.0",
+    language: source.language,
+    policyMode: source.policyMode,
+    managedState: { ...source.managedState },
+    modelRoles,
+  };
 }

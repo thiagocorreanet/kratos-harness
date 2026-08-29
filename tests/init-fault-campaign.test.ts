@@ -8,6 +8,7 @@ import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import {
   fixedClock,
   fixedEnvironment,
+  fixedModelRouting,
   memoryFileSystem,
   memoryTransactionStorage,
   pipedInput,
@@ -18,12 +19,14 @@ import {
 import type { RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
+import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+
 /** Room for the same campaign under coverage instrumentation. */
 const campaignTimeoutMilliseconds = 180_000;
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.0.0",
-  hostContract: "1.0.0",
+  contractVersion: "1.1.0",
+  hostContract: "1.1.0",
   hosts: ["claude", "codex"],
 });
 
@@ -43,6 +46,7 @@ function ports(storage: Storage): RuntimePorts {
     durableFileSystem: storage.durableFileSystem,
     fileSystem: memoryFileSystem({ "package.json": "{}" }),
     environment: fixedEnvironment({}, "/project"),
+    modelRouting: fixedModelRouting([claudeCatalog(), codexCatalog()]),
     output: recordingOutput(),
     standardInput: pipedInput(ANSWERS),
   } as unknown as RuntimePorts;

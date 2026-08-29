@@ -97,5 +97,6 @@ export function anchorPorts(
     output: ports.output,
     standardInput: ports.standardInput,
     workspace: ports.workspace,
+    modelRouting: ports.modelRouting,
   });
 }

@@ -1,8 +1,10 @@
 import {
   EventIntegrityError,
-  type EventDraftV1,
+  type CurrentEventDraft,
   type EventServices,
+  type ReadableEvent,
 } from "./model.js";
+import { assertEventSemanticPolicy } from "./semantics.js";
 
 const DRAFT_KEYS = [
   "contractVersion",
@@ -21,7 +23,8 @@ const DRAFT_KEYS = [
   "observedIdentity",
 ] as const;
 
-const IDENTITY_KEYS = ["host", "model"] as const;
+const IDENTITY_KEYS = ["host", "model", "effort"] as const;
+const ASSIGNMENT_KEYS = ["phase", "role", "model", "effort"] as const;
 const MAX_REFERENCE_COUNT = 256;
 
 type DataRecord = Record<PropertyKey, unknown>;
@@ -122,34 +125,77 @@ function copyObservedIdentity(
 ): {
   host: string;
   model: string | null;
+  effort: string | null;
 } {
   const identity = requirePlainRecord(value, isProxy);
   requireExactKeys(identity, IDENTITY_KEYS);
   const host = requireString(identity, "host");
   const model = requireDataValue(identity, "model");
+  const effort = requireDataValue(identity, "effort");
   if (typeof model !== "string" && model !== null) invalidEvent();
-  return { host, model };
+  if (typeof effort !== "string" && effort !== null) invalidEvent();
+  return { host, model, effort };
+}
+
+function copyResolvedAssignment(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["resolvedAssignment"]> {
+  const assignment = requirePlainRecord(value, isProxy);
+  requireExactKeys(assignment, ASSIGNMENT_KEYS);
+  return {
+    phase: requireString(assignment, "phase") as NonNullable<
+      CurrentEventDraft["resolvedAssignment"]
+    >["phase"],
+    role: requireString(assignment, "role") as NonNullable<
+      CurrentEventDraft["resolvedAssignment"]
+    >["role"],
+    model: requireString(assignment, "model"),
+    effort: requireString(assignment, "effort"),
+  };
+}
+
+export function assertEventPolicy(event: ReadableEvent): void {
+  try {
+    assertEventSemanticPolicy(event);
+  } catch {
+    invalidEvent();
+  }
 }
 
 export function snapshotEventDraft(
   value: unknown,
   isProxy: EventServices["isProxy"],
-): EventDraftV1 {
+): CurrentEventDraft {
   try {
     const draft = requirePlainRecord(value, isProxy);
-    requireExactKeys(draft, DRAFT_KEYS);
-    return {
+    const resolvedAssignment = Object.hasOwn(draft, "resolvedAssignment")
+      ? copyResolvedAssignment(
+          requireDataValue(draft, "resolvedAssignment"),
+          isProxy,
+        )
+      : undefined;
+    requireExactKeys(
+      draft,
+      resolvedAssignment === undefined
+        ? DRAFT_KEYS
+        : [...DRAFT_KEYS, "resolvedAssignment"],
+    );
+    const snapshot: CurrentEventDraft = {
       contractVersion: requireString(draft, "contractVersion"),
       stateContract: requireString(draft, "stateContract"),
       eventId: requireString(draft, "eventId"),
-      eventType: requireString(draft, "eventType") as EventDraftV1["eventType"],
+      eventType: requireString(
+        draft,
+        "eventType",
+      ) as CurrentEventDraft["eventType"],
       occurredAt: requireString(draft, "occurredAt"),
       operation: requireString(draft, "operation"),
       policyVersion: requireString(draft, "policyVersion"),
       priorRevision: requireRevision(draft, "priorRevision"),
       resultingRevision: requireRevision(draft, "resultingRevision"),
       reasonCode: requireString(draft, "reasonCode"),
-      effect: requireString(draft, "effect") as EventDraftV1["effect"],
+      effect: requireString(draft, "effect") as CurrentEventDraft["effect"],
       artifactRefs: copyReferences(
         requireDataValue(draft, "artifactRefs"),
         isProxy,
@@ -162,7 +208,14 @@ export function snapshotEventDraft(
         requireDataValue(draft, "observedIdentity"),
         isProxy,
       ),
-    } as EventDraftV1;
+      ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
+    } as CurrentEventDraft;
+    assertEventPolicy({
+      ...snapshot,
+      previousHash: null,
+      eventHash: "0".repeat(64),
+    });
+    return snapshot;
   } catch {
     return invalidEvent();
   }

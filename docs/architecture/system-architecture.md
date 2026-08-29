@@ -44,8 +44,9 @@ versioned schema and reason-code boundaries. `CONFIRMED`
 
 The implementation is broad, but maturity is still experimental. The public
 compatibility inventory reports `0 / 400`, real signed-in host E2E is pending,
-and the current workspace has known test, CI-contract, and generated-contract
-drift. `CONFIRMED`
+and remote CI for issue #136 has not been observed. The current local
+model-role acceptance and full-gate evidence is recorded separately from those
+external claims. `CONFIRMED`
 
 ## 3. Scope and exclusions
 
@@ -142,6 +143,7 @@ runtime source, or `node_modules` into a user project. `CONFIRMED`
 | `CMP-INIT-001` | Initialization | Deterministic skeleton and managed sections | [`domain/init`](../../packages/runtime/src/domain/init), [`composition/init.ts`](../../packages/runtime/src/composition/init.ts) |
 | `CMP-OBJECTIVE-001` | Objective lifecycle | Stable feature identity and replacement rules | [`domain/objective`](../../packages/runtime/src/domain/objective) |
 | `CMP-WORKFLOW-001` | Workflow state machine | Start, continue, reject, resume, and complete | [`domain/workflow`](../../packages/runtime/src/domain/workflow) |
+| `CMP-MODEL-ROLES-001` | Model-role policy | Fixed phase mapping, canonical resolution, independence, and assignment digest | [`domain/model-roles`](../../packages/runtime/src/domain/model-roles), [`composition/workflow.ts`](../../packages/runtime/src/composition/workflow.ts) |
 | `CMP-GATES-001` | Gate policy | Ordered pure gate evaluation | [`evaluate.ts`](../../packages/runtime/src/domain/gates/evaluate.ts) |
 | `CMP-EVIDENCE-001` | Approval and evidence | Digest binding, classification, and handoff | [`domain/approvals`](../../packages/runtime/src/domain/approvals), [`domain/evidence`](../../packages/runtime/src/domain/evidence) |
 | `CMP-EVENTS-001` | Event store | Seal, verify, replay, and derive snapshot | [`domain/events`](../../packages/runtime/src/domain/events), [`composition/events.ts`](../../packages/runtime/src/composition/events.ts) |
@@ -181,7 +183,7 @@ rendering of the same result policy. `CONFIRMED`
 
 | ID | Durable data | Role | Integrity |
 | --- | --- | --- | --- |
-| `DAT-PROJECT-001` | `.brain/config.json` | Project and contract configuration | Schema validated |
+| `DAT-PROJECT-001` | `.brain/config.json` | Project, contract, and canonical host-role configuration | Exact current schema plus migration-only legacy classification |
 | `DAT-FEATURE-001` | `.brain/02-features/<feature>/...` | Objective, active run, human artifacts | Managed transaction |
 | `DAT-EVENT-001` | `events.jsonl` | Authoritative append-only history | Canonical JSON, revisions, hash chain |
 | `DAT-SNAPSHOT-001` | `state.json` | Replay-derived current state | Bound to event cursor and hash |
@@ -203,7 +205,9 @@ hidden nondeterminism before a snapshot is accepted. `CONFIRMED`
 ## 11. Integrations
 
 - **Codex and Claude Code:** thin, relay-only host surfaces. Both share the
-  versioned host contract and runtime policy.
+  versioned host contract and runtime policy. Their versioned catalogs supply
+  concrete defaults, aliases, canonical models, and supported efforts; the
+  runtime owns phase mapping and independence.
 - **Git:** fixed read-only commands classify repository, worktree, in-progress
   operation, and changes. The port resolves to a typed outcome rather than
   rejecting.
@@ -248,9 +252,9 @@ schemas, and host assets. Package verification executes installation and the
 `init → objective → start → status` smoke path for both hosts. `CONFIRMED`
 
 Repository definitions exist for CI, CodeQL, dependency review, docs,
-compatibility, native platforms, nightly, security, and release. In the analyzed
-workspace these definitions are untracked and their contract tests are out of
-sync, so activation and green external execution are `PENDING`.
+compatibility, native platforms, nightly, security, and release. Local
+verification does not establish a remote run; external CI execution for the
+current branch remains `PENDING` until observed.
 
 ## 15. Flow catalog
 
@@ -280,6 +284,23 @@ replay snapshot → done`
 
 The six phases are `prd`, `spec`, `plan`, `code`, `review`, and `acceptance`.
 
+Before handoff, the runtime maps `prd/spec/plan` to `planner`, `code` to
+`implementer`, and `review/acceptance` to `judge`. It resolves every configured
+role against the active host catalog and blocks canonical implementer/judge
+equality. Missing or invalid routing has no cross-role fallback.
+
+### `FLW-MODEL-ROLE-001` — handoff to audited phase result
+
+`current config bytes → run/phase/revision → active host catalog → canonical
+three-role resolution → independence check → selected assignment digest → host
+relay → nullable observed execution → config/run/catalog revalidation → event
+append`
+
+`resolvedAssignment` is runtime policy. `observedIdentity` is validated host
+observation; missing model or effort stays `null`. Prompt prose and agent output
+cannot author either field. Drift returns `model.assignment_stale`; a known
+host mismatch returns `model.execution_mismatch`; neither appends an event.
+
 ### `FLW-EVENT-001` — append and replay
 
 `draft → inert copy → revision check → previous hash → canonical digest → schema
@@ -295,11 +316,16 @@ ordered publication → committed → cleanup`
 Recovery aborts before publication, rolls forward monotonically after publication,
 and refuses ambiguous state.
 
-### `FLW-MIGRATION-001` — legacy Brain migration
+### `FLW-MIGRATION-001` — legacy Brain and configuration migration
 
 `read-only discovery → source contract declaration → conflict/sensitivity scan →
 digest-bound plan → explicit authorization → transaction → receipt → optional
 verified rollback`
+
+For project configuration, the answers explicitly confirm enabled hosts and
+the preview binds source, exact answer bytes, host catalogs, plan time, and six
+final write bytes. Apply replaces only `.brain/config.json` plus its audit
+bundle. Rollback verifies the current destination and exact prior-byte backup.
 
 ### `FLW-DIFF-001` — differential compatibility
 
@@ -322,6 +348,11 @@ Public scenarios prove the harness mechanism, not Go/TypeScript parity.
 | `BR-WORKFLOW-001` | Start requires an active objective and clean worktree. | CONFIRMED |
 | `BR-WORKFLOW-002` | Continue requires the current revision and matching run/feature. | CONFIRMED |
 | `BR-WORKFLOW-003` | Missing artifacts, evidence, or passed gates records rejection. | CONFIRMED |
+| `BR-MODEL-001` | The phase-to-role map is fixed and runtime-owned; prompts and adapters cannot remap it. | CONFIRMED |
+| `BR-MODEL-002` | Bare model names normalize to effort `medium`; missing or invalid routing never falls back. | CONFIRMED |
+| `BR-MODEL-003` | Canonical implementer/judge equality is a strict refusal, not a warning. | CONFIRMED |
+| `BR-MODEL-004` | Handoff and append bind current config, run, revision, phase, host, role, model, and effort. | CONFIRMED |
+| `BR-MODEL-005` | Unknown host execution remains nullable and cannot be inferred from configured or agent-authored text. | CONFIRMED |
 | `BR-GATE-001` | Gate failures have stable precedence from context through acceptance. | CONFIRMED |
 | `BR-APPROVAL-001` | Approval binds exact run, content, policy, and revision digests. | CONFIRMED |
 | `BR-ACCEPTANCE-001` | Done requires acceptance phase, approval, evidence, lineage, and passing gates. | CONFIRMED |
@@ -338,6 +369,7 @@ Public scenarios prove the harness mechanism, not Go/TypeScript parity.
 | `BR-LOCKS-003` | Fencing tokens never decrease and advance for a new ownership epoch. | CONFIRMED |
 | `BR-GIT-001` | Git observation is read-only and resolves every failure as typed data. | CONFIRMED |
 | `BR-MIGRATION-001` | Migration never overwrites divergent current project content. | CONFIRMED |
+| `BR-MIGRATION-002` | Configuration migration changes only config plus its audit bundle and preserves historical bytes. | CONFIRMED |
 | `BR-OBS-001` | Repair requires exact plan digest and immediate re-observation. | CONFIRMED |
 
 ## 17. Symbol catalog
@@ -352,6 +384,8 @@ central public symbols include:
 - `resolveInitAnswers`, `skeletonEffects`, `planManagedFile`;
 - `featureIdentity`, `decideObjective`;
 - `decideStartWorkflow`, `decideContinueWorkflow`, `reduceWorkflow`;
+- `PHASE_MODEL_ROLE`, `resolvePhaseAssignmentDetailed`,
+  `validateHostIndependence`, `digestPhaseAssignment`;
 - `evaluateGates`, `issueApproval`, `decideDone`;
 - `sealEvent`, `verifyEventStream`, `replayEventStream`;
 - `normalizeManagedMutationPlan`, `executeManagedMutation`, `decideRecovery`;
@@ -373,7 +407,7 @@ central public symbols include:
 | Event store | Digests / schema | function | Yes | canonical event and snapshot | Corruption refusal |
 | Lock service | Transaction/event store | filesystem/event | Yes | lease, fencing, claim | Conflict/recovery reason |
 | Git composition | Git process runner | subprocess | Yes | fixed porcelain v2 commands | Typed non-throwing outcome |
-| Adapters | Contracts | import/message | Yes | adapter-message@1 | Negotiation failure |
+| Adapters | Contracts | import/message | Yes | adapter-message@1.1, catalog and nullable execution facts | Negotiation or model refusal |
 | Differential harness | Oracle/candidate | subprocess | Yes | bounded scenario contract | Timeout/resource mismatch |
 
 Enforced direction: `domain → domain/ports/contracts`, `ports → domain`,
@@ -395,6 +429,12 @@ Key operational outcomes:
 - `runtime.lease_conflict`: another valid lease owns the resource.
 - `guard.outside_allow`: requested mutation crosses a managed boundary.
 - `runtime.internal_failure`: sanitized unexpected failure with no internal data.
+- `model.config_migration_required`: current execution requires a role-aware
+  project configuration.
+- `model.independence_violation`: implementer and judge share one canonical
+  identity; strict refusal replaced the contradictory warning proposal.
+- `model.assignment_stale` / `model.execution_mismatch`: a returned handoff or
+  known host observation does not match the current runtime selection.
 
 Retry is safe only where the reason catalog allows it and the operation carries
 idempotency or current-revision context. Transaction recovery is content-bound;
@@ -407,31 +447,16 @@ real-process contention, fault injection, package, documentation, and
 differential tests. Shared contract suites exercise Node and fake port
 implementations.
 
-Verification observed during this analysis:
-
-- `npm run build`: passed; created temporary Codex and Claude Code packages.
-- `npm run kratos -- help`: passed; command registry rendered successfully.
-- `npm run package:verify`: passed; both packages and their project smoke flow
-  verified.
-- Performance, mutation sentinels, result contract, synthetic differential,
-  parity inventory, and benchmark checks passed in the delegated operational
-  review.
-- A focused runtime selection passed 623 of 627 tests.
-- A transverse selection passed 244 of 251 tests.
-- `npm run contracts:check` failed because generated declarations drift from
-  current schemas.
-
-These bounded successes do not make the complete `npm run verify` green.
+Issue #136 has a criterion-by-criterion local evidence record at
+[`issue-136-model-role-evidence.md`](../verification/issue-136-model-role-evidence.md).
+It records the exact focused command, the complete `npm run verify` gate, and
+`git diff --check` from the final implementation state. That local evidence is
+not a claim that remote CI or signed-in host E2E passed.
 
 ## 21. Risks, debt, and contradictions
 
 | ID | Status | Finding | Evidence / impact |
 | --- | --- | --- | --- |
-| `RSK-001` | CONFIRMED | Full verification is not green. | CI-contract failures, extension test imports, workflow retry bug, contract drift |
-| `RSK-002` | CONFIRMED | Generated contract declarations differ from current schemas. | `scripts/check-contracts.mjs`; consumers may compile against stale types |
-| `RSK-003` | CONFIRMED | Existing-run start idempotency reads the wrong operations location. | `domain/workflow/decision.ts :: hasOperation`; one workflow test fails |
-| `RSK-004` | CONFIRMED | Three extension tests import Kratos functions from `node:crypto`. | Test wiring failure, not evidence of connected extensions |
-| `RSK-005` | CONFIRMED | CI tests, workflow definitions, and some architecture/user docs have drifted. | Avoid claims of green CI or exact distribution parity |
 | `RSK-006` | CONFIRMED | Host negotiation/delivery primitives are not fully wired through `hook`. | Protocol domain is broader than the connected command path |
 | `RSK-007` | CONFIRMED | Compatibility remains `0 / 400`; real host E2E and public pilots are pending. | Experimental maturity only |
 | `RSK-008` | CONFIRMED | Hash chains do not authenticate authors; evidence metadata does not encrypt content. | Security boundary must remain explicit |
@@ -443,9 +468,6 @@ These bounded successes do not make the complete `npm run verify` green.
 ## 22. Gaps, assumptions, and pending decisions
 
 - `PENDING`: Decide the final public repository name and canonical URLs.
-- `PENDING`: Reconcile generated declarations with schema sources.
-- `PENDING`: Align CI contract tests with the intended workflow set and permissions.
-- `PENDING`: Fix workflow retry/idempotency and extension test wiring.
 - `PENDING`: Choose and execute representative signed-in Codex and Claude Code
   E2E scenarios.
 - `PENDING`: Produce public-beta pilot evidence and human graduation approval.

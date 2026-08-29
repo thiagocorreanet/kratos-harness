@@ -1,5 +1,7 @@
 import { types } from "node:util";
 
+import { defaultModelRouting } from "@kratos/adapters";
+
 import type {
   AppendEventEffect,
   Effect,
@@ -152,6 +154,7 @@ export function createRuntimeAt(
       durableFileSystem,
       schemaRegistry: createSchemaRegistry(),
     }),
+    modelRouting: defaultModelRouting(),
     environment: nodeEnvironment(),
     output: nodeOutput(),
     standardInput: nodeStandardInput(),

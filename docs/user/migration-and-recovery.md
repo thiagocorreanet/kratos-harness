@@ -17,6 +17,41 @@ State upgrades use an ordered, declared migrator chain. Preflight rejects a
 missing hop, cycle, unsupported downgrade, or state newer than the installed
 runtime. The active contract changes only after a verified commit.
 
+### Model-role configuration replacement
+
+A `state.project-config@1.0.0` project cannot execute a phase until it has
+explicit host role assignments. `kratos migrate config [--answers PATH]`
+previews its replacement with `state.project-config@1.1.0`. The old
+configuration does not record enabled hosts, so the answers must confirm them;
+`.claude`, `.codex`, prompts, conversation, and agent output are observations,
+not migration authority.
+
+The preview is read-only. It renders every resolved `planner`, `implementer`,
+and `judge` assignment, including adapter-default markers, along with source,
+destination, answer, catalog, and write-set digests. Bare model names normalize
+to effort `medium`. Unknown aliases, unsupported efforts, missing roles, and
+canonical implementer/judge equality fail closed with no fallback and no write.
+
+Apply uses the complete command printed by preview and requires `--yes`,
+`--plan-digest SHA256`, and `--plan-time INSTANT`. It binds exact answer bytes
+and current adapter catalogs as well as the source configuration. Any drift
+returns `runtime.revision_conflict`; the runtime does not recompute and apply an
+unreviewed replacement.
+
+One managed transaction replaces only `.brain/config.json` and creates the
+authorization, exact old-byte backup, rollback manifest, v1.1 receipt, and
+verification record beneath `.brain/migrations/<migration-id>/`. Event streams,
+snapshots, feature documents, approvals, evidence, and agent output retain their
+exact bytes. Historical `state.event@1.0.0` records remain in the same hash
+chain as later `state.event@1.1.0` records; migration never retrofits model
+metadata into old history.
+
+`kratos migrate rollback ID` validates the current destination, receipt,
+verification, rollback manifest, and backup digest before restoring the exact
+original configuration bytes. Drift or corruption refuses without changing
+either file. A later retry receives a new contiguous attempt ID and preserves
+the earlier audit bundle; it never overwrites prior recovery evidence.
+
 ## Replay and repair
 
 `kratos audit` replays the event log and identifies the earliest known

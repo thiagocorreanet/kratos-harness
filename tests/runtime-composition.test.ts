@@ -17,7 +17,7 @@ import {
   sequentialIds,
 } from "@kratos/runtime/infra/fake";
 import type {
-  EventDraftV1,
+  CurrentEventDraft,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import {
@@ -31,14 +31,14 @@ import type {
 } from "@kratos/runtime/ports";
 import { describe, expect, it, vi } from "vitest";
 
-function eventDraft(index: number): EventDraftV1 {
+function eventDraft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -46,7 +46,7 @@ function eventDraft(index: number): EventDraftV1 {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: null },
   };
 }
 
@@ -91,6 +91,23 @@ describe("composition root", () => {
     expect(Number.isNaN(ports.clock.now().getTime())).toBe(false);
   });
 
+  it("publishes complete independent host defaults without an override", async () => {
+    const routing = createRuntime().modelRouting;
+    for (const host of ["claude", "codex"] as const) {
+      const catalog = await routing.observe(host);
+      expect(catalog).not.toBeNull();
+      expect(catalog?.host).toBe(host);
+      expect(Object.keys(catalog?.defaults ?? {}).sort()).toEqual([
+        "implementer",
+        "judge",
+        "planner",
+      ]);
+      expect(catalog?.defaults.implementer.model).not.toBe(
+        catalog?.defaults.judge.model,
+      );
+    }
+  });
+
   it("replaces exactly the overridden ports and nothing else", () => {
     const clock = fixedClock("2026-08-07T00:00:00.000Z");
     const storage = memoryTransactionStorage();
@@ -117,6 +134,7 @@ describe("composition root", () => {
       "git",
       "ids",
       "locks",
+      "modelRouting",
       "output",
       "standardInput",
       "targetInspector",

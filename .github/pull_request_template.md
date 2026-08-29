@@ -29,6 +29,11 @@ where a dimension does not apply.
 List exact focused and complete commands with current results, including test
 counts, coverage/gate results, platforms, and artifact identity where relevant.
 
+- Acceptance evidence record:
+- Focused verification:
+- Full repository verification: `npm run verify`
+- Diff hygiene: `git diff --check`
+
 ```text
 command
 observed result

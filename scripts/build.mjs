@@ -62,7 +62,12 @@ function runtimeSpecifier(outputFile, targetFile) {
   return path.startsWith(".") ? path : `./${path}`;
 }
 
-async function compileTree(sourceRoot, outputRoot, contractsIndex) {
+async function compileTree(
+  sourceRoot,
+  outputRoot,
+  contractsIndex,
+  adaptersIndex,
+) {
   for (const sourceFile of await files(sourceRoot, ".ts")) {
     const sourceRelative = relative(repositoryRoot, sourceFile);
     const outputFile = join(
@@ -72,9 +77,14 @@ async function compileTree(sourceRoot, outputRoot, contractsIndex) {
     await mkdir(dirname(outputFile), { recursive: true });
     let source = await readFile(sourceFile, "utf8");
     const contractsSpecifier = runtimeSpecifier(outputFile, contractsIndex);
+    const adaptersSpecifier = runtimeSpecifier(outputFile, adaptersIndex);
     source = source.replaceAll(
       '"@kratos/contracts"',
       JSON.stringify(contractsSpecifier),
+    );
+    source = source.replaceAll(
+      '"@kratos/adapters"',
+      JSON.stringify(adaptersSpecifier),
     );
     let javascript = stripTypeScriptTypes(source, {
       mode: "transform",
@@ -97,21 +107,25 @@ function embedded(value) {
 async function buildRuntime(runtimeDirectory) {
   const sourceOutput = join(runtimeDirectory, "source");
   const contractsIndex = join(sourceOutput, "packages/contracts/src/index.js");
+  const adaptersIndex = join(sourceOutput, "packages/adapters/src/index.js");
   await Promise.all([
     compileTree(
       join(repositoryRoot, "packages/contracts/src"),
       sourceOutput,
       contractsIndex,
+      adaptersIndex,
     ),
     compileTree(
       join(repositoryRoot, "packages/adapters/src"),
       sourceOutput,
       contractsIndex,
+      adaptersIndex,
     ),
     compileTree(
       join(repositoryRoot, "packages/runtime/src"),
       sourceOutput,
       contractsIndex,
+      adaptersIndex,
     ),
     cp(
       join(repositoryRoot, "packages/contracts/catalogs"),
@@ -208,6 +222,10 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
   await cp(
     join(repositoryRoot, "distribution/shared/workflow-hook-runner.mjs"),
     join(artifact, "hooks/workflow-hook-runner.mjs"),
+  );
+  await cp(
+    join(repositoryRoot, "distribution/shared/phase-agent-runtime.mjs"),
+    join(artifact, "skills/kratos/scripts/phase-agent-runtime.mjs"),
   );
   await writeFile(
     join(artifact, "hooks/hooks.json"),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REGISTRY,
   parseArguments,
   resolveCommand,
   type CommandRegistry,
@@ -66,6 +67,30 @@ describe("command resolution", () => {
 });
 
 describe("argument parsing", () => {
+  it("parses the configuration migration answers and authorization flags", () => {
+    const migration = DEFAULT_REGISTRY.find(
+      ({ path }) => path.join(" ") === "migrate config",
+    );
+    expect(migration).toBeDefined();
+    if (migration === undefined) return;
+
+    const parsed = parseArguments(migration, [
+      "--answers",
+      "migration.json",
+      "--yes",
+      "--plan-digest",
+      "a".repeat(64),
+      "--plan-time",
+      "2026-08-28T12:00:00.000Z",
+    ]);
+
+    expect(parsed.failure).toBeNull();
+    expect(parsed.flags.get("--answers")).toBe("migration.json");
+    expect(parsed.flags.get("--yes")).toBe(true);
+    expect(parsed.flags.get("--plan-digest")).toBe("a".repeat(64));
+    expect(parsed.flags.get("--plan-time")).toBe("2026-08-28T12:00:00.000Z");
+  });
+
   it("reads a value flag and a boolean flag", () => {
     const parsed = parseArguments(spec({}), ["--root", ".", "--force"]);
     expect(parsed.failure).toBeNull();

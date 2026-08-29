@@ -1,0 +1,28 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "migrationId": "migration-01",
+  "sourceContract": "1.0.0",
+  "destinationContract": "1.1.0",
+  "planDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "authorizationRef": ".brain/approvals/migration-01.json",
+  "backupDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "status": "planned",
+  "conversions": [
+    {
+      "payloadContract": "state.project-config",
+      "sourceDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "destinationDigest": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "verificationRefs": [".brain/evidence/migration-01.json"],
+  "rollback": {
+    "kind": "replace",
+    "backupRef": ".brain/backups/config.v1.json",
+    "backupDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "destinationRef": ".brain/config.json",
+    "destinationDigest": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "createdAt": "2026-08-07T00:06:00Z",
+  "updatedAt": "2026-08-07T00:06:00Z"
+}

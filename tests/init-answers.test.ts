@@ -1,55 +1,245 @@
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
-import { resolveInitAnswers } from "@kratos/runtime/domain/init";
+import {
+  resolveInitAnswers,
+  skeletonEffects,
+  profileStack,
+} from "@kratos/runtime/domain/init";
+import { fixedModelRouting } from "@kratos/runtime/infra/fake";
 import { describe, expect, it } from "vitest";
+
+import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
 
 const registry = createSchemaRegistry();
 
 function answers(overrides: Record<string, unknown> = {}) {
   return {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
+    contractVersion: "1.1.0",
+    hostContract: "1.1.0",
     hosts: ["claude"],
     ...overrides,
   };
 }
 
 describe("initialization answers", () => {
-  it("accepts the minimal document and reports every default it applied", () => {
-    const resolved = resolveInitAnswers(answers(), registry);
+  it("produces identical configuration bytes for inverse enabled-host order", async () => {
+    const forward = await resolveInitAnswers(
+      answers({ hosts: ["claude", "codex"] }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+    const reverse = await resolveInitAnswers(
+      answers({ hosts: ["codex", "claude"] }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+    if (forward.kind !== "resolved" || reverse.kind !== "resolved") {
+      throw new Error("expected both answer documents to resolve");
+    }
+    const config = (resolved: typeof forward): string => {
+      const effect = skeletonEffects(
+        resolved.answers,
+        profileStack({ rootEntries: ["package.json"] }),
+      ).find(
+        (candidate) =>
+          candidate.kind === "write_file" &&
+          candidate.path === ".brain/config.json",
+      );
+      if (effect?.kind !== "write_file") {
+        throw new Error("expected generated configuration");
+      }
+      return effect.content;
+    };
+
+    expect(config(forward)).toBe(config(reverse));
+  });
+
+  it("resolves adapter defaults into canonical closed role assignments", async () => {
+    const resolved = await resolveInitAnswers(
+      answers({ hosts: ["codex"] }),
+      registry,
+      fixedModelRouting([codexCatalog()]),
+    );
 
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
-      hosts: ["claude"],
+      contractVersion: "1.1.0",
+      hostContract: "1.1.0",
+      hosts: ["codex"],
       language: "en",
       policyMode: "standard",
       snapshots: true,
+      modelRoles: { codex: codexCatalog().defaults },
     });
     // A person who supplied three fields and got six needs to see the other
     // three, or they will believe they chose them.
-    expect(resolved.defaulted).toEqual(["language", "policyMode", "snapshots"]);
+    expect(resolved.defaulted).toEqual([
+      "language",
+      "policyMode",
+      "snapshots",
+      "modelRoles.codex.planner",
+      "modelRoles.codex.implementer",
+      "modelRoles.codex.judge",
+    ]);
   });
 
-  it("reports nothing defaulted when every answer was supplied", () => {
-    const resolved = resolveInitAnswers(
-      answers({ language: "pt-BR", policyMode: "strict", snapshots: false }),
+  it("makes explicit aliases override defaults and persists their canonical object forms", async () => {
+    const resolved = await resolveInitAnswers(
+      answers({
+        hosts: ["codex"],
+        language: "pt-BR",
+        policyMode: "strict",
+        snapshots: false,
+        modelRoles: {
+          codex: {
+            planner: "planner-alias",
+            implementer: { model: "impl-alias", effort: "medium" },
+            judge: "judge-alias",
+          },
+        },
+      }),
       registry,
+      fixedModelRouting([codexCatalog()]),
     );
 
-    expect(resolved).toMatchObject({ kind: "resolved", defaulted: [] });
+    expect(resolved).toMatchObject({
+      kind: "resolved",
+      answers: {
+        modelRoles: {
+          codex: {
+            planner: { model: "planner-canonical", effort: "medium" },
+            implementer: { model: "implementer-canonical", effort: "medium" },
+            judge: { model: "judge-canonical", effort: "medium" },
+          },
+        },
+      },
+      defaulted: [],
+    });
   });
 
-  it("keeps the host order the caller chose", () => {
-    const resolved = resolveInitAnswers(
+  it("normalizes equivalent bare and object assignments to the same roles", async () => {
+    const bare = await resolveInitAnswers(
+      answers({
+        hosts: ["codex"],
+        modelRoles: {
+          codex: {
+            planner: "planner",
+            implementer: "implementer",
+            judge: "judge",
+          },
+        },
+      }),
+      registry,
+      fixedModelRouting([codexCatalog()]),
+    );
+    const objects = await resolveInitAnswers(
+      answers({
+        hosts: ["codex"],
+        modelRoles: {
+          codex: {
+            planner: { model: "planner", effort: "medium" },
+            implementer: { model: "implementer", effort: "medium" },
+            judge: { model: "judge", effort: "medium" },
+          },
+        },
+      }),
+      registry,
+      fixedModelRouting([codexCatalog()]),
+    );
+
+    expect(objects).toEqual(bare);
+  });
+
+  it("keeps the host order the caller chose while observing only enabled catalogs", async () => {
+    const seen: string[] = [];
+    const routing = {
+      observe: (host: "claude" | "codex") => {
+        seen.push(host);
+        return Promise.resolve(
+          host === "codex" ? codexCatalog() : claudeCatalog(),
+        );
+      },
+    };
+    const resolved = await resolveInitAnswers(
       answers({ hosts: ["codex", "claude"] }),
       registry,
+      routing,
     );
 
     expect(resolved).toMatchObject({
       kind: "resolved",
       answers: { hosts: ["codex", "claude"] },
+    });
+    expect(seen).toEqual(["codex", "claude"]);
+  });
+
+  it.each([
+    ["a missing catalog", answers({ hosts: ["codex"] }), fixedModelRouting([])],
+    [
+      "an unsupported explicit effort",
+      answers({
+        modelRoles: {
+          claude: {
+            planner: "planner",
+            implementer: "implementer",
+            judge: { model: "judge", effort: "xhigh" },
+          },
+        },
+      }),
+      fixedModelRouting([claudeCatalog()]),
+    ],
+    [
+      "equal implementer and judge defaults",
+      answers({ hosts: ["claude"] }),
+      fixedModelRouting([
+        {
+          ...claudeCatalog(),
+          defaults: {
+            ...claudeCatalog().defaults,
+            judge: claudeCatalog().defaults.implementer,
+          },
+        },
+      ]),
+    ],
+  ])(
+    "refuses %s before returning assignments",
+    async (_label, document, routing) => {
+      expect(
+        await resolveInitAnswers(document, registry, routing),
+      ).toMatchObject({
+        kind: "invalid",
+      });
+    },
+  );
+
+  it("keeps the host and role that made a model resolution fail", async () => {
+    const unavailable = await resolveInitAnswers(
+      answers({ hosts: ["claude", "codex"] }),
+      registry,
+      fixedModelRouting([claudeCatalog()]),
+    );
+    const unsupportedEffort = await resolveInitAnswers(
+      answers({
+        hosts: ["claude", "codex"],
+        modelRoles: {
+          codex: {
+            planner: "planner",
+            implementer: "implementer",
+            judge: { model: "judge", effort: "xhigh" },
+          },
+        },
+      }),
+      registry,
+      fixedModelRouting([claudeCatalog(), codexCatalog()]),
+    );
+
+    expect(unavailable).toMatchObject({
+      kind: "invalid",
+      subject: { host: "codex" },
+    });
+    expect(unsupportedEffort).toMatchObject({
+      kind: "invalid",
+      subject: { host: "codex", role: "judge" },
     });
   });
 
@@ -63,27 +253,36 @@ describe("initialization answers", () => {
       "a missing contract version",
       { hostContract: "1.0.0", hosts: ["claude"] },
     ],
-  ])("refuses %s", (_label, document) => {
+  ])("refuses %s", async (_label, document) => {
     // A misspelled key that is quietly dropped is how somebody believes they
     // configured something they did not.
-    expect(resolveInitAnswers(document, registry).kind).toBe("invalid");
+    expect(
+      (await resolveInitAnswers(document, registry, fixedModelRouting([])))
+        .kind,
+    ).toBe("invalid");
   });
 
   it.each([
     ["a bare string", "init"],
     ["nothing at all", null],
-  ])("refuses %s as an answers document", (_label, document) => {
+  ])("refuses %s as an answers document", async (_label, document) => {
     // Standard input delivers whatever the caller piped. A value that is not
     // an object has no contract version to read, so the refusal names the
     // contract rather than a field the document never had.
-    expect(resolveInitAnswers(document, registry)).toMatchObject({
+    expect(
+      await resolveInitAnswers(document, registry, fixedModelRouting([])),
+    ).toMatchObject({
       kind: "invalid",
       reasonCode: "contract.host_version_invalid",
     });
   });
 
-  it("names the reason a document was refused", () => {
-    const resolved = resolveInitAnswers({ hosts: ["claude"] }, registry);
+  it("names the reason a document was refused", async () => {
+    const resolved = await resolveInitAnswers(
+      { hosts: ["claude"] },
+      registry,
+      fixedModelRouting([]),
+    );
 
     expect(resolved).toMatchObject({
       kind: "invalid",

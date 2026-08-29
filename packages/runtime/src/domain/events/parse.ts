@@ -1,7 +1,10 @@
-import type { EventV1 } from "@kratos/contracts";
-
 import { canonicalizeJson } from "../schema/index.js";
-import { EventIntegrityError, type EventContractFailure } from "./model.js";
+import {
+  EventIntegrityError,
+  type EventContractFailure,
+  type ReadableEvent,
+} from "./model.js";
+import { assertEventPolicy } from "./redaction.js";
 import type { SchemaRegistry } from "../schema/index.js";
 
 export const EVENT_RECORD_BYTES = 64 * 1024;
@@ -14,7 +17,10 @@ function contractVersion(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
   }
-  return (value as Readonly<Record<string, unknown>>).stateContract;
+  const descriptor = Object.getOwnPropertyDescriptor(value, "stateContract");
+  return descriptor !== undefined && "value" in descriptor
+    ? descriptor.value
+    : undefined;
 }
 
 function contractFailure(reasonCode: string): EventContractFailure | null {
@@ -30,14 +36,18 @@ function contractFailure(reasonCode: string): EventContractFailure | null {
 function validateEvent(
   value: unknown,
   schemaRegistry: SchemaRegistry,
-): EventV1 {
+): ReadableEvent {
   const validated = schemaRegistry.validate({
     id: "state.event",
     version: contractVersion(value),
     value,
     structuralReasonCode: "runtime.state_corrupt",
   });
-  if (validated.kind === "valid") return validated.value;
+  if (validated.kind === "valid") {
+    const event = validated.value;
+    assertEventPolicy(event);
+    return event;
+  }
 
   const reasonCode = validated.diagnostics
     .filter((diagnostic) => diagnostic.keyword === "version")
@@ -46,10 +56,35 @@ function validateEvent(
   throw new EventIntegrityError("invalid_event", reasonCode ?? null);
 }
 
+export function parseEventLine(
+  line: string,
+  schemaRegistry: SchemaRegistry,
+): ReadableEvent {
+  if (encoder.encode(line).byteLength > EVENT_RECORD_BYTES) {
+    throw new EventIntegrityError("resource_limit");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line) as unknown;
+  } catch {
+    throw new EventIntegrityError("invalid_event");
+  }
+  const event = validateEvent(parsed, schemaRegistry);
+  try {
+    if (canonicalizeJson(event) !== line) {
+      throw new EventIntegrityError("non_canonical");
+    }
+  } catch (error: unknown) {
+    if (error instanceof EventIntegrityError) throw error;
+    throw new EventIntegrityError("invalid_event");
+  }
+  return event;
+}
+
 export function parseEventLines(
   text: string,
   schemaRegistry: SchemaRegistry,
-): readonly EventV1[] {
+): readonly ReadableEvent[] {
   if (encoder.encode(text).byteLength > EVENT_STREAM_BYTES) {
     throw new EventIntegrityError("resource_limit");
   }
@@ -66,25 +101,5 @@ export function parseEventLines(
     );
   }
 
-  return lines.map((line) => {
-    if (encoder.encode(line).byteLength > EVENT_RECORD_BYTES) {
-      throw new EventIntegrityError("resource_limit");
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line) as unknown;
-    } catch {
-      throw new EventIntegrityError("invalid_event");
-    }
-    const event = validateEvent(parsed, schemaRegistry);
-    try {
-      if (canonicalizeJson(event) !== line) {
-        throw new EventIntegrityError("non_canonical");
-      }
-    } catch (error: unknown) {
-      if (error instanceof EventIntegrityError) throw error;
-      throw new EventIntegrityError("invalid_event");
-    }
-    return event;
-  });
+  return lines.map((line) => parseEventLine(line, schemaRegistry));
 }

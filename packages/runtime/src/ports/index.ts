@@ -5,6 +5,7 @@ import type {
 } from "../domain/project/observation.js";
 import type { Digests, DurableFileSystem } from "./transactions.js";
 import type { TargetInspector } from "./filesystem.js";
+import type { ModelRouting } from "./model-routing.js";
 
 export type { Locks } from "./locks.js";
 
@@ -18,6 +19,7 @@ export type {
   TargetInspectionSession,
   TargetInspector,
 } from "./filesystem.js";
+export type { ModelRouting } from "./model-routing.js";
 
 /**
  * Injected effect boundaries.
@@ -111,6 +113,7 @@ export interface RuntimePorts {
   readonly fileSystem: FileSystem;
   readonly git: Git;
   readonly locks: Locks;
+  readonly modelRouting: ModelRouting;
   readonly environment: Environment;
   readonly output: Output;
   readonly standardInput: StandardInput;

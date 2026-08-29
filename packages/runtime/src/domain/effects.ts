@@ -1,4 +1,4 @@
-import type { EventDraftV1 } from "./events/index.js";
+import type { CurrentEventDraft } from "./events/index.js";
 
 /**
  * An ordered, previewable description of what an operation intends to do.
@@ -17,7 +17,7 @@ export interface AppendEventEffect {
    */
   readonly feature: string;
   readonly runId: string;
-  readonly event: EventDraftV1;
+  readonly event: CurrentEventDraft;
 }
 
 /** The file identity a write decision observed before it built its plan. */

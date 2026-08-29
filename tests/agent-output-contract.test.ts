@@ -142,6 +142,14 @@ describe("the published agent output contract", () => {
     expect(validate(candidate).kind).toBe("invalid");
   });
 
+  it.each(["resolvedAssignment", "observedIdentity", "phaseExecution"])(
+    "refuses the runtime-owned %s claim",
+    (claim) => {
+      const candidate = { ...(valid.prd as object), [claim]: {} };
+      expect(validate(candidate).kind).toBe("invalid");
+    },
+  );
+
   it("keeps artifacts and changed files as separate fields", () => {
     const code = valid.code as AgentOutputV1;
     expect(code.artifacts).toEqual([]);

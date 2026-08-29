@@ -7,6 +7,7 @@ import {
 } from "@kratos/runtime/composition";
 import { planOf } from "@kratos/runtime/domain/effects";
 import type {
+  CurrentEventDraft,
   EventDraftV1,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
@@ -20,14 +21,14 @@ import {
 import type { DurableEntry, DurableFileSystem } from "@kratos/runtime/ports";
 import { describe, expect, it, vi } from "vitest";
 
-function draft(index: number): EventDraftV1 {
+function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.0.0",
-    stateContract: "1.0.0",
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
     eventId: `event-${String(index)}`,
-    eventType: "transition",
+    eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
-    operation: `sdd.step-${String(index)}`,
+    operation: `runtime.test:step-${String(index)}`,
     policyVersion: "policy-01",
     priorRevision: index - 1,
     resultingRevision: index,
@@ -35,7 +36,7 @@ function draft(index: number): EventDraftV1 {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
-    observedIdentity: { host: "codex", model: "gpt-5" },
+    observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
   };
 }
 
@@ -409,8 +410,8 @@ describe("event-store transaction integration", () => {
       ] ?? "",
     ) as SnapshotV1;
     expect(mutated).toBe(true);
-    expect(events).toContain('"operation":"sdd.step-1"');
-    expect(snapshot.currentStep).toBe("seed-original:sdd.step-1");
+    expect(events).toContain('"operation":"runtime.test:step-1"');
+    expect(snapshot.currentStep).toBe("seed-original:runtime.test:step-1");
   });
 
   it("classifies an invalid draft as paired event-store corruption before I/O", async () => {

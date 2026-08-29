@@ -2,16 +2,20 @@
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
+// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
+// source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
+// source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
@@ -21,7 +25,9 @@
 // source: https://kratos.dev/schemas/state/guardrails/v1 sha256:2ae4800cb3cda5b075b296ad91e3fee875b4698b9c62b52598e65ec60bfe1255
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
+// source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
+// source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -121,6 +127,160 @@ export namespace AdapterMessageV1Contract {
   }
 }
 export type AdapterMessageV1 = AdapterMessageV1Contract.AdapterMessageV1;
+export namespace AdapterMessageV1_1Contract {
+  export type AdapterMessageV1_1 =
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "request";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: PayloadContract;
+        payload: RequestPayload;
+        phaseExecution?: PhaseExecution;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "response";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: PayloadContract;
+        payload: KratosUniversalResultV1;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "model-catalog";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: "host.model-catalog@1.1.0";
+        payload: ModelCatalog;
+        correlationId: Id;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        messageId: Id;
+        messageType: "phase-execution";
+        host: "claude" | "codex";
+        operation: Id;
+        capabilities: Id[];
+        observedIdentity: ObservedIdentity;
+        payloadContract: "host.phase-execution@1.1.0";
+        payload: PhaseExecution;
+        correlationId: Id;
+      };
+  export type Id = string;
+  export type Semver = string;
+  export type PayloadContract = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type KratosUniversalResultV1 =
+    | {
+        contractVersion: "1.0.0";
+        status: "success";
+        exitCode: 0;
+        reasonCode: string;
+        summary: string;
+        why: string[];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: false;
+        recovery: null;
+      }
+    | {
+        contractVersion: "1.0.0";
+        status: "failure";
+        exitCode: 1 | 2;
+        reasonCode: string;
+        summary: string;
+        /**
+         * @minItems 1
+         */
+        why: [string, ...string[]];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: boolean;
+        recovery: string;
+      }
+    | {
+        contractVersion: "1.0.0";
+        status: "blocked";
+        exitCode: 3 | 4 | 5;
+        reasonCode: string;
+        summary: string;
+        /**
+         * @minItems 1
+         */
+        why: [string, ...string[]];
+        evidence: Evidence[];
+        stateChanged: boolean;
+        retryable: boolean;
+        recovery: string;
+      };
+
+  export interface ObservedIdentity {
+    adapterVersion: Semver;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface RequestPayload {
+    ref: Reference;
+    sha256: Sha256;
+  }
+  export interface PhaseExecution {
+    assignmentDigest: Sha256;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface Evidence {
+    kind: "artifact" | "event" | "approval" | "test" | "observation";
+    ref: string;
+    sha256?: string;
+  }
+  export interface ModelCatalog {
+    defaults: RoleMap;
+    /**
+     * @minItems 1
+     */
+    models: [
+      {
+        model: Id;
+        canonicalModel: Id;
+        /**
+         * @minItems 1
+         */
+        efforts: [Id, ...Id[]];
+      },
+      ...{
+        model: Id;
+        canonicalModel: Id;
+        /**
+         * @minItems 1
+         */
+        efforts: [Id, ...Id[]];
+      }[],
+    ];
+  }
+  export interface RoleMap {
+    planner: Id;
+    implementer: Id;
+    judge: Id;
+  }
+}
+export type AdapterMessageV1_1 = AdapterMessageV1_1Contract.AdapterMessageV1_1;
 export namespace AgentOutputV1Contract {
   export type AgentOutputV1 =
     | {
@@ -410,6 +570,38 @@ export namespace InitAnswersV1Contract {
   }
 }
 export type InitAnswersV1 = InitAnswersV1Contract.InitAnswersV1;
+export namespace InitAnswersV1_1Contract {
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+
+  export interface InitAnswersV1_1 {
+    contractVersion: "1.1.0";
+    hostContract: "1.1.0";
+    /**
+     * @minItems 1
+     */
+    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    language?: "en" | "pt-BR";
+    policyMode?: "standard" | "strict";
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+}
+export type InitAnswersV1_1 = InitAnswersV1_1Contract.InitAnswersV1_1;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage
@@ -516,6 +708,35 @@ export namespace HostOperationMessageV1Contract {
 }
 export type HostOperationMessageV1 =
   HostOperationMessageV1Contract.HostOperationMessageV1;
+export namespace PhaseHandoffV1_1Contract {
+  export type Id = string;
+  export type Sha256 = string;
+
+  export interface PhaseHandoffV1_1 {
+    contractVersion: "1.1.0";
+    hostContract: "1.1.0";
+    feature: Id;
+    runId: Id;
+    revision: number;
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    host: "claude" | "codex";
+    assignment: Assignment;
+    assignmentDigest: Sha256;
+    objectiveDigest: Sha256;
+    status: "idle" | "active" | "blocked" | "completed";
+    gateOutcome: "pass" | "warn" | "block";
+    blockers: Id[];
+    openGaps: number;
+    nextAction: string;
+  }
+  export interface Assignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+}
+export type PhaseHandoffV1_1 = PhaseHandoffV1_1Contract.PhaseHandoffV1_1;
 export namespace PreToolUseV1Contract {
   export type Mutation =
     CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;
@@ -660,6 +881,44 @@ export namespace EventV1Contract {
   }
 }
 export type EventV1 = EventV1Contract.EventV1;
+export namespace EventV1_1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Reference = string;
+  export type Sha256 = string;
+
+  export interface EventV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    eventId: Id;
+    eventType: "operation" | "decision" | "transition" | "recovery";
+    occurredAt: Timestamp;
+    operation: Id;
+    policyVersion: Id;
+    priorRevision: number;
+    resultingRevision: number;
+    reasonCode: string;
+    effect: "none" | "state" | "artifact" | "state-and-artifact";
+    artifactRefs: Reference[];
+    evidenceRefs: Reference[];
+    observedIdentity: ObservedIdentity;
+    resolvedAssignment?: ResolvedAssignment;
+    previousHash: Sha256 | null;
+    eventHash: Sha256;
+  }
+  export interface ObservedIdentity {
+    host: Id;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface ResolvedAssignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+}
+export type EventV1_1 = EventV1_1Contract.EventV1_1;
 export namespace EvidenceV1Contract {
   export type Id = string;
   export type Reference = string;
@@ -870,6 +1129,57 @@ export namespace MigrationV1Contract {
   }
 }
 export type MigrationV1 = MigrationV1Contract.MigrationV1;
+export namespace MigrationV1_1Contract {
+  export type Id = string;
+  export type Sha256 = string;
+  export type Reference = string;
+  export type Rollback =
+    | {
+        kind: "copy";
+        backupRef: Reference;
+        destinationRef: Reference;
+      }
+    | {
+        kind: "replace";
+        backupRef: Reference;
+        backupDigest: Sha256;
+        destinationRef: Reference;
+        destinationDigest: Sha256;
+      };
+  export type Timestamp = string;
+
+  export interface MigrationV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    migrationId: Id;
+    sourceContract: "0.9.0" | "go-v3@0.6.5" | "1.0.0";
+    destinationContract: "1.1.0";
+    planDigest: Sha256;
+    authorizationRef: Reference;
+    backupDigest: Sha256;
+    status: "planned" | "authorized" | "completed" | "failed" | "rolled-back";
+    /**
+     * @minItems 1
+     */
+    conversions: [
+      {
+        payloadContract: Id;
+        sourceDigest: Sha256;
+        destinationDigest: Sha256;
+      },
+      ...{
+        payloadContract: Id;
+        sourceDigest: Sha256;
+        destinationDigest: Sha256;
+      }[],
+    ];
+    verificationRefs: Reference[];
+    rollback: Rollback;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+  }
+}
+export type MigrationV1_1 = MigrationV1_1Contract.MigrationV1_1;
 export namespace ProjectConfigV1Contract {
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
@@ -886,6 +1196,40 @@ export namespace ProjectConfigV1Contract {
   }
 }
 export type ProjectConfigV1 = ProjectConfigV1Contract.ProjectConfigV1;
+export namespace ProjectConfigV1_1Contract {
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+
+  export interface ProjectConfigV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    pluginVersion: "0.0.0-development";
+    hostContract: "1.1.0";
+    language: "en" | "pt-BR";
+    policyMode: "standard" | "strict";
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+}
+export type ProjectConfigV1_1 = ProjectConfigV1_1Contract.ProjectConfigV1_1;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {

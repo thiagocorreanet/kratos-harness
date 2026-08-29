@@ -1,0 +1,28 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "eventId": "event-01",
+  "eventType": "transition",
+  "occurredAt": "2026-08-07T00:01:00Z",
+  "operation": "sdd.continue",
+  "policyVersion": "policy-01",
+  "priorRevision": 0,
+  "resultingRevision": 1,
+  "reasonCode": "ok",
+  "effect": "state",
+  "artifactRefs": [".brain/features/feature-01/00-prd.md"],
+  "evidenceRefs": [".brain/evidence/event-01.json"],
+  "observedIdentity": {
+    "host": "codex",
+    "model": "gpt-5-review",
+    "effort": "medium"
+  },
+  "resolvedAssignment": {
+    "phase": "review",
+    "role": "judge",
+    "model": "gpt-5-review",
+    "effort": "medium"
+  },
+  "previousHash": null,
+  "eventHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

@@ -1,6 +1,6 @@
 import {
   classifyContractVersion,
-  type ProjectConfigV1,
+  type ProjectConfigV1_1,
 } from "@kratos/contracts";
 
 import type { ConfigurationObservation } from "./observation.js";
@@ -13,7 +13,11 @@ type ConfigurationFailureReason =
   | "contract.state_version_unsupported";
 
 export type ConfigurationOutcome =
-  | { readonly kind: "valid"; readonly value: ProjectConfigV1 }
+  | { readonly kind: "valid"; readonly value: ProjectConfigV1_1 }
+  | {
+      readonly kind: "migration-required";
+      readonly reasonCode: "model.config_migration_required";
+    }
   | {
       readonly kind: "failure";
       readonly reasonCode: ConfigurationFailureReason;
@@ -56,15 +60,21 @@ export function classifyConfiguration(
   if (classification.classification === "invalid") {
     return failure("contract.state_version_invalid");
   }
-  if (
-    classification.classification === "unsupported" ||
-    classification.classification === "migration_required"
-  ) {
+  if (stateContract(parsed) === "1.0.0") {
+    return {
+      kind: "migration-required",
+      reasonCode: "model.config_migration_required",
+    };
+  }
+  if (classification.classification === "migration_required") {
+    return failure("contract.state_version_unsupported");
+  }
+  if (classification.classification === "unsupported") {
     return failure("contract.state_version_unsupported");
   }
 
   const validated = validate(parsed);
   return validated.kind === "valid"
-    ? validated
+    ? { kind: "valid", value: validated.value as ProjectConfigV1_1 }
     : failure("guard.config_corrupt");
 }

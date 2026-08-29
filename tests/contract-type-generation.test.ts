@@ -29,11 +29,13 @@ describe("schema-derived contract declarations", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      "contract families v1.0.0: verified (27 schemas; 14 legacy profiles; generated types current)\n",
+      "contract families v1.0.0: verified (33 schemas; 14 legacy profiles; generated types current)\n",
     );
     expect(after).toBe(before);
     expect(after).toContain("Generated from registered JSON Schemas.");
     expect(after).toContain("export type AdapterMessageV1");
+    expect(after).toContain("export type ProjectConfigV1_1");
+    expect(after).toContain("export type PhaseHandoffV1_1");
     expect(after).toContain("export type HostOperationMessageV1");
     expect(after).toContain('kind: "create";');
     expect(after).toContain('kind: "move";');
@@ -162,6 +164,171 @@ describe("schema-derived contract declarations", () => {
       expect(result.stdout).toContain(
         "'unexpected' does not exist in type '{ contractVersion:",
       );
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects extra fields in generated 1.1 adapter-message variants", async () => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "invalid-adapter-v1.1.mts");
+      await writeFile(
+        source,
+        `
+          import type { AdapterMessageV1_1 } from "../packages/contracts/src/generated/contracts.js";
+
+          ({
+            contractVersion: "1.1.0",
+            hostContract: "1.1.0",
+            messageId: "message-01",
+            messageType: "phase-execution",
+            host: "codex",
+            operation: "phase.execute",
+            capabilities: [],
+            observedIdentity: {
+              adapterVersion: "1.1.0",
+              model: null,
+              effort: null,
+            },
+            payloadContract: "host.phase-execution@1.1.0",
+            payload: {
+              assignmentDigest: "${"a".repeat(64)}",
+              model: null,
+              effort: null,
+            },
+            correlationId: "correlation-01",
+            unexpected: true,
+          }) satisfies AdapterMessageV1_1;
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status, result.stdout).not.toBe(0);
+      expect(result.stdout).toContain("'unexpected' does not exist");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects phase execution metadata on schema-forbidden adapter variants", async () => {
+    const directory = await mkdtemp(
+      join(repositoryRoot, ".contract-type-test-"),
+    );
+    try {
+      const source = join(directory, "invalid-adapter-v1.1-phase.mts");
+      await writeFile(
+        source,
+        `
+          import type { AdapterMessageV1_1 } from "../packages/contracts/src/generated/contracts.js";
+
+          const common = {
+            contractVersion: "1.1.0" as const,
+            hostContract: "1.1.0" as const,
+            messageId: "message-01",
+            host: "codex" as const,
+            operation: "phase.execute",
+            capabilities: [] as string[],
+            observedIdentity: {
+              adapterVersion: "1.1.0",
+              model: null,
+              effort: null,
+            },
+            correlationId: "correlation-01",
+          };
+          const phaseExecution = {
+            assignmentDigest: "${"a".repeat(64)}",
+            model: null,
+            effort: null,
+          };
+
+          ({
+            ...common,
+            messageType: "response",
+            payloadContract: "result@1.0.0",
+            payload: {
+              contractVersion: "1.0.0",
+              status: "success",
+              exitCode: 0,
+              reasonCode: "trail.ok",
+              summary: "The operation completed.",
+              why: [],
+              evidence: [],
+              stateChanged: false,
+              retryable: false,
+              recovery: null,
+            },
+            phaseExecution,
+          }) satisfies AdapterMessageV1_1;
+
+          ({
+            ...common,
+            messageType: "model-catalog",
+            payloadContract: "host.model-catalog@1.1.0",
+            payload: {
+              defaults: {
+                planner: "planner",
+                implementer: "implementer",
+                judge: "judge",
+              },
+              models: [{
+                model: "planner",
+                canonicalModel: "planner",
+                efforts: ["medium"],
+              }],
+            },
+            phaseExecution,
+          }) satisfies AdapterMessageV1_1;
+
+          ({
+            ...common,
+            messageType: "phase-execution",
+            payloadContract: "host.phase-execution@1.1.0",
+            payload: phaseExecution,
+            phaseExecution,
+          }) satisfies AdapterMessageV1_1;
+        `,
+        "utf8",
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+          "--ignoreConfig",
+          "--noEmit",
+          "--strict",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          "--target",
+          "ES2024",
+          source,
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(result.status, result.stdout).not.toBe(0);
+      expect(
+        result.stdout.match(/'phaseExecution' does not exist/gu),
+      ).toHaveLength(3);
     } finally {
       await rm(directory, { force: true, recursive: true });
     }

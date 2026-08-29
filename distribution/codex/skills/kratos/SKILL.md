@@ -34,3 +34,19 @@ facts are sent to `hook --host codex` through the shared host contract.
 
 Unknown model identity stays `null`. A user-provided model label is not an
 observed host identity.
+
+## Phase-agent relay boundary
+
+For phase work, the Codex host integration must load
+`scripts/phase-agent-relay.mjs`. Its runtime transport invokes the packaged
+runtime with `--json handoff --root <absolute-project-root>` and passes the
+returned handoff to the relay. Its launcher binds the native Codex phase-agent
+call to the returned `model` and `effort` exactly. The record transport invokes
+`agent record` with the adapter message produced by the relay, which keeps the
+returned `assignmentDigest` outside agent output.
+
+Declare exact model and effort selection unavailable when the native launcher
+cannot bind either field. The relay then returns
+`exact-selection-unsupported` before calling the launcher or `agent record`.
+This is a host capability boundary, not a replacement workflow verdict; do not
+choose another assignment. A missing host observation remains `null`.

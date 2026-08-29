@@ -135,7 +135,7 @@ export function compileSchemaRegistry(
   }
 
   return Object.freeze({
-    validate<I extends ContractId>(request: ContractRequest<I>) {
+    validate<I extends ContractId, const V>(request: ContractRequest<I, V>) {
       const id = request.id;
       const family = families.get(id);
       if (family === undefined) throw registryIntegrityError();
@@ -187,7 +187,9 @@ export function compileSchemaRegistry(
         }
         return {
           kind: "valid" as const,
-          value: value as ContractValue<I>,
+          // AJV accepted this exact request's schema, so this is the sole
+          // runtime boundary that may connect its unknown input to V.
+          value: value as ContractValue<I, V>,
         };
       } catch {
         throw registryIntegrityError();

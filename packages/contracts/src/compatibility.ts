@@ -1,5 +1,5 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.6.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.7.json" with { type: "json" };
 
 /**
  * The contract identities this bundle carries. Consumers report these rather
@@ -12,6 +12,37 @@ export const CONTRACT_IDENTITIES = {
   reasonCatalog: contractManifest.reasonCatalog,
   state: contractManifest.stateContract.current,
   host: contractManifest.hostContract.current,
+} as const;
+
+export const CONTRACT_VERSIONS = {
+  "host.adapter-message": "1.1.0",
+  "state.project-config": "1.1.0",
+  "state.event": "1.1.0",
+  "state.migration": "1.1.0",
+  "host.init-answers": "1.1.0",
+  "host.phase-handoff": "1.1.0",
+  "host.agent-output": "1.0.0",
+  "host.gap-proposal": "1.0.0",
+  "host.hook-observation": "1.0.0",
+  "host.operation-message": "1.0.0",
+  "host.pre-tool-use": "1.0.0",
+  "state.acceptance-criteria-snapshot": "1.0.0",
+  "state.acceptance-verdict": "1.0.0",
+  "state.approval": "1.0.0",
+  "state.evidence": "1.0.0",
+  "state.failure-candidate": "1.0.0",
+  "state.feature": "1.0.0",
+  "state.feature-scope": "1.0.0",
+  "state.gap": "1.0.0",
+  "state.gates": "1.0.0",
+  "state.guardrails": "1.0.0",
+  "state.lock": "1.0.0",
+  "state.requirement-discovery": "1.0.0",
+  "state.run-usage": "1.0.0",
+  "state.session-telemetry": "1.0.0",
+  "state.snapshot": "1.0.0",
+  "state.transaction-manifest": "1.0.0",
+  "state.transaction-progress": "1.0.0",
 } as const;
 
 export type ContractFamily = "plugin" | "state" | "host";
