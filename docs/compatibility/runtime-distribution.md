@@ -40,6 +40,13 @@ to the installed plugin, performs the handshake, supplies an explicit project
 root, and relays the runtime result unchanged. It does not implement workflow
 policy, schemas, transitions, gates, approvals, or evidence rules.
 
+Both packages also receive the same
+`skills/kratos/scripts/project-profile-relay.mjs`. It exposes one canonical
+ten-question initialization interview and shapes keyed leaf answers without
+validating, defaulting, or inferring them. Package verification imports and
+executes both copies, then runs initialization to prove their authoritative
+profile values and generated Markdown are identical.
+
 ## Why the boot is split
 
 `runtime/kratos.mjs` checks the Node.js interpreter before dynamically importing
@@ -110,7 +117,9 @@ rather than a model-supplied guess.
 4. execute version and handshake from the installed package;
 5. initialize a clean Git project per host;
 6. assert that no motor or engine dependency reached either project;
-7. record an objective, start revision 1, and read the resulting status.
+7. execute the canonical project-profile relay and reject changed questions or
+   value mapping;
+8. record an objective, start revision 1, and read the resulting status.
 
 This is the executable enforcement of the
 [installation boundary](../architecture/installation-boundary.md).

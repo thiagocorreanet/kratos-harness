@@ -75,6 +75,12 @@ import {
   planSnapshotRepair,
   renderStaticDashboard,
 } from "../domain/observability/index.js";
+import {
+  profileStack,
+  renderStackProfile,
+  unresolvedProjectProfileKeys,
+} from "../domain/init/index.js";
+import type { StackProfileReadinessObservation } from "../domain/diagnostics/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
@@ -437,6 +443,7 @@ export async function observeWorkflow(
           anchored.digests,
         )
       : null;
+  const stackProfile = await observeStackProfile(anchored, registry);
   return {
     kind: "observed",
     observation: {
@@ -503,6 +510,7 @@ export async function observeWorkflow(
       integrityAudit,
       repairPlan,
       evidenceBundle,
+      stackProfile,
       dashboardHtml:
         evidenceBundle === null ? null : renderStaticDashboard(evidenceBundle),
     },
@@ -1640,6 +1648,91 @@ async function observeConfigurationSnapshot(
   } catch {
     return refusedAssignment("guard.config_missing", "configuration");
   }
+}
+
+async function observeStackProfile(
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<StackProfileReadinessObservation> {
+  const path = ".brain/01-architecture/stack-profile.md";
+  let destination: Pick<
+    StackProfileReadinessObservation,
+    "exists" | "regularFile" | "readable" | "actualBytes"
+  >;
+  try {
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind === "missing") {
+      destination = {
+        exists: false,
+        regularFile: false,
+        readable: false,
+        actualBytes: null,
+      };
+    } else if (entry.kind !== "file") {
+      destination = {
+        exists: true,
+        regularFile: false,
+        readable: false,
+        actualBytes: null,
+      };
+    } else {
+      try {
+        destination = {
+          exists: true,
+          regularFile: true,
+          readable: true,
+          actualBytes: await ports.durableFileSystem.readText(path),
+        };
+      } catch {
+        destination = {
+          exists: true,
+          regularFile: true,
+          readable: false,
+          actualBytes: null,
+        };
+      }
+    }
+  } catch {
+    destination = {
+      exists: true,
+      regularFile: true,
+      readable: false,
+      actualBytes: null,
+    };
+  }
+
+  const configuration = await observeConfigurationSnapshot(ports, registry);
+  if (configuration.kind !== "valid") {
+    return {
+      authoritativeState: "invalid",
+      expectedBytes: null,
+      unresolvedKeys: [],
+      ...destination,
+    };
+  }
+  let rootEntries: readonly string[];
+  try {
+    rootEntries = await ports.fileSystem.list(".");
+  } catch {
+    return {
+      authoritativeState: "invalid",
+      expectedBytes: null,
+      unresolvedKeys: [],
+      ...destination,
+    };
+  }
+  return {
+    authoritativeState: "valid",
+    expectedBytes: renderStackProfile(
+      profileStack({ rootEntries }),
+      configuration.value.projectProfile,
+      configuration.value.language,
+    ),
+    unresolvedKeys: unresolvedProjectProfileKeys(
+      configuration.value.projectProfile,
+    ),
+    ...destination,
+  };
 }
 
 function refusedAssignment(

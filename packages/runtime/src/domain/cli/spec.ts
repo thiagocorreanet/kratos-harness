@@ -45,6 +45,7 @@ import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
+import type { StackProfileReadinessObservation } from "../diagnostics/index.js";
 
 export type GuardWriteOutcome =
   | { readonly kind: "allowed" }
@@ -319,6 +320,8 @@ export type CommandObservation =
       readonly repairPlan: RepairPlan | null;
       readonly evidenceBundle: EvidenceBundle | null;
       readonly dashboardHtml: string | null;
+      /** Generated profile bytes and their typed authoritative inputs. */
+      readonly stackProfile: StackProfileReadinessObservation;
     }
   | {
       readonly kind: "migration";

@@ -1,6 +1,7 @@
 import type { EventV1 } from "@kratos/contracts";
 import {
   deriveBudget,
+  deriveStackProfileCheck,
   deriveStats,
   diagnose,
   explainReason,
@@ -65,6 +66,143 @@ describe("read-only diagnostics", () => {
       ]).health,
     ).toBe("blocked");
   });
+
+  it.each([
+    [
+      "matching authoritative bytes",
+      {
+        authoritativeState: "valid",
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: "generated\n",
+        actualBytes: "generated\n",
+        unresolvedKeys: [],
+      },
+      "pass",
+      [],
+    ],
+    [
+      "unresolved typed answers",
+      {
+        authoritativeState: "valid",
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: "generated\n",
+        actualBytes: "generated\n",
+        unresolvedKeys: [
+          "projectProfile.commands.test",
+          "projectProfile.paths.tests",
+        ],
+      },
+      "warn",
+      [
+        "Resolve projectProfile.commands.test in the typed initialization answers, then rerun `kratos init`.",
+        "Resolve projectProfile.paths.tests in the typed initialization answers, then rerun `kratos init`.",
+      ],
+    ],
+    [
+      "a missing generated document",
+      {
+        authoritativeState: "valid",
+        exists: false,
+        regularFile: false,
+        readable: false,
+        expectedBytes: "generated\n",
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "warn",
+      ["The stack profile is missing; rerun `kratos init` to regenerate it."],
+    ],
+    [
+      "a missing document with unresolved typed answers",
+      {
+        authoritativeState: "valid",
+        exists: false,
+        regularFile: false,
+        readable: false,
+        expectedBytes: "generated\n",
+        actualBytes: null,
+        unresolvedKeys: ["projectProfile.commands.test"],
+      },
+      "warn",
+      [
+        "The stack profile is missing; rerun `kratos init` to regenerate it.",
+        "Resolve projectProfile.commands.test in the typed initialization answers, then rerun `kratos init`.",
+      ],
+    ],
+    [
+      "bytes drifted from authoritative state",
+      {
+        authoritativeState: "valid",
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: "generated\n",
+        actualBytes: "manually edited\n",
+        unresolvedKeys: [],
+      },
+      "warn",
+      [
+        "The stack profile differs from authoritative state; rerun `kratos init` to regenerate it.",
+      ],
+    ],
+    [
+      "an unreadable destination",
+      {
+        authoritativeState: "valid",
+        exists: true,
+        regularFile: true,
+        readable: false,
+        expectedBytes: "generated\n",
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The stack profile destination is unreadable."],
+    ],
+    [
+      "a non-file destination",
+      {
+        authoritativeState: "valid",
+        exists: true,
+        regularFile: false,
+        readable: false,
+        expectedBytes: "generated\n",
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The stack profile destination is not a regular file."],
+    ],
+    [
+      "invalid authoritative state",
+      {
+        authoritativeState: "invalid",
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: null,
+        actualBytes: "generated\n",
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The authoritative project configuration is invalid."],
+    ],
+  ] as const)(
+    "classifies stack-profile readiness for %s",
+    (_case, observation, status, details) => {
+      expect(deriveStackProfileCheck).toBeTypeOf("function");
+      expect(deriveStackProfileCheck(observation)).toEqual({
+        name: "stack-profile",
+        status,
+        evidenceRef: ".brain/01-architecture/stack-profile.md",
+        details,
+      });
+    },
+  );
 
   it("explains catalog reasons and refuses invented ones", () => {
     expect(explainReason("runtime.revision_conflict")).toMatchObject({

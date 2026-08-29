@@ -14,19 +14,23 @@ requires verification references. Rollback requires the exact recorded backup
 digest. Incremental contract upgrades follow one unambiguous declared chain;
 versions are never guessed or skipped.
 
-## Model-role configuration replacement
+## Project-configuration replacement
 
-`kratos migrate config` is the explicit `1.0.0` to `1.1.0` configuration
-replacement. The legacy configuration does not record enabled hosts, so an
-answers document must confirm them; `.claude`, `.codex`, and conversational
-context are observations only and never grant authority. Role maps use the
-same resolution as initialization: explicit assignments override adapter
-defaults, and every persisted planner, implementer, and judge assignment is
-canonical, complete, and independent. Preview prints the source and
-destination digests, confirmed hosts, all assignments (including which values
-were defaulted), a stable plan instant, and the exact six-file write list with
-one SHA-256 per final content byte sequence, without mutating the project. It
-also prints the complete apply command.
+`kratos migrate config` explicitly replaces a `1.0.0`, `1.1.0`, or `1.2.0`
+project configuration with current `1.3.0` state. The declared chain adds
+canonical model roles, granular language policy, and the typed project profile
+without skipping an intermediate revision. A `1.0.0` configuration does not
+record enabled hosts, so an answers document must confirm them; `.claude`,
+`.codex`, and conversational context are observations only and never grant
+authority. Role maps use the same resolution as initialization: explicit
+assignments override adapter defaults, and every persisted planner,
+implementer, and judge assignment is canonical, complete, and independent.
+Profile answers fill only caller-supplied leaves; omitted new leaves become
+explicit unresolved state. Preview prints the source and destination digests,
+confirmed hosts, all assignments and profile values, a stable plan instant,
+and the exact six-file write list with one SHA-256 per final content byte
+sequence, without mutating the project. It also prints the complete apply
+command.
 
 Apply requires `--yes`, the caller-carried `--plan-digest`, and the preview's
 `--plan-time`; `--yes` alone grants no authority. Re-observation rebuilds all
@@ -43,10 +47,11 @@ and verification record under one deterministic migration attempt ID. Existing
 events, snapshots, documents, approvals, and evidence are not rewritten. A
 current configuration is a no-op.
 
-This boundary is security-sensitive: phase execution remains blocked while a
-legacy configuration is active; prompts, host files, and conversation cannot
-confirm enabled hosts; and implementer/judge canonical equality is a strict
-refusal rather than a warning. Applied role assignments are complete canonical
+This boundary is security-sensitive: ordinary operations return
+`profile.config_migration_required` while a pre-`1.3.0` configuration is
+active; prompts, host files, and conversation cannot confirm enabled hosts or
+profile values; and implementer/judge canonical equality is a strict refusal
+rather than a warning. Applied role assignments are complete canonical
 objects, so later adapter-default changes cannot alter project policy silently.
 
 ## Replacement rollback and retry lineage

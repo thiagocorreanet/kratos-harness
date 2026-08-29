@@ -17,20 +17,22 @@ State upgrades use an ordered, declared migrator chain. Preflight rejects a
 missing hop, cycle, unsupported downgrade, or state newer than the installed
 runtime. The active contract changes only after a verified commit.
 
-### Model-role configuration replacement
+### Project-configuration replacement
 
-A `state.project-config@1.0.0` project cannot execute a phase until it has
-explicit host role assignments. `kratos migrate config [--answers PATH]`
-previews its replacement with `state.project-config@1.1.0`. The old
-configuration does not record enabled hosts, so the answers must confirm them;
-`.claude`, `.codex`, prompts, conversation, and agent output are observations,
-not migration authority.
+A `state.project-config@1.0.0`, `1.1.0`, or `1.2.0` project returns
+`profile.config_migration_required` until it is explicitly upgraded.
+`kratos migrate config [--answers PATH]` previews its replacement with
+`state.project-config@1.3.0`. The `1.0.0` configuration does not record enabled
+hosts, so the answers must confirm them; `.claude`, `.codex`, prompts,
+conversation, and agent output are observations, not migration authority.
 
 The preview is read-only. It renders every resolved `planner`, `implementer`,
 and `judge` assignment, including adapter-default markers, along with source,
 destination, answer, catalog, and write-set digests. Bare model names normalize
-to effort `medium`. Unknown aliases, unsupported efforts, missing roles, and
-canonical implementer/judge equality fail closed with no fallback and no write.
+to effort `medium`. Profile leaves come only from typed answers or preserved
+current state; missing new leaves become explicit unresolved state. Unknown
+aliases, unsupported efforts, missing roles, and canonical
+implementer/judge equality fail closed with no fallback and no write.
 
 Apply uses the complete command printed by preview and requires `--yes`,
 `--plan-digest SHA256`, and `--plan-time INSTANT`. It binds exact answer bytes

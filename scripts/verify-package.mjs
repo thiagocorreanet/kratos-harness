@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
@@ -16,6 +16,53 @@ const PHASE_AGENT_IDS = [
   "spec-planner",
   "spec-reviewer",
 ];
+
+const PROJECT_PROFILE_QUESTIONS = [
+  [
+    "projectProfile.commands.test",
+    "What exact test command should run from the project root?",
+  ],
+  [
+    "projectProfile.commands.lint",
+    "What exact lint command should run from the project root?",
+  ],
+  [
+    "projectProfile.commands.build",
+    "What exact build command should run from the project root?",
+  ],
+  [
+    "projectProfile.commands.run",
+    "What exact application command should run from the project root?",
+  ],
+  [
+    "projectProfile.paths.source",
+    "Which project-relative paths contain source code?",
+  ],
+  ["projectProfile.paths.tests", "Which project-relative paths contain tests?"],
+  [
+    "projectProfile.paths.configuration",
+    "Which project-relative paths contain configuration?",
+  ],
+  [
+    "projectProfile.conventions.directoryLayout",
+    "What directory-layout convention should phase agents preserve?",
+  ],
+  [
+    "projectProfile.conventions.naming",
+    "What naming convention should phase agents preserve?",
+  ],
+  [
+    "projectProfile.conventions.implementationLanguages",
+    "Which implementation languages does this project use?",
+  ],
+].map(([key, prompt]) => ({ key, prompt }));
+
+const PROJECT_PROFILE_PROBE = Object.fromEntries(
+  PROJECT_PROFILE_QUESTIONS.map(({ key }, index) => [
+    key,
+    { status: "resolved", value: `probe-${String(index + 1)}` },
+  ]),
+);
 
 function option(name) {
   const at = process.argv.indexOf(name);
@@ -130,7 +177,52 @@ async function verifyArtifact(root, host) {
   if (!bridge.includes('import "../../../runtime/kratos.mjs"')) {
     fail(`${host} skill bridge points at the wrong runtime`);
   }
+  await verifyProjectProfileRelay(root, host);
   return manifest;
+}
+
+async function verifyProjectProfileRelay(root, host) {
+  const relay = await import(
+    pathToFileURL(join(root, "skills/kratos/scripts/project-profile-relay.mjs"))
+      .href
+  ).catch(() => null);
+  if (
+    relay === null ||
+    JSON.stringify(relay.projectProfileQuestions) !==
+      JSON.stringify(PROJECT_PROFILE_QUESTIONS) ||
+    typeof relay.relayProjectProfileAnswers !== "function"
+  ) {
+    fail(`${host} project-profile questions are invalid`);
+  }
+  const expected = {
+    commands: {
+      test: PROJECT_PROFILE_PROBE["projectProfile.commands.test"],
+      lint: PROJECT_PROFILE_PROBE["projectProfile.commands.lint"],
+      build: PROJECT_PROFILE_PROBE["projectProfile.commands.build"],
+      run: PROJECT_PROFILE_PROBE["projectProfile.commands.run"],
+    },
+    paths: {
+      source: PROJECT_PROFILE_PROBE["projectProfile.paths.source"],
+      tests: PROJECT_PROFILE_PROBE["projectProfile.paths.tests"],
+      configuration:
+        PROJECT_PROFILE_PROBE["projectProfile.paths.configuration"],
+    },
+    conventions: {
+      directoryLayout:
+        PROJECT_PROFILE_PROBE["projectProfile.conventions.directoryLayout"],
+      naming: PROJECT_PROFILE_PROBE["projectProfile.conventions.naming"],
+      implementationLanguages:
+        PROJECT_PROFILE_PROBE[
+          "projectProfile.conventions.implementationLanguages"
+        ],
+    },
+  };
+  if (
+    JSON.stringify(relay.relayProjectProfileAnswers(PROJECT_PROFILE_PROBE)) !==
+    JSON.stringify(expected)
+  ) {
+    fail(`${host} project-profile answer relay is invalid`);
+  }
 }
 
 async function verifyMarketplaces(root) {
