@@ -5,6 +5,7 @@ import type {
   MigrationV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,
+  ProjectConfigV1_2,
 } from "@kratos/contracts";
 import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -14,6 +15,7 @@ import {
   authorizeMigration,
   completeMigration,
   plannedMigration,
+  upgradeProjectConfigurationV1_2,
 } from "@kratos/runtime/domain/migration";
 import {
   DEFAULT_REGISTRY,
@@ -61,14 +63,14 @@ const LEGACY_CONFIG: ProjectConfigV1 = {
 const LEGACY_CONFIG_BYTES = `${JSON.stringify(LEGACY_CONFIG, null, 4)}\n\n`;
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   hosts: ["claude", "codex"],
 });
 
 const EXPLICIT_ANSWERS = JSON.stringify({
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   hosts: ["codex"],
   modelRoles: {
     codex: {
@@ -270,6 +272,64 @@ async function observedConfigMigrationId(run: Subject): Promise<string> {
 }
 
 describe("configuration migration", () => {
+  it("migrates legacy pt-BR language config into granular language policy", () => {
+    const legacy: ProjectConfigV1_1 = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "pt-BR",
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    };
+    const upgraded = upgradeProjectConfigurationV1_2(legacy);
+    expect(upgraded.contractVersion).toBe("1.2.0");
+    expect(upgraded.stateContract).toBe("1.2.0");
+    expect(upgraded.language).toEqual({
+      conversation: "pt-BR",
+      documentation: "pt-BR",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    });
+  });
+
+  it("migrates legacy en language config into granular language policy", () => {
+    const legacy: ProjectConfigV1_1 = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "en",
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    };
+    const upgraded = upgradeProjectConfigurationV1_2(legacy);
+    expect(upgraded.contractVersion).toBe("1.2.0");
+    expect(upgraded.stateContract).toBe("1.2.0");
+    expect(upgraded.language).toEqual({
+      conversation: "en",
+      documentation: "en",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    });
+  });
+
   it("migrates only config and preserves every historical byte", async () => {
     const run = legacyProjectWithHistory();
     const before = run.storage.snapshot().files;
@@ -281,14 +341,81 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      stateContract: "1.1.0",
-      language: "pt-BR",
+      stateContract: "1.2.0",
+      language: {
+        conversation: "pt-BR",
+        documentation: "pt-BR",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
       policyMode: "strict",
       modelRoles: expect.any(Object) as unknown,
     });
     for (const [path, content] of Object.entries(before)) {
       if (path !== CONFIG_REF) expect(after[path], path).toBe(content);
     }
+  });
+
+  it("migrates a v1.1.0 project config without requiring answers", async () => {
+    const legacy1_1: ProjectConfigV1_1 = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "pt-BR",
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: {
+        codex: {
+          planner: { model: "planner-canonical", effort: "medium" },
+          implementer: { model: "implementer-canonical", effort: "high" },
+          judge: { model: "judge-canonical", effort: "medium" },
+        },
+      },
+    };
+    const bytes = `${JSON.stringify(legacy1_1, null, 2)}\n`;
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: bytes,
+    });
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const after = run.storage.snapshot().files;
+    expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "pt-BR",
+        documentation: "pt-BR",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: {
+        codex: {
+          planner: { model: "planner-canonical", effort: "medium" },
+          implementer: { model: "implementer-canonical", effort: "high" },
+          judge: { model: "judge-canonical", effort: "medium" },
+        },
+      },
+    });
   });
 
   it("previews every default and exact write without mutation", async () => {
@@ -463,13 +590,13 @@ describe("configuration migration", () => {
     const run = legacyProjectWithHistory(
       [
         JSON.stringify({
-          contractVersion: "1.1.0",
-          hostContract: "1.1.0",
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
           hosts: ["codex"],
         }),
         JSON.stringify({
-          contractVersion: "1.1.0",
-          hostContract: "1.1.0",
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
           hosts: ["codex"],
         }),
       ],
@@ -524,7 +651,7 @@ describe("configuration migration", () => {
       (
         JSON.parse(
           run.storage.snapshot().files[CONFIG_REF] ?? "null",
-        ) as ProjectConfigV1_1
+        ) as ProjectConfigV1_2
       ).modelRoles,
     ).toHaveProperty("codex");
   });
@@ -536,7 +663,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_1;
+    ) as ProjectConfigV1_2;
     expect(migrated.modelRoles).toEqual({
       codex: {
         planner: { model: "planner-canonical", effort: "medium" },
@@ -553,8 +680,8 @@ describe("configuration migration", () => {
     {
       label: "invalid answers",
       answers: JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: [],
       }),
       routing: fixedModelRouting([codexCatalog()]),
@@ -562,8 +689,8 @@ describe("configuration migration", () => {
     {
       label: "missing catalog",
       answers: JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([]),
@@ -571,8 +698,8 @@ describe("configuration migration", () => {
     {
       label: "equal implementer and judge defaults",
       answers: JSON.stringify({
-        contractVersion: "1.1.0",
-        hostContract: "1.1.0",
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([

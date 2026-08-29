@@ -1,7 +1,4 @@
-export {
-  DEFAULT_LANGUAGE_POLICY,
-  resolveInitAnswers,
-} from "./answers.js";
+export { DEFAULT_LANGUAGE_POLICY, resolveInitAnswers } from "./answers.js";
 export type {
   ModelResolutionSubject,
   ModelResolutionRefusal,

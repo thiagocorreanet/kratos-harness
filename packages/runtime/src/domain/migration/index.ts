@@ -18,7 +18,9 @@ export {
   type MigrationReceiptRequest,
 } from "./receipt.js";
 export {
+  migrateLegacyLanguage,
   upgradeProjectConfiguration,
+  upgradeProjectConfigurationV1_2,
   upgradeState,
   type StateUpgrade,
   type UpgradeResult,

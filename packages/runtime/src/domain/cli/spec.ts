@@ -19,7 +19,7 @@ import type {
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
-  ProjectConfigV1_1,
+  ProjectConfigV1_2,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -343,7 +343,7 @@ export type CommandObservation =
               readonly content: string;
               readonly sha256: string;
             };
-            readonly destination: ProjectConfigV1_1;
+            readonly destination: ProjectConfigV1_2;
             readonly destinationDigest: string;
             /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;

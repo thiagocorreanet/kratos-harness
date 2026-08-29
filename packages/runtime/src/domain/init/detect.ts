@@ -72,7 +72,10 @@ export function detectLanguageConventions(
   if (evidence.sampleContent !== undefined) {
     for (const sample of evidence.sampleContent) {
       if (result.documentation === undefined) {
-        if (PT_BR_DOC_NAMES.test(sample.path) || PT_BR_LEIAME.test(sample.path)) {
+        if (
+          PT_BR_DOC_NAMES.test(sample.path) ||
+          PT_BR_LEIAME.test(sample.path)
+        ) {
           result.documentation = "pt-BR";
         } else if (EN_DOC_NAMES.test(sample.path)) {
           result.documentation = "en";

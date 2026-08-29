@@ -115,11 +115,19 @@ describe("transactional migration lifecycle", () => {
     );
 
     expect(upgraded).toEqual({
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       pluginVersion: "0.0.0-development",
-      hostContract: "1.1.0",
-      language: "pt-BR",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "pt-BR",
+        documentation: "pt-BR",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
       policyMode: "strict",
       managedState: {
         directory: ".brain",

@@ -5,7 +5,12 @@ describe("convention detection", () => {
   it("detects dominant conventions from existing repository files when preserveConventions is true", () => {
     const convention = detectLanguageConventions({
       rootEntries: ["README.pt-BR.md", "src", "package.json"],
-      sampleContent: [{ path: "README.pt-BR.md", content: "Brazilian Portuguese documentation sample" }],
+      sampleContent: [
+        {
+          path: "README.pt-BR.md",
+          content: "Brazilian Portuguese documentation sample",
+        },
+      ],
     });
     expect(convention.documentation).toBe("pt-BR");
   });
@@ -27,7 +32,9 @@ describe("convention detection", () => {
   it("detects en documentation from README.en.md or standard english samples", () => {
     const convention = detectLanguageConventions({
       rootEntries: ["README.en.md", "src", "package.json"],
-      sampleContent: [{ path: "README.en.md", content: "English documentation sample" }],
+      sampleContent: [
+        { path: "README.en.md", content: "English documentation sample" },
+      ],
     });
     expect(convention.documentation).toBe("en");
   });

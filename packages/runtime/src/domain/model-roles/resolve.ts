@@ -1,4 +1,8 @@
-import type { ModelAssignmentV1_1, ProjectConfigV1_1 } from "@kratos/contracts";
+import type {
+  ModelAssignmentV1_1,
+  ProjectConfigV1_1,
+  ProjectConfigV1_2,
+} from "@kratos/contracts";
 
 import {
   MODEL_ROLES,
@@ -71,7 +75,7 @@ export function validateHostIndependence(input: {
 export function resolvePhaseAssignment(input: {
   readonly phase: RunPhase;
   readonly host: "claude" | "codex";
-  readonly configuration: ProjectConfigV1_1;
+  readonly configuration: ProjectConfigV1_2 | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): ModelRoleResolution {
   const resolved = resolvePhaseAssignmentDetailed(input);
@@ -85,7 +89,7 @@ export function resolvePhaseAssignment(input: {
 export function resolvePhaseAssignmentDetailed(input: {
   readonly phase: RunPhase;
   readonly host: "claude" | "codex";
-  readonly configuration: ProjectConfigV1_1;
+  readonly configuration: ProjectConfigV1_2 | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): DetailedModelRoleResolution {
   const configuredRoles = input.configuration.modelRoles[input.host];
