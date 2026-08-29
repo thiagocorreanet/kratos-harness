@@ -1,6 +1,6 @@
 import type { ApprovalV1, EvidenceV1 } from "@kratos/contracts";
 
-import type { GateDecision, GateMode } from "../gates/index.js";
+import type { GateAdvisory, GateDecision, GateMode } from "../gates/index.js";
 
 export interface ArtifactLineage {
   readonly contractVersion: "1.0.0";
@@ -93,6 +93,7 @@ export type DoneDecision =
       readonly kind: "accepted";
       readonly reasonCode: "done.all_steps";
       readonly evidenceRefs: readonly string[];
+      readonly advisories?: readonly GateAdvisory[];
     }
   | {
       readonly kind: "refused";
@@ -101,6 +102,7 @@ export type DoneDecision =
         | "trail.aceite_incompleto"
         | "trail.gate_divergente";
       readonly evidenceRefs: readonly string[];
+      readonly advisories?: readonly GateAdvisory[];
     };
 
 export function decideDone(candidate: DoneCandidate): DoneDecision {
@@ -159,5 +161,13 @@ export function decideDone(candidate: DoneCandidate): DoneDecision {
       evidenceRefs,
     };
   }
-  return { kind: "accepted", reasonCode: "done.all_steps", evidenceRefs };
+  const advisories = candidate.gates.advisories;
+  const advisoryProps =
+    advisories !== undefined && advisories.length > 0 ? { advisories } : {};
+  return {
+    kind: "accepted",
+    reasonCode: "done.all_steps",
+    evidenceRefs,
+    ...advisoryProps,
+  };
 }

@@ -29,10 +29,9 @@ const PROPOSAL = `.brain/02-features/${FEATURE}/gap-proposal.json`;
 
 function answers(policyMode: "standard" | "strict"): string {
   return JSON.stringify({
-    contractVersion: "1.1.0",
-    hostContract: "1.1.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     hosts: ["claude"],
-    language: "en",
     policyMode,
     snapshots: true,
   });
