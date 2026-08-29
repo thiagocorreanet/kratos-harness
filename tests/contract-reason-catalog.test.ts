@@ -39,6 +39,10 @@ const catalogV17Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.7.json",
 );
+const catalogV18Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.8.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -46,7 +50,7 @@ const resultLibraryUrl = pathToFileURL(
 interface ReasonEntry {
   readonly code: string;
   readonly description: string;
-  readonly status: "success" | "failure" | "blocked";
+  readonly status: "success" | "failure" | "blocked" | "advisory";
   readonly exitCode: number;
   readonly evidence: "required" | "optional" | "forbidden";
   readonly stateChanged: boolean;
@@ -76,6 +80,7 @@ let catalogV14: Catalog;
 let catalogV15: Catalog;
 let catalogV16: Catalog;
 let catalogV17: Catalog;
+let catalogV18: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -84,6 +89,7 @@ let catalogV14Text: string;
 let catalogV15Text: string;
 let catalogV16Text: string;
 let catalogV17Text: string;
+let catalogV18Text: string;
 
 beforeAll(async () => {
   [
@@ -95,6 +101,7 @@ beforeAll(async () => {
     catalogV15Text,
     catalogV16Text,
     catalogV17Text,
+    catalogV18Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -104,6 +111,7 @@ beforeAll(async () => {
     readFile(catalogV15Path, "utf8"),
     readFile(catalogV16Path, "utf8"),
     readFile(catalogV17Path, "utf8"),
+    readFile(catalogV18Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -113,6 +121,7 @@ beforeAll(async () => {
   catalogV15 = JSON.parse(catalogV15Text) as Catalog;
   catalogV16 = JSON.parse(catalogV16Text) as Catalog;
   catalogV17 = JSON.parse(catalogV17Text) as Catalog;
+  catalogV18 = JSON.parse(catalogV18Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -312,6 +321,47 @@ describe("contract reason catalog revision", () => {
       });
       expect(reason.recovery).not.toBeNull();
     }
+  });
+
+  it("preserves revision 1.7 and appends the language policy reasons", () => {
+    const codes = [
+      "policy.language_incomplete",
+      "policy.language_convention_mismatch_advisory",
+    ];
+    expect(catalogV18.contractVersion).toBe("1.0.0");
+    expect(catalogV18.reasons.slice(0, catalogV17.reasons.length)).toEqual(
+      catalogV17.reasons,
+    );
+    expect(
+      catalogV18.reasons
+        .slice(catalogV17.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(codes);
+
+    const incomplete = catalogV18.reasons.find(
+      (reason) => reason.code === "policy.language_incomplete",
+    );
+    expect(incomplete).toMatchObject({
+      status: "blocked",
+      exitCode: 3,
+      evidence: "required",
+      stateChanged: false,
+      retryable: true,
+    });
+    expect(incomplete?.recovery).not.toBeNull();
+
+    const advisory = catalogV18.reasons.find(
+      (reason) =>
+        reason.code === "policy.language_convention_mismatch_advisory",
+    );
+    expect(advisory).toMatchObject({
+      status: "advisory",
+      exitCode: 0,
+      evidence: "optional",
+      stateChanged: false,
+      retryable: false,
+    });
+    expect(advisory?.recovery).not.toBeNull();
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

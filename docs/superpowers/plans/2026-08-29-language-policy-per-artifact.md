@@ -210,8 +210,8 @@ import { detectLanguageConventions } from "@kratos/runtime/domain/init";
 describe("convention detection", () => {
   it("detects dominant conventions from existing repository files when preserveConventions is true", () => {
     const convention = detectLanguageConventions({
-      rootEntries: ["README.md", "src", "package.json"],
-      sampleContent: [{ path: "README.md", content: "# Visão Geral do Projeto\nEste projeto..." }],
+      rootEntries: ["README.pt-BR.md", "src", "package.json"],
+      sampleContent: [{ path: "README.pt-BR.md", content: "Brazilian Portuguese documentation sample" }],
     });
     expect(convention.documentation).toBe("pt-BR");
   });

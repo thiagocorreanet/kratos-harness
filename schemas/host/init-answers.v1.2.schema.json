@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/init-answers/v1.2",
+  "title": "Kratos initialization answers v1.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "hosts"],
+  "properties": {
+    "contractVersion": { "const": "1.2.0" },
+    "hostContract": { "const": "1.2.0" },
+    "hosts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["claude", "codex"] }
+    },
+    "language": { "$ref": "#/$defs/languagePolicy" },
+    "policyMode": { "enum": ["standard", "strict"] },
+    "snapshots": { "type": "boolean" },
+    "modelRoles": { "$ref": "#/$defs/modelRoles" }
+  },
+  "$defs": {
+    "languageCode": {
+      "enum": ["en", "pt-BR"]
+    },
+    "languagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conversation",
+        "documentation",
+        "comments",
+        "identifiers",
+        "commits",
+        "preserveConventions",
+        "enforcement"
+      ],
+      "properties": {
+        "conversation": { "$ref": "#/$defs/languageCode" },
+        "documentation": { "$ref": "#/$defs/languageCode" },
+        "comments": { "$ref": "#/$defs/languageCode" },
+        "identifiers": { "$ref": "#/$defs/languageCode" },
+        "commits": { "$ref": "#/$defs/languageCode" },
+        "preserveConventions": { "type": "boolean" },
+        "enforcement": { "enum": ["advisory", "off"] }
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "assignment": {
+      "oneOf": [
+        { "$ref": "#/$defs/id" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "effort"],
+          "properties": {
+            "model": { "$ref": "#/$defs/id" },
+            "effort": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "roleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "implementer", "judge"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/assignment" },
+        "implementer": { "$ref": "#/$defs/assignment" },
+        "judge": { "$ref": "#/$defs/assignment" }
+      }
+    },
+    "modelRoles": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "claude": { "$ref": "#/$defs/roleMap" },
+        "codex": { "$ref": "#/$defs/roleMap" }
+      }
+    }
+  }
+}

@@ -144,6 +144,14 @@ role outcomes in
 | `model.execution_mismatch` | 3 | Known host execution differs from the selected assignment |
 | `model.config_migration_required` | 4 | The project configuration predates explicit role assignments |
 
+Revision `1.8.0` preserves those 107 entries and appends two language policy outcomes in
+[`reason-codes.v1.8.json`](../../packages/contracts/catalogs/reason-codes.v1.8.json):
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `policy.language_incomplete` | 3 | A supplied language policy is incomplete and missing required fields |
+| `policy.language_convention_mismatch_advisory` | 0 | The evaluated artifact language differs from the declared language policy |
+
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.
 

@@ -46,7 +46,7 @@ export function resultFor(code: string, detail: ResultDetail = {}): Result {
   if (policy === null) throw new Error("Unknown reason code");
   return {
     contractVersion: "1.0.0",
-    status: policy.status,
+    status: policy.status === "advisory" ? "success" : policy.status,
     exitCode: policy.exitCode,
     reasonCode: code,
     summary: detail.summary ?? policy.description,
