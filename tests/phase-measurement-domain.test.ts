@@ -128,6 +128,17 @@ describe("phase measurement domain", () => {
     });
   });
 
+  it("refuses lifecycle closure before the phase start", () => {
+    expect(() =>
+      completePhaseMeasurement({
+        record: running,
+        totalGrossTokens: 120,
+        now: "2026-08-30T11:59:59.000Z",
+        observedIdentity: { model: null, effort: null },
+      }),
+    ).toThrow("Phase measurement chronology is invalid");
+  });
+
   it("parses only lines accepted by the registered measurement contract", () => {
     const record = completePhaseMeasurement({
       record: running,
@@ -170,6 +181,26 @@ describe("phase measurement domain", () => {
     expect(() =>
       parsePhaseMeasurementLog(
         `${JSON.stringify(record)}\n${JSON.stringify(record)}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+  });
+
+  it("refuses a parsed closed record ending before its phase start", () => {
+    const record = completePhaseMeasurement({
+      record: running,
+      totalGrossTokens: 150,
+      now: "2026-08-30T12:01:30.000Z",
+      observedIdentity: { model: null, effort: null },
+    });
+
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify({
+          ...record,
+          endedAt: "2026-08-30T11:59:59.000Z",
+          durationMs: 0,
+        })}\n`,
         ajvSchemaRegistry(),
       ),
     ).toThrow("Phase measurement log is invalid");

@@ -36,7 +36,9 @@ function grossTokens(baseline: number, total: number): number {
 }
 
 function durationMs(startedAt: string, endedAt: string): number {
-  return Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+  const duration = Date.parse(endedAt) - Date.parse(startedAt);
+  if (duration < 0) throw new Error("Phase measurement chronology is invalid");
+  return duration;
 }
 
 export function startPhaseMeasurement(
@@ -172,11 +174,15 @@ function stateContract(value: unknown): unknown {
 
 function hasValidMeasurementSemantics(record: PhaseMeasurement): boolean {
   if (record.status === "running") return true;
-  return (
-    record.grossTokens ===
-      grossTokens(record.baselineGrossTokens, record.finalGrossTokens) &&
-    record.durationMs === durationMs(record.startedAt, record.endedAt)
-  );
+  try {
+    return (
+      record.grossTokens ===
+        grossTokens(record.baselineGrossTokens, record.finalGrossTokens) &&
+      record.durationMs === durationMs(record.startedAt, record.endedAt)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function parsePhaseMeasurementLog(
