@@ -18,8 +18,10 @@ export const ACCEPTED: readonly string[] = [
   ".claude/settings.json",
   ".codex/config.toml",
   ".codex/agents/spec-planner.toml",
+  ".gemini/settings.json",
   "AGENTS.md",
   "CLAUDE.md",
+  "GEMINI.md",
 ];
 
 /** Everything a plan may not target, and the reason it may not. */
@@ -61,7 +63,7 @@ describe("the managed surface", () => {
     // The surface widened by exact spelling. A pattern over the project root
     // would accept files this runtime has no business writing.
     expect(isManagedDestination(".cursor/settings.json")).toBe(false);
-    expect(isManagedDestination("GEMINI.md")).toBe(false);
+    expect(isManagedDestination("CURSOR.md")).toBe(false);
   });
 
   it("reserves the transaction namespace only inside the managed state root", () => {
