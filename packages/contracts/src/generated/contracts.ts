@@ -16,7 +16,7 @@
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
-// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:4c79699b10b276a5803d783272943011bb97a6ccc131be0feb40a2eb4efff228
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
@@ -1180,7 +1180,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "prd";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1198,7 +1198,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "spec";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1216,7 +1216,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "plan";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1234,7 +1234,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "code";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1252,7 +1252,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "review";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1270,7 +1270,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "acceptance";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
