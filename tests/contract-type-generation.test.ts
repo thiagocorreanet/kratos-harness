@@ -29,7 +29,7 @@ describe("schema-derived contract declarations", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      "contract families v1.0.0: verified (39 schemas; 14 legacy profiles; generated types current)\n",
+      "contract families v1.0.0: verified (45 schemas; 14 legacy profiles; generated types current)\n",
     );
     expect(after).toBe(before);
     expect(after).toContain("Generated from registered JSON Schemas.");
@@ -40,6 +40,11 @@ describe("schema-derived contract declarations", () => {
     expect(after).toContain("export type InitAnswersV1_3");
     expect(after).toContain("export type PhaseHandoffV1_1");
     expect(after).toContain("export type HostOperationMessageV1");
+    expect(after).toContain("export type CuratedMemoryV1");
+    expect(after).toContain("export type MemoryChangeV1_2");
+    expect(after).toContain("candidateIds: Sha256[];");
+    expect(after).toContain("confirmed: ConfirmedLesson[];");
+    expect(after).toContain("sourceRanges: SourceRange[];");
     expect(after).toContain('kind: "create";');
     expect(after).toContain('kind: "move";');
     expect(after).toContain("source: Target;");

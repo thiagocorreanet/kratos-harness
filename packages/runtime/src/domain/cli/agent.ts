@@ -1,4 +1,4 @@
-import type { AgentOutputV1 } from "@kratos/contracts";
+import type { AgentOutputV1, AgentOutputV1_2 } from "@kratos/contracts";
 
 import {
   checkAgentOutput,
@@ -75,6 +75,17 @@ function decideRecord(observation: Observation): Decision {
   if (unusable !== null) return unusable;
 
   const observed = observation.agentOutput;
+  const phase =
+    observation.workflow.kind === "present"
+      ? observation.workflow.state.currentStep
+      : null;
+  if (
+    (phase === "code" || phase === "review") &&
+    observed.kind === "invalid" &&
+    observed.missingMemoryAcknowledgement === true
+  ) {
+    return phaseContextStale(observed.ref);
+  }
   if (observed.kind !== "valid") return refuseReply(observed);
 
   const refusal = checkAgentOutput(observed.value);
@@ -82,15 +93,30 @@ function decideRecord(observation: Observation): Decision {
     return invalidOutput(observed.ref, describeAgentOutputRefusal(refusal));
   }
 
-  const phase =
-    observation.workflow.kind === "present"
-      ? observation.workflow.state.currentStep
-      : null;
   if (observed.value.agent !== phase) {
     return invalidOutput(
       observed.ref,
       `The ${observed.value.agent} agent addressed a run in the ${phase ?? "unselected"} phase.`,
     );
+  }
+
+  if (phase === "code" || phase === "review") {
+    const assigned =
+      observation.phaseAssignment.kind === "resolved"
+        ? observation.phaseAssignment.value.memory
+        : null;
+    const current = observation.currentPhaseMemory;
+    if (
+      assigned === null ||
+      current === null ||
+      "kind" in current ||
+      !sameMemory(observed.value.memory, assigned) ||
+      !sameMemory(observed.value.memory, current)
+    ) {
+      return phaseContextStale(observed.ref);
+    }
+  } else if (observed.value.memory !== null) {
+    return phaseContextStale(observed.ref);
   }
 
   const criteria = observation.acceptanceCriteria;
@@ -195,7 +221,7 @@ function decideRecord(observation: Observation): Decision {
 
 function recordAcceptance(
   observation: Observation,
-  output: Extract<AgentOutputV1, { readonly agent: "acceptance" }>,
+  output: Extract<AgentOutputV1_2, { readonly agent: "acceptance" }>,
   outputRef: string,
 ): Decision {
   const criteria = observation.acceptanceCriteria;
@@ -375,7 +401,7 @@ function refuseReply(
  * Persisted blocks are written exactly as validated, so reading one back
  * through the same contract yields the value the decision saw.
  */
-function serialize(value: AgentOutputV1): string {
+function serialize(value: AgentOutputV1 | AgentOutputV1_2): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
@@ -505,6 +531,34 @@ function invalidOutput(ref: string, why: string): Decision {
     resultFor("trail.output_invalido", {
       why: [why],
       evidence: [{ kind: "observation", ref }],
+    }),
+  );
+}
+
+function sameMemory(
+  left: AgentOutputV1_2["memory"],
+  right: Exclude<AgentOutputV1_2["memory"], null>,
+): boolean {
+  return (
+    left !== null &&
+    left.sha256 === right.sha256 &&
+    left.lessonIds.length === right.lessonIds.length &&
+    left.lessonIds.every(
+      (lessonId, index) => lessonId === right.lessonIds[index],
+    )
+  );
+}
+
+function phaseContextStale(ref: string): Decision {
+  return decisionOf(
+    resultFor("memory.phase_context_stale", {
+      why: [
+        "The agent acknowledgement does not match the current curated-memory phase context.",
+      ],
+      evidence: [
+        { kind: "artifact", ref: ".brain/03-memory/gotchas.md" },
+        { kind: "observation", ref },
+      ],
     }),
   );
 }

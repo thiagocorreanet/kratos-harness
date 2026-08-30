@@ -1,0 +1,5 @@
+{
+  "contractVersion": "1.2.0",
+  "hostContract": "1.2.0",
+  "observation": "The deployment command exits before publishing the artifact."
+}

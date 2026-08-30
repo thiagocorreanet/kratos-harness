@@ -87,6 +87,9 @@ not shared runtime constants and not dynamic inheritance.
 | `.brain/evidence/` | Managed metadata | Digests, classification, and references |
 | `.brain/02-features/<feature>/runs/<run>/gaps/` | Managed state | One record per detected gap and the answer it carries |
 | `.brain/02-features/<feature>/runs/<run>/gates.json` | Derived state | The facts the gates read, derived from the records |
+| `.brain/03-memory/candidates/*.json` | Machine-local diagnostic inbox | Sanitized failure candidates; ignored by Git |
+| `.brain/03-memory/curated-memory.json` | Committed managed ledger | Versioned authority for confirmed and archived lessons |
+| `.brain/03-memory/gotchas.md` | Committed deterministic projection | Exact Markdown rendering of the ledger |
 | `.brain/migrations/` | Managed recovery | Plans, receipts, backups, and rollback records |
 | `.claude/` | Mixed/managed sections | Claude Code integration |
 | `.codex/` and `AGENTS.md` | Mixed/managed sections | Codex integration |
@@ -95,6 +98,25 @@ Commit configuration, events, and non-sensitive evidence metadata when project
 policy requires an auditable trail. Ignore local dashboards, transient locks,
 and sensitive external evidence. Never add a broad ignore rule that hides the
 entire `.brain` directory without an explicit governance decision.
+
+Curated memory has a deliberately split Git boundary: candidate JSON is
+machine-local and ignored, while `curated-memory.json` and `gotchas.md` are
+committed project knowledge. The ledger is authoritative; `gotchas.md` is a
+deterministic projection whose SHA-256 must match the ledger. A missing or
+changed projection is `memory.projection_drift`, not permission to overwrite
+either artifact. Fresh initialization creates the empty ledger and its exact
+two-section projection.
+
+Candidate diagnostics are sanitized and limited to 2 KiB before persistence.
+Capture performs no model call, network/socket operation, or project command.
+It uses no automatic promotion path. Windows and POSIX diagnostics share the
+same conservative volatile matcher without folding drive, path, or case.
+Managed publication carries candidate fingerprints as execution-time read
+guards alongside ledger and projection preconditions. Candidate cleanup starts
+only after authority commits and uses a separate fingerprinted managed delete,
+so a replacement candidate is retained rather than unconditionally unlinked.
+An interruption leaves the old pair or a recoverable transaction; it never
+makes candidate deletion authority out of an uncommitted change.
 
 Managed markers protect user-authored content. Reconciliation preserves bytes
 outside marked sections and reports a conflict before changing an ambiguous

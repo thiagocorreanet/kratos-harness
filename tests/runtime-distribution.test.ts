@@ -70,7 +70,7 @@ describe("runtime distribution", () => {
       expect(manifest.runtime.sourceTreeSha256).toMatch(/^[a-f0-9]{64}$/u);
       expect(manifest.contracts).toEqual({
         result: "1.0.0",
-        reasonCatalog: "1.9.0",
+        reasonCatalog: "1.10.0",
         state: "1.3.0",
         host: "1.3.0",
       });

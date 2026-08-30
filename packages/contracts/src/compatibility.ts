@@ -1,5 +1,5 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.9.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.10.json" with { type: "json" };
 
 /**
  * The contract identities this bundle carries. Consumers report these rather
@@ -20,8 +20,11 @@ export const CONTRACT_VERSIONS = {
   "state.event": "1.1.0",
   "state.migration": "1.1.0",
   "host.init-answers": "1.3.0",
-  "host.phase-handoff": "1.1.0",
-  "host.agent-output": "1.0.0",
+  "host.memory-capture": "1.2.0",
+  "host.memory-change": "1.2.0",
+  "host.memory-migration": "1.2.0",
+  "host.phase-handoff": "1.2.0",
+  "host.agent-output": "1.2.0",
   "host.gap-proposal": "1.0.0",
   "host.hook-observation": "1.0.0",
   "host.operation-message": "1.0.0",
@@ -29,6 +32,8 @@ export const CONTRACT_VERSIONS = {
   "state.acceptance-criteria-snapshot": "1.0.0",
   "state.acceptance-verdict": "1.0.0",
   "state.approval": "1.0.0",
+  "state.beat": "1.0.0",
+  "state.curated-memory": "1.0.0",
   "state.evidence": "1.0.0",
   "state.failure-candidate": "1.0.0",
   "state.feature": "1.0.0",
@@ -37,6 +42,7 @@ export const CONTRACT_VERSIONS = {
   "state.gates": "1.0.0",
   "state.guardrails": "1.0.0",
   "state.lock": "1.0.0",
+  "state.narration": "1.0.0",
   "state.requirement-discovery": "1.0.0",
   "state.run-usage": "1.0.0",
   "state.session-telemetry": "1.0.0",

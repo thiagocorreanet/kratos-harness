@@ -6,6 +6,7 @@ import type {
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
   AgentOutputV1,
+  AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -16,6 +17,9 @@ import type {
   HostOperationMessageV1,
   HookObservationV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
@@ -23,7 +27,7 @@ import type {
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
-import type { PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
@@ -45,6 +49,7 @@ import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
+import type { CandidateCaptureDecision } from "../hooks/index.js";
 import type { StackProfileReadinessObservation } from "../diagnostics/index.js";
 
 export type GuardWriteOutcome =
@@ -84,7 +89,7 @@ export interface FlagSpec {
 }
 
 export type JsonContractId =
-  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.1.0";
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.2.0";
 
 export interface Decision {
   readonly result: Result;
@@ -106,6 +111,14 @@ export interface Decision {
   readonly revalidateRepairDigest?: string;
   /** Re-resolve this phase assignment immediately before appending its event. */
   readonly revalidatePhaseAssignmentDigest?: string;
+  /** Local candidates are best-effort cleanup only after a durable commit. */
+  readonly cleanupCandidates?: readonly {
+    readonly path: string;
+    readonly expected: Extract<
+      WriteFilePrecondition,
+      { readonly kind: "file" }
+    >;
+  }[];
 }
 
 export interface Globals {
@@ -123,6 +136,31 @@ export interface Globals {
  */
 export type CommandObservation =
   | { readonly kind: "none" }
+  | {
+      readonly kind: "memory";
+      readonly operation: "list";
+      readonly candidates: readonly FailureCandidateV1[];
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "capture";
+      readonly candidates: readonly FailureCandidateV1[];
+      readonly capture: CandidateCaptureDecision;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "change";
+      readonly candidates: readonly FailureCandidateV1[];
+      readonly ledger: CuratedMemoryV1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projection: string;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
+      readonly proposal: MemoryChangeV1_2;
+      readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
+    }
   | { readonly kind: "write-guard"; readonly outcome: GuardWriteOutcome }
   | { readonly kind: "scope-record"; readonly outcome: ScopeRecordOutcome }
   | {
@@ -174,8 +212,7 @@ export type CommandObservation =
         readonly usageExpected: WriteFilePrecondition;
         readonly gates: GateFactsV1;
         readonly gatesExpected: WriteFilePrecondition;
-        readonly candidate: FailureCandidateV1 | null;
-        readonly candidateExists: boolean;
+        readonly capture: CandidateCaptureDecision | null;
         readonly cache: {
           readonly startedAt: string;
           readonly grossTokens: number;
@@ -212,7 +249,7 @@ export type CommandObservation =
        */
       readonly observedLineage: RunLineage;
       readonly phaseAssignment:
-        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
         | {
             readonly kind: "refused";
             readonly reasonCode:
@@ -222,9 +259,21 @@ export type CommandObservation =
               | "guard.config_corrupt"
               | "contract.state_version_invalid"
               | "contract.state_version_unsupported"
-              | "model.assignment_stale";
+              | "model.assignment_stale"
+              | "memory.migration_required"
+              | "memory.projection_drift"
+              | "runtime.state_corrupt";
             readonly subject: string;
           };
+      /** A fresh curated-memory observation made after assignment resolution. */
+      readonly currentPhaseMemory:
+        | null
+        | {
+            readonly ref: ".brain/03-memory/gotchas.md";
+            readonly sha256: string;
+            readonly lessonIds: string[];
+          }
+        | { readonly kind: "unreadable" };
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
       readonly correlationId: string;
@@ -254,7 +303,7 @@ export type CommandObservation =
       /** The agent reply an output-recording command was pointed at, if any. */
       readonly agentOutput: AgentOutputObservation;
       /** Every agent output the run recorded, in agent order. */
-      readonly agentOutputs: readonly AgentOutputV1[];
+      readonly agentOutputs: readonly (AgentOutputV1 | AgentOutputV1_2)[];
       readonly agentOutputsReadable: boolean;
       /** Parsed task declarations and immutable acceptance history. */
       readonly acceptanceCriteria: {
@@ -382,6 +431,27 @@ export type CommandObservation =
             readonly sha256: string;
           }
         | {
+            readonly kind: "memory";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly proposal: MemoryMigrationV1_2;
+            readonly proposalDigest: string;
+            readonly planDigest: string;
+            readonly ledger: CuratedMemoryV1;
+            readonly projection: string;
+            readonly projectionDigest: string;
+            readonly gotchasExpected: WriteFilePrecondition;
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+            }[];
+          }
+        | { readonly kind: "memory-current" }
+        | {
             readonly kind: "rollback";
             readonly migrationId: string;
             readonly receipt: MigrationV1 | MigrationV1_1 | null;
@@ -398,6 +468,11 @@ export type CommandObservation =
                 readonly content: string;
                 readonly expected: WriteFilePrecondition;
               }[];
+              readonly removeTargets?: readonly string[];
+              readonly removeExpected?: ReadonlyMap<
+                string,
+                WriteFilePrecondition
+              >;
               readonly backupDigest: string;
               readonly destinationDigest: string;
             } | null;

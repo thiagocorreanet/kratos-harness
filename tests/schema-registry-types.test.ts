@@ -2,6 +2,7 @@ import type {
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   AdapterMessageV1,
+  CuratedMemoryV1,
   FeatureScopeV1,
   GuardrailsV1,
   AdapterMessageV1_1,
@@ -13,6 +14,9 @@ import type {
   InitAnswersV1_3,
   MigrationV1,
   MigrationV1_1,
+  MemoryCaptureV1_2,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
   PreToolUseV1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -40,10 +44,14 @@ describe("schema registry vocabulary", () => {
       "host.agent-output",
       "host.gap-proposal",
       "host.init-answers",
+      "host.memory-capture",
+      "host.memory-change",
+      "host.memory-migration",
       "host.operation-message",
       "host.phase-handoff",
       "host.pre-tool-use",
       "state.approval",
+      "state.curated-memory",
       "state.acceptance-criteria-snapshot",
       "state.acceptance-verdict",
       "state.event",
@@ -61,13 +69,16 @@ describe("schema registry vocabulary", () => {
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(24);
+    expect(ids).toHaveLength(28);
     expectTypeOf<
       ContractValue<"state.acceptance-criteria-snapshot">
     >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();
     expectTypeOf<
       ContractValue<"state.acceptance-verdict">
     >().toEqualTypeOf<AcceptanceVerdictV1>();
+    expectTypeOf<
+      ContractValue<"state.curated-memory">
+    >().toEqualTypeOf<CuratedMemoryV1>();
     expectTypeOf<
       ContractValue<"state.feature-scope">
     >().toEqualTypeOf<FeatureScopeV1>();
@@ -95,6 +106,15 @@ describe("schema registry vocabulary", () => {
     expectTypeOf<ContractValue<"host.adapter-message">>().toEqualTypeOf<
       AdapterMessageV1 | AdapterMessageV1_1
     >();
+    expectTypeOf<
+      ContractValue<"host.memory-capture">
+    >().toEqualTypeOf<MemoryCaptureV1_2>();
+    expectTypeOf<
+      ContractValue<"host.memory-change">
+    >().toEqualTypeOf<MemoryChangeV1_2>();
+    expectTypeOf<
+      ContractValue<"host.memory-migration">
+    >().toEqualTypeOf<MemoryMigrationV1_2>();
     expectTypeOf<
       ContractValue<"state.requirement-discovery">
     >().toEqualTypeOf<RequirementDiscoveryV1>();

@@ -6,6 +6,13 @@ import { resultFor } from "../result/index.js";
 import { renderHelp } from "./help.js";
 import { initCommand } from "./init.js";
 import { hookCommand } from "./hook.js";
+import {
+  memoryArchiveCommand,
+  memoryCaptureCommand,
+  memoryListCommand,
+  memoryMergeCommand,
+  memoryPromoteCommand,
+} from "./memory.js";
 import { objectiveCommand } from "./objective.js";
 import { continueCommand, doneCommand, startCommand } from "./workflow.js";
 import {
@@ -30,6 +37,7 @@ import {
 import {
   migrateBrainCommand,
   migrateConfigCommand,
+  migrateMemoryCommand,
   migrateRollbackCommand,
 } from "./migration.js";
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
@@ -127,7 +135,13 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   hookCommand,
   migrateBrainCommand,
   migrateConfigCommand,
+  migrateMemoryCommand,
   migrateRollbackCommand,
+  memoryCaptureCommand,
+  memoryListCommand,
+  memoryPromoteCommand,
+  memoryMergeCommand,
+  memoryArchiveCommand,
   narrateCommand,
   objectiveCommand,
   repairCommand,
