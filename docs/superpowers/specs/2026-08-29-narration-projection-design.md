@@ -13,6 +13,7 @@ This feature implements narration as a deterministic, pure projection of the app
 ## 2. Scope Boundary
 
 ### In Scope
+
 - Contract definitions for typed beats (`BeatV1`, `BeatKind`, `NarrationV1`) in `@kratos/contracts`.
 - Closed semantic beat taxonomy: `"work" | "milestone" | "resumption" | "warning" | "waiting" | "stop"`.
 - Pure domain projection engine (`projectNarration`) in `@kratos/runtime/src/domain/narration/` without any I/O, Git, or clock access.
@@ -25,6 +26,7 @@ This feature implements narration as a deterministic, pure projection of the app
 - Full verification suite: golden files, replay consistency, functional purity, reason catalog coverage, and host conformance.
 
 ### Out of Scope
+
 - Changing the event schema or adding new `eventType` values.
 - Generating intra-step beats or modifying event logs during narration.
 - ANSI color codes carrying semantic meaning.

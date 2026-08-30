@@ -25,6 +25,7 @@
 ### Task 1: Contracts and Schemas for Beat and Narration
 
 **Files:**
+
 - Create: `schemas/state/beat.v1.schema.json`
 - Create: `schemas/state/narration.v1.schema.json`
 - Create: `packages/contracts/src/narration.ts`
@@ -32,6 +33,7 @@
 - Test: `tests/narration-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ReadableEvent` from `@kratos/contracts`
 - Produces: `BeatKind`, `BeatV1`, `ClockDerivedProgress`, `NarrationV1` exported from `@kratos/contracts`
 
@@ -106,6 +108,7 @@ git commit -m "feat(contracts): add beat and narration schemas and types (#OBS-0
 ### Task 2: Pure Narration Projection Engine and Mapping Table
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/narration/model.ts`
 - Create: `packages/runtime/src/domain/narration/mapping.ts`
 - Create: `packages/runtime/src/domain/narration/project.ts`
@@ -115,6 +118,7 @@ git commit -m "feat(contracts): add beat and narration schemas and types (#OBS-0
 - Test: `tests/narration-purity.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ReadableEvent`, `BeatV1`, `NarrationV1`, `REASON_CATALOG`, `reasonPolicy` from `@kratos/contracts`
 - Produces: `projectNarration`, `EVENT_BEAT_RULES` from `@kratos/runtime/domain/narration`
 
@@ -212,12 +216,14 @@ git commit -m "feat(runtime): implement pure narration projection engine (#OBS-0
 ### Task 3: Reason Catalog Coverage and Golden Replay Tests
 
 **Files:**
+
 - Create: `tests/narration-catalog-coverage.test.ts`
 - Create: `tests/narration-replay.test.ts`
 - Create: `fixtures/narration/sample-run-events.jsonl`
 - Create: `fixtures/narration/sample-run-beats.json`
 
 **Interfaces:**
+
 - Consumes: `REASON_CATALOG` from `@kratos/contracts`, `projectNarration` from `@kratos/runtime/domain/narration`
 - Produces: Test coverage and replay golden validation
 
@@ -285,6 +291,7 @@ git commit -m "test(narration): add catalog coverage and golden replay tests (#O
 ### Task 4: CLI Command `kratos narrate`
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/cli/narrate.ts`
 - Modify: `packages/runtime/src/domain/cli/commands.ts`
 - Modify: `packages/runtime/src/domain/cli/index.ts`
@@ -292,6 +299,7 @@ git commit -m "test(narration): add catalog coverage and golden replay tests (#O
 - Modify: `tests/cli-commands.test.ts`
 
 **Interfaces:**
+
 - Consumes: `projectNarration`, `observingCommand` from `@kratos/runtime`
 - Produces: `narrateCommand` registered in `DEFAULT_REGISTRY`
 
@@ -339,12 +347,14 @@ git commit -m "feat(cli): add kratos narrate command (#OBS-04)"
 ### Task 5: Host Renderers for Claude Code and Codex
 
 **Files:**
+
 - Create: `packages/adapters/src/claude-code/narration.ts`
 - Create: `packages/adapters/src/codex/narration.ts`
 - Modify: `packages/adapters/src/index.ts`
 - Test: `tests/narration-host-conformance.test.ts`
 
 **Interfaces:**
+
 - Consumes: `NarrationV1`, `BeatV1` from `@kratos/contracts`
 - Produces: `renderClaudeCodeNarration`, `renderCodexNarration` from `@kratos/adapters`
 
@@ -430,9 +440,11 @@ git commit -m "feat(adapters): add Claude Code and Codex narration renderers (#O
 ### Task 6: Comprehensive Verification and Acceptance Gate
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-29-narration-projection-design.md` (check off acceptance criteria)
 
 **Interfaces:**
+
 - Consumes: All tests, build and check scripts
 - Produces: Verified build, all passing checks
 
