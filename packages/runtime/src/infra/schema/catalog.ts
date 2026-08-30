@@ -30,6 +30,7 @@ import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with {
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import migrationV1_1Schema from "../../../../../schemas/state/migration.v1.1.schema.json" with { type: "json" };
 import narrationSchema from "../../../../../schemas/state/narration.v1.schema.json" with { type: "json" };
+import phaseMeasurementSchema from "../../../../../schemas/state/phase-measurement.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
@@ -253,6 +254,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.1.0",
       path: "schemas/state/migration.v1.1.schema.json",
       schema: migrationV1_1Schema,
+    },
+    {
+      id: "state.phase-measurement",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/phase-measurement.v1.schema.json",
+      schema: phaseMeasurementSchema,
     },
     {
       id: "state.narration",

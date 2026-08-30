@@ -32,6 +32,7 @@
     "./domain/hooks": "./src/domain/hooks/index.ts",
     "./domain/init": "./src/domain/init/index.ts",
     "./domain/locks": "./src/domain/locks/index.ts",
+    "./domain/measurements": "./src/domain/measurements/index.ts",
     "./domain/migration": "./src/domain/migration/index.ts",
     "./domain/model-roles": "./src/domain/model-roles/index.ts",
     "./domain/narration": "./src/domain/narration/index.ts",

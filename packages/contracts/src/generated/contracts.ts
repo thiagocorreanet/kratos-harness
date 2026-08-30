@@ -29,6 +29,7 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
+// source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:9e17393213d8df9e126c013c24311d85ff1fd944f33ec61a4c15fec04f615933
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
@@ -1353,6 +1354,88 @@ export namespace MigrationV1_1Contract {
   }
 }
 export type MigrationV1_1 = MigrationV1_1Contract.MigrationV1_1;
+export namespace PhaseMeasurementV1Contract {
+  export type PhaseMeasurementV1 =
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        correlationId: Id;
+        status: "running";
+        startedAt: Timestamp;
+        endedAt: null;
+        durationMs: null;
+        baselineGrossTokens: Count;
+        finalGrossTokens: null;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: null;
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        correlationId: Id;
+        status: "completed";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: "phase_completed" | "recovered_completed";
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        correlationId: Id;
+        status: "interrupted";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: "session_interrupted" | "recovered_interrupted";
+        updatedAt: Timestamp;
+      };
+  export type Id = string;
+  export type Timestamp = string;
+  export type Count = number;
+  export type Sha256 = string;
+
+  export interface ResolvedAssignment {
+    host: "claude" | "codex";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface ObservedIdentity {
+    model: Id | null;
+    effort: Id | null;
+  }
+}
+export type PhaseMeasurementV1 = PhaseMeasurementV1Contract.PhaseMeasurementV1;
 export namespace NarrationV1Contract {
   export type Id = string;
   export type Timestamp = string;

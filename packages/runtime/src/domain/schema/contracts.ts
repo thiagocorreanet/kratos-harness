@@ -24,6 +24,7 @@ import type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  PhaseMeasurementV1,
   NarrationV1,
   PhaseHandoffV1_1,
   ProjectConfigV1,
@@ -64,6 +65,7 @@ export interface ContractValues {
   readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
+  readonly "state.phase-measurement": PhaseMeasurementV1;
   readonly "state.narration": NarrationV1;
   readonly "state.project-config":
     ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;

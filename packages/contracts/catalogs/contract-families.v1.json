@@ -2,7 +2,7 @@
   "contractVersion": "1.0.0",
   "pluginVersion": "0.0.0-development",
   "resultContract": "1.0.0",
-  "reasonCatalog": "1.9.0",
+  "reasonCatalog": "1.10.0",
   "stateContract": {
     "current": "1.3.0",
     "readable": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],
@@ -236,6 +236,14 @@
       "path": "schemas/state/migration.v1.1.schema.json",
       "boundary": "persisted",
       "typeName": "MigrationV1_1"
+    },
+    {
+      "id": "state.phase-measurement",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/phase-measurement.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "PhaseMeasurementV1"
     },
     {
       "id": "state.narration",

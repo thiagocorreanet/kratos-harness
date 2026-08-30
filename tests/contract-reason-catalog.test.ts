@@ -47,6 +47,10 @@ const catalogV19Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.9.json",
 );
+const catalogV110Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.10.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -86,6 +90,7 @@ let catalogV16: Catalog;
 let catalogV17: Catalog;
 let catalogV18: Catalog;
 let catalogV19: Catalog;
+let catalogV110: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -96,6 +101,7 @@ let catalogV16Text: string;
 let catalogV17Text: string;
 let catalogV18Text: string;
 let catalogV19Text: string;
+let catalogV110Text: string;
 
 beforeAll(async () => {
   [
@@ -109,6 +115,7 @@ beforeAll(async () => {
     catalogV17Text,
     catalogV18Text,
     catalogV19Text,
+    catalogV110Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -120,6 +127,7 @@ beforeAll(async () => {
     readFile(catalogV17Path, "utf8"),
     readFile(catalogV18Path, "utf8"),
     readFile(catalogV19Path, "utf8"),
+    readFile(catalogV110Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -131,6 +139,7 @@ beforeAll(async () => {
   catalogV17 = JSON.parse(catalogV17Text) as Catalog;
   catalogV18 = JSON.parse(catalogV18Text) as Catalog;
   catalogV19 = JSON.parse(catalogV19Text) as Catalog;
+  catalogV110 = JSON.parse(catalogV110Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -398,6 +407,36 @@ describe("contract reason catalog revision", () => {
       retryable: true,
       recovery:
         "Preview and authorize the project configuration migration before initializing or executing a phase.",
+    });
+  });
+
+  it("preserves revision 1.9 and appends the phase measurement reasons", () => {
+    const additions = [
+      "metrics.phase_not_started",
+      "metrics.phase_assignment_conflict",
+      "metrics.log_invalid",
+      "metrics.refresh_ok",
+      "metrics.calibration_insufficient",
+    ];
+    expect(catalogV110.reasons.slice(0, catalogV19.reasons.length)).toEqual(
+      catalogV19.reasons,
+    );
+    expect(
+      catalogV110.reasons
+        .slice(catalogV19.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(additions);
+    expect(catalogV110.reasons).toHaveLength(115);
+    expect(
+      catalogV110.reasons.find(
+        ({ code }) => code === "metrics.calibration_insufficient",
+      ),
+    ).toMatchObject({
+      status: "advisory",
+      exitCode: 0,
+      evidence: "required",
+      stateChanged: true,
+      retryable: false,
     });
   });
 

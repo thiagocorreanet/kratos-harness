@@ -29,7 +29,9 @@ The universal runtime-result family contains:
   which adds `policy.language_incomplete` and
   `policy.language_convention_mismatch_advisory`.
 - [`reason-codes.v1.9.json`](../packages/contracts/catalogs/reason-codes.v1.9.json),
-  the current revision, which adds `profile.config_migration_required`.
+  which adds `profile.config_migration_required`;
+- [`reason-codes.v1.10.json`](../packages/contracts/catalogs/reason-codes.v1.10.json),
+  the current revision, which adds the `metrics.*` phase measurement outcomes.
 
 The state family contains:
 
@@ -62,6 +64,8 @@ The state family contains:
 - [`migration.v1.schema.json`](state/migration.v1.schema.json);
 - [`migration.v1.1.schema.json`](state/migration.v1.1.schema.json), the current
   replacement migration and rollback receipt;
+- [`phase-measurement.v1.schema.json`](state/phase-measurement.v1.schema.json),
+  the keyed runtime-owned token and duration measurement ledger;
 - [`transaction-manifest.v1.schema.json`](state/transaction-manifest.v1.schema.json);
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 
@@ -85,8 +89,9 @@ digest-bound resolved assignment. See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json).
+[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json).
 The immutable predecessors remain
+[`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
 [`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
 [`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
 and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).

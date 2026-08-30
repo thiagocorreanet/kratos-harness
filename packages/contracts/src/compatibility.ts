@@ -1,5 +1,5 @@
 import contractManifest from "../catalogs/contract-families.v1.json" with { type: "json" };
-import reasonCatalog from "../catalogs/reason-codes.v1.9.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.10.json" with { type: "json" };
 
 /**
  * The contract identities this bundle carries. Consumers report these rather
@@ -19,6 +19,7 @@ export const CONTRACT_VERSIONS = {
   "state.project-config": "1.3.0",
   "state.event": "1.1.0",
   "state.migration": "1.1.0",
+  "state.phase-measurement": "1.0.0",
   "host.init-answers": "1.3.0",
   "host.phase-handoff": "1.1.0",
   "host.agent-output": "1.0.0",
