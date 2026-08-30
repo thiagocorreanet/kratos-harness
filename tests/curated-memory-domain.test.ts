@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unnecessary-template-expression, @typescript-eslint/restrict-template-expressions */
 import type { CuratedMemoryV1 } from "@kratos/contracts";
 import { describe, expect, it } from "vitest";
 

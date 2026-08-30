@@ -70,3 +70,7 @@
   union boundary.
 - GREEN: `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/cli-commands.test.ts` — 3 files, 24 tests passed.
 - GREEN: `npm run typecheck` and `npm run lint` — passed.
+- Added runtime regression coverage for changing-clock preview/apply, proposal,
+  ledger, projection, and candidate drift, durable publication failure,
+  post-commit cleanup failure retention, and archive preview/apply. The focused
+  suite now has 28 tests across 3 files.

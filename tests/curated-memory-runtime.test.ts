@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars */
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   fixedClock,
@@ -41,7 +42,7 @@ const PROPOSAL = {
   apply: ["Generate inputs before build."],
 };
 
-function subject() {
+function subject(now = NOW) {
   const storage = memoryTransactionStorage({
     directories: [
       ".brain",
@@ -73,7 +74,7 @@ function subject() {
     storage,
     output,
     ports: {
-      clock: fixedClock(NOW),
+      clock: fixedClock(now),
       ids: sequentialIds("id"),
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
@@ -88,6 +89,52 @@ function subject() {
       workspace: memoryWorkspace({ directories: ["/project"] }),
     } as unknown as RuntimePorts,
   };
+}
+
+function applyArguments(
+  authorization: ReturnType<typeof previewAuthorization>,
+) {
+  return [
+    "memory",
+    "promote",
+    "proposal.json",
+    "--yes",
+    "--proposal-digest",
+    authorization.proposalDigest,
+    "--plan-digest",
+    authorization.planDigest,
+    "--plan-time",
+    authorization.planTime,
+  ];
+}
+
+function applyChange(
+  operation: "merge" | "archive",
+  proposal: string,
+  authorization: ReturnType<typeof previewAuthorization>,
+) {
+  return [
+    "memory",
+    operation,
+    proposal,
+    "--yes",
+    "--proposal-digest",
+    authorization.proposalDigest,
+    "--plan-digest",
+    authorization.planDigest,
+    "--plan-time",
+    authorization.planTime,
+  ];
+}
+
+async function overwrite(
+  run: ReturnType<typeof subject>,
+  path: string,
+  content: string,
+) {
+  const staged = ".brain/03-memory/review-drift.tmp";
+  await run.ports.durableFileSystem.writeSynced(staged, content);
+  await run.ports.durableFileSystem.replaceFile(staged, path);
 }
 
 function previewAuthorization(text: string): {
@@ -186,5 +233,135 @@ describe("curated memory promotion", () => {
       `${JSON.stringify(LEDGER, null, 2)}\n`,
     );
     expect(files[".brain/03-memory/gotchas.md"]).toBe(GOTCHAS);
+  });
+
+  it("replays the reviewed plan time across a changed wall clock", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    (run.ports as { clock: RuntimePorts["clock"] }).clock = fixedClock(
+      "2026-09-01T00:00:00.000Z",
+    );
+    expect(await runCommandLine(applyArguments(authorization), run.ports)).toBe(
+      0,
+    );
+    const ledger = JSON.parse(
+      run.storage.snapshot().files[".brain/03-memory/curated-memory.json"] ??
+        "",
+    ) as { updatedAt: string };
+    expect(ledger.updatedAt).toBe(NOW);
+  });
+
+  it("refuses stale proposal, ledger, projection, and candidate observations", async () => {
+    const cases: readonly [
+      string,
+      (run: ReturnType<typeof subject>) => Promise<void>,
+    ][] = [
+      [
+        "proposal",
+        async (run) =>
+          run.ports.fileSystem.write(
+            "proposal.json",
+            `${JSON.stringify({ ...PROPOSAL, title: "Changed" })}\n`,
+          ),
+      ],
+      [
+        "ledger",
+        async (run) =>
+          overwrite(
+            run,
+            ".brain/03-memory/curated-memory.json",
+            `${JSON.stringify({ ...LEDGER, updatedAt: "2026-08-30T00:00:00Z" })}\n`,
+          ),
+      ],
+      [
+        "projection",
+        async (run) =>
+          overwrite(run, ".brain/03-memory/gotchas.md", "changed\n"),
+      ],
+      [
+        "candidate",
+        async (run) =>
+          overwrite(
+            run,
+            `.brain/03-memory/candidates/${CANDIDATE}.json`,
+            `${JSON.stringify({ contractVersion: "1.0.0", stateContract: "1.0.0", candidateId: CANDIDATE, toolFamily: "shell", failureClass: "nonzero_exit", exitCode: 1, diagnostic: "changed", firstObservedAt: NOW })}\n`,
+          ),
+      ],
+    ];
+    for (const [_name, drift] of cases) {
+      const run = subject();
+      await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+      const authorization = previewAuthorization(
+        run.output.structured_.join(""),
+      );
+      await drift(run);
+      expect(
+        await runCommandLine(applyArguments(authorization), run.ports),
+      ).not.toBe(0);
+      expect(
+        run.storage.snapshot().files[
+          `.brain/03-memory/candidates/${CANDIDATE}.json`
+        ],
+      ).toBeDefined();
+    }
+  });
+
+  it("retains a candidate when post-commit cleanup fails", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    run.storage.fail({
+      operation: "remove_file",
+      timing: "before",
+      occurrence: 1,
+    });
+    expect(await runCommandLine(applyArguments(authorization), run.ports)).toBe(
+      0,
+    );
+    expect(
+      run.storage.snapshot().files[
+        `.brain/03-memory/candidates/${CANDIDATE}.json`
+      ],
+    ).toBeDefined();
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/gotchas.md"],
+    ).toContain("Avoid flaky build");
+  });
+
+  it("previews and applies real archive commands", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const promote = previewAuthorization(run.output.structured_.join(""));
+    await runCommandLine(applyArguments(promote), run.ports);
+    const lessonId = (
+      JSON.parse(
+        run.storage.snapshot().files[".brain/03-memory/curated-memory.json"] ??
+          "",
+      ) as { confirmed: { lessonId: string }[] }
+    ).confirmed[0]!.lessonId;
+    await run.ports.fileSystem.write(
+      "archive.json",
+      `${JSON.stringify({ contractVersion: "1.2.0", hostContract: "1.2.0", operation: "archive", reviewer: "reviewer", lessonId, reason: "obsolete" })}\n`,
+    );
+    expect(
+      await runCommandLine(["memory", "archive", "archive.json"], run.ports),
+    ).toBe(0);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    expect(
+      await runCommandLine(
+        applyChange("archive", "archive.json", authorization),
+        run.ports,
+      ),
+    ).toBe(0);
+    expect(
+      (
+        JSON.parse(
+          run.storage.snapshot().files[
+            ".brain/03-memory/curated-memory.json"
+          ] ?? "",
+        ) as { archive: unknown[] }
+      ).archive,
+    ).toHaveLength(1);
   });
 });
