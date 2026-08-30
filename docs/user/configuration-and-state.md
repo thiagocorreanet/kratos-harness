@@ -6,11 +6,27 @@ Kratos resolves explicit command flags first, then project configuration, then
 documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
-The current `state.project-config@1.1.0` records plugin and host contracts,
-language, policy mode, host-specific model roles, and managed state paths.
-Secrets, tokens, prompts, and private keys are prohibited. Historical
-configuration `1.0.0` is readable only for explicit migration and cannot
-authorize phase execution.
+The current `state.project-config@1.3.0` records plugin and host contracts,
+granular language policy, policy mode, host-specific model roles, managed state
+paths, and the typed project profile. Secrets, tokens, prompts, and private
+keys are prohibited. Historical configuration `1.0.0`, `1.1.0`, or `1.2.0` is
+readable only for explicit migration and returns
+`profile.config_migration_required` before an ordinary operation can treat it
+as current state.
+
+## Project profile
+
+`projectProfile` contains exact project-root commands (`test`, `lint`, `build`,
+and `run`), project-relative source/test/configuration paths, directory and
+naming conventions, and implementation-language labels. Every leaf is a
+closed `resolved`, `not-applicable`, or `unresolved` record. The programming
+languages in this profile do not replace the separate human-language policy.
+
+`.brain/01-architecture/stack-profile.md` is generated deterministically from
+that typed state plus offline root-entry stack evidence. Manual Markdown edits
+are never authoritative. Doctor compares renderer bytes and reports unresolved
+keys; it does not parse prose to recover values. Initialization and doctor keep
+all configured commands inert.
 
 ## Model roles and fixed phase mapping
 

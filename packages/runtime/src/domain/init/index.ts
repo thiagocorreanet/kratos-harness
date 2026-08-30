@@ -7,6 +7,16 @@ export type {
   ResolvedModelRoles,
   ResolvedRoleMap,
 } from "./answers.js";
+export {
+  resolveProjectProfile,
+  unresolvedProjectProfile,
+  unresolvedProjectProfileKeys,
+} from "./profile.js";
+export type {
+  PartialProjectProfile,
+  ProjectProfileLeaf,
+  ResolvedProjectProfile,
+} from "./profile.js";
 export { detectLanguageConventions } from "./detect.js";
 export type {
   DetectedLanguageConventions,
@@ -24,6 +34,7 @@ export type {
   ManagedFilePlan,
 } from "./managed-section.js";
 export { destinationsOf, skeletonEffects } from "./skeleton.js";
+export { renderStackProfile } from "./stack-profile.js";
 export { profileStack } from "./stack.js";
 export type {
   DetectedStack,

@@ -9,7 +9,8 @@ import {
   type MigrationAction,
 } from "../migration/index.js";
 import { planOf, type Effect } from "../effects.js";
-import { resultFor } from "../result/index.js";
+import type { ProjectProfileLeaf } from "../init/index.js";
+import { resultFor, validatePublicText } from "../result/index.js";
 
 import { observingCommand } from "./observed.js";
 import type {
@@ -20,6 +21,10 @@ import type {
 } from "./spec.js";
 
 type Observation = Extract<CommandObservation, { readonly kind: "migration" }>;
+type ConfigOperation = Extract<
+  Observation["operation"],
+  { readonly kind: "config" }
+>;
 
 const ROOT_FLAG: CommandSpec["flags"] = [
   {
@@ -294,9 +299,7 @@ function migrateConfig(
   };
 }
 
-function configPlanDetails(
-  operation: Extract<Observation["operation"], { readonly kind: "config" }>,
-): string[] {
+function configPlanDetails(operation: ConfigOperation): string[] {
   const details = [
     `Source SHA-256: ${operation.source.sha256}`,
     `Destination SHA-256: ${operation.destinationDigest}`,
@@ -326,10 +329,111 @@ function configPlanDetails(
     }
   }
   details.push(
+    "Project profile:",
+    ...configProfileDetails(operation.destination.projectProfile),
     "Writes:",
     ...operation.writes.map(({ path, sha256 }) => `- ${path} sha256=${sha256}`),
   );
   return details;
+}
+
+function configProfileDetails(
+  profile: ConfigOperation["destination"]["projectProfile"],
+): string[] {
+  const entries: readonly (readonly [string, ProjectProfileLeaf<unknown>])[] = [
+    ["projectProfile.commands.test", profile.commands.test],
+    ["projectProfile.commands.lint", profile.commands.lint],
+    ["projectProfile.commands.build", profile.commands.build],
+    ["projectProfile.commands.run", profile.commands.run],
+    ["projectProfile.paths.source", profile.paths.source],
+    ["projectProfile.paths.tests", profile.paths.tests],
+    ["projectProfile.paths.configuration", profile.paths.configuration],
+    [
+      "projectProfile.conventions.directoryLayout",
+      profile.conventions.directoryLayout,
+    ],
+    ["projectProfile.conventions.naming", profile.conventions.naming],
+    [
+      "projectProfile.conventions.implementationLanguages",
+      profile.conventions.implementationLanguages,
+    ],
+  ];
+  return entries.flatMap(([key, leaf]) => profileLeafDetails(key, leaf));
+}
+
+function profileLeafDetails(
+  key: string,
+  leaf: ProjectProfileLeaf<unknown>,
+): string[] {
+  if (leaf.status === "unresolved") return [`${key}: unresolved`];
+  if (leaf.status === "not-applicable") {
+    return terminalSafeValue(
+      `${key}: not-applicable; reason=`,
+      leaf.reason,
+      leaf.reason,
+    );
+  }
+  const display = Array.isArray(leaf.value)
+    ? `[${leaf.value.map(String).join(", ")}]`
+    : String(leaf.value);
+  const exact = Array.isArray(leaf.value)
+    ? JSON.stringify(leaf.value)
+    : String(leaf.value);
+  return terminalSafeValue(`${key}: resolved; value=`, display, exact);
+}
+
+function terminalSafeValue(
+  prefix: string,
+  display: string,
+  exact: string,
+): string[] {
+  const line = `${prefix}${visiblyEncodeTerminalControls(display)}`;
+  try {
+    validatePublicText(line);
+    return [line];
+  } catch {
+    const encoded = utf16Hex(exact);
+    const chunks = chunk(encoded, 3_000);
+    return chunks.map(
+      (part, index) =>
+        `${prefix}UTF-16-hex part ${String(index + 1)}/${String(chunks.length)}=${part}`,
+    );
+  }
+}
+
+function visiblyEncodeTerminalControls(value: string): string {
+  let encoded = "";
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint !== undefined &&
+      (codePoint <= 0x1f ||
+        (codePoint >= 0x7f && codePoint <= 0x9f) ||
+        codePoint === 0x2028 ||
+        codePoint === 0x2029)
+    ) {
+      encoded += `<U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}>`;
+    } else {
+      encoded += character;
+    }
+  }
+  return encoded;
+}
+
+function utf16Hex(value: string): string {
+  let encoded = "";
+  for (let index = 0; index < value.length; index += 1) {
+    encoded += value.charCodeAt(index).toString(16).padStart(4, "0");
+  }
+  return encoded;
+}
+
+function chunk(value: string, maximum: number): string[] {
+  const chunks: string[] = [];
+  for (let offset = 0; offset < value.length; offset += maximum) {
+    chunks.push(value.slice(offset, offset + maximum));
+  }
+  return chunks;
 }
 
 function configApplyCommand(

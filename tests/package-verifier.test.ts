@@ -120,4 +120,63 @@ describe("package verifier", () => {
     },
     verifierTimeoutMilliseconds,
   );
+
+  it(
+    "rejects a project-profile relay that changes host interview behavior",
+    async () => {
+      const root = hostPackage("codex");
+      await writeFile(
+        join(root, "skills/kratos/scripts/project-profile-relay.mjs"),
+        [
+          "export const projectProfileQuestions = [];",
+          "export const relayProjectProfileAnswers = () => ({});",
+          "",
+        ].join("\n"),
+      );
+      const manifestPath = join(root, "runtime/manifest.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+        host: { assetsSha256: string };
+      };
+      manifest.host.assetsSha256 = await hostAssetsDigest(root);
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      expect(verify).toThrow(/project-profile questions are invalid/);
+    },
+    verifierTimeoutMilliseconds,
+  );
+
+  it(
+    "rejects a relay that conditionally corrupts array-shaped answers",
+    async () => {
+      const root = hostPackage("claude-code");
+      const relayPath = join(
+        root,
+        "skills/kratos/scripts/project-profile-relay.mjs",
+      );
+      const relay = await readFile(relayPath, "utf8");
+      const exactMapping = 'source: answers["projectProfile.paths.source"],';
+      expect(relay).toContain(exactMapping);
+      await writeFile(
+        relayPath,
+        relay.replace(
+          exactMapping,
+          [
+            "source:",
+            '  Array.isArray(answers["projectProfile.paths.source"]?.value)',
+            '    ? { status: "unresolved" }',
+            '    : answers["projectProfile.paths.source"],',
+          ].join("\n"),
+        ),
+      );
+      const manifestPath = join(root, "runtime/manifest.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+        host: { assetsSha256: string };
+      };
+      manifest.host.assetsSha256 = await hostAssetsDigest(root);
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      expect(verify).toThrow(/project-profile answer relay is invalid/);
+    },
+    verifierTimeoutMilliseconds,
+  );
 });

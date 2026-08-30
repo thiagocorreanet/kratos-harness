@@ -19,7 +19,7 @@ import type {
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
-  ProjectConfigV1_2,
+  ProjectConfigV1_3,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -45,6 +45,7 @@ import type { GapProposalObservation } from "../gaps/index.js";
 import type { GateDecision, GateMode } from "../gates/index.js";
 import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
+import type { StackProfileReadinessObservation } from "../diagnostics/index.js";
 
 export type GuardWriteOutcome =
   | { readonly kind: "allowed" }
@@ -136,6 +137,8 @@ export type CommandObservation =
        * that must stay pure.
        */
       readonly answers: ResolvedInitAnswers;
+      /** Exact authoritative configuration identity used to resolve profile leaves. */
+      readonly configExpected: WriteFilePrecondition;
       /** Entry names at the project root, for stack profiling. */
       readonly rootEntries: readonly string[];
       /**
@@ -214,7 +217,7 @@ export type CommandObservation =
             readonly kind: "refused";
             readonly reasonCode:
               | ModelRoleRefusal
-              | "model.config_migration_required"
+              | "profile.config_migration_required"
               | "guard.config_missing"
               | "guard.config_corrupt"
               | "contract.state_version_invalid"
@@ -319,6 +322,8 @@ export type CommandObservation =
       readonly repairPlan: RepairPlan | null;
       readonly evidenceBundle: EvidenceBundle | null;
       readonly dashboardHtml: string | null;
+      /** Generated profile bytes and their typed authoritative inputs. */
+      readonly stackProfile: StackProfileReadinessObservation;
     }
   | {
       readonly kind: "migration";
@@ -343,7 +348,7 @@ export type CommandObservation =
               readonly content: string;
               readonly sha256: string;
             };
-            readonly destination: ProjectConfigV1_2;
+            readonly destination: ProjectConfigV1_3;
             readonly destinationDigest: string;
             /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;

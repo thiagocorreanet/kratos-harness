@@ -128,7 +128,13 @@ function decide(
         "A destination carries content this run is not authorized to change.",
       ]);
     }
-    effects.push({ ...effect, content: content.content });
+    effects.push({
+      ...effect,
+      content: content.content,
+      ...(effect.path === ".brain/config.json"
+        ? { expected: observation.configExpected }
+        : {}),
+    });
     outcomes.push({
       path: effect.path,
       outcome: classify(existing, content.content),

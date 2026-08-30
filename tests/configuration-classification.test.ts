@@ -4,7 +4,7 @@ import type { ReadableProjectConfig } from "@kratos/contracts";
 import { classifyConfiguration } from "@kratos/runtime/domain/project";
 
 describe("configuration classification version migration", () => {
-  it("classifies stateContract 1.1.0 as migration-required and 1.2.0 as valid", () => {
+  it("classifies stateContract 1.2.0 as profile migration-required and 1.3.0 as valid", () => {
     const outcome11 = classifyConfiguration(
       { kind: "file", text: JSON.stringify({ stateContract: "1.1.0" }) },
       () => ({ kind: "valid", value: {} as ReadableProjectConfig }),
@@ -15,6 +15,15 @@ describe("configuration classification version migration", () => {
       { kind: "file", text: JSON.stringify({ stateContract: "1.2.0" }) },
       () => ({ kind: "valid", value: {} as ReadableProjectConfig }),
     );
-    expect(outcome12.kind).toBe("valid");
+    expect(outcome12).toEqual({
+      kind: "migration-required",
+      reasonCode: "profile.config_migration_required",
+    });
+
+    const outcome13 = classifyConfiguration(
+      { kind: "file", text: JSON.stringify({ stateContract: "1.3.0" }) },
+      () => ({ kind: "valid", value: {} as ReadableProjectConfig }),
+    );
+    expect(outcome13.kind).toBe("valid");
   });
 });

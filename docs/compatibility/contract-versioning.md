@@ -10,18 +10,20 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json);
-the published
-[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json)
-predecessor and v1 schema remain byte-preserved.
+[`contract-manifest.v1.4.schema.json`](../../schemas/contracts/contract-manifest.v1.4.schema.json);
+the published predecessors
+[`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json),
+[`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json),
+[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json),
+and the v1 schema remain byte-preserved.
 The manifest registers every current payload schema, its generated type, and
 the metadata-only Go v3 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
-| `stateContract` | `1.1.0` | Persisted `.brain/` configuration and history |
-| `hostContract` | `1.1.0` | Cross-process adapter request and response messages |
+| `stateContract` | `1.3.0` | Persisted `.brain/` configuration and history |
+| `hostContract` | `1.3.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
 and the numeric `schema_version` field inside a legacy payload is not converted
@@ -33,13 +35,16 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-The state family's current global revision is `1.1.0`, and its readable window
-contains `1.0.0` and `1.1.0`. This family identity is used for bundle
+The state family's current global revision is `1.3.0`, and its readable window
+contains `1.0.0` through `1.3.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-- Role-aware state payloads `state.project-config`, `state.event`, and
-  `state.migration` write `1.1.0`.
+- Current `state.project-config` writes `1.3.0`, including the granular
+  language policy introduced in `1.2.0` and the typed project profile
+  introduced in `1.3.0`.
+- Role-aware `state.event` and `state.migration` payloads continue to write
+  their registered `1.1.0` revisions.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
   `state.acceptance-verdict`, `state.approval`, `state.evidence`,
   `state.failure-candidate`, `state.feature`, `state.feature-scope`,
@@ -52,25 +57,27 @@ payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is the frozen
 predecessor family; both are `migration-only`. Ordinary operations must not
 treat them as current state or mutate them. An explicit migration planner owns
-their inspection and recovery. A project configuration at `1.0.0` is readable
-only to that planner and returns `model.config_migration_required` before phase
-execution.
+their inspection and recovery. A project configuration at `1.0.0`, `1.1.0`,
+or `1.2.0` is readable only to that planner and returns
+`profile.config_migration_required` before an ordinary operation can treat it
+as current state.
 
-The host family's current global revision is also `1.1.0`, with `1.0.0` and
-`1.1.0` accepted for their registered payloads. Exact writes again follow
-`CONTRACT_VERSIONS`:
+The host family's current global revision is also `1.3.0`, with `1.0.0`
+through `1.3.0` accepted for their registered payloads. Exact writes again
+follow `CONTRACT_VERSIONS`:
 
-- Role-aware host payloads `host.adapter-message`, `host.init-answers`, and
-  `host.phase-handoff` write `1.1.0`.
+- Current `host.init-answers` writes `1.3.0` with optional partial
+  `projectProfile` answers. `host.adapter-message` and `host.phase-handoff`
+  continue to write their registered `1.1.0` revisions.
 - Unchanged host payloads `host.agent-output`, `host.gap-proposal`,
   `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
   continue to write their registered `1.0.0` revision.
 
-Model routing, handoff, and execution observation therefore require the
-registered `1.1.0` role-aware payloads, not a forced revision change to
+Model routing, handoff, execution observation, and initialization therefore
+select the exact registered payload revision, not a forced revision change to
 unrelated contracts. Host `0.9.0`, unknown earlier versions, and future
-versions require an adapter upgrade. Host compatibility is not inferred from a
-shared major version.
+versions require an adapter upgrade. Host compatibility is not inferred from
+a shared major version.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -152,6 +159,14 @@ Revision `1.8.0` preserves those 107 entries and appends two language policy out
 | `policy.language_incomplete` | 3 | A supplied language policy is incomplete and missing required fields |
 | `policy.language_convention_mismatch_advisory` | 0 | The evaluated artifact language differs from the declared language policy |
 
+Revision `1.9.0` preserves those 109 entries and appends
+[`profile.config_migration_required`](../../packages/contracts/catalogs/reason-codes.v1.9.json),
+the blocked / exit 4 refusal used when a project configuration predates the
+typed project profile and requires explicit migration. It is the stable
+ordinary-operation refusal for every pre-`1.3.0` project configuration;
+`model.config_migration_required` remains published predecessor history rather
+than the current migration diagnosis.
+
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.
 
@@ -170,12 +185,15 @@ initialization answers, operation delivery, and normalized pre-tool mutation
 requests, plus phase handoff. All are JSON Schema 2020-12 documents with closed
 objects and exact family identities.
 
-The `1.1.0` additions are `state.project-config`, `state.event`,
-`state.migration`, `host.init-answers`, `host.adapter-message`, and
-`host.phase-handoff`. A mixed event stream is valid: each line selects its exact
+The `1.1.0` additions are role-aware revisions of `state.project-config`,
+`state.event`, `state.migration`, `host.init-answers`, `host.adapter-message`,
+and `host.phase-handoff`. The `1.2.0` project-configuration and initialization
+revisions add granular language policy. Their `1.3.0` revisions add the typed
+project profile. A mixed event stream is valid: each line selects its exact
 registered schema before the continuous revision and hash chain is verified.
 Migration changes only `.brain/config.json` and its audit bundle; it does not
-rewrite historical `1.0.0` events, snapshots, documents, approvals, or evidence.
+rewrite historical `1.0.0` events, snapshots, documents, approvals, or
+evidence.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.

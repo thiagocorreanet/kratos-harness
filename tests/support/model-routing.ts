@@ -1,4 +1,5 @@
-import type { ModelAssignmentV1_1, ProjectConfigV1_2 } from "@kratos/contracts";
+import type { ModelAssignmentV1_1, ProjectConfigV1_3 } from "@kratos/contracts";
+import { unresolvedProjectProfile } from "@kratos/runtime/domain/init";
 import type {
   HostModelCatalog,
   ModelRole,
@@ -47,12 +48,12 @@ export function claudeCatalog(): HostModelCatalog {
 export function roleConfig(
   host: "claude" | "codex",
   roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>,
-): ProjectConfigV1_2 {
+): ProjectConfigV1_3 {
   return {
-    contractVersion: "1.2.0",
-    stateContract: "1.2.0",
+    contractVersion: "1.3.0",
+    stateContract: "1.3.0",
     pluginVersion: "0.0.0-development",
-    hostContract: "1.2.0",
+    hostContract: "1.3.0",
     language: {
       conversation: "en",
       documentation: "en",
@@ -71,6 +72,9 @@ export function roleConfig(
     modelRoles: {
       [host]: roles,
     },
+    projectProfile: structuredClone(
+      unresolvedProjectProfile(),
+    ) as ProjectConfigV1_3["projectProfile"],
   };
 }
 

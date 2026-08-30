@@ -9,6 +9,7 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
+// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
@@ -30,6 +31,7 @@
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -646,6 +648,109 @@ export namespace InitAnswersV1_2Contract {
   }
 }
 export type InitAnswersV1_2 = InitAnswersV1_2Contract.InitAnswersV1_2;
+export namespace InitAnswersV1_3Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface InitAnswersV1_3 {
+    contractVersion: "1.3.0";
+    hostContract: "1.3.0";
+    /**
+     * @minItems 1
+     */
+    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    language?: LanguagePolicy;
+    policyMode?: "standard" | "strict";
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+    projectProfile?: PartialProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+  export interface PartialProjectProfile {
+    commands?: PartialCommands;
+    paths?: PartialPaths;
+    conventions?: PartialConventions;
+  }
+  export interface PartialCommands {
+    test?: CommandLeaf;
+    lint?: CommandLeaf;
+    build?: CommandLeaf;
+    run?: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface PartialPaths {
+    source?: PathsLeaf;
+    tests?: PathsLeaf;
+    configuration?: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface PartialConventions {
+    directoryLayout?: ConventionLeaf;
+    naming?: ConventionLeaf;
+    implementationLanguages?: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type InitAnswersV1_3 = InitAnswersV1_3Contract.InitAnswersV1_3;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage
@@ -1318,6 +1423,111 @@ export namespace ProjectConfigV1_2Contract {
   }
 }
 export type ProjectConfigV1_2 = ProjectConfigV1_2Contract.ProjectConfigV1_2;
+export namespace ProjectConfigV1_3Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectConfigV1_3 {
+    contractVersion: "1.3.0";
+    stateContract: "1.3.0";
+    pluginVersion: "0.0.0-development";
+    hostContract: "1.3.0";
+    language: LanguagePolicy;
+    policyMode: "standard" | "strict";
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+    projectProfile: ProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+  export interface ProjectProfile {
+    commands: Commands;
+    paths: Paths;
+    conventions: Conventions;
+  }
+  export interface Commands {
+    test: CommandLeaf;
+    lint: CommandLeaf;
+    build: CommandLeaf;
+    run: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface Paths {
+    source: PathsLeaf;
+    tests: PathsLeaf;
+    configuration: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface Conventions {
+    directoryLayout: ConventionLeaf;
+    naming: ConventionLeaf;
+    implementationLanguages: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {

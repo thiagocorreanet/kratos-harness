@@ -18,6 +18,27 @@ skill directory before any implementation begins. The runtime alone translates
 reviewer prose, validates scope, and decides whether recording may proceed;
 stop and relay any refusal unchanged.
 
+## Initialization interview
+
+Before `kratos init`, load `scripts/project-profile-relay.mjs` from this skill
+directory. Ask every exported `projectProfileQuestions` entry in order. Record
+each answer explicitly as `resolved`, `not-applicable` with a reason, or
+`unresolved`; never infer an answer from stack detection or repository
+contents. Commands are exact single-line strings run from the project root,
+paths are project-relative lists, and implementation languages are programming
+languages rather than the human-language policy.
+
+Pass the keyed answers to `relayProjectProfileAnswers`, place its returned
+value in `host.init-answers@1.3.0` as `projectProfile`, and pipe that complete
+document to:
+
+```bash
+node scripts/kratos.mjs init --host claude --root <absolute-project-root>
+```
+
+The relay shapes values only. It does not validate readiness, parse generated
+Markdown, or execute any configured command.
+
 ## Runtime workflow
 
 1. Run `node scripts/kratos.mjs handshake --json` from this skill directory

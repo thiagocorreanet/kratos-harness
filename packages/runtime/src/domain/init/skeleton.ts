@@ -1,4 +1,4 @@
-import { KRATOS_VERSION, type ProjectConfigV1_2 } from "@kratos/contracts";
+import { KRATOS_VERSION, type ProjectConfigV1_3 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
 import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
@@ -13,6 +13,7 @@ import {
 } from "./managed-section.js";
 import type { StackProfile } from "./stack.js";
 import type { ResolvedAnswers } from "./answers.js";
+import { renderStackProfile } from "./stack-profile.js";
 
 type Answers = ResolvedAnswers;
 type Host = Answers["hosts"][number];
@@ -95,7 +96,10 @@ function stateFiles(
     // An empty keeper is how the directory survives a checkout while it holds
     // no decision yet.
     [".brain/01-architecture/adr/.gitkeep", ""],
-    [".brain/01-architecture/stack-profile.md", stackProfileDocument(profile)],
+    [
+      ".brain/01-architecture/stack-profile.md",
+      renderStackProfile(profile, answers.projectProfile, answers.language),
+    ],
     [".brain/02-features/README.md", featuresReadme()],
     ...FEATURE_DOCUMENTS.map(
       ({ id, template }) =>
@@ -162,11 +166,11 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1_2 = {
-    contractVersion: "1.2.0",
-    stateContract: "1.2.0",
+  const config: ProjectConfigV1_3 = {
+    contractVersion: "1.3.0",
+    stateContract: "1.3.0",
     pluginVersion: KRATOS_VERSION,
-    hostContract: "1.2.0",
+    hostContract: "1.3.0",
     language: answers.language,
     policyMode: answers.policyMode,
     managedState: {
@@ -175,6 +179,9 @@ function configuration(answers: Answers): string {
       snapshots: answers.snapshots,
     },
     modelRoles: answers.modelRoles,
+    projectProfile: structuredClone(
+      answers.projectProfile,
+    ) as ProjectConfigV1_3["projectProfile"],
   };
   return json(config);
 }
@@ -196,31 +203,6 @@ function guardrails(answers: Answers): string {
     snapshots: answers.snapshots,
     managedPaths: roots.sort(compare),
   });
-}
-
-function stackProfileDocument(profile: StackProfile): string {
-  const preamble = [
-    "# Stack profile",
-    "",
-    "Written by Kratos from the names of the entries at the project root.",
-    "Detection is offline: it runs no package manager and parses no manifest,",
-    "because a wrong parse names a stack confidently and names it wrong.",
-    "",
-  ];
-  if (profile.unrecognized) {
-    return lines(
-      ...preamble,
-      "No known stack matched this project root. That is an answer rather than",
-      "a failure: a project this tool does not recognize is still a project it",
-      "initializes and tracks.",
-    );
-  }
-  return lines(
-    ...preamble,
-    "| Stack | Evidence |",
-    "| --- | --- |",
-    ...profile.stacks.map(({ id, evidence }) => `| ${id} | \`${evidence}\` |`),
-  );
 }
 
 function brainGitignore(): string {
@@ -310,8 +292,8 @@ function codexConfiguration(answers: Answers): string {
   return lines(
     `# Managed by Kratos ${KRATOS_VERSION}.`,
     "",
-    'contract_version = "1.2.0"',
-    'host_contract = "1.2.0"',
+    'contract_version = "1.3.0"',
+    'host_contract = "1.3.0"',
     `policy_mode = "${answers.policyMode}"`,
     "",
     "[language]",

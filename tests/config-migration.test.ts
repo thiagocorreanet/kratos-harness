@@ -6,6 +6,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
 } from "@kratos/contracts";
 import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -63,14 +64,14 @@ const LEGACY_CONFIG: ProjectConfigV1 = {
 const LEGACY_CONFIG_BYTES = `${JSON.stringify(LEGACY_CONFIG, null, 4)}\n\n`;
 
 const ANSWERS = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["claude", "codex"],
 });
 
 const EXPLICIT_ANSWERS = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["codex"],
   modelRoles: {
     codex: {
@@ -272,6 +273,444 @@ async function observedConfigMigrationId(run: Subject): Promise<string> {
 }
 
 describe("configuration migration", () => {
+  it("migrates project configuration 1.2 to 1.3 without requiring answers", async () => {
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    } satisfies ProjectConfigV1_2;
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n`,
+    });
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated).toMatchObject({
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
+      hostContract: "1.3.0",
+    });
+    expect(migrated.projectProfile.commands.test).toEqual({
+      status: "unresolved",
+    });
+  });
+
+  it("uses migration answers for profile leaves while leaving omitted leaves unresolved", async () => {
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    } satisfies ProjectConfigV1_2;
+    const profileAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+        },
+        conventions: {
+          implementationLanguages: {
+            status: "resolved",
+            value: ["TypeScript"],
+          },
+        },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [profileAnswers, profileAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.projectProfile.commands.test).toEqual({
+      status: "resolved",
+      value: "npm test",
+    });
+    expect(migrated.projectProfile.commands.lint).toEqual({
+      status: "unresolved",
+    });
+    expect(migrated.projectProfile.conventions.implementationLanguages).toEqual(
+      { status: "resolved", value: ["TypeScript"] },
+    );
+  });
+
+  it("preserves both persisted custom role maps when narrowed v1.2 answers only add a profile", async () => {
+    const customRoles = {
+      claude: {
+        planner: { model: "claude-custom-planner", effort: "high" },
+        implementer: { model: "claude-custom-implementer", effort: "medium" },
+        judge: { model: "claude-custom-judge", effort: "high" },
+      },
+      codex: {
+        planner: { model: "codex-custom-planner", effort: "high" },
+        implementer: { model: "codex-custom-implementer", effort: "medium" },
+        judge: { model: "codex-custom-judge", effort: "high" },
+      },
+    } as const;
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: customRoles,
+    } satisfies ProjectConfigV1_2;
+    const profileOnlyAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+        },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [profileOnlyAnswers, profileOnlyAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles).toEqual(customRoles);
+    const preview = run.output.structured_.join("");
+    expect(preview).toContain("claude.planner = claude-custom-planner@high");
+    expect(preview).not.toContain(
+      "claude.planner = claude-custom-planner@high (defaulted)",
+    );
+    expect(preview).not.toContain(
+      "codex.planner = codex-custom-planner@high (defaulted)",
+    );
+  });
+
+  it("merges explicit role answers without deleting another persisted host map", async () => {
+    const claudeRoles = {
+      planner: { model: "claude-custom-planner", effort: "high" },
+      implementer: { model: "claude-custom-implementer", effort: "medium" },
+      judge: { model: "claude-custom-judge", effort: "high" },
+    } as const;
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: {
+        claude: claudeRoles,
+        codex: codexCatalog().defaults,
+      },
+    } satisfies ProjectConfigV1_2;
+    const narrowedAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      modelRoles: {
+        codex: {
+          planner: "planner-alias",
+          implementer: "impl-alias",
+          judge: "judge-alias",
+        },
+      },
+      projectProfile: {
+        commands: { test: { status: "resolved", value: "npm test" } },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [narrowedAnswers, narrowedAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles.claude).toEqual(claudeRoles);
+    expect(migrated.modelRoles.codex).toEqual({
+      planner: { model: "planner-canonical", effort: "medium" },
+      implementer: { model: "implementer-canonical", effort: "medium" },
+      judge: { model: "judge-canonical", effort: "medium" },
+    });
+  });
+
+  it("preserves both persisted v1.1 role maps when answers only add a profile", async () => {
+    const customRoles = {
+      claude: {
+        planner: { model: "claude-custom-planner", effort: "high" },
+        implementer: { model: "claude-custom-implementer", effort: "medium" },
+        judge: { model: "claude-custom-judge", effort: "high" },
+      },
+      codex: {
+        planner: { model: "codex-custom-planner", effort: "high" },
+        implementer: { model: "codex-custom-implementer", effort: "medium" },
+        judge: { model: "codex-custom-judge", effort: "high" },
+      },
+    } as const;
+    const source = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "en",
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: customRoles,
+    } satisfies ProjectConfigV1_1;
+    const profileOnlyAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: { test: { status: "resolved", value: "npm test" } },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [profileOnlyAnswers, profileOnlyAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles).toEqual(customRoles);
+    expect(run.output.structured_.join("")).toContain(
+      "Confirmed hosts: claude, codex",
+    );
+  });
+
+  it("overlays explicit v1.1 role answers without deleting the other persisted host", async () => {
+    const claudeRoles = {
+      planner: { model: "claude-custom-planner", effort: "high" },
+      implementer: { model: "claude-custom-implementer", effort: "medium" },
+      judge: { model: "claude-custom-judge", effort: "high" },
+    } as const;
+    const source = {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.1.0",
+      language: "en",
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: {
+        claude: claudeRoles,
+        codex: {
+          planner: { model: "codex-custom-planner", effort: "high" },
+          implementer: { model: "codex-custom-implementer", effort: "medium" },
+          judge: { model: "codex-custom-judge", effort: "high" },
+        },
+      },
+    } satisfies ProjectConfigV1_1;
+    const explicitAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      modelRoles: {
+        codex: {
+          planner: "planner-alias",
+          implementer: "impl-alias",
+          judge: "judge-alias",
+        },
+      },
+      projectProfile: {
+        commands: { test: { status: "resolved", value: "npm test" } },
+      },
+    });
+    const run = legacyProjectWithHistory(
+      [explicitAnswers, explicitAnswers],
+      undefined,
+      { [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n` },
+    );
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_3;
+    expect(migrated.modelRoles.claude).toEqual(claudeRoles);
+    expect(migrated.modelRoles.codex).toEqual({
+      planner: { model: "planner-canonical", effort: "medium" },
+      implementer: { model: "implementer-canonical", effort: "medium" },
+      judge: { model: "judge-canonical", effort: "medium" },
+    });
+    expect(run.output.structured_.join("")).toContain(
+      "Confirmed hosts: claude, codex",
+    );
+  });
+
+  it("previews all ten profile leaves in stable order with terminal-safe values", async () => {
+    const source = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+    } satisfies ProjectConfigV1_2;
+    const escapeCommand = "printf '\u001b[2J'";
+    const profileOnlyAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "https://x" },
+          lint: { status: "not-applicable", reason: "No lint\u2028step." },
+          build: { status: "unresolved" },
+          run: { status: "resolved", value: escapeCommand },
+        },
+        paths: {
+          source: { status: "resolved", value: ["src", "packages/api"] },
+          tests: {
+            status: "not-applicable",
+            reason: "Generated elsewhere.",
+          },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: {
+            status: "resolved",
+            value: "Feature folders.",
+          },
+          naming: { status: "not-applicable", reason: "No shared naming." },
+          implementationLanguages: {
+            status: "resolved",
+            value: ["Type\u0000Script", "Go"],
+          },
+        },
+      },
+    });
+    const run = legacyProjectWithHistory([profileOnlyAnswers], undefined, {
+      [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n`,
+    });
+
+    expect(await runCommandLine(["migrate", "config"], run.ports)).toBe(0);
+
+    const preview = run.output.structured_.join("");
+    const expected = [
+      "projectProfile.commands.test: resolved; value=UTF-16-hex part 1/1=00680074007400700073003a002f002f0078",
+      "projectProfile.commands.lint: not-applicable; reason=No lint<U+2028>step.",
+      "projectProfile.commands.build: unresolved",
+      "projectProfile.commands.run: resolved; value=printf '<U+001B>[2J'",
+      "projectProfile.paths.source: resolved; value=[src, packages/api]",
+      "projectProfile.paths.tests: not-applicable; reason=Generated elsewhere.",
+      "projectProfile.paths.configuration: unresolved",
+      "projectProfile.conventions.directoryLayout: resolved; value=Feature folders.",
+      "projectProfile.conventions.naming: not-applicable; reason=No shared naming.",
+      "projectProfile.conventions.implementationLanguages: resolved; value=[Type<U+0000>Script, Go]",
+    ];
+    let prior = -1;
+    for (const line of expected) {
+      const index = preview.indexOf(line);
+      expect(index, line).toBeGreaterThan(prior);
+      prior = index;
+    }
+    expect(preview).not.toContain("\u001b");
+    expect(preview).not.toContain("\u0000");
+    expect(preview).not.toContain("\u2028");
+  });
+
   it("migrates legacy pt-BR language config into granular language policy", () => {
     const legacy: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",
@@ -341,7 +780,7 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      stateContract: "1.2.0",
+      stateContract: "1.3.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -389,10 +828,10 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
       pluginVersion: "0.0.0-development",
-      hostContract: "1.2.0",
+      hostContract: "1.3.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -413,6 +852,24 @@ describe("configuration migration", () => {
           planner: { model: "planner-canonical", effort: "medium" },
           implementer: { model: "implementer-canonical", effort: "high" },
           judge: { model: "judge-canonical", effort: "medium" },
+        },
+      },
+      projectProfile: {
+        commands: {
+          test: { status: "unresolved" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
         },
       },
     });
@@ -590,13 +1047,13 @@ describe("configuration migration", () => {
     const run = legacyProjectWithHistory(
       [
         JSON.stringify({
-          contractVersion: "1.2.0",
-          hostContract: "1.2.0",
+          contractVersion: "1.3.0",
+          hostContract: "1.3.0",
           hosts: ["codex"],
         }),
         JSON.stringify({
-          contractVersion: "1.2.0",
-          hostContract: "1.2.0",
+          contractVersion: "1.3.0",
+          hostContract: "1.3.0",
           hosts: ["codex"],
         }),
       ],
@@ -651,7 +1108,7 @@ describe("configuration migration", () => {
       (
         JSON.parse(
           run.storage.snapshot().files[CONFIG_REF] ?? "null",
-        ) as ProjectConfigV1_2
+        ) as ProjectConfigV1_3
       ).modelRoles,
     ).toHaveProperty("codex");
   });
@@ -663,7 +1120,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_2;
+    ) as ProjectConfigV1_3;
     expect(migrated.modelRoles).toEqual({
       codex: {
         planner: { model: "planner-canonical", effort: "medium" },
@@ -680,8 +1137,8 @@ describe("configuration migration", () => {
     {
       label: "invalid answers",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: [],
       }),
       routing: fixedModelRouting([codexCatalog()]),
@@ -689,8 +1146,8 @@ describe("configuration migration", () => {
     {
       label: "missing catalog",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([]),
@@ -698,8 +1155,8 @@ describe("configuration migration", () => {
     {
       label: "equal implementer and judge defaults",
       answers: JSON.stringify({
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
       }),
       routing: fixedModelRouting([

@@ -7,7 +7,7 @@ import type {
   ReadableEvent,
   EvidenceV1,
   GapRecordV1,
-  ProjectConfigV1_2,
+  ProjectConfigV1_3,
   SnapshotV1,
 } from "@kratos/contracts";
 import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
@@ -75,6 +75,12 @@ import {
   planSnapshotRepair,
   renderStaticDashboard,
 } from "../domain/observability/index.js";
+import {
+  profileStack,
+  renderStackProfile,
+  unresolvedProjectProfileKeys,
+} from "../domain/init/index.js";
+import type { StackProfileReadinessObservation } from "../domain/diagnostics/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
@@ -437,6 +443,7 @@ export async function observeWorkflow(
           anchored.digests,
         )
       : null;
+  const stackProfile = await observeStackProfile(anchored, registry);
   return {
     kind: "observed",
     observation: {
@@ -503,6 +510,7 @@ export async function observeWorkflow(
       integrityAudit,
       repairPlan,
       evidenceBundle,
+      stackProfile,
       dashboardHtml:
         evidenceBundle === null ? null : renderStaticDashboard(evidenceBundle),
     },
@@ -1361,7 +1369,7 @@ type PhaseAssignmentReason =
   | "model.resolution_unavailable"
   | "model.effort_unsupported"
   | "model.independence_violation"
-  | "model.config_migration_required"
+  | "profile.config_migration_required"
   | "guard.config_missing"
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
@@ -1610,7 +1618,7 @@ async function observeConfigurationSnapshot(
 ): Promise<
   | {
       readonly kind: "valid";
-      readonly value: ProjectConfigV1_2;
+      readonly value: ProjectConfigV1_3;
       readonly digest: string;
     }
   | PhaseAssignmentRefusal
@@ -1640,6 +1648,96 @@ async function observeConfigurationSnapshot(
   } catch {
     return refusedAssignment("guard.config_missing", "configuration");
   }
+}
+
+async function observeStackProfile(
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<StackProfileReadinessObservation> {
+  const path = ".brain/01-architecture/stack-profile.md";
+  let destination: Pick<
+    StackProfileReadinessObservation,
+    "exists" | "regularFile" | "readable" | "actualBytes"
+  >;
+  try {
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind === "missing") {
+      destination = {
+        exists: false,
+        regularFile: false,
+        readable: false,
+        actualBytes: null,
+      };
+    } else if (entry.kind !== "file") {
+      destination = {
+        exists: true,
+        regularFile: false,
+        readable: false,
+        actualBytes: null,
+      };
+    } else {
+      destination = {
+        exists: true,
+        regularFile: true,
+        readable: true,
+        actualBytes: { size: entry.size, sha256: entry.sha256 },
+      };
+    }
+  } catch {
+    destination = {
+      exists: true,
+      regularFile: true,
+      readable: false,
+      actualBytes: null,
+    };
+  }
+
+  const configuration = await observeConfigurationSnapshot(ports, registry);
+  if (configuration.kind !== "valid") {
+    return {
+      authoritativeState:
+        configuration.reasonCode === "profile.config_migration_required"
+          ? {
+              kind: "migration-required",
+              reasonCode: configuration.reasonCode,
+            }
+          : { kind: "invalid", reasonCode: configuration.reasonCode },
+      expectedBytes: null,
+      unresolvedKeys: [],
+      ...destination,
+    };
+  }
+  let rootEntries: readonly string[];
+  try {
+    rootEntries = await ports.fileSystem.list(".");
+  } catch {
+    return {
+      authoritativeState: {
+        kind: "invalid",
+        reasonCode: "runtime.state_corrupt",
+      },
+      expectedBytes: null,
+      unresolvedKeys: [],
+      ...destination,
+    };
+  }
+  const rendered = renderStackProfile(
+    profileStack({ rootEntries }),
+    configuration.value.projectProfile,
+    configuration.value.language,
+  );
+  const renderedBytes = new TextEncoder().encode(rendered);
+  return {
+    authoritativeState: { kind: "valid" },
+    expectedBytes: {
+      size: renderedBytes.byteLength,
+      sha256: ports.digests.sha256Bytes(renderedBytes),
+    },
+    unresolvedKeys: unresolvedProjectProfileKeys(
+      configuration.value.projectProfile,
+    ),
+    ...destination,
+  };
 }
 
 function refusedAssignment(

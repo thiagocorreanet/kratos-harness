@@ -33,6 +33,7 @@
     "esbuild",
     "ESM",
     "evented",
+    "fieldwise",
     "ghsas",
     "GOARCH",
     "gpgsign",

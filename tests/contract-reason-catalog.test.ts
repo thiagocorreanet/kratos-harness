@@ -43,6 +43,10 @@ const catalogV18Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.8.json",
 );
+const catalogV19Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.9.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -81,6 +85,7 @@ let catalogV15: Catalog;
 let catalogV16: Catalog;
 let catalogV17: Catalog;
 let catalogV18: Catalog;
+let catalogV19: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -90,6 +95,7 @@ let catalogV15Text: string;
 let catalogV16Text: string;
 let catalogV17Text: string;
 let catalogV18Text: string;
+let catalogV19Text: string;
 
 beforeAll(async () => {
   [
@@ -102,6 +108,7 @@ beforeAll(async () => {
     catalogV16Text,
     catalogV17Text,
     catalogV18Text,
+    catalogV19Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -112,6 +119,7 @@ beforeAll(async () => {
     readFile(catalogV16Path, "utf8"),
     readFile(catalogV17Path, "utf8"),
     readFile(catalogV18Path, "utf8"),
+    readFile(catalogV19Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -122,6 +130,7 @@ beforeAll(async () => {
   catalogV16 = JSON.parse(catalogV16Text) as Catalog;
   catalogV17 = JSON.parse(catalogV17Text) as Catalog;
   catalogV18 = JSON.parse(catalogV18Text) as Catalog;
+  catalogV19 = JSON.parse(catalogV19Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -362,6 +371,34 @@ describe("contract reason catalog revision", () => {
       retryable: false,
     });
     expect(advisory?.recovery).not.toBeNull();
+  });
+
+  it("preserves revision 1.8 and appends the profile migration reason", () => {
+    expect(createHash("sha256").update(catalogV18Text).digest("hex")).toBe(
+      "c23aa8566cfa0b16c33c575bca85225097552e5f9964a5e0d20fed274ab9a940",
+    );
+    expect(catalogV19.contractVersion).toBe("1.0.0");
+    expect(catalogV19.reasons.slice(0, catalogV18.reasons.length)).toEqual(
+      catalogV18.reasons,
+    );
+    expect(
+      catalogV19.reasons
+        .slice(catalogV18.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["profile.config_migration_required"]);
+    expect(
+      catalogV19.reasons.find(
+        ({ code }) => code === "profile.config_migration_required",
+      ),
+    ).toMatchObject({
+      status: "blocked",
+      exitCode: 4,
+      evidence: "required",
+      stateChanged: false,
+      retryable: true,
+      recovery:
+        "Preview and authorize the project configuration migration before initializing or executing a phase.",
+    });
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

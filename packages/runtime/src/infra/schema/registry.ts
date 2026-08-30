@@ -8,7 +8,6 @@ import type { ValidateFunction } from "ajv/dist/2020.js";
 import type {
   ContractId,
   ContractRequest,
-  ContractValue,
   SchemaRegistry,
   ValidationDiagnostic,
 } from "../../domain/schema/index.js";
@@ -134,68 +133,72 @@ export function compileSchemaRegistry(
     throw registryIntegrityError();
   }
 
-  return Object.freeze({
-    validate<I extends ContractId, const V>(request: ContractRequest<I, V>) {
-      const id = request.id;
-      const family = families.get(id);
-      if (family === undefined) throw registryIntegrityError();
-      const requestedContractVersion = request.version;
-      const classification = classifyContractVersion(
-        family,
-        requestedContractVersion,
-      );
-      if (classification.classification !== "current") {
-        try {
-          return {
-            kind: "invalid" as const,
-            diagnostics: [
-              versionDiagnostic(id, requestedContractVersion, classification),
-            ],
-          };
-        } catch {
-          throw registryIntegrityError();
-        }
-      }
-
-      const version = classification.selectedVersion;
-      if (version === null) throw registryIntegrityError();
-      const validator = validators.get(registryKey(id, version));
-      if (validator === undefined) throw registryIntegrityError();
+  const validate = (request: {
+    readonly id: ContractId;
+    readonly version: unknown;
+    readonly value: unknown;
+    readonly structuralReasonCode: ContractRequest<ContractId>["structuralReasonCode"];
+  }) => {
+    const id = request.id;
+    const family = families.get(id);
+    if (family === undefined) throw registryIntegrityError();
+    const requestedContractVersion = request.version;
+    const classification = classifyContractVersion(
+      family,
+      requestedContractVersion,
+    );
+    if (classification.classification !== "current") {
       try {
-        const structuralReasonCode = request.structuralReasonCode;
-        const value = request.value;
-        if (!isInertJsonData(value)) {
-          return {
-            kind: "invalid" as const,
-            diagnostics: dataShapeDiagnostics(
-              id,
-              version,
-              structuralReasonCode,
-            ),
-          };
-        }
-        if (!validator(value)) {
-          return {
-            kind: "invalid" as const,
-            diagnostics: normalizeAjvDiagnostics(
-              validator.errors,
-              id,
-              version,
-              structuralReasonCode,
-            ),
-          };
-        }
         return {
-          kind: "valid" as const,
-          // AJV accepted this exact request's schema, so this is the sole
-          // runtime boundary that may connect its unknown input to V.
-          value: value as ContractValue<I, V>,
+          kind: "invalid" as const,
+          diagnostics: [
+            versionDiagnostic(id, requestedContractVersion, classification),
+          ],
         };
       } catch {
         throw registryIntegrityError();
       }
-    },
-  });
+    }
+
+    const version = classification.selectedVersion;
+    if (version === null) throw registryIntegrityError();
+    const validator = validators.get(registryKey(id, version));
+    if (validator === undefined) throw registryIntegrityError();
+    try {
+      const structuralReasonCode = request.structuralReasonCode;
+      const value = request.value;
+      if (!isInertJsonData(value)) {
+        return {
+          kind: "invalid" as const,
+          diagnostics: dataShapeDiagnostics(id, version, structuralReasonCode),
+        };
+      }
+      if (!validator(value)) {
+        return {
+          kind: "invalid" as const,
+          diagnostics: normalizeAjvDiagnostics(
+            validator.errors,
+            id,
+            version,
+            structuralReasonCode,
+          ),
+        };
+      }
+      return {
+        kind: "valid" as const,
+        // AJV accepted this exact request's schema, so this is the sole
+        // runtime boundary that may connect its unknown input to V.
+        value,
+      };
+    } catch {
+      throw registryIntegrityError();
+    }
+  };
+  // The public interface is generic, but compiling every generated contract
+  // variant into this runtime dispatch function exceeds TypeScript's union
+  // representation limit. AJV remains the only boundary that establishes the
+  // value's contract type, immediately before this erased implementation.
+  return Object.freeze({ validate }) as unknown as SchemaRegistry;
 }
 
 export function ajvSchemaRegistry(): SchemaRegistry {

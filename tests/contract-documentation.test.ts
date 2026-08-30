@@ -243,6 +243,7 @@ describe("contract versioning documentation", () => {
       "project-config.v1.schema.json",
       "project-config.v1.1.schema.json",
       "project-config.v1.2.schema.json",
+      "project-config.v1.3.schema.json",
       "snapshot.v1.schema.json",
       "event.v1.schema.json",
       "event.v1.1.schema.json",
@@ -263,13 +264,17 @@ describe("contract versioning documentation", () => {
       "pre-tool-use.v1.schema.json",
       "init-answers.v1.1.schema.json",
       "init-answers.v1.2.schema.json",
+      "init-answers.v1.3.schema.json",
       "phase-handoff.v1.1.schema.json",
       "contract-manifest.v1.2.schema.json",
+      "contract-manifest.v1.3.schema.json",
+      "contract-manifest.v1.4.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",
       "reason-codes.v1.7.json",
       "reason-codes.v1.8.json",
+      "reason-codes.v1.9.json",
     ]) {
       expect(schemaIndex).toContain(token);
     }

@@ -6,6 +6,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
 } from "@kratos/contracts";
 
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -20,6 +21,7 @@ import {
   type MigrationEntry,
   upgradeProjectConfiguration,
   upgradeProjectConfigurationV1_2,
+  upgradeProjectConfigurationV1_3,
 } from "../domain/migration/index.js";
 import type { Result } from "../domain/result/index.js";
 import type { HostModelCatalog } from "../domain/model-roles/index.js";
@@ -164,7 +166,7 @@ async function observeConfig(
   }
 
   const version = ownString(parsed, "stateContract");
-  if (version === "1.2.0") {
+  if (version === "1.3.0") {
     if (authorized) {
       return resultFailure("runtime.revision_conflict", CONFIG_REF);
     }
@@ -192,7 +194,7 @@ async function observeConfig(
       authorized ? CONFIG_REF : undefined,
     );
   }
-  if (version !== "1.0.0" && version !== "1.1.0") {
+  if (version !== "1.0.0" && version !== "1.1.0" && version !== "1.2.0") {
     return resultFailure(
       authorized
         ? "runtime.revision_conflict"
@@ -213,7 +215,7 @@ async function observeConfig(
     );
   }
 
-  let destination: ProjectConfigV1_2;
+  let destination: ProjectConfigV1_3;
   let hosts: readonly ("claude" | "codex")[];
   let answersAuthority: { readonly ref: string; readonly sha256: string };
   let defaulted: readonly string[];
@@ -270,14 +272,14 @@ async function observeConfig(
     ) {
       return resultFailure("trail.output_invalido");
     }
-    destination = upgradeProjectConfiguration(
-      legacy,
-      answers.answers.modelRoles,
+    destination = upgradeProjectConfigurationV1_3(
+      upgradeProjectConfiguration(legacy, answers.answers.modelRoles),
+      answers.answers.projectProfile,
     );
     hosts = answers.answers.hosts;
     answersAuthority = document.authority;
     defaulted = answers.defaulted;
-  } else {
+  } else if (version === "1.1.0") {
     const legacy = source.value as ProjectConfigV1_1;
     const document = await migrationAnswers(invocation, ports);
     if (document.kind === "document") {
@@ -321,13 +323,20 @@ async function observeConfig(
       ) {
         return resultFailure("trail.output_invalido");
       }
-      destination = upgradeProjectConfigurationV1_2({
-        ...legacy,
-        modelRoles: answers.answers.modelRoles,
-      });
-      hosts = answers.answers.hosts;
+      const modelRoles = mergeExplicitModelRoles(
+        document.value,
+        legacy.modelRoles,
+        answers.answers.modelRoles,
+      );
+      destination = upgradeProjectConfigurationV1_3(
+        upgradeProjectConfigurationV1_2({ ...legacy, modelRoles }),
+        answers.answers.projectProfile,
+      );
+      hosts = configuredHosts(modelRoles);
       answersAuthority = document.authority;
-      defaulted = answers.defaulted;
+      defaulted = answers.defaulted.filter(
+        (path) => !path.startsWith("modelRoles."),
+      );
     } else {
       if (
         document.result.why[0] !==
@@ -342,7 +351,82 @@ async function observeConfig(
       );
       answersAuthority = { ref: "config", sha256: entry.sha256 };
       defaulted = [];
-      destination = upgradeProjectConfigurationV1_2(legacy);
+      destination = upgradeProjectConfigurationV1_3(
+        upgradeProjectConfigurationV1_2(legacy),
+      );
+    }
+  } else {
+    const legacy = source.value as ProjectConfigV1_2;
+    const document = await migrationAnswers(invocation, ports);
+    if (document.kind === "document") {
+      const supplemented = supplementLegacyDefaults(document.value, legacy);
+      const answers = await resolveInitAnswers(supplemented, registry, {
+        observe: async (host) => {
+          const catalog = await observeModelCatalog(ports.modelRouting, host);
+          observedCatalogs.set(host, catalog);
+          return catalog;
+        },
+      });
+      if (answers.kind === "invalid") {
+        if (authorized) {
+          return resultFailure("runtime.revision_conflict", CONFIG_REF);
+        }
+        return {
+          kind: "failure",
+          result: resultFor(answers.reasonCode, {
+            why: [migrationAnswerFailure(answers.subject)],
+            evidence:
+              answers.subject === undefined
+                ? []
+                : [
+                    {
+                      kind: "observation",
+                      ref: `model-routing/${answers.subject.host}${
+                        answers.subject.role === undefined
+                          ? ""
+                          : `/${answers.subject.role}`
+                      }`,
+                    },
+                  ],
+          }),
+        };
+      }
+      if (
+        !sameJson(answers.answers.language, legacy.language) ||
+        answers.answers.policyMode !== legacy.policyMode ||
+        answers.answers.snapshots !== legacy.managedState.snapshots
+      ) {
+        return resultFailure("trail.output_invalido");
+      }
+      const modelRoles = mergeExplicitModelRoles(
+        document.value,
+        legacy.modelRoles,
+        answers.answers.modelRoles,
+      );
+      destination = upgradeProjectConfigurationV1_3(
+        { ...legacy, modelRoles },
+        answers.answers.projectProfile,
+      );
+      hosts = configuredHosts(modelRoles);
+      answersAuthority = document.authority;
+      defaulted = answers.defaulted.filter(
+        (path) => !path.startsWith("modelRoles."),
+      );
+    } else {
+      if (
+        document.result.why[0] !==
+        resultFor("trail.uso", { why: [USAGE_WHY.missingValue] }).why[0]
+      ) {
+        return authorized
+          ? resultFailure("runtime.revision_conflict", CONFIG_REF)
+          : document;
+      }
+      hosts = (["claude", "codex"] as const).filter(
+        (host) => legacy.modelRoles[host] !== undefined,
+      );
+      answersAuthority = { ref: "config", sha256: entry.sha256 };
+      defaulted = [];
+      destination = upgradeProjectConfigurationV1_3(legacy);
     }
   }
 
@@ -596,7 +680,7 @@ interface ConfigLineageContext {
     readonly host: "claude" | "codex";
     readonly sha256: string;
   }[];
-  readonly modelRoles: ProjectConfigV1_2["modelRoles"];
+  readonly modelRoles: ProjectConfigV1_3["modelRoles"];
   readonly defaulted: readonly string[];
 }
 
@@ -944,7 +1028,7 @@ async function migrationAnswers(
 
 function supplementLegacyDefaults(
   document: unknown,
-  legacy: ProjectConfigV1 | ProjectConfigV1_1,
+  legacy: ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2,
 ): unknown {
   if (!isRecord(document)) return document;
   const legacyLanguage =
@@ -979,6 +1063,42 @@ function ownString(value: unknown, key: string): string | null {
     typeof descriptor.value === "string"
     ? descriptor.value
     : null;
+}
+
+function hasOwn(value: unknown, key: string): boolean {
+  return isRecord(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function configuredHosts(
+  modelRoles: ProjectConfigV1_3["modelRoles"],
+): readonly ("claude" | "codex")[] {
+  return (["claude", "codex"] as const).filter(
+    (host) => modelRoles[host] !== undefined,
+  );
+}
+
+function mergeExplicitModelRoles(
+  document: unknown,
+  persisted: ProjectConfigV1_3["modelRoles"],
+  resolved: ProjectConfigV1_3["modelRoles"],
+): ProjectConfigV1_3["modelRoles"] {
+  const supplied =
+    isRecord(document) && isRecord(document.modelRoles)
+      ? document.modelRoles
+      : undefined;
+  const claude =
+    supplied !== undefined && hasOwn(supplied, "claude")
+      ? resolved.claude
+      : undefined;
+  const codex =
+    supplied !== undefined && hasOwn(supplied, "codex")
+      ? resolved.codex
+      : undefined;
+  return {
+    ...persisted,
+    ...(claude === undefined ? {} : { claude }),
+    ...(codex === undefined ? {} : { codex }),
+  };
 }
 
 function resultFailure(
