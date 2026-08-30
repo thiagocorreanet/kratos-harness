@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   HOST_ADAPTER_METHODS,
+  antigravityAdapter,
   claudeCodeAdapter,
   codexAdapter,
+  defaultModelRouting,
   hostInstallManifest,
   type HostAdapter,
 } from "@kratos/adapters";
 
 import { fakeHostAdapter } from "./support/fake-host-adapter.js";
-import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+import {
+  antigravityCatalog,
+  claudeCatalog,
+  codexCatalog,
+} from "./support/model-routing.js";
 import {
   conformanceInvocation,
   conformanceResponse,
@@ -31,6 +37,9 @@ describeHostAdapterContract("Codex", () =>
 );
 describeHostAdapterContract("Claude Code", () =>
   claudeCodeAdapter({ modelRouting: claudeCatalog() }),
+);
+describeHostAdapterContract("Antigravity", () =>
+  antigravityAdapter({ modelRouting: antigravityCatalog() }),
 );
 
 describe("the host adapter conformance suite", () => {
@@ -77,8 +86,18 @@ describe("the host adapter conformance suite", () => {
     ).toBe("claude");
   });
 
+  it("maps Antigravity to the Antigravity configuration catalog", () => {
+    expect(
+      antigravityAdapter({ modelRouting: antigravityCatalog() }).describe()
+        .configurationHost,
+    ).toBe("antigravity");
+  });
+
   it("rejects a catalog for a different configuration host", () => {
     expect(() => codexAdapter({ modelRouting: claudeCatalog() })).toThrow(
+      "does not match",
+    );
+    expect(() => antigravityAdapter({ modelRouting: codexCatalog() })).toThrow(
       "does not match",
     );
   });
@@ -96,9 +115,25 @@ describe("the host adapter conformance suite", () => {
   it.each([
     ["Codex", () => codexAdapter({ modelRouting: codexCatalog() })],
     ["Claude Code", () => claudeCodeAdapter({ modelRouting: claudeCatalog() })],
+    [
+      "Antigravity",
+      () => antigravityAdapter({ modelRouting: antigravityCatalog() }),
+    ],
   ])("keeps %s implementer and judge defaults distinct", (_, factory) => {
     const { defaults } = factory().describe().modelRouting;
     expect(defaults.implementer.model).not.toBe(defaults.judge.model);
+  });
+
+  it("publishes default model routing for all supported configuration hosts", async () => {
+    const routing = defaultModelRouting();
+    const antigravity = await routing.observe("antigravity");
+    expect(antigravity).toBeDefined();
+    expect(antigravity?.defaults.implementer.model).toBe("gemini-3.7-pro");
+    expect(antigravity?.defaults.judge.model).toBe("gemini-2.5-pro");
+    expect(antigravity?.defaults.planner.model).toBe("gemini-3.7-pro");
+    expect(antigravity?.defaults.implementer.model).not.toBe(
+      antigravity?.defaults.judge.model,
+    );
   });
 
   it("catches an adapter that decides its own verdict", () => {
@@ -158,6 +193,16 @@ describe("the host adapter conformance suite", () => {
       hook: ["kratos", "hook", "--host", "codex"],
     });
     expect(hostInstallManifest("claude-code").requiredCapabilities).toEqual(
+      hostInstallManifest("codex").requiredCapabilities,
+    );
+    expect(hostInstallManifest("antigravity")).toMatchObject({
+      contractVersion: "1.0.0",
+      host: "antigravity",
+      executable: "kratos",
+      handshake: ["kratos", "handshake", "--json"],
+      hook: ["kratos", "hook", "--host", "antigravity"],
+    });
+    expect(hostInstallManifest("antigravity").requiredCapabilities).toEqual(
       hostInstallManifest("codex").requiredCapabilities,
     );
   });

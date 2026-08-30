@@ -11,7 +11,7 @@ import { renderSummaryScope } from "@kratos/runtime/domain/write-guard";
 import { buildPlugin, runtimeEntry } from "./built-plugin.js";
 import { createRuntimeGuardExecutor } from "./runtime-guard-executor.js";
 
-export type RelayHost = "claude-code" | "codex";
+export type RelayHost = "claude-code" | "codex" | "antigravity";
 
 interface NativeToolCall {
   readonly toolName: string;
@@ -24,6 +24,7 @@ export interface PreToolRelayCase {
   readonly deny?: readonly string[];
   readonly claudeCode: NativeToolCall | null;
   readonly codex: NativeToolCall | null;
+  readonly antigravity: NativeToolCall | null;
   readonly expectedRequest: ((host: RelayHost, root: string) => unknown) | null;
   readonly expectedKind: PreToolRelayResult["kind"];
   readonly expectedReasonCode: string | null;
@@ -54,14 +55,22 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Add File: allowed/new.ts\n+export {};\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "write_to_file",
+      toolInput: {
+        TargetFile: "allowed/new.ts",
+        CodeContent: "export {};\n",
+        Description: "Add file",
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "create",
           path:
-            host === "claude-code"
-              ? claudePath(root, "allowed/new.ts")
-              : "allowed/new.ts",
+            host === "codex"
+              ? "allowed/new.ts"
+              : claudePath(root, "allowed/new.ts"),
         },
       ]),
     expectedKind: "allow",
@@ -85,14 +94,26 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Update File: allowed/existing.ts\n@@\n-old\n+new\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "replace_file_content",
+      toolInput: {
+        TargetFile: "allowed/existing.ts",
+        TargetContent: "old",
+        ReplacementContent: "new",
+        Instruction: "replace",
+        Description: "update",
+        StartLine: 1,
+        EndLine: 1,
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "update",
           path:
-            host === "claude-code"
-              ? claudePath(root, "allowed/existing.ts")
-              : "allowed/existing.ts",
+            host === "codex"
+              ? "allowed/existing.ts"
+              : claudePath(root, "allowed/existing.ts"),
         },
       ]),
     expectedKind: "allow",
@@ -109,6 +130,7 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Delete File: allowed/obsolete.ts\n*** End Patch",
       },
     },
+    antigravity: null,
     expectedRequest: (host) =>
       host === "codex"
         ? request([{ kind: "delete", path: "allowed/obsolete.ts" }])
@@ -131,14 +153,22 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Add File: forbidden/secret.ts\n+secret\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "write_to_file",
+      toolInput: {
+        TargetFile: "forbidden/secret.ts",
+        CodeContent: "secret\n",
+        Description: "Secret",
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "create",
           path:
-            host === "claude-code"
-              ? claudePath(root, "forbidden/secret.ts")
-              : "forbidden/secret.ts",
+            host === "codex"
+              ? "forbidden/secret.ts"
+              : claudePath(root, "forbidden/secret.ts"),
         },
       ]),
     expectedKind: "deny",
@@ -162,14 +192,26 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Update File: outside/change.ts\n@@\n-old\n+new\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "replace_file_content",
+      toolInput: {
+        TargetFile: "outside/change.ts",
+        TargetContent: "old",
+        ReplacementContent: "new",
+        Instruction: "replace",
+        Description: "update",
+        StartLine: 1,
+        EndLine: 1,
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "update",
           path:
-            host === "claude-code"
-              ? claudePath(root, "outside/change.ts")
-              : "outside/change.ts",
+            host === "codex"
+              ? "outside/change.ts"
+              : claudePath(root, "outside/change.ts"),
         },
       ]),
     expectedKind: "deny",
@@ -193,14 +235,22 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Add File: src/private/secret.ts\n+secret\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "write_to_file",
+      toolInput: {
+        TargetFile: "src/private/secret.ts",
+        CodeContent: "secret\n",
+        Description: "Secret",
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "create",
           path:
-            host === "claude-code"
-              ? claudePath(root, "src/private/secret.ts")
-              : "src/private/secret.ts",
+            host === "codex"
+              ? "src/private/secret.ts"
+              : claudePath(root, "src/private/secret.ts"),
         },
       ]),
     expectedKind: "deny",
@@ -224,14 +274,26 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Update File: .brain/02-features/relay/03-summa.md\n@@\n-old\n+new\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "replace_file_content",
+      toolInput: {
+        TargetFile: ".brain/02-features/relay/03-summa.md",
+        TargetContent: "old",
+        ReplacementContent: "new",
+        Instruction: "replace",
+        Description: "update",
+        StartLine: 1,
+        EndLine: 1,
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "update",
           path:
-            host === "claude-code"
-              ? claudePath(root, ".brain/02-features/relay/03-summa.md")
-              : ".brain/02-features/relay/03-summa.md",
+            host === "codex"
+              ? ".brain/02-features/relay/03-summa.md"
+              : claudePath(root, ".brain/02-features/relay/03-summa.md"),
         },
       ]),
     expectedKind: "allow",
@@ -254,14 +316,22 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
           "*** Begin Patch\n*** Add File: .brain/02-features/relay/evidence.json\n+{}\n*** End Patch",
       },
     },
+    antigravity: {
+      toolName: "write_to_file",
+      toolInput: {
+        TargetFile: ".brain/02-features/relay/scope.json",
+        CodeContent: "{}\n",
+        Description: "Scope",
+      },
+    },
     expectedRequest: (host, root) =>
       request([
         {
           kind: "create",
           path:
-            host === "claude-code"
-              ? claudePath(root, ".brain/02-features/relay/scope.json")
-              : ".brain/02-features/relay/evidence.json",
+            host === "codex"
+              ? ".brain/02-features/relay/evidence.json"
+              : claudePath(root, ".brain/02-features/relay/scope.json"),
         },
       ]),
     expectedKind: "allow",
@@ -292,6 +362,7 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
         ].join("\n"),
       },
     },
+    antigravity: null,
     expectedRequest: (host) =>
       host === "codex"
         ? request([
@@ -327,6 +398,7 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
         ].join("\n"),
       },
     },
+    antigravity: null,
     expectedRequest: (host) =>
       host === "codex"
         ? request([
@@ -348,6 +420,10 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
       toolName: "apply_patch",
       toolInput: { command: "*** Begin Patch\n*** Add File:\n*** End Patch" },
     },
+    antigravity: {
+      toolName: "write_to_file",
+      toolInput: { CodeContent: "missing TargetFile" },
+    },
     expectedRequest: () => request([]),
     expectedKind: "deny",
     expectedReasonCode: "guard.target_uninspectable",
@@ -368,6 +444,7 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
         ].join("\n"),
       },
     },
+    antigravity: null,
     expectedRequest: () => request([]),
     expectedKind: "deny",
     expectedReasonCode: "guard.target_uninspectable",
@@ -377,6 +454,10 @@ export const PRE_TOOL_RELAY_CASES: readonly PreToolRelayCase[] = [
     allow: [],
     claudeCode: { toolName: "Bash", toolInput: { command: "printf safe" } },
     codex: { toolName: "Bash", toolInput: { command: "printf safe" } },
+    antigravity: {
+      toolName: "run_command",
+      toolInput: { CommandLine: "printf safe" },
+    },
     expectedRequest: null,
     expectedKind: "pass",
     expectedReasonCode: null,
@@ -424,17 +505,30 @@ export function nativePreToolRelayInput(
   root: string,
   toolCall: NativeToolCall,
 ): unknown {
-  const toolInput =
+  let toolInput = toolCall.toolInput;
+  if (
     host === "claude-code" &&
     typeof toolCall.toolInput === "object" &&
     toolCall.toolInput !== null &&
     "file_path" in toolCall.toolInput &&
     typeof toolCall.toolInput.file_path === "string"
-      ? {
-          ...toolCall.toolInput,
-          file_path: join(root, toolCall.toolInput.file_path),
-        }
-      : toolCall.toolInput;
+  ) {
+    toolInput = {
+      ...toolCall.toolInput,
+      file_path: join(root, toolCall.toolInput.file_path),
+    };
+  } else if (
+    host === "antigravity" &&
+    typeof toolCall.toolInput === "object" &&
+    toolCall.toolInput !== null &&
+    "TargetFile" in toolCall.toolInput &&
+    typeof toolCall.toolInput.TargetFile === "string"
+  ) {
+    toolInput = {
+      ...toolCall.toolInput,
+      TargetFile: join(root, toolCall.toolInput.TargetFile),
+    };
+  }
   return {
     session_id: "session-relay",
     transcript_path: null,
@@ -474,7 +568,9 @@ export function describePreToolRelayConformance(
 
   beforeAll(() => {
     buildPlugin();
-    execute = createRuntimeGuardExecutor(runtimeEntry(host));
+    execute = createRuntimeGuardExecutor(
+      runtimeEntry(host === "antigravity" ? "codex" : host),
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -486,7 +582,11 @@ export function describePreToolRelayConformance(
   describe(`${host} pre-tool relay conformance`, () => {
     for (const testCase of PRE_TOOL_RELAY_CASES) {
       const toolCall =
-        host === "claude-code" ? testCase.claudeCode : testCase.codex;
+        host === "claude-code"
+          ? testCase.claudeCode
+          : host === "codex"
+            ? testCase.codex
+            : testCase.antigravity;
       if (toolCall === null) continue;
 
       it(testCase.name, async () => {

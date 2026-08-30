@@ -1,7 +1,7 @@
 import type { ModelAssignmentV1_1, ProjectConfigV1_3 } from "@kratos/contracts";
+import type { HostModelCatalog } from "@kratos/adapters";
 import { unresolvedProjectProfile } from "@kratos/runtime/domain/init";
 import type {
-  HostModelCatalog,
   ModelRole,
   resolvePhaseAssignment,
 } from "@kratos/runtime/domain/model-roles";
@@ -13,7 +13,7 @@ const defaults = {
   judge: { model: "judge-canonical", effort: "medium" },
 } as const;
 
-function catalog(host: "claude" | "codex"): HostModelCatalog {
+function catalog(host: "claude" | "codex" | "antigravity"): HostModelCatalog {
   return {
     host,
     defaults,
@@ -45,8 +45,12 @@ export function claudeCatalog(): HostModelCatalog {
   return catalog("claude");
 }
 
+export function antigravityCatalog(): HostModelCatalog {
+  return catalog("antigravity");
+}
+
 export function roleConfig(
-  host: "claude" | "codex",
+  host: "claude" | "codex" | "antigravity",
   roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>,
 ): ProjectConfigV1_3 {
   return {

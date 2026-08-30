@@ -12,7 +12,7 @@ export interface HostModelAssignment {
 
 /** Host-owned, versioned capability facts; never a runtime policy choice. */
 export interface HostModelCatalog {
-  readonly host: "claude" | "codex";
+  readonly host: "claude" | "codex" | "antigravity";
   readonly defaults: Readonly<
     Record<"planner" | "implementer" | "judge", HostModelAssignment>
   >;
@@ -25,7 +25,9 @@ export interface HostModelCatalog {
 
 /** The read-only capability shape the runtime composition consumes structurally. */
 export interface HostModelRouting {
-  observe(host: "claude" | "codex"): Promise<HostModelCatalog | null>;
+  observe(
+    host: "claude" | "codex" | "antigravity",
+  ): Promise<HostModelCatalog | null>;
 }
 
 function frozenCatalog(catalog: HostModelCatalog): HostModelCatalog {
@@ -48,50 +50,76 @@ function frozenCatalog(catalog: HostModelCatalog): HostModelCatalog {
   });
 }
 
-const DEFAULT_CATALOGS: Readonly<Record<"claude" | "codex", HostModelCatalog>> =
-  Object.freeze({
-    claude: frozenCatalog({
-      host: "claude",
-      defaults: {
-        planner: { model: "sonnet", effort: "medium" },
-        implementer: { model: "opus", effort: "medium" },
-        judge: { model: "sonnet", effort: "medium" },
+const DEFAULT_CATALOGS: Readonly<
+  Record<"claude" | "codex" | "antigravity", HostModelCatalog>
+> = Object.freeze({
+  claude: frozenCatalog({
+    host: "claude",
+    defaults: {
+      planner: { model: "sonnet", effort: "medium" },
+      implementer: { model: "opus", effort: "medium" },
+      judge: { model: "sonnet", effort: "medium" },
+    },
+    models: [
+      { canonicalModel: "opus", aliases: ["opus"], efforts: ["medium"] },
+      {
+        canonicalModel: "sonnet",
+        aliases: ["sonnet"],
+        efforts: ["medium"],
       },
-      models: [
-        { canonicalModel: "opus", aliases: ["opus"], efforts: ["medium"] },
-        {
-          canonicalModel: "sonnet",
-          aliases: ["sonnet"],
-          efforts: ["medium"],
-        },
-      ],
-    }),
-    codex: frozenCatalog({
-      host: "codex",
-      defaults: {
-        planner: { model: "gpt-5.6-terra", effort: "medium" },
-        implementer: { model: "gpt-5.6-sol", effort: "high" },
-        judge: { model: "gpt-5.6-terra", effort: "medium" },
+    ],
+  }),
+  codex: frozenCatalog({
+    host: "codex",
+    defaults: {
+      planner: { model: "gpt-5.6-terra", effort: "medium" },
+      implementer: { model: "gpt-5.6-sol", effort: "high" },
+      judge: { model: "gpt-5.6-terra", effort: "medium" },
+    },
+    models: [
+      {
+        canonicalModel: "gpt-5.6-sol",
+        aliases: ["gpt-5.6", "gpt-5.6-sol"],
+        efforts: ["low", "medium", "high", "xhigh"],
       },
-      models: [
-        {
-          canonicalModel: "gpt-5.6-sol",
-          aliases: ["gpt-5.6", "gpt-5.6-sol"],
-          efforts: ["low", "medium", "high", "xhigh"],
-        },
-        {
-          canonicalModel: "gpt-5.6-terra",
-          aliases: ["gpt-5.6-terra"],
-          efforts: ["low", "medium", "high"],
-        },
-      ],
-    }),
-  });
+      {
+        canonicalModel: "gpt-5.6-terra",
+        aliases: ["gpt-5.6-terra"],
+        efforts: ["low", "medium", "high"],
+      },
+    ],
+  }),
+  antigravity: frozenCatalog({
+    host: "antigravity",
+    defaults: {
+      planner: { model: "gemini-3.7-pro", effort: "medium" },
+      implementer: { model: "gemini-3.7-pro", effort: "high" },
+      judge: { model: "gemini-2.5-pro", effort: "high" },
+    },
+    models: [
+      {
+        canonicalModel: "gemini-3.7-pro",
+        aliases: ["gemini-3.7-pro", "gemini-3.7"],
+        efforts: ["low", "medium", "high"],
+      },
+      {
+        canonicalModel: "gemini-3.7-flash",
+        aliases: ["gemini-3.7-flash"],
+        efforts: ["low", "medium", "high"],
+      },
+      {
+        canonicalModel: "gemini-2.5-pro",
+        aliases: ["gemini-2.5-pro", "gemini-2.5"],
+        efforts: ["low", "medium", "high"],
+      },
+    ],
+  }),
+});
 
 /** Current host capability catalogs bundled with this adapter revision. */
 export function defaultModelRouting(): HostModelRouting {
   return Object.freeze({
-    observe: (host: "claude" | "codex") =>
+    observe: (host: "claude" | "codex" | "antigravity") =>
       Promise.resolve(DEFAULT_CATALOGS[host]),
   });
 }
@@ -108,7 +136,7 @@ export interface HostDescriptor {
   /** The host identity carried on every message this adapter sends. */
   readonly host: string;
   /** The configuration key to which this host's catalog belongs. */
-  readonly configurationHost: "claude" | "codex";
+  readonly configurationHost: "claude" | "codex" | "antigravity";
   /** The host contract revision this adapter speaks. */
   readonly hostContract: string;
   /** Every capability this host offers, as declared. */
@@ -230,7 +258,7 @@ export const HOST_ADAPTER_METHODS: readonly string[] = Object.freeze([
   "translate",
 ]);
 
-export type SupportedHost = "claude-code" | "codex";
+export type SupportedHost = "claude-code" | "codex" | "antigravity";
 
 export interface HostInstallManifest {
   readonly contractVersion: "1.0.0";
@@ -269,8 +297,12 @@ export interface HostAdapterOptions {
   readonly capabilities?: readonly string[];
 }
 
-function configurationHostFor(host: SupportedHost): "claude" | "codex" {
-  return host === "claude-code" ? "claude" : "codex";
+function configurationHostFor(
+  host: SupportedHost,
+): "claude" | "codex" | "antigravity" {
+  if (host === "claude-code") return "claude";
+  if (host === "codex") return "codex";
+  return "antigravity";
 }
 
 /** Copy only the catalog contract fields so host-supplied extras cannot leak. */
@@ -348,6 +380,9 @@ export const codexAdapter = (options: HostAdapterOptions): HostAdapter =>
 
 export const claudeCodeAdapter = (options: HostAdapterOptions): HostAdapter =>
   createHostAdapter("claude-code", options);
+
+export const antigravityAdapter = (options: HostAdapterOptions): HostAdapter =>
+  createHostAdapter("antigravity", options);
 
 /**
  * Relay one runtime-selected assignment through an exact host launch and back
