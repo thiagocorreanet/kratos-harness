@@ -1,0 +1,48 @@
+{
+  "id": "code-implementer-single-step",
+  "description": "Evaluates that code implementer produces valid code output payload and restricts changedFiles to declared scope",
+  "promptId": "code-implementer",
+  "input": {
+    "featureDocuments": {
+      ".brain/02-features/f1/02-tasks.md": "# Tasks\n- [ ] 02-tasks:step-1: Implement core domain logic\n",
+      ".brain/02-features/f1/03-summa.md": "# Summa\n- Allowed files: `packages/runtime/src/domain/**`\n"
+    },
+    "context": "Implement step 02-tasks:step-1"
+  },
+  "assertions": [
+    {
+      "id": "schema-valid",
+      "description": "Machine block satisfies agent-output contract schema",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "schema_valid" }
+    },
+    {
+      "id": "coherence-valid",
+      "description": "Machine block contains no internal contradictions",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "coherence_valid" }
+    },
+    {
+      "id": "agent-is-code",
+      "description": "Agent field is 'code'",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "agent_equals", "expected": "code" }
+    },
+    {
+      "id": "scope-bounded",
+      "description": "Changed files are restricted to packages/runtime/src/domain/",
+      "kind": "mechanical",
+      "mechanicalRule": {
+        "type": "scope_bounded",
+        "allowedPrefixes": ["packages/runtime/src/domain/"]
+      }
+    },
+    {
+      "id": "artifacts-empty",
+      "description": "Code agent writes no artifacts",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "artifacts_empty" }
+    }
+  ],
+  "trials": 3
+}
