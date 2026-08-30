@@ -219,7 +219,7 @@ describe("the redistributed dependency set", () => {
   });
 
   it("ships no third-party runtime packages", async () => {
-    for (const host of ["codex", "claude-code"] as const) {
+    for (const host of ["codex", "claude-code", "antigravity"] as const) {
       const entries = await readdir(hostPackage(host), { recursive: true });
       expect(entries.filter((entry) => entry.includes("node_modules"))).toEqual(
         [],

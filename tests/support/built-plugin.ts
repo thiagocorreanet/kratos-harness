@@ -92,10 +92,14 @@ export function buildPlugin(): void {
   }
 }
 
-export function hostPackage(host: "codex" | "claude-code"): string {
+export function hostPackage(
+  host: "codex" | "claude-code" | "antigravity",
+): string {
   return join(buildRoot, host);
 }
 
-export function runtimeEntry(host: "codex" | "claude-code" = "codex"): string {
+export function runtimeEntry(
+  host: "codex" | "claude-code" | "antigravity" = "codex",
+): string {
   return join(hostPackage(host), "runtime/kratos.mjs");
 }

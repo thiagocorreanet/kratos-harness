@@ -57,7 +57,7 @@ describe("package verifier", () => {
     "proves both host packages and project flows",
     () => {
       expect(verify()).toBe(
-        "Kratos package verification passed for Codex and Claude Code.\n",
+        "Kratos package verification passed for Codex, Claude Code, and Antigravity.\n",
       );
     },
     verifierTimeoutMilliseconds,

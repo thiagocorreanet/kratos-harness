@@ -227,16 +227,20 @@ async function verifyArtifact(root, host) {
   const hostManifestPath =
     host === "codex"
       ? join(root, ".codex-plugin/plugin.json")
-      : join(root, ".claude-plugin/plugin.json");
-  const hostManifest = JSON.parse(await readFile(hostManifestPath, "utf8"));
-  if (
-    hostManifest.name !== "kratos" ||
-    hostManifest.version !== manifest.pluginVersion
-  ) {
-    fail(`${host} host manifest is not version coherent`);
-  }
-  if (host === "codex" && hostManifest.skills !== "./skills/") {
-    fail("Codex manifest does not expose the Kratos skill");
+      : host === "claude-code"
+        ? join(root, ".claude-plugin/plugin.json")
+        : null;
+  if (hostManifestPath !== null) {
+    const hostManifest = JSON.parse(await readFile(hostManifestPath, "utf8"));
+    if (
+      hostManifest.name !== "kratos" ||
+      hostManifest.version !== manifest.pluginVersion
+    ) {
+      fail(`${host} host manifest is not version coherent`);
+    }
+    if (host === "codex" && hostManifest.skills !== "./skills/") {
+      fail("Codex manifest does not expose the Kratos skill");
+    }
   }
   const skillBridge = join(root, "skills/kratos/scripts/kratos.mjs");
   const bridge = await readFile(skillBridge, "utf8");
@@ -299,7 +303,7 @@ async function verifyProjectFlow(runtime, host, workRoot, projectProfile) {
   run("git", ["init", "-q", project]);
   run("git", ["-C", project, "config", "user.email", "kratos@example.invalid"]);
   run("git", ["-C", project, "config", "user.name", "Kratos"]);
-  const initHost = host === "codex" ? "codex" : "claude";
+  const initHost = host === "claude-code" ? "claude" : host;
   const fixture = JSON.parse(
     await readFile(
       join(repositoryRoot, "fixtures/contracts/v1.3/init-answers.json"),
@@ -372,6 +376,9 @@ async function verifyProjectFlow(runtime, host, workRoot, projectProfile) {
   if (host === "claude-code" && !projectFiles.includes("CLAUDE.md")) {
     fail("Claude Code project instructions are absent");
   }
+  if (host === "antigravity" && !projectFiles.includes("GEMINI.md")) {
+    fail("Antigravity project instructions are absent");
+  }
   run("git", ["-C", project, "add", "."]);
   run("git", ["-C", project, "commit", "-qm", "Initialize Kratos"]);
   run(runtime, [
@@ -409,7 +416,7 @@ const source = resolve(
 const cleanRoom = await mkdtemp(join(tmpdir(), "kratos-package-verify-"));
 try {
   await verifyMarketplaces(source);
-  for (const host of ["codex", "claude-code"]) {
+  for (const host of ["codex", "claude-code", "antigravity"]) {
     const projectProfile = await verifyArtifact(join(source, host), host);
     const target = join(cleanRoom, "installed", host);
     const installOutput = run(process.execPath, [
@@ -451,7 +458,7 @@ try {
     await verifyProjectFlow(runtime, host, cleanRoom, projectProfile);
   }
   process.stdout.write(
-    "Kratos package verification passed for Codex and Claude Code.\n",
+    "Kratos package verification passed for Codex, Claude Code, and Antigravity.\n",
   );
 } finally {
   await rm(cleanRoom, { force: true, recursive: true });

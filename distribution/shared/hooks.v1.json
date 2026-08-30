@@ -8,26 +8,27 @@
       "kind": "guard",
       "matchers": {
         "claude-code": "Write|Edit|MultiEdit",
-        "codex": "^apply_patch$"
+        "codex": "^apply_patch$",
+        "antigravity": "write_to_file|replace_file_content"
       }
     },
     {
       "id": "tool.failed",
       "event": "PostToolUseFailure",
       "kind": "observe",
-      "matchers": { "claude-code": "*", "codex": ".*" }
+      "matchers": { "claude-code": "*", "codex": ".*", "antigravity": ".*" }
     },
     {
       "id": "session.sample",
       "event": "Stop",
       "kind": "observe",
-      "matchers": { "claude-code": "*", "codex": ".*" }
+      "matchers": { "claude-code": "*", "codex": ".*", "antigravity": ".*" }
     },
     {
       "id": "session.end",
       "event": "SessionEnd",
       "kind": "observe",
-      "matchers": { "claude-code": "*", "codex": ".*" }
+      "matchers": { "claude-code": "*", "codex": ".*", "antigravity": ".*" }
     }
   ]
 }

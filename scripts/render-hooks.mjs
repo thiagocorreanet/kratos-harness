@@ -37,7 +37,7 @@ export async function renderHookFile(host, target) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  for (const host of ["claude-code", "codex"]) {
+  for (const host of ["claude-code", "codex", "antigravity"]) {
     await renderHookFile(
       host,
       join(repositoryRoot, "distribution", host, "hooks/hooks.json"),
