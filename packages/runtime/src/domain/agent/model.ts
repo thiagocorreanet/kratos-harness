@@ -1,4 +1,4 @@
-import type { AgentOutputV1 } from "@kratos/contracts";
+import type { AgentOutputV1_2 } from "@kratos/contracts";
 
 import type { ValidationDiagnostic } from "../schema/index.js";
 
@@ -150,7 +150,7 @@ export type AgentOutputObservation =
   | {
       readonly kind: "valid";
       readonly ref: string;
-      readonly value: AgentOutputV1;
+      readonly value: AgentOutputV1_2;
     };
 
 /** Name the first thing the block got wrong, without quoting its content. */

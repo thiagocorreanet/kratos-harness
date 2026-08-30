@@ -2,13 +2,14 @@ import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with 
 import type {
   EventV1_1,
   OperationResultV1,
-  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   digestPhaseAssignment,
   type HostModelCatalog,
 } from "@kratos/runtime/domain/model-roles";
+import { STOCK_GOTCHAS_TEMPLATE } from "@kratos/runtime/domain/memory";
 import {
   fixedClock,
   fixedEnvironment,
@@ -90,8 +91,8 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
     .join("\n");
   return `${prose}\n\n===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "prd",
       outcome: {
         status: "completed",
@@ -101,6 +102,7 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
       },
       artifacts: [".brain/02-features/ship-handoff/00-prd.md"],
       changedFiles: [],
+      memory: null,
       payload: {
         objective: "Ship one digest-bound phase result.",
         requirementIds: ["phase-execution-boundary"],
@@ -130,19 +132,19 @@ function lastEvent(subject: WorkflowSubject): EventV1_1 {
 
 async function currentHandoff(
   subject: WorkflowSubject,
-): Promise<PhaseHandoffV1_1> {
+): Promise<PhaseHandoffV1_2> {
   clearOutput(subject.output);
   expect(await runCommandLine(["--json", "handoff"], subject.ports)).toBe(0);
   const handoff = JSON.parse(
     subject.output.structured_.join(""),
-  ) as PhaseHandoffV1_1;
+  ) as PhaseHandoffV1_2;
   clearOutput(subject.output);
   return handoff;
 }
 
 function phaseResultRequest(
   subject: WorkflowSubject,
-  handoff: PhaseHandoffV1_1,
+  handoff: PhaseHandoffV1_2,
   ref: string,
   reply: string,
   execution: PhaseExecutionObservation,
@@ -162,7 +164,7 @@ function phaseResultRequest(
       model: execution.model,
       effort: execution.effort,
     },
-    payloadContract: "host.agent-output@1.0.0",
+    payloadContract: "host.agent-output@1.2.0",
     payload: { ref, sha256: subject.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: execution.assignmentDigest,
@@ -217,6 +219,7 @@ function subject(
     options.launcherHost === undefined ? "codex" : options.launcherHost;
   const storage = memoryTransactionStorage({
     files: {
+      ".brain/03-memory/gotchas.md": STOCK_GOTCHAS_TEMPLATE,
       ".brain/config.json": JSON.stringify(
         options.configuration ??
           roleConfig("codex", {

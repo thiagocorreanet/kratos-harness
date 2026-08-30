@@ -5,7 +5,7 @@ import type {
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
-  AgentOutputV1,
+  AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -26,7 +26,7 @@ import type {
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
-import type { PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
@@ -87,7 +87,7 @@ export interface FlagSpec {
 }
 
 export type JsonContractId =
-  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.1.0";
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.2.0";
 
 export interface Decision {
   readonly result: Result;
@@ -245,7 +245,7 @@ export type CommandObservation =
        */
       readonly observedLineage: RunLineage;
       readonly phaseAssignment:
-        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+        | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
         | {
             readonly kind: "refused";
             readonly reasonCode:
@@ -256,9 +256,20 @@ export type CommandObservation =
               | "contract.state_version_invalid"
               | "contract.state_version_unsupported"
               | "model.assignment_stale"
-              | "memory.migration_required";
+              | "memory.migration_required"
+              | "memory.projection_drift"
+              | "runtime.state_corrupt";
             readonly subject: string;
           };
+      /** A fresh curated-memory observation made after assignment resolution. */
+      readonly currentPhaseMemory:
+        | null
+        | {
+            readonly ref: ".brain/03-memory/gotchas.md";
+            readonly sha256: string;
+            readonly lessonIds: string[];
+          }
+        | { readonly kind: "unreadable" };
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
       readonly correlationId: string;
@@ -288,7 +299,7 @@ export type CommandObservation =
       /** The agent reply an output-recording command was pointed at, if any. */
       readonly agentOutput: AgentOutputObservation;
       /** Every agent output the run recorded, in agent order. */
-      readonly agentOutputs: readonly AgentOutputV1[];
+      readonly agentOutputs: readonly AgentOutputV1_2[];
       readonly agentOutputsReadable: boolean;
       /** Parsed task declarations and immutable acceptance history. */
       readonly acceptanceCriteria: {

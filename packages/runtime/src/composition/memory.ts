@@ -160,6 +160,65 @@ export async function observeLegacyMemoryClassification(
   });
 }
 
+export type PhaseMemoryBinding =
+  | { readonly kind: "value"; readonly value: null | PhaseMemoryObservation }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode:
+        | "memory.migration_required"
+        | "memory.projection_drift"
+        | "runtime.state_corrupt";
+    };
+
+export interface PhaseMemoryObservation {
+  readonly ref: ".brain/03-memory/gotchas.md";
+  readonly sha256: string;
+  readonly lessonIds: string[];
+}
+
+/**
+ * Bind code and review work to the exact validated human projection.
+ *
+ * The projection is revalidated from the ledger on every observation; hosts
+ * only relay this immutable observation and never decide whether it is safe.
+ */
+export async function observePhaseMemoryBinding(
+  phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance",
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<PhaseMemoryBinding> {
+  if (phase !== "code" && phase !== "review") {
+    return { kind: "value", value: null };
+  }
+  const classification = await observeLegacyMemoryClassification(ports);
+  if (classification === "migration_required") {
+    return { kind: "refused", reasonCode: "memory.migration_required" };
+  }
+  if (classification === "corrupt") {
+    return { kind: "refused", reasonCode: "runtime.state_corrupt" };
+  }
+  const state = await readCuratedState(ports, registry);
+  if (state.kind === "failure") {
+    return {
+      kind: "refused",
+      reasonCode:
+        state.result.reasonCode === "memory.projection_drift"
+          ? "memory.projection_drift"
+          : "runtime.state_corrupt",
+    };
+  }
+  return {
+    kind: "value",
+    value: {
+      ref: ".brain/03-memory/gotchas.md",
+      sha256: ports.digests.sha256(state.value.projection),
+      lessonIds: state.value.ledger.confirmed
+        .map(({ lessonId }) => lessonId)
+        .sort(),
+    },
+  };
+}
+
 async function readCuratedState(
   ports: RuntimePorts,
   registry: SchemaRegistry,

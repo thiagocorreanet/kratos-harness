@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { AgentOutputV1, EventV1 } from "@kratos/contracts";
+import type { AgentOutputV1_2, EventV1 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import type { Result } from "@kratos/runtime/domain/result";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
@@ -37,8 +37,8 @@ const REPLY = `.brain/02-features/${FEATURE}/agent-reply.md`;
 const registry = createSchemaRegistry();
 
 const PRD_BLOCK = {
-  contractVersion: "1.0.0",
-  hostContract: "1.0.0",
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   agent: "prd",
   outcome: {
     status: "completed",
@@ -48,12 +48,13 @@ const PRD_BLOCK = {
   },
   artifacts: [`.brain/02-features/${FEATURE}/00-prd.md`],
   changedFiles: [],
+  memory: null,
   payload: {
     objective: TEXT,
     requirementIds: ["req-refund-window"],
     gapIds: [],
   },
-} as const satisfies AgentOutputV1;
+} as const satisfies AgentOutputV1_2;
 
 /** One agent reply: prose, an ordinary fenced example, then the machine block. */
 function reply(block: unknown = PRD_BLOCK): string {
@@ -228,7 +229,7 @@ describe("recording one agent reply", () => {
     const persisted = settled(after)[outputPath(after, "prd")] ?? "";
     const validated = registry.validate({
       id: "host.agent-output",
-      version: "1.0.0",
+      version: "1.2.0",
       value: JSON.parse(persisted) as unknown,
       structuralReasonCode: "trail.output_invalido",
     });
@@ -297,7 +298,10 @@ describe("replies the runtime refuses to route on", () => {
   });
 
   it("names the offending path of a schema-invalid block", async () => {
-    const text = await readFile(join(replyRoot, "invalid.md"), "utf8");
+    const text = reply({
+      ...PRD_BLOCK,
+      outcome: { ...PRD_BLOCK.outcome, status: "unknown" },
+    });
     const { exitCode, result } = await record(started, text);
     expect(exitCode).toBe(3);
     expect(result.reasonCode).toBe("trail.output_invalido");
@@ -311,6 +315,11 @@ describe("replies the runtime refuses to route on", () => {
         ...PRD_BLOCK,
         agent: "review",
         payload: { verdict: "pass", findings: [] },
+        memory: {
+          ref: ".brain/03-memory/gotchas.md",
+          sha256: "a".repeat(64),
+          lessonIds: [],
+        },
       }),
     );
     expect(exitCode).toBe(3);

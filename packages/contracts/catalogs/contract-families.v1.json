@@ -38,6 +38,14 @@
       "typeName": "AgentOutputV1"
     },
     {
+      "id": "host.agent-output",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/agent-output.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "AgentOutputV1_2"
+    },
+    {
       "id": "host.gap-proposal",
       "family": "host",
       "version": "1.0.0",
@@ -116,6 +124,14 @@
       "path": "schemas/host/phase-handoff.v1.1.schema.json",
       "boundary": "cross-process",
       "typeName": "PhaseHandoffV1_1"
+    },
+    {
+      "id": "host.phase-handoff",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/phase-handoff.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PhaseHandoffV1_2"
     },
     {
       "id": "host.pre-tool-use",

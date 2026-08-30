@@ -2,6 +2,7 @@ import manifest from "../../../../contracts/catalogs/contract-families.v1.json" 
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
 import adapterMessageV1_1Schema from "../../../../../schemas/host/adapter-message.v1.1.schema.json" with { type: "json" };
 import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schema.json" with { type: "json" };
+import agentOutputV1_2Schema from "../../../../../schemas/host/agent-output.v1.2.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import hookObservationSchema from "../../../../../schemas/host/hook-observation.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
@@ -13,6 +14,7 @@ import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migrat
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
+import phaseHandoffV1_2Schema from "../../../../../schemas/host/phase-handoff.v1.2.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
@@ -78,6 +80,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/agent-output.v1.schema.json",
       schema: agentOutputSchema,
+    },
+    {
+      id: "host.agent-output",
+      family: "host",
+      version: "1.2.0",
+      path: "schemas/host/agent-output.v1.2.schema.json",
+      schema: agentOutputV1_2Schema,
     },
     {
       id: "host.gap-proposal",
@@ -148,6 +157,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.1.0",
       path: "schemas/host/phase-handoff.v1.1.schema.json",
       schema: phaseHandoffV1_1Schema,
+    },
+    {
+      id: "host.phase-handoff",
+      family: "host",
+      version: "1.2.0",
+      path: "schemas/host/phase-handoff.v1.2.schema.json",
+      schema: phaseHandoffV1_2Schema,
     },
     {
       id: "host.pre-tool-use",

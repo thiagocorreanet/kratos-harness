@@ -4,6 +4,7 @@
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
 // source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
+// source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
@@ -14,6 +15,7 @@
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:4c79699b10b276a5803d783272943011bb97a6ccc131be0feb40a2eb4efff228
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
@@ -471,6 +473,206 @@ export namespace AgentOutputV1Contract {
   }
 }
 export type AgentOutputV1 = AgentOutputV1Contract.AgentOutputV1;
+export namespace AgentOutputV1_2Contract {
+  export type AgentOutputV1_2 =
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "prd";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PrdPayload;
+        memory: Memory;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "spec";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: SpecPayload;
+        memory: Memory;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "plan";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PlanPayload;
+        memory: Memory;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "code";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: CodePayload;
+        memory: Memory;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "review";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: ReviewPayload;
+        memory: Memory;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "acceptance";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: AcceptancePayload;
+        memory: Memory;
+      };
+  export type Outcome = {
+    [k: string]: unknown | undefined;
+  } & {
+    status: "completed" | "awaiting-input" | "blocked";
+    next: "proceed" | "wait" | "retry" | "finish" | "stop";
+    /**
+     * @maxItems 64
+     */
+    questions: Question[];
+    /**
+     * @maxItems 64
+     */
+    blockers: Text[];
+  };
+  export type Question = {
+    [k: string]: unknown | undefined;
+  } & {
+    questionId: Id;
+    prompt: Text;
+    kind: "free-text" | "single-choice" | "multiple-choice";
+    /**
+     * @maxItems 32
+     */
+    options: Option[];
+  };
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  /**
+   * @maxItems 64
+   */
+  export type Artifacts = Reference[];
+  /**
+   * @maxItems 256
+   */
+  export type ChangedFiles = {
+    ref: Reference;
+    change: "added" | "modified" | "deleted";
+  }[];
+  export type Memory = null | MemoryObservation;
+  export type Sha256 = string;
+
+  export interface Option {
+    optionId: Id;
+    label: Text;
+  }
+  export interface PrdPayload {
+    objective: Text;
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+  export interface SpecPayload {
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+    approvalRequired: boolean;
+  }
+  export interface PlanPayload {
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    steps: [
+      {
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      },
+      ...{
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      }[],
+    ];
+  }
+  export interface CodePayload {
+    stepId: Id;
+    testsAdded: number;
+    testsPassed: boolean;
+  }
+  export interface ReviewPayload {
+    verdict: "pass" | "changes-requested" | "fail";
+    /**
+     * @maxItems 128
+     */
+    findings: {
+      findingId: Id;
+      severity: "high" | "medium" | "low";
+      summary: Text;
+      ref: Reference;
+    }[];
+  }
+  export interface AcceptancePayload {
+    verdict: "accepted" | "rejected";
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    criteria: [
+      {
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      },
+      ...{
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      }[],
+    ];
+  }
+}
+export type AgentOutputV1_2 = AgentOutputV1_2Contract.AgentOutputV1_2;
 export namespace GapProposalV1Contract {
   export type Id = string;
   export type Text = string;
@@ -855,6 +1057,47 @@ export namespace PhaseHandoffV1_1Contract {
   }
 }
 export type PhaseHandoffV1_1 = PhaseHandoffV1_1Contract.PhaseHandoffV1_1;
+export namespace PhaseHandoffV1_2Contract {
+  export type PhaseHandoffV1_2 = {
+    [k: string]: unknown | undefined;
+  } & {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    feature: Id;
+    runId: Id;
+    revision: number;
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    host: "claude" | "codex";
+    assignment: Assignment;
+    assignmentDigest: Sha256;
+    objectiveDigest: Sha256;
+    status: "idle" | "active" | "blocked" | "completed";
+    gateOutcome: "pass" | "warn" | "block";
+    blockers: Id[];
+    openGaps: number;
+    nextAction: string;
+    memory: Memory;
+  };
+  export type Id = string;
+  export type Sha256 = string;
+  export type Memory = null | MemoryObservation;
+
+  export interface Assignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+}
+export type PhaseHandoffV1_2 = PhaseHandoffV1_2Contract.PhaseHandoffV1_2;
 export namespace PreToolUseV1Contract {
   export type Mutation =
     CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;

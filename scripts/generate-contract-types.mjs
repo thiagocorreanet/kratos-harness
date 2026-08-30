@@ -18,6 +18,10 @@ const acceptanceCriterionIdSchemaPath = join(
   repositoryRoot,
   "schemas/contracts/acceptance-criterion-id.v1.schema.json",
 );
+const agentOutputV1SchemaPath = join(
+  repositoryRoot,
+  "schemas/host/agent-output.v1.schema.json",
+);
 export const generatedContractsPath = join(
   repositoryRoot,
   "packages/contracts/src/generated/contracts.ts",
@@ -245,12 +249,17 @@ function schemaForTypeGeneration(id, schema) {
 export async function generateContractTypes({
   outputPath = generatedContractsPath,
 } = {}) {
-  const [manifest, resultSchemaText, acceptanceCriterionIdSchemaText] =
-    await Promise.all([
-      readJson(manifestPath),
-      readFile(resultSchemaPath, "utf8"),
-      readFile(acceptanceCriterionIdSchemaPath, "utf8"),
-    ]);
+  const [
+    manifest,
+    resultSchemaText,
+    acceptanceCriterionIdSchemaText,
+    agentOutputV1SchemaText,
+  ] = await Promise.all([
+    readJson(manifestPath),
+    readFile(resultSchemaPath, "utf8"),
+    readFile(acceptanceCriterionIdSchemaPath, "utf8"),
+    readFile(agentOutputV1SchemaPath, "utf8"),
+  ]);
   const headers = [];
   const declarations = [];
   const resultSchema = JSON.parse(resultSchemaText);
@@ -292,6 +301,12 @@ export async function generateContractTypes({
               canRead:
                 /^https:\/\/kratos\.dev\/schemas\/contracts\/acceptance-criterion-id\/v1$/u,
               read: acceptanceCriterionIdSchemaText,
+            },
+            agentOutputV1: {
+              order: 3,
+              canRead:
+                /^https:\/\/kratos\.dev\/schemas\/host\/agent-output\/v1$/u,
+              read: agentOutputV1SchemaText,
             },
           },
         },

@@ -1,6 +1,6 @@
 import type {
   AdapterMessageV1_1,
-  AgentOutputV1,
+  AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -10,7 +10,7 @@ import type {
   ProjectConfigV1_2,
   SnapshotV1,
 } from "@kratos/contracts";
-import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type PhaseHandoffV1_2 } from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -80,7 +80,7 @@ import type { RuntimePorts } from "../ports/index.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
-import { observeLegacyMemoryClassification } from "./memory.js";
+import { observePhaseMemoryBinding } from "./memory.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -387,6 +387,11 @@ export async function observeWorkflow(
     ports: anchored,
     registry,
   });
+  const currentPhaseMemory = await observePhaseMemoryBinding(
+    phase,
+    anchored,
+    registry,
+  );
   const preparedPhaseExecution = phaseExecutionFor(
     phaseResultRequest,
     phaseAssignment,
@@ -446,6 +451,10 @@ export async function observeWorkflow(
       configuration,
       observedLineage,
       phaseAssignment,
+      currentPhaseMemory:
+        currentPhaseMemory.kind === "value"
+          ? currentPhaseMemory.value
+          : { kind: "unreadable" },
       phaseExecution: preparedPhaseExecution.value,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
@@ -785,7 +794,7 @@ async function observePhaseResultRequest(
   if (
     message.messageType !== "request" ||
     message.phaseExecution === undefined ||
-    message.payloadContract !== "host.agent-output@1.0.0" ||
+    message.payloadContract !== "host.agent-output@1.2.0" ||
     ref === undefined ||
     message.payload.ref !== ref ||
     typeof correlationId !== "string" ||
@@ -861,7 +870,7 @@ async function observeAgentReply(
   }
   const validated = registry.validate({
     id: "host.agent-output",
-    version: "1.0.0",
+    version: "1.2.0",
     value: extracted.value,
     structuralReasonCode: "trail.output_invalido",
   });
@@ -883,14 +892,14 @@ async function observeAgentOutputs(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly AgentOutputV1[];
+  readonly values: readonly AgentOutputV1_2[];
 }> {
   const root = `${runRoot(configuration)}/agent-output`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: AgentOutputV1[] = [];
+    const values: AgentOutputV1_2[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
@@ -898,7 +907,7 @@ async function observeAgentOutputs(
       if (file.kind !== "file") return { readable: false, values: [] };
       const validated = registry.validate({
         id: "host.agent-output",
-        version: "1.0.0",
+        version: "1.2.0",
         value: JSON.parse(
           await ports.durableFileSystem.readText(path),
         ) as unknown,
@@ -1368,12 +1377,14 @@ type PhaseAssignmentReason =
   | "contract.state_version_invalid"
   | "contract.state_version_unsupported"
   | "model.assignment_stale"
-  | "memory.migration_required";
+  | "memory.migration_required"
+  | "memory.projection_drift"
+  | "runtime.state_corrupt";
 
 type PhaseAssignmentSubject = string;
 
 type PhaseAssignmentObservation =
-  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
   | PhaseAssignmentRefusal;
 
 interface PhaseAssignmentRefusal {
@@ -1457,7 +1468,7 @@ async function observePhaseAssignment(input: {
   readonly runId: string;
   readonly revision: number;
   readonly feature: string;
-  readonly status: PhaseHandoffV1_1["status"];
+  readonly status: PhaseHandoffV1_2["status"];
   readonly objectiveDigest: string;
   readonly gateDecision: GateDecision;
   readonly openGaps: number;
@@ -1465,16 +1476,6 @@ async function observePhaseAssignment(input: {
   readonly ports: RuntimePorts;
   readonly registry: SchemaRegistry;
 }): Promise<PhaseAssignmentObservation> {
-  if (input.phase === "code" || input.phase === "review") {
-    if (
-      (await observeLegacyMemoryClassification(input.ports)) ===
-      "migration_required"
-    )
-      return refusedAssignment(
-        "memory.migration_required",
-        ".brain/03-memory/gotchas.md",
-      );
-  }
   const launcher = configurationHost(input.launcherHost);
   if (launcher.kind === "refused") {
     return refusedAssignment("model.host_missing", launcher.subject);
@@ -1565,7 +1566,16 @@ async function observePhaseAssignment(input: {
     return refusedAssignment("model.assignment_stale", "configuration");
   }
 
-  const value: PhaseHandoffV1_1 = {
+  const memory = await observePhaseMemoryBinding(
+    input.phase,
+    input.ports,
+    input.registry,
+  );
+  if (memory.kind === "refused") {
+    return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
+  }
+
+  const value: PhaseHandoffV1_2 = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -1595,6 +1605,7 @@ async function observePhaseAssignment(input: {
         : input.phase === "acceptance"
           ? "Review the evidence bundle, record final approval, and run kratos done."
           : `Complete the ${input.phase} phase and run kratos continue.`,
+    memory: memory.value,
   };
   return { kind: "resolved", value };
 }

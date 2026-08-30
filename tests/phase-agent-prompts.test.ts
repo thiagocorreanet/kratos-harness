@@ -37,6 +37,21 @@ function codexInstructions(content: string): string {
 }
 
 describe("the canonical phase-agent prompts", () => {
+  it("requires implementation agents to read and acknowledge curated memory", () => {
+    for (const id of [
+      "code-implementer",
+      "implementation-evaluator",
+    ] as const) {
+      const instructions = prompt(id);
+      expect(instructions).toContain("confirmed-lessons section");
+      expect(instructions).toContain("exact `memory`");
+      expect(instructions).toContain(
+        "observation supplied by the runtime handoff",
+      );
+      expect(instructions).toContain("`memory: null`");
+    }
+  });
+
   it("maps the five installed roles onto every runtime output", () => {
     expect(
       PHASE_AGENT_PROMPTS.map(({ id, outputAgents }) => [id, outputAgents]),

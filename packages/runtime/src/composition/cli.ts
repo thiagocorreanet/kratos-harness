@@ -185,7 +185,7 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (invocation.command.jsonContract === "phase-handoff@1.1.0") {
+    } else if (invocation.command.jsonContract === "phase-handoff@1.2.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }

@@ -11,6 +11,7 @@
     "./composition/events": "./src/composition/events.ts",
     "./composition/init": "./src/composition/init.ts",
     "./composition/migration": "./src/composition/migration.ts",
+    "./composition/memory": "./src/composition/memory.ts",
     "./composition/objective": "./src/composition/objective.ts",
     "./composition/schema": "./src/composition/schema.ts",
     "./composition/workflow": "./src/composition/workflow.ts",

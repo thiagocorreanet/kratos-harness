@@ -1,4 +1,8 @@
-import { isAcceptanceCriterionId, type AgentOutputV1 } from "@kratos/contracts";
+import {
+  isAcceptanceCriterionId,
+  type AgentOutputV1,
+  type AgentOutputV1_2,
+} from "@kratos/contracts";
 
 /**
  * The agreements a schema cannot state.
@@ -53,7 +57,7 @@ export function describeAgentOutputRefusal(reason: AgentOutputRefusal): string {
  * assume both the shape and the internal agreement of what it reads.
  */
 export function checkAgentOutput(
-  output: AgentOutputV1,
+  output: AgentOutputV1 | AgentOutputV1_2,
 ): AgentOutputRefusal | null {
   const changed = output.changedFiles.map(({ ref }) => ref);
   if (new Set(changed).size !== changed.length) {
@@ -84,7 +88,9 @@ export function checkAgentOutput(
   return checkPayload(output);
 }
 
-function checkPayload(output: AgentOutputV1): AgentOutputRefusal | null {
+function checkPayload(
+  output: AgentOutputV1 | AgentOutputV1_2,
+): AgentOutputRefusal | null {
   if (output.agent === "plan") {
     const steps = output.payload.steps;
     const ids = steps.map(({ stepId }) => stepId);
