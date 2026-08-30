@@ -26,6 +26,7 @@
 ### Task 1: Publish memory contracts and initialization state
 
 **Files:**
+
 - Create: `schemas/state/curated-memory.v1.schema.json`
 - Create: `schemas/host/memory-capture.v1.2.schema.json`
 - Create: `schemas/host/memory-change.v1.2.schema.json`
@@ -34,6 +35,7 @@
 - Test: contract, schema fixture, initialization, and state-ignore suites
 
 **Interfaces:**
+
 - Produces `state.curated-memory@1.0.0` with `revision`, `projectionDigest`, `updatedAt`, `confirmed`, and `archive`.
 - Produces proposal unions whose operations are `promote`, `merge`, and `archive`.
 - Produces stable reason codes named in the objective spec and design.
@@ -49,12 +51,14 @@
 ### Task 2: Unify automatic and manual candidate capture
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/hooks/index.ts`
 - Create: focused memory-capture domain module if separation keeps each file single-purpose
 - Modify: hook observation/composition and CLI command registry
 - Test: hook domain/runtime plus new manual-capture tests
 
 **Interfaces:**
+
 - Produces `candidateNormalizationKey(observation, digest): string`.
 - Produces a pure capture decision shared by `tool.failed` and `memory capture <proposal.json>`.
 - Existing candidate records remain readable and participate in in-memory matching.
@@ -71,11 +75,13 @@
 ### Task 3: Implement curated ledger, rendering, promotion, merge, and archive
 
 **Files:**
+
 - Create: focused modules under `packages/runtime/src/domain/memory/`
 - Modify: CLI command definitions and observation types
 - Test: new memory domain and command suites
 
 **Interfaces:**
+
 - Produces pure `renderCuratedMemory(ledger): string` and `projectionDigest` validation.
 - Produces pure preview reducers for promote, merge, and archive.
 - Promotion consumes one or more candidate IDs; merge consumes two or more confirmed lesson IDs.
@@ -94,11 +100,13 @@
 ### Task 4: Add lossless legacy memory migration
 
 **Files:**
+
 - Modify: migration domain/composition and CLI registry
 - Add: memory migration fixtures and focused tests
 - Modify: migration and recovery documentation
 
 **Interfaces:**
+
 - `migrate memory <mapping.json>` accepts `sourceDigest`, `reviewer`, and lessons with exact one-based source-line ranges.
 - Every non-template, non-blank legacy line must be covered exactly once.
 - Existing migration receipt and rollback surfaces preserve original bytes.
@@ -113,12 +121,14 @@
 ### Task 5: Bind curated memory into code and review phases
 
 **Files:**
+
 - Create: `schemas/host/phase-handoff.v1.2.schema.json`
 - Create: `schemas/host/agent-output.v1.2.schema.json`
 - Modify: workflow observation/handoff, agent recording, phase prompts, relay/distribution fixtures
 - Test: model-role workflow, agent output, prompt, and host parity suites
 
 **Interfaces:**
+
 - Handoff and output v1.2 add `memory: null | { ref, sha256, lessonIds }`.
 - Code and review require the object; PRD, spec, plan, and acceptance require null.
 - `agent record` compares the acknowledgement with the current validated projection and the assignment handoff.
@@ -136,11 +146,13 @@
 ### Task 6: Complete public documentation and acceptance evidence
 
 **Files:**
+
 - Modify: user command/state/host documentation and architecture compatibility notes
 - Create: `docs/verification/issue-140-curated-team-memory-evidence.md`
 - Test: documentation, contract immutability, parity inventory, and full verification suites
 
 **Interfaces:**
+
 - Documents exact commands, limits, Git classification, migration, compatibility, security, recovery, and host parity.
 - Evidence maps every issue #140 criterion to an exact test or artifact.
 
