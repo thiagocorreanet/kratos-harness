@@ -186,6 +186,10 @@ export type CommandObservation =
         } | null;
         readonly telemetryExists: boolean;
         readonly transientFiles: readonly string[];
+        readonly measurementTarget: {
+          readonly phase: PhaseMeasurementV1["phase"];
+          readonly claimSession: boolean;
+        } | null;
         readonly measurements: {
           readonly content: string;
           readonly records: readonly PhaseMeasurementV1[];

@@ -3,6 +3,7 @@ import {
   completePhaseMeasurement,
   interruptPhaseMeasurement,
   parsePhaseMeasurementLog,
+  renderPhaseMeasurementLog,
   samplePhaseMeasurement,
   startPhaseMeasurement,
   upsertPhaseMeasurement,
@@ -31,6 +32,10 @@ const start = {
 const running = startPhaseMeasurement(start);
 
 describe("phase measurement domain", () => {
+  it("starts with the launcher as the sole contributing session", () => {
+    expect(running.contributingSessionIds).toEqual(["session-144"]);
+  });
+
   it("replaces the same run and phase instead of appending a duplicate", () => {
     const updated = upsertPhaseMeasurement([running], {
       ...running,
@@ -76,6 +81,20 @@ describe("phase measurement domain", () => {
       grossTokens: 0,
       updatedAt: "2026-08-30T12:01:00.000Z",
     });
+  });
+
+  it("adds a newly contributing session in deterministic order", () => {
+    const sampled = samplePhaseMeasurement({
+      record: running,
+      totalGrossTokens: 120,
+      contributingSessionId: "session-001",
+      now: "2026-08-30T12:01:00.000Z",
+    });
+
+    expect(sampled.contributingSessionIds).toEqual([
+      "session-001",
+      "session-144",
+    ]);
   });
 
   it("closes a completed phase with its final usage and runtime duration", () => {
@@ -197,6 +216,61 @@ describe("phase measurement domain", () => {
         ajvSchemaRegistry(),
       ),
     ).toThrow("Phase measurement log is invalid");
+  });
+
+  it("refuses unsorted contributor ownership in a raw measurement log", () => {
+    const record = completePhaseMeasurement({
+      record: running,
+      totalGrossTokens: 150,
+      now: "2026-08-30T12:01:30.000Z",
+      observedIdentity: { model: null, effort: null },
+    });
+
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify({
+          ...record,
+          contributingSessionIds: ["session-worker", "session-144"],
+        })}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+  });
+
+  it("refuses contributor ownership that omits the launcher", () => {
+    const record = completePhaseMeasurement({
+      record: running,
+      totalGrossTokens: 150,
+      now: "2026-08-30T12:01:30.000Z",
+      observedIdentity: { model: null, effort: null },
+    });
+
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify({
+          ...record,
+          contributingSessionIds: ["session-worker"],
+        })}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+  });
+
+  it("refuses an upsert whose contributor ownership omits the launcher", () => {
+    expect(() =>
+      upsertPhaseMeasurement([running], {
+        ...running,
+        contributingSessionIds: ["session-worker"],
+      }),
+    ).toThrow("Phase measurement contributor ownership is invalid");
+  });
+
+  it("refuses to render contributor ownership that omits the launcher", () => {
+    expect(() =>
+      renderPhaseMeasurementLog([
+        { ...running, contributingSessionIds: ["session-worker"] },
+      ]),
+    ).toThrow("Phase measurement contributor ownership is invalid");
   });
 
   it("refuses a parsed closed record ending before its phase start", () => {

@@ -11,6 +11,7 @@
     "runId",
     "phase",
     "sessionId",
+    "contributingSessionIds",
     "correlationId",
     "status",
     "startedAt",
@@ -34,6 +35,13 @@
       "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
     },
     "sessionId": { "$ref": "#/$defs/id" },
+    "contributingSessionIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
     "correlationId": { "$ref": "#/$defs/id" },
     "status": { "enum": ["running", "completed", "interrupted"] },
     "startedAt": { "$ref": "#/$defs/timestamp" },

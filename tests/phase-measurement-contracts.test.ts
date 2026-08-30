@@ -8,6 +8,7 @@ const measurement = {
   runId: "run-144",
   phase: "code",
   sessionId: "session-144",
+  contributingSessionIds: ["session-144", "session-worker"],
   correlationId: "correlation-144",
   status: "completed",
   startedAt: "2026-08-30T12:00:00.000Z",
@@ -45,6 +46,33 @@ describe("phase measurement contract", () => {
       id: "state.phase-measurement",
       version: measurement.stateContract,
       value: { ...measurement, endedAt: null },
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(result.kind).toBe("invalid");
+  });
+
+  it("rejects a measurement without contributor ownership", () => {
+    const missingContributors: Record<string, unknown> = { ...measurement };
+    delete missingContributors.contributingSessionIds;
+    const result = ajvSchemaRegistry().validate({
+      id: "state.phase-measurement",
+      version: measurement.stateContract,
+      value: missingContributors,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(result.kind).toBe("invalid");
+  });
+
+  it("rejects duplicate contributor ownership", () => {
+    const result = ajvSchemaRegistry().validate({
+      id: "state.phase-measurement",
+      version: measurement.stateContract,
+      value: {
+        ...measurement,
+        contributingSessionIds: ["session-144", "session-144"],
+      },
       structuralReasonCode: "runtime.state_corrupt",
     });
 

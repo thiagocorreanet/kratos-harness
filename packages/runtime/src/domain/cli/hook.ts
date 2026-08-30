@@ -2,6 +2,7 @@ import type { Effect } from "../effects.js";
 import { planOf } from "../effects.js";
 import { recordUsageSample } from "../hooks/index.js";
 import {
+  addPhaseMeasurementContributor,
   interruptPhaseMeasurement,
   recoverPhaseMeasurement,
   renderPhaseMeasurementLog,
@@ -73,6 +74,15 @@ function decide(
   }
 
   const hook = observation.hook;
+  if (
+    context.measurementTarget?.claimSession === true &&
+    context.usage.sessions.some(({ sessionId }) => sessionId === hook.sessionId)
+  ) {
+    return refusedMetric(
+      "runtime.state_corrupt",
+      "Recorded run usage has no durable phase contributor owner.",
+    );
+  }
   const cumulativeGrossTokens = hook.usage?.cumulativeGrossTokens ?? null;
   const sampled = recordUsageSample(context.usage, {
     sessionId: hook.sessionId,
@@ -99,11 +109,28 @@ function decide(
     effects.push(write(gatesPath, gates, context.gatesExpected));
   }
 
-  const measured = measurementForSession(
+  const measured = measurementForTarget(
     context.measurements.records,
-    hook.sessionId,
+    context.feature,
+    context.runId,
+    context.measurementTarget?.phase ?? null,
   );
+  if (context.measurementTarget !== null && measured === null) {
+    return refusedMetric(
+      "runtime.state_corrupt",
+      "The selected phase measurement owner is unavailable.",
+    );
+  }
   if (measured !== null) {
+    if (
+      context.measurementTarget?.claimSession === true &&
+      sampled.newlyObservedGrossTokens === 0
+    ) {
+      return refusedMetric(
+        "runtime.state_corrupt",
+        "The unowned hook session supplied no newly accepted usage to claim.",
+      );
+    }
     const measuredTotalGrossTokens =
       measured.status === "running"
         ? measured.baselineGrossTokens + measured.grossTokens
@@ -116,10 +143,15 @@ function decide(
         : samplePhaseMeasurement({
             record: measured,
             totalGrossTokens: attributedTotalGrossTokens,
+            ...(context.measurementTarget?.claimSession === true
+              ? { contributingSessionId: hook.sessionId }
+              : {}),
             now: hook.occurredAt,
           });
     const nextMeasurement =
-      hook.kind === "session.end" && sampledMeasurement.status === "running"
+      hook.kind === "session.end" &&
+      hook.sessionId === sampledMeasurement.sessionId &&
+      sampledMeasurement.status === "running"
         ? interruptPhaseMeasurement({
             record: sampledMeasurement,
             totalGrossTokens: attributedTotalGrossTokens,
@@ -253,7 +285,7 @@ function decidePhaseStart(observation: Observation): Decision {
       openPhase.assignmentDigest === lifecycle.assignmentDigest)
       ? openPhase
       : {
-          ...openPhase,
+          ...addPhaseMeasurementContributor(openPhase, lifecycle.sessionId),
           sessionId: lifecycle.sessionId,
           correlationId: lifecycle.correlationId,
           assignmentDigest: lifecycle.assignmentDigest,
@@ -330,17 +362,20 @@ function decidePhaseStart(observation: Observation): Decision {
   };
 }
 
-function measurementForSession(
+function measurementForTarget(
   records: readonly PhaseMeasurement[],
-  sessionId: string,
+  feature: string,
+  runId: string,
+  phase: PhaseMeasurement["phase"] | null,
 ): PhaseMeasurement | null {
+  if (phase === null) return null;
   return (
-    [...records]
-      .filter((record) => record.sessionId === sessionId)
-      .sort(
-        (left, right) =>
-          Date.parse(right.startedAt) - Date.parse(left.startedAt),
-      )[0] ?? null
+    records.find(
+      (record) =>
+        record.feature === feature &&
+        record.runId === runId &&
+        record.phase === phase,
+    ) ?? null
   );
 }
 

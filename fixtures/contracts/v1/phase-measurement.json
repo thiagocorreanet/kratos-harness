@@ -5,6 +5,7 @@
   "runId": "run-144",
   "phase": "code",
   "sessionId": "session-144",
+  "contributingSessionIds": ["session-144"],
   "correlationId": "correlation-144",
   "status": "completed",
   "startedAt": "2026-08-30T12:00:00.000Z",

@@ -43,6 +43,7 @@ function completed(
     runId,
     phase,
     sessionId: `session-${runId}`,
+    contributingSessionIds: [`session-${runId}`],
     correlationId: `correlation-${runId}`,
     status: "completed",
     startedAt,

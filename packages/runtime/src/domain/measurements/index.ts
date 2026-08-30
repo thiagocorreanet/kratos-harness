@@ -20,6 +20,7 @@ export interface StartPhaseMeasurementInput {
 export interface SamplePhaseMeasurementInput {
   readonly record: PhaseMeasurement;
   readonly totalGrossTokens: number;
+  readonly contributingSessionId?: string;
   readonly now: string;
 }
 
@@ -64,6 +65,7 @@ export function startPhaseMeasurement(
     runId: input.runId,
     phase: input.phase,
     sessionId: input.sessionId,
+    contributingSessionIds: [input.sessionId],
     correlationId: input.correlationId,
     status: "running",
     startedAt: input.now,
@@ -83,7 +85,13 @@ export function startPhaseMeasurement(
 export function samplePhaseMeasurement(
   input: SamplePhaseMeasurementInput,
 ): PhaseMeasurement {
-  const record = input.record;
+  const record =
+    input.contributingSessionId === undefined
+      ? input.record
+      : addPhaseMeasurementContributor(
+          input.record,
+          input.contributingSessionId,
+        );
   if (record.status !== "running") {
     const latestGrossTokens = Math.max(
       record.finalGrossTokens,
@@ -103,6 +111,16 @@ export function samplePhaseMeasurement(
       input.totalGrossTokens,
     ),
     updatedAt: input.now,
+  };
+}
+
+export function addPhaseMeasurementContributor(
+  record: PhaseMeasurement,
+  sessionId: string,
+): PhaseMeasurement {
+  return {
+    ...record,
+    contributingSessionIds: contributorIds(record, sessionId),
   };
 }
 
@@ -208,6 +226,9 @@ export function upsertPhaseMeasurement(
   records: readonly PhaseMeasurement[],
   next: PhaseMeasurement,
 ): readonly PhaseMeasurement[] {
+  if (!hasValidContributorOwnership(next)) {
+    throw new Error("Phase measurement contributor ownership is invalid");
+  }
   const existing = records.find(
     (record) => record.runId === next.runId && record.phase === next.phase,
   );
@@ -241,7 +262,39 @@ function stateContract(value: unknown): unknown {
   return (value as { readonly stateContract?: unknown }).stateContract;
 }
 
+function contributorIds(
+  record: PhaseMeasurement,
+  additional: string | undefined,
+): PhaseMeasurement["contributingSessionIds"] {
+  const values =
+    additional === undefined
+      ? record.contributingSessionIds
+      : [...new Set([...record.contributingSessionIds, additional])].sort(
+          (left, right) => left.localeCompare(right, "en-US"),
+        );
+  const first = values[0];
+  if (first === undefined) {
+    throw new Error("Phase measurement contributor ownership is invalid");
+  }
+  return [first, ...values.slice(1)];
+}
+
+function hasValidContributorOwnership(record: PhaseMeasurement): boolean {
+  const canonical = [...new Set(record.contributingSessionIds)].sort(
+    (left, right) => left.localeCompare(right, "en-US"),
+  );
+  return (
+    canonical.length > 0 &&
+    canonical.includes(record.sessionId) &&
+    canonical.length === record.contributingSessionIds.length &&
+    canonical.every(
+      (sessionId, index) => sessionId === record.contributingSessionIds[index],
+    )
+  );
+}
+
 function hasValidMeasurementSemantics(record: PhaseMeasurement): boolean {
+  if (!hasValidContributorOwnership(record)) return false;
   if (record.status === "running") return true;
   try {
     return (
@@ -299,6 +352,9 @@ export function parsePhaseMeasurementLog(
 export function renderPhaseMeasurementLog(
   records: readonly PhaseMeasurement[],
 ): string {
+  if (records.some((record) => !hasValidContributorOwnership(record))) {
+    throw new Error("Phase measurement contributor ownership is invalid");
+  }
   return records.length === 0
     ? ""
     : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;

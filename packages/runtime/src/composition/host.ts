@@ -277,13 +277,6 @@ async function observeHookContext(
     }
   | Extract<Observed, { readonly kind: "failure" }>
 > {
-  const owner = measurementOwner(hook, measurements);
-  if (owner.kind === "ambiguous") {
-    return corruptHookState(
-      ".brain/03-memory/task_log.jsonl",
-      "The hook session is owned by phase measurements from multiple runs.",
-    );
-  }
   const activeFeature = await firstLine(".brain/02-features/active", ports);
   const activeRunId =
     activeFeature === null
@@ -292,15 +285,32 @@ async function observeHookContext(
           `.brain/02-features/${activeFeature}/active-run`,
           ports,
         );
-  const feature = owner.kind === "owned" ? owner.feature : activeFeature;
-  const runId = owner.kind === "owned" ? owner.runId : activeRunId;
+  const target = measurementTarget(
+    hook,
+    measurements,
+    activeFeature,
+    activeRunId,
+  );
+  if (target.kind === "corrupt") {
+    return corruptHookState(".brain/03-memory/task_log.jsonl", target.why);
+  }
+  const feature =
+    target.kind === "owned" || target.kind === "claim"
+      ? target.record.feature
+      : activeFeature;
+  const runId =
+    target.kind === "owned" || target.kind === "claim"
+      ? target.record.runId
+      : activeRunId;
   if (feature === null || runId === null) {
     return { kind: "context", value: null };
   }
-  const selectedMeasurement = owner.kind === "owned";
+  const selectedMeasurement =
+    target.kind === "owned" || target.kind === "claim";
   const inactiveOwner =
     selectedMeasurement &&
-    (owner.feature !== activeFeature || owner.runId !== activeRunId);
+    (target.record.feature !== activeFeature ||
+      target.record.runId !== activeRunId);
   const budgetPath = `.brain/02-features/${feature}/state.json`;
   const budgetObservation = await tokenBudget(feature, ports, registry);
   if (
@@ -404,36 +414,73 @@ async function observeHookContext(
       telemetryExists:
         (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",
       transientFiles,
+      measurementTarget:
+        target.kind === "owned" || target.kind === "claim"
+          ? {
+              phase: target.record.phase,
+              claimSession: target.kind === "claim",
+            }
+          : null,
       measurements,
     },
   };
 }
 
-type MeasurementOwner =
-  | { readonly kind: "none" }
-  | { readonly kind: "owned"; readonly feature: string; readonly runId: string }
-  | { readonly kind: "ambiguous" };
+type MeasuredRecord = PhaseMeasurementLogObservation["records"][number];
 
-function measurementOwner(
+type MeasurementTarget =
+  | { readonly kind: "none" }
+  | { readonly kind: "owned"; readonly record: MeasuredRecord }
+  | { readonly kind: "claim"; readonly record: MeasuredRecord }
+  | { readonly kind: "corrupt"; readonly why: string };
+
+function measurementTarget(
   hook: HookObservationV1,
   measurements: PhaseMeasurementLogObservation,
-): MeasurementOwner {
+  activeFeature: string | null,
+  activeRunId: string | null,
+): MeasurementTarget {
   if (hook.kind === "tool.before") return { kind: "none" };
-  const owners = new Map<
-    string,
-    { readonly feature: string; readonly runId: string }
-  >();
-  for (const record of measurements.records) {
-    if (record.sessionId !== hook.sessionId) continue;
-    owners.set(`${record.feature}\u0000${record.runId}`, {
-      feature: record.feature,
-      runId: record.runId,
-    });
+  const owners = measurements.records.filter((record) =>
+    record.contributingSessionIds.includes(hook.sessionId),
+  );
+  if (owners.length > 1) {
+    return {
+      kind: "corrupt",
+      why: "The hook session contributes to multiple phase measurements.",
+    };
   }
-  if (owners.size > 1) return { kind: "ambiguous" };
-  const owner = owners.values().next().value as
-    { readonly feature: string; readonly runId: string } | undefined;
-  return owner === undefined ? { kind: "none" } : { kind: "owned", ...owner };
+  const owner = owners[0];
+  if (owner !== undefined) return { kind: "owned", record: owner };
+  const cumulativeGrossTokens =
+    "usage" in hook ? (hook.usage?.cumulativeGrossTokens ?? null) : null;
+  if (cumulativeGrossTokens === null) return { kind: "none" };
+  if (activeFeature === null || activeRunId === null) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has no active phase measurement owner.",
+    };
+  }
+  const eligible = measurements.records.filter(
+    (record) =>
+      record.feature === activeFeature &&
+      record.runId === activeRunId &&
+      record.status === "running",
+  );
+  const eligibleOwner = eligible[0];
+  if (eligibleOwner === undefined) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has no running phase measurement owner.",
+    };
+  }
+  if (eligible.length > 1) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has multiple running phase measurement owners.",
+    };
+  }
+  return { kind: "claim", record: eligibleOwner };
 }
 
 async function filesIn(
