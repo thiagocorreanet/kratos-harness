@@ -43,9 +43,11 @@ policy, schemas, transitions, gates, approvals, or evidence rules.
 Both packages also receive the same
 `skills/kratos/scripts/project-profile-relay.mjs`. It exposes one canonical
 ten-question initialization interview and shapes keyed leaf answers without
-validating, defaulting, or inferring them. Package verification imports and
-executes both copies, then runs initialization to prove their authoritative
-profile values and generated Markdown are identical.
+validating, defaulting, or inferring them. Package verification imports each
+copy and exercises contract-valid scalar, array, not-applicable, and unresolved
+answers through installed initialization. The cross-host equality proof lives
+in `tests/project-profile-relay-distribution.test.ts`, which compares persisted
+values and rendered bytes from both packages directly.
 
 ## Why the boot is split
 

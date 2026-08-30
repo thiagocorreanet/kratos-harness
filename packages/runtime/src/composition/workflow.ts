@@ -1676,21 +1676,12 @@ async function observeStackProfile(
         actualBytes: null,
       };
     } else {
-      try {
-        destination = {
-          exists: true,
-          regularFile: true,
-          readable: true,
-          actualBytes: await ports.durableFileSystem.readText(path),
-        };
-      } catch {
-        destination = {
-          exists: true,
-          regularFile: true,
-          readable: false,
-          actualBytes: null,
-        };
-      }
+      destination = {
+        exists: true,
+        regularFile: true,
+        readable: true,
+        actualBytes: { size: entry.size, sha256: entry.sha256 },
+      };
     }
   } catch {
     destination = {
@@ -1704,7 +1695,13 @@ async function observeStackProfile(
   const configuration = await observeConfigurationSnapshot(ports, registry);
   if (configuration.kind !== "valid") {
     return {
-      authoritativeState: "invalid",
+      authoritativeState:
+        configuration.reasonCode === "profile.config_migration_required"
+          ? {
+              kind: "migration-required",
+              reasonCode: configuration.reasonCode,
+            }
+          : { kind: "invalid", reasonCode: configuration.reasonCode },
       expectedBytes: null,
       unresolvedKeys: [],
       ...destination,
@@ -1715,19 +1712,27 @@ async function observeStackProfile(
     rootEntries = await ports.fileSystem.list(".");
   } catch {
     return {
-      authoritativeState: "invalid",
+      authoritativeState: {
+        kind: "invalid",
+        reasonCode: "runtime.state_corrupt",
+      },
       expectedBytes: null,
       unresolvedKeys: [],
       ...destination,
     };
   }
+  const rendered = renderStackProfile(
+    profileStack({ rootEntries }),
+    configuration.value.projectProfile,
+    configuration.value.language,
+  );
+  const renderedBytes = new TextEncoder().encode(rendered);
   return {
-    authoritativeState: "valid",
-    expectedBytes: renderStackProfile(
-      profileStack({ rootEntries }),
-      configuration.value.projectProfile,
-      configuration.value.language,
-    ),
+    authoritativeState: { kind: "valid" },
+    expectedBytes: {
+      size: renderedBytes.byteLength,
+      sha256: ports.digests.sha256Bytes(renderedBytes),
+    },
     unresolvedKeys: unresolvedProjectProfileKeys(
       configuration.value.projectProfile,
     ),

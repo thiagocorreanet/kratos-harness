@@ -35,12 +35,24 @@ export interface DoctorObservation {
 }
 
 export interface StackProfileReadinessObservation {
-  readonly authoritativeState: "valid" | "invalid";
+  readonly authoritativeState:
+    | { readonly kind: "valid" }
+    | {
+        readonly kind: "migration-required";
+        readonly reasonCode: "profile.config_migration_required";
+      }
+    | { readonly kind: "invalid"; readonly reasonCode: string };
   readonly exists: boolean;
   readonly regularFile: boolean;
   readonly readable: boolean;
-  readonly expectedBytes: string | null;
-  readonly actualBytes: string | null;
+  readonly expectedBytes: {
+    readonly size: number;
+    readonly sha256: string;
+  } | null;
+  readonly actualBytes: {
+    readonly size: number;
+    readonly sha256: string;
+  } | null;
   readonly unresolvedKeys: readonly string[];
 }
 
@@ -123,11 +135,18 @@ export function deriveStackProfileCheck(
     name: "stack-profile",
     evidenceRef: ".brain/01-architecture/stack-profile.md",
   } as const;
-  if (observation.authoritativeState === "invalid") {
+  if (observation.authoritativeState.kind === "invalid") {
     return {
       ...base,
       status: "fail",
       details: ["The authoritative project configuration is invalid."],
+    };
+  }
+  if (observation.authoritativeState.kind === "migration-required") {
+    return {
+      ...base,
+      status: "block",
+      details: ["The project configuration requires explicit migration."],
     };
   }
   const unresolvedDetails = observation.unresolvedKeys.map(
@@ -164,7 +183,15 @@ export function deriveStackProfileCheck(
       ],
     };
   }
-  if (observation.actualBytes !== observation.expectedBytes) {
+  let bytesMatch = false;
+  if (observation.actualBytes !== null) {
+    if (observation.expectedBytes !== null) {
+      bytesMatch =
+        observation.actualBytes.size === observation.expectedBytes.size &&
+        observation.actualBytes.sha256 === observation.expectedBytes.sha256;
+    }
+  }
+  if (!bytesMatch) {
     return {
       ...base,
       status: "warn",

@@ -71,12 +71,12 @@ describe("read-only diagnostics", () => {
     [
       "matching authoritative bytes",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: true,
         regularFile: true,
         readable: true,
-        expectedBytes: "generated\n",
-        actualBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 10, sha256: "generated" },
         unresolvedKeys: [],
       },
       "pass",
@@ -85,12 +85,12 @@ describe("read-only diagnostics", () => {
     [
       "unresolved typed answers",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: true,
         regularFile: true,
         readable: true,
-        expectedBytes: "generated\n",
-        actualBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 10, sha256: "generated" },
         unresolvedKeys: [
           "projectProfile.commands.test",
           "projectProfile.paths.tests",
@@ -105,11 +105,11 @@ describe("read-only diagnostics", () => {
     [
       "a missing generated document",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: false,
         regularFile: false,
         readable: false,
-        expectedBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
         actualBytes: null,
         unresolvedKeys: [],
       },
@@ -119,11 +119,11 @@ describe("read-only diagnostics", () => {
     [
       "a missing document with unresolved typed answers",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: false,
         regularFile: false,
         readable: false,
-        expectedBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
         actualBytes: null,
         unresolvedKeys: ["projectProfile.commands.test"],
       },
@@ -136,12 +136,12 @@ describe("read-only diagnostics", () => {
     [
       "bytes drifted from authoritative state",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: true,
         regularFile: true,
         readable: true,
-        expectedBytes: "generated\n",
-        actualBytes: "manually edited\n",
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 16, sha256: "manually-edited" },
         unresolvedKeys: [],
       },
       "warn",
@@ -152,11 +152,11 @@ describe("read-only diagnostics", () => {
     [
       "an unreadable destination",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: true,
         regularFile: true,
         readable: false,
-        expectedBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
         actualBytes: null,
         unresolvedKeys: [],
       },
@@ -166,11 +166,11 @@ describe("read-only diagnostics", () => {
     [
       "a non-file destination",
       {
-        authoritativeState: "valid",
+        authoritativeState: { kind: "valid" },
         exists: true,
         regularFile: false,
         readable: false,
-        expectedBytes: "generated\n",
+        expectedBytes: { size: 10, sha256: "generated" },
         actualBytes: null,
         unresolvedKeys: [],
       },
@@ -180,16 +180,36 @@ describe("read-only diagnostics", () => {
     [
       "invalid authoritative state",
       {
-        authoritativeState: "invalid",
+        authoritativeState: {
+          kind: "invalid",
+          reasonCode: "guard.config_corrupt",
+        },
         exists: true,
         regularFile: true,
         readable: true,
         expectedBytes: null,
-        actualBytes: "generated\n",
+        actualBytes: { size: 10, sha256: "generated" },
         unresolvedKeys: [],
       },
       "fail",
       ["The authoritative project configuration is invalid."],
+    ],
+    [
+      "authoritative state that requires profile migration",
+      {
+        authoritativeState: {
+          kind: "migration-required",
+          reasonCode: "profile.config_migration_required",
+        },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: null,
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "block",
+      ["The project configuration requires explicit migration."],
     ],
   ] as const)(
     "classifies stack-profile readiness for %s",

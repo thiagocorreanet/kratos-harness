@@ -1,3 +1,7 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
 import type {
   ResolvedAnswers,
   ResolvedProjectProfile,
@@ -7,6 +11,7 @@ import {
   skeletonEffects,
   unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
+import { createRuntimeAt } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   fixedClock,
@@ -22,6 +27,10 @@ import {
 } from "@kratos/runtime/infra/fake";
 import type { DurableFileSystem, RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
+
+import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
+import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
+import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 
 import { codexCatalog } from "./support/model-routing.js";
 
@@ -77,6 +86,17 @@ const notApplicableProfile: ResolvedProjectProfile = {
     implementationLanguages: {
       status: "not-applicable",
       reason: "No implementation languages.",
+    },
+  },
+};
+
+const replacementCharacterProfile: ResolvedProjectProfile = {
+  ...completeProfile,
+  conventions: {
+    ...completeProfile.conventions,
+    naming: {
+      status: "resolved",
+      value: "Use the replacement character � in generated prose.",
     },
   },
 };
@@ -137,10 +157,10 @@ function subject(options: SubjectOptions = {}) {
   const durableFileSystem: DurableFileSystem = options.unreadableStackProfile
     ? {
         ...storage.durableFileSystem,
-        readText: (path) =>
+        inspect: (path) =>
           path === STACK_PROFILE
             ? Promise.reject(new Error("unreadable stack profile"))
-            : storage.durableFileSystem.readText(path),
+            : storage.durableFileSystem.inspect(path),
       }
     : storage.durableFileSystem;
   const ports = {
@@ -179,6 +199,39 @@ async function doctor(run: ReturnType<typeof subject>): Promise<{
     exitCode,
     rendered: run.output.structured_.join("") + run.output.human_.join(""),
   };
+}
+
+async function doctorJson(run: ReturnType<typeof subject>): Promise<{
+  readonly exitCode: number;
+  readonly result: {
+    readonly reasonCode: string;
+    readonly stateChanged: boolean;
+    readonly evidence: readonly { readonly ref: string }[];
+  };
+}> {
+  const exitCode = await runCommandLine(["--json", "doctor"], run.ports);
+  return {
+    exitCode,
+    result: JSON.parse(run.output.structured_.join("")) as {
+      readonly reasonCode: string;
+      readonly stateChanged: boolean;
+      readonly evidence: readonly { readonly ref: string }[];
+    },
+  };
+}
+
+async function writeNodeProject(
+  root: string,
+  projectProfile: ResolvedProjectProfile,
+): Promise<void> {
+  for (const [path, content] of Object.entries(
+    generatedFiles(projectProfile),
+  )) {
+    const absolute = join(root, path);
+    await mkdir(dirname(absolute), { recursive: true });
+    await writeFile(absolute, content, "utf8");
+  }
+  await writeFile(join(root, "package.json"), "{}\n", "utf8");
 }
 
 describe("stack-profile doctor readiness", () => {
@@ -238,6 +291,45 @@ describe("stack-profile doctor readiness", () => {
     );
   });
 
+  it("warns when invalid UTF-8 decodes to the same replacement character", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kratos-doctor-raw-bytes-"));
+    try {
+      await writeNodeProject(root, replacementCharacterProfile);
+      const profilePath = join(root, STACK_PROFILE);
+      const expectedBytes = await readFile(profilePath);
+      const replacementBytes = Buffer.from([0xef, 0xbf, 0xbd]);
+      const replacementAt = expectedBytes.indexOf(replacementBytes);
+      expect(replacementAt).toBeGreaterThanOrEqual(0);
+      const invalidBytes = Buffer.concat([
+        expectedBytes.subarray(0, replacementAt),
+        Buffer.from([0xff]),
+        expectedBytes.subarray(replacementAt + replacementBytes.byteLength),
+      ]);
+      expect(invalidBytes.toString("utf8")).toBe(
+        expectedBytes.toString("utf8"),
+      );
+      await writeFile(profilePath, invalidBytes);
+
+      const output = recordingOutput();
+      const ports = createRuntimeAt(root, {
+        clock: fixedClock("2026-08-29T00:00:00.000Z"),
+        ids: sequentialIds("doctor-node"),
+        environment: fixedEnvironment({ KRATOS_HOST: "codex" }, root),
+        git: stubGit(),
+        modelRouting: fixedModelRouting([codexCatalog()]),
+        output,
+        standardInput: pipedInput(null),
+      });
+
+      expect(await runCommandLine(["doctor"], ports)).toBe(0);
+      expect(output.structured_.join("") + output.human_.join("")).toContain(
+        "stack-profile: warn",
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("counts not-applicable typed leaves as complete", async () => {
     const run = subject({ profile: notApplicableProfile });
 
@@ -290,4 +382,29 @@ describe("stack-profile doctor readiness", () => {
       "The authoritative project configuration is invalid.",
     );
   });
+
+  it.each([
+    ["1.0.0", projectConfigV1],
+    ["1.1.0", projectConfigV1_1],
+    ["1.2.0", projectConfigV1_2],
+  ] as const)(
+    "preserves the profile migration reason for project configuration %s",
+    async (_version, configuration) => {
+      const run = subject({
+        mutateFiles: (files) => ({
+          ...files,
+          ".brain/config.json": `${JSON.stringify(configuration)}\n`,
+        }),
+      });
+
+      const result = await doctorJson(run);
+
+      expect(result.exitCode).toBe(4);
+      expect(result.result).toMatchObject({
+        reasonCode: "profile.config_migration_required",
+        stateChanged: false,
+        evidence: [{ ref: ".brain/config.json" }],
+      });
+    },
+  );
 });

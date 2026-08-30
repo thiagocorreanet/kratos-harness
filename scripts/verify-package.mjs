@@ -57,12 +57,78 @@ const PROJECT_PROFILE_QUESTIONS = [
   ],
 ].map(([key, prompt]) => ({ key, prompt }));
 
-const PROJECT_PROFILE_PROBE = Object.fromEntries(
-  PROJECT_PROFILE_QUESTIONS.map(({ key }, index) => [
-    key,
-    { status: "resolved", value: `probe-${String(index + 1)}` },
-  ]),
-);
+const PROJECT_PROFILE_PROBE = {
+  "projectProfile.commands.test": {
+    status: "resolved",
+    value: "node --test profile-probe",
+  },
+  "projectProfile.commands.lint": {
+    status: "not-applicable",
+    reason: "The probe has no lint command.",
+  },
+  "projectProfile.commands.build": { status: "unresolved" },
+  "projectProfile.commands.run": {
+    status: "resolved",
+    value: "node profile-probe.mjs",
+  },
+  "projectProfile.paths.source": {
+    status: "resolved",
+    value: ["probe/source", "probe/shared"],
+  },
+  "projectProfile.paths.tests": {
+    status: "not-applicable",
+    reason: "Probe tests are external.",
+  },
+  "projectProfile.paths.configuration": { status: "unresolved" },
+  "projectProfile.conventions.directoryLayout": {
+    status: "resolved",
+    value: "Keep probe modules under probe/source.",
+  },
+  "projectProfile.conventions.naming": {
+    status: "not-applicable",
+    reason: "The probe has no naming rule.",
+  },
+  "projectProfile.conventions.implementationLanguages": {
+    status: "resolved",
+    value: ["ProbeLang", "OtherLang"],
+  },
+};
+
+const PROJECT_PROFILE_EXPECTED = {
+  commands: {
+    test: PROJECT_PROFILE_PROBE["projectProfile.commands.test"],
+    lint: PROJECT_PROFILE_PROBE["projectProfile.commands.lint"],
+    build: PROJECT_PROFILE_PROBE["projectProfile.commands.build"],
+    run: PROJECT_PROFILE_PROBE["projectProfile.commands.run"],
+  },
+  paths: {
+    source: PROJECT_PROFILE_PROBE["projectProfile.paths.source"],
+    tests: PROJECT_PROFILE_PROBE["projectProfile.paths.tests"],
+    configuration: PROJECT_PROFILE_PROBE["projectProfile.paths.configuration"],
+  },
+  conventions: {
+    directoryLayout:
+      PROJECT_PROFILE_PROBE["projectProfile.conventions.directoryLayout"],
+    naming: PROJECT_PROFILE_PROBE["projectProfile.conventions.naming"],
+    implementationLanguages:
+      PROJECT_PROFILE_PROBE[
+        "projectProfile.conventions.implementationLanguages"
+      ],
+  },
+};
+
+const PROJECT_PROFILE_RENDERED_FRAGMENTS = [
+  "### Test\n\n```text\nnode --test profile-probe\n```",
+  "### Lint\n\nNot applicable: The probe has no lint command\\.",
+  "`<UNRESOLVED: projectProfile.commands.build>`",
+  "### Run\n\n```text\nnode profile-probe.mjs\n```",
+  "| Source | probe/source, probe/shared |",
+  "| Tests | Not applicable: Probe tests are external\\. |",
+  "| Configuration | `<UNRESOLVED: projectProfile.paths.configuration>` |",
+  "| Directory layout | Keep probe modules under probe/source\\. |",
+  "| Naming | Not applicable: The probe has no naming rule\\. |",
+  "| Implementation languages | ProbeLang, OtherLang |",
+];
 
 function option(name) {
   const at = process.argv.indexOf(name);
@@ -177,8 +243,7 @@ async function verifyArtifact(root, host) {
   if (!bridge.includes('import "../../../runtime/kratos.mjs"')) {
     fail(`${host} skill bridge points at the wrong runtime`);
   }
-  await verifyProjectProfileRelay(root, host);
-  return manifest;
+  return verifyProjectProfileRelay(root, host);
 }
 
 async function verifyProjectProfileRelay(root, host) {
@@ -194,35 +259,16 @@ async function verifyProjectProfileRelay(root, host) {
   ) {
     fail(`${host} project-profile questions are invalid`);
   }
-  const expected = {
-    commands: {
-      test: PROJECT_PROFILE_PROBE["projectProfile.commands.test"],
-      lint: PROJECT_PROFILE_PROBE["projectProfile.commands.lint"],
-      build: PROJECT_PROFILE_PROBE["projectProfile.commands.build"],
-      run: PROJECT_PROFILE_PROBE["projectProfile.commands.run"],
-    },
-    paths: {
-      source: PROJECT_PROFILE_PROBE["projectProfile.paths.source"],
-      tests: PROJECT_PROFILE_PROBE["projectProfile.paths.tests"],
-      configuration:
-        PROJECT_PROFILE_PROBE["projectProfile.paths.configuration"],
-    },
-    conventions: {
-      directoryLayout:
-        PROJECT_PROFILE_PROBE["projectProfile.conventions.directoryLayout"],
-      naming: PROJECT_PROFILE_PROBE["projectProfile.conventions.naming"],
-      implementationLanguages:
-        PROJECT_PROFILE_PROBE[
-          "projectProfile.conventions.implementationLanguages"
-        ],
-    },
-  };
-  if (
-    JSON.stringify(relay.relayProjectProfileAnswers(PROJECT_PROFILE_PROBE)) !==
-    JSON.stringify(expected)
-  ) {
+  let relayed;
+  try {
+    relayed = relay.relayProjectProfileAnswers(PROJECT_PROFILE_PROBE);
+  } catch {
     fail(`${host} project-profile answer relay is invalid`);
   }
+  if (JSON.stringify(relayed) !== JSON.stringify(PROJECT_PROFILE_EXPECTED)) {
+    fail(`${host} project-profile answer relay is invalid`);
+  }
+  return relayed;
 }
 
 async function verifyMarketplaces(root) {
@@ -248,7 +294,7 @@ async function verifyMarketplaces(root) {
   }
 }
 
-async function verifyProjectFlow(runtime, host, workRoot) {
+async function verifyProjectFlow(runtime, host, workRoot, projectProfile) {
   const project = join(workRoot, `${host}-project`);
   run("git", ["init", "-q", project]);
   run("git", ["-C", project, "config", "user.email", "kratos@example.invalid"]);
@@ -268,10 +314,30 @@ async function verifyProjectFlow(runtime, host, workRoot) {
     ...fixture,
     hosts: [initHost],
     modelRoles: { [initHost]: hostRoles },
+    projectProfile,
   })}\n`;
   run(runtime, ["init", "--host", initHost, "--root", project], {
     input: answers,
   });
+  const configuration = JSON.parse(
+    await readFile(join(project, ".brain/config.json"), "utf8"),
+  );
+  if (
+    JSON.stringify(configuration.projectProfile) !==
+    JSON.stringify(PROJECT_PROFILE_EXPECTED)
+  ) {
+    fail(`${host} initialized project-profile values are wrong`);
+  }
+  const stackProfile = await readFile(
+    join(project, ".brain/01-architecture/stack-profile.md"),
+    "utf8",
+  );
+  const missingProfileFragments = PROJECT_PROFILE_RENDERED_FRAGMENTS.filter(
+    (fragment) => !stackProfile.includes(fragment),
+  );
+  if (missingProfileFragments.length > 0) {
+    fail(`${host} initialized stack-profile rendering is wrong`);
+  }
   const projectFiles = (await files(project))
     .map((file) => relative(project, file).split(sep).join("/"))
     .filter((file) => !file.startsWith(".git/"));
@@ -344,7 +410,7 @@ const cleanRoom = await mkdtemp(join(tmpdir(), "kratos-package-verify-"));
 try {
   await verifyMarketplaces(source);
   for (const host of ["codex", "claude-code"]) {
-    await verifyArtifact(join(source, host), host);
+    const projectProfile = await verifyArtifact(join(source, host), host);
     const target = join(cleanRoom, "installed", host);
     const installOutput = run(process.execPath, [
       join(repositoryRoot, "scripts/install-plugin.mjs"),
@@ -382,7 +448,7 @@ try {
     if (handshake.operation !== "handshake") {
       fail(`${host} installed runtime handshake failed`);
     }
-    await verifyProjectFlow(runtime, host, cleanRoom);
+    await verifyProjectFlow(runtime, host, cleanRoom, projectProfile);
   }
   process.stdout.write(
     "Kratos package verification passed for Codex and Claude Code.\n",

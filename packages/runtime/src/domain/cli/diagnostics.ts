@@ -144,6 +144,24 @@ export function renderPhaseHandoffHuman(payload: {
 }
 
 export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
+  if (
+    observation.stackProfile.authoritativeState.kind === "migration-required"
+  ) {
+    return {
+      result: resultFor(
+        observation.stackProfile.authoritativeState.reasonCode,
+        {
+          why: [
+            "The project configuration must be migrated before doctor can derive the current stack profile.",
+          ],
+          evidence: [{ kind: "artifact", ref: ".brain/config.json" }],
+        },
+      ),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   const report = diagnose([
     {
       name: "active-run",

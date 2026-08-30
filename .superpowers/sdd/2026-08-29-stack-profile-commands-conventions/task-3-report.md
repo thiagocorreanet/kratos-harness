@@ -4,6 +4,7 @@ Date: 2026-08-29
 Status: GREEN; ready for Task 4 full verification
 Baseline: `98fcad09942c2997abdcb108b511feda65d48762`
 Commit: `feat(runtime): diagnose and relay project profiles` (Task 3 commit)
+Review fix: `fix(runtime): harden profile diagnosis and relay verification`
 
 ## Delivered behavior
 
@@ -57,6 +58,52 @@ Commit: `feat(runtime): diagnose and relay project profiles` (Task 3 commit)
 - `build` followed by `package:verify`: Codex and Claude Code package flows
   passed.
 - `format:check`, `spellcheck`, `english:check`, `lint`, and `typecheck` passed.
+
+## Review fix round 1
+
+### Reviewer findings reproduced as RED
+
+- Real JSON doctor-command regressions loaded each published predecessor
+  configuration (`1.0.0`, `1.1.0`, and `1.2.0`). All three initially returned
+  `runtime.state_corrupt` instead of `profile.config_migration_required`.
+- A Node-filesystem regression wrote a rendered U+FFFD byte sequence and
+  replaced its valid UTF-8 bytes (`EF BF BD`) with invalid byte `FF`. Both
+  decoded strings were equal and doctor incorrectly passed the altered file.
+- A package-verifier regression conditionally corrupted only array-shaped
+  answers. The previous scalar-only relay probe allowed the recomputed package
+  to pass.
+
+### Corrections
+
+- Workflow observation now preserves the configuration observer's
+  migration-required classification and reason. Doctor reports the stable
+  profile migration reason with `.brain/config.json` evidence for all three
+  predecessors; the existing init refusal remains unchanged.
+- Stack-profile comparison now uses the inspected file's raw byte size and
+  SHA-256 against the UTF-8 renderer output's byte size and SHA-256. Decoded
+  text is no longer an equality authority.
+- Package verification now probes distinct valid scalar, array,
+  not-applicable, and unresolved answers. It passes the actual relay result
+  into installed initialization, then checks the persisted typed values and
+  rendered stack-profile content.
+- Runtime distribution prose now attributes cross-host equality to
+  `tests/project-profile-relay-distribution.test.ts`.
+
+### Review-fix GREEN commands
+
+- `npx --yes npm@11.16.0 test -- --run tests/diagnostics.test.ts tests/doctor-command.test.ts tests/init-command.test.ts --reporter=verbose`:
+  3 files, 50 tests passed.
+- `npx --yes npm@11.16.0 test -- --run tests/package-verifier.test.ts tests/project-profile-relay-distribution.test.ts --reporter=dot`:
+  2 files, 10 tests passed.
+- `npx --yes npm@11.16.0 run contracts:check`: 37 schemas and 14 legacy
+  profiles verified; generated types current.
+- `npx --yes npm@11.16.0 run build && npx --yes npm@11.16.0 run package:verify`:
+  Codex and Claude Code package flows passed.
+- `npx --yes npm@11.16.0 run format:check`, `spellcheck`, `english:check`,
+  `lint`, and `typecheck` passed.
+- Post-lint fingerprint-branch check:
+  `npx --yes npm@11.16.0 test -- --run tests/diagnostics.test.ts --reporter=dot`:
+  1 file, 13 tests passed.
 
 The complete reproducible acceptance map is in
 `docs/verification/issue-142-stack-profile-evidence.md`. Task 4 will append the
