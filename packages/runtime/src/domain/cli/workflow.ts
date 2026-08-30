@@ -4,6 +4,7 @@ import { compareCriteriaSnapshot } from "../acceptance-criteria/index.js";
 import {
   completePhaseMeasurement,
   renderPhaseMeasurementLog,
+  samePhaseMeasurementAssignment,
   upsertPhaseMeasurement,
 } from "../measurements/index.js";
 import { resultFor } from "../result/index.js";
@@ -649,8 +650,12 @@ function completionMeasurementEffect(
   }
   if (
     observation.phaseAssignment.kind !== "resolved" ||
-    record.assignmentDigest !==
-      observation.phaseAssignment.value.assignmentDigest
+    !samePhaseMeasurementAssignment(record.resolvedAssignment, {
+      host: observation.phaseAssignment.value.host,
+      role: observation.phaseAssignment.value.assignment.role,
+      model: observation.phaseAssignment.value.assignment.model,
+      effort: observation.phaseAssignment.value.assignment.effort,
+    })
   ) {
     return {
       kind: "refused",

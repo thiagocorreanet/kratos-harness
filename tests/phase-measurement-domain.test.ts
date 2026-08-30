@@ -41,11 +41,24 @@ describe("phase measurement domain", () => {
     expect(updated[0]?.grossTokens).toBe(42);
   });
 
-  it("refuses a different assignment for an open phase", () => {
+  it("accepts changed provenance for the same resolved assignment", () => {
+    const updated = upsertPhaseMeasurement([running], {
+      ...running,
+      assignmentDigest: "b".repeat(64),
+    });
+
+    expect(updated).toHaveLength(1);
+    expect(updated[0]?.assignmentDigest).toBe("b".repeat(64));
+  });
+
+  it("refuses a different resolved assignment for an open phase", () => {
     expect(() =>
       upsertPhaseMeasurement([running], {
         ...running,
-        assignmentDigest: "b".repeat(64),
+        resolvedAssignment: {
+          ...running.resolvedAssignment,
+          model: "different-model",
+        },
       }),
     ).toThrow("Phase measurement assignment conflicts with the open record");
   });

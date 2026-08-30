@@ -192,6 +192,18 @@ function phaseOrder(phase: RunPhase): number {
   return RUN_PHASES.indexOf(phase);
 }
 
+export function samePhaseMeasurementAssignment(
+  left: PhaseMeasurement["resolvedAssignment"],
+  right: PhaseMeasurement["resolvedAssignment"],
+): boolean {
+  return (
+    left.host === right.host &&
+    left.role === right.role &&
+    left.model === right.model &&
+    left.effort === right.effort
+  );
+}
+
 export function upsertPhaseMeasurement(
   records: readonly PhaseMeasurement[],
   next: PhaseMeasurement,
@@ -201,7 +213,10 @@ export function upsertPhaseMeasurement(
   );
   if (
     existing?.status === "running" &&
-    existing.assignmentDigest !== next.assignmentDigest
+    !samePhaseMeasurementAssignment(
+      existing.resolvedAssignment,
+      next.resolvedAssignment,
+    )
   ) {
     throw new Error(
       "Phase measurement assignment conflicts with the open record",

@@ -5,6 +5,7 @@ import {
   interruptPhaseMeasurement,
   recoverPhaseMeasurement,
   renderPhaseMeasurementLog,
+  samePhaseMeasurementAssignment,
   samplePhaseMeasurement,
   startPhaseMeasurement,
   upsertPhaseMeasurement,
@@ -211,18 +212,46 @@ function decidePhaseStart(observation: Observation): Decision {
       "The phase start does not match the runtime-resolved assignment.",
     );
   }
-  const retried = context.measurements.records.find(
+  const resolvedAssignment = {
+    host: context.assignment.host,
+    role: context.assignment.assignment.role,
+    model: context.assignment.assignment.model,
+    effort: context.assignment.assignment.effort,
+  };
+  const openPhase = context.measurements.records.find(
     (record) =>
       record.feature === context.feature &&
       record.runId === context.runId &&
       record.phase === context.phase &&
-      record.sessionId === lifecycle.sessionId &&
-      record.correlationId === lifecycle.correlationId &&
-      record.assignmentDigest === lifecycle.assignmentDigest &&
       record.status === "running",
   );
+  if (
+    openPhase !== undefined &&
+    !samePhaseMeasurementAssignment(
+      openPhase.resolvedAssignment,
+      resolvedAssignment,
+    )
+  ) {
+    return refusedMetric(
+      "metrics.phase_assignment_conflict",
+      "The open phase measurement belongs to another assignment.",
+    );
+  }
+  const continued =
+    openPhase === undefined ||
+    (openPhase.sessionId === lifecycle.sessionId &&
+      openPhase.correlationId === lifecycle.correlationId &&
+      openPhase.assignmentDigest === lifecycle.assignmentDigest)
+      ? openPhase
+      : {
+          ...openPhase,
+          sessionId: lifecycle.sessionId,
+          correlationId: lifecycle.correlationId,
+          assignmentDigest: lifecycle.assignmentDigest,
+          updatedAt: lifecycle.occurredAt,
+        };
   const recovered = context.measurements.records.map((record) => {
-    if (record.status !== "running" || record === retried) return record;
+    if (record.status !== "running" || record === openPhase) return record;
     const sameRun =
       record.feature === context.feature && record.runId === context.runId;
     const accepted = sameRun
@@ -257,7 +286,7 @@ function decidePhaseStart(observation: Observation): Decision {
     });
   });
   const started =
-    retried ??
+    continued ??
     startPhaseMeasurement({
       feature: context.feature,
       runId: context.runId,
@@ -267,12 +296,7 @@ function decidePhaseStart(observation: Observation): Decision {
       now: lifecycle.occurredAt,
       totalGrossTokens: context.usage.totalGrossTokens,
       assignmentDigest: lifecycle.assignmentDigest,
-      resolvedAssignment: {
-        host: context.assignment.host,
-        role: context.assignment.assignment.role,
-        model: context.assignment.assignment.model,
-        effort: context.assignment.assignment.effort,
-      },
+      resolvedAssignment,
     });
   let nextRecords: readonly PhaseMeasurement[];
   try {

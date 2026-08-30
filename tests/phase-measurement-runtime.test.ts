@@ -26,6 +26,7 @@ const START = "2026-08-30T12:00:00.000Z";
 const SAMPLE = "2026-08-30T12:01:00.000Z";
 const END = "2026-08-30T12:03:00.000Z";
 const LATER = "2026-08-30T12:04:00.000Z";
+const AFTER = "2026-08-30T12:05:00.000Z";
 const LOG = ".brain/03-memory/task_log.jsonl";
 const COMPLETE_PRD = `# Requirements
 
@@ -162,9 +163,10 @@ function portsAt(
   run: RuntimeSubject,
   now: string,
   standardInput: string | null = null,
+  base: RuntimePorts = run.ports,
 ): RuntimePorts {
   return {
-    ...run.ports,
+    ...base,
     clock: fixedClock(now),
     standardInput: pipedInput(standardInput),
   };
@@ -197,9 +199,12 @@ async function started(): Promise<RuntimeSubject> {
   return run;
 }
 
-async function handoff(run: RuntimeSubject): Promise<PhaseHandoffV1_1> {
+async function handoff(
+  run: RuntimeSubject,
+  ports: RuntimePorts = run.ports,
+): Promise<PhaseHandoffV1_1> {
   clearOutput(run);
-  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
+  expect(await runCommandLine(["--json", "handoff"], ports)).toBe(0);
   return JSON.parse(run.output.structured_.join("")) as PhaseHandoffV1_1;
 }
 
@@ -208,6 +213,7 @@ async function relay(
   observation: Readonly<Record<string, unknown>>,
   suffix: string,
   now: string,
+  ports: RuntimePorts = run.ports,
 ): Promise<OperationResultV1> {
   const sessionId =
     typeof observation.sessionId === "string"
@@ -240,7 +246,7 @@ async function relay(
   return result(
     run,
     ["hook", "--host", "codex"],
-    portsAt(run, now, JSON.stringify(message)),
+    portsAt(run, now, JSON.stringify(message), ports),
   );
 }
 
@@ -248,8 +254,9 @@ async function startPhase(
   run: RuntimeSubject,
   sessionId: string,
   now = START,
+  ports: RuntimePorts = run.ports,
 ): Promise<OperationResultV1> {
-  const current = await handoff(run);
+  const current = await handoff(run, ports);
   return relay(
     run,
     {
@@ -263,6 +270,7 @@ async function startPhase(
     },
     `start-${sessionId}`,
     now,
+    ports,
   );
 }
 
@@ -313,6 +321,10 @@ async function completeCurrentPhase(
     [".brain/02-features/measure-phase-usage/00-prd.md", COMPLETE_PRD],
     [".brain/02-features/measure-phase-usage/01-design.md", "# Design\n"],
     [".brain/02-features/measure-phase-usage/02-tasks.md", TASKS],
+    [
+      ".brain/02-features/measure-phase-usage/code-summary.md",
+      "Code complete.\n",
+    ],
   ] as const;
   const selected = artifacts[index];
   if (selected === undefined) throw new Error("Missing phase artifact fixture");
@@ -406,6 +418,16 @@ ${JSON.stringify(
     ["agent", "record", ref, "--correlation-id", correlationId],
     portsAt(run, LATER, JSON.stringify(message)),
   );
+}
+
+async function enterCodePhase(run: RuntimeSubject): Promise<void> {
+  for (let index = 0; index < 3; index += 1) {
+    await startPhase(run, `session-${String(index)}`, START);
+    expect(await completeCurrentPhase(run, index)).toMatchObject({
+      reasonCode: "trail.ok",
+    });
+  }
+  await startPhase(run, "session-code", LATER);
 }
 
 describe("phase measurement runtime lifecycle", () => {
@@ -622,14 +644,7 @@ describe("phase measurement runtime lifecycle", () => {
 
   it("records the code assignment from runtime resolution, never agent text", async () => {
     const run = await started();
-    for (let index = 0; index < 3; index += 1) {
-      await startPhase(run, `session-${String(index)}`, START);
-      expect(await completeCurrentPhase(run, index)).toMatchObject({
-        reasonCode: "trail.ok",
-      });
-    }
-
-    await startPhase(run, "session-code", LATER);
+    await enterCodePhase(run);
     expect(await recordForgedCodeReply(run)).toMatchObject({
       reasonCode: "trail.ok",
       stateChanged: true,
@@ -646,5 +661,89 @@ describe("phase measurement runtime lifecycle", () => {
       effort: "high",
     });
     expect(run.storage.snapshot().files[LOG]).not.toContain("forged-model");
+  });
+
+  it("completes one keyed record after an agent fact changes the revision", async () => {
+    const run = await started();
+    await enterCodePhase(run);
+
+    expect(await recordForgedCodeReply(run)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+    expect(await completeCurrentPhase(run, 3, AFTER)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    const codeRecords = records(run).filter(({ phase }) => phase === "code");
+    expect(codeRecords).toHaveLength(1);
+    expect(codeRecords[0]).toMatchObject({
+      status: "completed",
+      startedAt: LATER,
+      endedAt: AFTER,
+      durationMs: 60_000,
+      baselineGrossTokens: 0,
+      closeReason: "phase_completed",
+    });
+  });
+
+  it("reassociates a same-phase start after a fact without resetting usage", async () => {
+    const run = await started();
+    await enterCodePhase(run);
+    await samplePhase(run, "session-code", 40, "sample-before-fact", LATER);
+    const before = records(run).find(({ phase }) => phase === "code");
+    if (before === undefined) throw new Error("Missing running measurement");
+    expect(await recordForgedCodeReply(run)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    expect(
+      await startPhase(run, "session-code-reassociated", AFTER),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    const after = records(run).filter(({ phase }) => phase === "code");
+    expect(after).toHaveLength(1);
+    expect(after[0]).toMatchObject({
+      status: "running",
+      sessionId: "session-code-reassociated",
+      correlationId: "start-session-code-reassociated",
+      startedAt: before.startedAt,
+      baselineGrossTokens: before.baselineGrossTokens,
+      grossTokens: 40,
+    });
+    expect(after[0]?.assignmentDigest).not.toBe(before.assignmentDigest);
+  });
+
+  it("refuses a same-phase start whose resolved assignment genuinely changed", async () => {
+    const run = await started();
+    await startPhase(run, "session-prd");
+    const before = run.storage.snapshot().files[LOG];
+    const base = codexCatalog();
+    const changedCatalog = {
+      ...base,
+      defaults: {
+        ...base.defaults,
+        planner: { model: "planner-reassigned", effort: "medium" as const },
+      },
+      models: base.models.map((entry) =>
+        entry.canonicalModel === "planner-canonical"
+          ? { ...entry, canonicalModel: "planner-reassigned" }
+          : entry,
+      ),
+    };
+    const changedPorts = {
+      ...run.ports,
+      modelRouting: fixedModelRouting([changedCatalog]),
+    };
+
+    expect(
+      await startPhase(run, "session-prd-reassigned", SAMPLE, changedPorts),
+    ).toMatchObject({
+      reasonCode: "metrics.phase_assignment_conflict",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(before);
   });
 });
