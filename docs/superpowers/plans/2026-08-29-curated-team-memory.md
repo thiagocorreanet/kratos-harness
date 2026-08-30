@@ -100,7 +100,7 @@
 
 **Interfaces:**
 - `migrate memory <mapping.json>` accepts `sourceDigest`, `reviewer`, and lessons with exact one-based source-line ranges.
-- Every non-template, nonblank legacy line must be covered exactly once.
+- Every non-template, non-blank legacy line must be covered exactly once.
 - Existing migration receipt and rollback surfaces preserve original bytes.
 
 - [ ] Write failing tests for fresh structured state, missing ledger with stock template, custom legacy content, overlapping ranges, uncovered lines, changed source digest, preview no-write, apply, and rollback.
@@ -144,9 +144,9 @@
 - Documents exact commands, limits, Git classification, migration, compatibility, security, recovery, and host parity.
 - Evidence maps every issue #140 criterion to an exact test or artifact.
 
-- [ ] Update public documentation with the final implemented grammar and recovery commands.
-- [ ] Write the acceptance evidence matrix, including exact focused verification commands and the baseline shared-temp race observation.
-- [ ] Run formatting, spelling, English, lint, typecheck, focused memory tests, and contract checks; repair only failures caused by this branch.
-- [ ] Run `npm run verify` with npm 11.16.0 and capture exit status and test counts.
-- [ ] Audit `git diff --check`, `git diff --stat`, reason/schema predecessor bytes, issue checkboxes, and placeholder absence.
-- [ ] Commit with `docs(memory): publish curated memory evidence`.
+- [x] Update public documentation with the final implemented grammar and recovery commands.
+- [x] Write the acceptance evidence matrix, including exact focused verification commands and the baseline shared-temp race observation.
+- [x] Run formatting, spelling, English, lint, typecheck, focused memory tests, and contract checks; repair only failures caused by this branch.
+- [x] Run `npm run verify` with npm 11.16.0 and capture exit status and test counts.
+- [x] Audit `git diff --check`, `git diff --stat`, reason/schema predecessor bytes, issue checkboxes, and placeholder absence.
+- [x] Commit with `docs(memory): publish curated memory evidence`.

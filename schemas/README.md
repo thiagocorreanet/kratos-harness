@@ -26,8 +26,11 @@ The universal runtime-result family contains:
   which adds the eight fail-closed `model.*` routing,
   independence, handoff, execution, and configuration-migration reasons;
 - [`reason-codes.v1.8.json`](../packages/contracts/catalogs/reason-codes.v1.8.json),
-  the current revision, which adds `policy.language_incomplete` and
+  which adds `policy.language_incomplete` and
   `policy.language_convention_mismatch_advisory`.
+- [`reason-codes.v1.9.json`](../packages/contracts/catalogs/reason-codes.v1.9.json),
+  the current revision, which adds the curated-memory refusal and recovery
+  reasons.
 
 The state family contains:
 
@@ -60,6 +63,8 @@ The state family contains:
   replacement migration and rollback receipt;
 - [`transaction-manifest.v1.schema.json`](state/transaction-manifest.v1.schema.json);
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
+- [`curated-memory.v1.schema.json`](state/curated-memory.v1.schema.json), the
+  committed confirmed-lesson and archive-tombstone ledger.
 
 The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the
@@ -76,12 +81,21 @@ block one phase agent appends to its reply, plus
 [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized
 structured file mutations, and
 [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json) for the
-digest-bound resolved assignment. See the
+digest-bound resolved assignment, plus the explicit v1.2
+[`memory-capture.v1.2.schema.json`](host/memory-capture.v1.2.schema.json),
+[`memory-change.v1.2.schema.json`](host/memory-change.v1.2.schema.json),
+[`memory-migration.v1.2.schema.json`](host/memory-migration.v1.2.schema.json),
+[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), and
+[`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json)
+contracts. The last two bind the phase-constrained curated-memory observation.
+See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json).
-The immutable predecessor remains
+[`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json).
+The immutable predecessors remain
+[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json)
+and
 [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed

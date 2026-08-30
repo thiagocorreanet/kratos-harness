@@ -41,6 +41,10 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `operation-error.json`;
 - `agent-output.json`.
 
+The [`contracts/v1.2`](contracts/v1.2) directory adds the explicit current
+agent-output and phase-handoff curated-memory observations, plus the memory
+capture, change, and migration proposals.
+
 The [`agent-output/v1`](agent-output/v1) directory contains the agent output
 corpus: one complete valid and one complete invalid Markdown reply per runtime
 output under `valid/` and `invalid/`, and extraction-specific replies under

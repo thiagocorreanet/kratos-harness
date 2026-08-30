@@ -1,0 +1,23 @@
+{
+  "contractVersion": "1.2.0",
+  "hostContract": "1.2.0",
+  "agent": "code",
+  "outcome": {
+    "status": "completed",
+    "next": "proceed",
+    "questions": [],
+    "blockers": []
+  },
+  "artifacts": [],
+  "changedFiles": [],
+  "payload": {
+    "stepId": "implementation-step",
+    "testsAdded": 0,
+    "testsPassed": true
+  },
+  "memory": {
+    "ref": ".brain/03-memory/gotchas.md",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "lessonIds": []
+  }
+}

@@ -3,6 +3,7 @@ import versionCases from "../fixtures/contracts/v1/version-cases.json" with { ty
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import adapterMessageV1_1 from "../fixtures/contracts/v1.1/adapter-message.json" with { type: "json" };
 import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
+import agentOutputV1_2 from "../fixtures/contracts/v1.2/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
@@ -26,6 +27,7 @@ import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import migrationV1_1 from "../fixtures/contracts/v1.1/migration.json" with { type: "json" };
 import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
+import phaseHandoffV1_2 from "../fixtures/contracts/v1.2/phase-handoff.json" with { type: "json" };
 import memoryCapture from "../fixtures/contracts/v1.2/memory-capture.json" with { type: "json" };
 import memoryChangePromote from "../fixtures/contracts/v1.2/memory-change-promote.json" with { type: "json" };
 import memoryChangeMerge from "../fixtures/contracts/v1.2/memory-change-merge.json" with { type: "json" };
@@ -93,6 +95,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.agent-output",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "memory",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutputV1_2,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "host.gap-proposal",
     version: "1.0.0",
     versionField: "hostContract",
@@ -149,6 +161,16 @@ const fixtures = [
     requiredField: "runId",
     structuralReasonCode: "trail.output_invalido",
     fixture: phaseHandoffV1_1,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-handoff",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "memory",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseHandoffV1_2,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },

@@ -61,7 +61,7 @@ limit is blocked until curation reduces the active surface.
 
 Fresh initialization writes an empty ledger and its Markdown projection.
 Existing free-form `gotchas.md` is never parsed heuristically. `migrate memory`
-binds the legacy digest and requires each non-template, nonblank content line
+binds the legacy digest and requires each non-template, non-blank content line
 to be covered exactly once by a validated lesson mapping. Preview/apply,
 backup, receipt, and rollback use the existing migration conventions. Until
 adoption, code and review handoffs return a stable migration-required result.

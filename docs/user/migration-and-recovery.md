@@ -57,7 +57,7 @@ the earlier audit bundle; it never overwrites prior recovery evidence.
 Existing free-form `.brain/03-memory/gotchas.md` is never interpreted as
 Markdown lessons. `kratos migrate memory mapping.json` accepts a closed
 `memory-migration@1.2.0` mapping with the source SHA-256, reviewer, lesson
-title/why/apply values, and one-based source ranges. Every nonblank,
+title/why/apply values, and one-based source ranges. Every non-blank,
 non-template legacy line must occur in exactly one ordered range; overlaps,
 gaps, out-of-bounds ranges, and changed source bytes are refused.
 
@@ -69,6 +69,23 @@ rendered projection, preserves the original `gotchas.md` bytes beneath
 and verification records. `kratos migrate rollback ID` restores those exact
 legacy bytes and removes the migrated ledger after validating the receipt and
 current projection.
+
+The exact preview and apply grammar is:
+
+```bash
+kratos migrate memory --root PATH mapping.json
+kratos migrate memory --root PATH mapping.json \
+  --yes --proposal-digest SHA256 --plan-digest SHA256 --plan-time INSTANT
+kratos migrate rollback MIGRATION_ID --root PATH
+```
+
+The preview prints the source SHA-256 as well as the proposal, plan, and time
+values. The mapping's `sourceDigest` must name those exact legacy bytes.
+`--yes` without all three preview values, changed source or mapping bytes, an
+overlap, a gap, or an out-of-bounds range refuses instead of creating a new
+plan. Rollback verifies the receipt, backup digest, current ledger, and
+current projection before restoring the original Gotchas bytes. A refusal
+preserves the known-good copy and its recovery records.
 
 Fresh structured memory is already adopted. A missing ledger paired with the
 exact stock empty Gotchas template is safely adoptable; any other free-form

@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const repositoryRoot = join(import.meta.dirname, "../..");
-export const buildRoot = join(tmpdir(), "kratos-plugin-vitest-build");
+export const buildRoot = join(
+  tmpdir(),
+  `kratos-plugin-vitest-build-${String(process.pid)}`,
+);
 
 export function buildPlugin(): void {
   execFileSync(process.execPath, ["scripts/build.mjs", "--output", buildRoot], {

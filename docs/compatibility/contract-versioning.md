@@ -20,8 +20,8 @@ the metadata-only Go v3 migration profiles.
 | Identity | Current | Owner |
 | --- | --- | --- |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
-| `stateContract` | `1.1.0` | Persisted `.brain/` configuration and history |
-| `hostContract` | `1.1.0` | Cross-process adapter request and response messages |
+| `stateContract` | `1.2.0` | Persisted `.brain/` configuration and history |
+| `hostContract` | `1.2.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
 and the numeric `schema_version` field inside a legacy payload is not converted
@@ -33,8 +33,8 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-The state family's current global revision is `1.1.0`, and its readable window
-contains `1.0.0` and `1.1.0`. This family identity is used for bundle
+The state family's current global revision is `1.2.0`, and its readable window
+contains `1.0.0`, `1.1.0`, and `1.2.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
@@ -56,8 +56,8 @@ their inspection and recovery. A project configuration at `1.0.0` is readable
 only to that planner and returns `model.config_migration_required` before phase
 execution.
 
-The host family's current global revision is also `1.1.0`, with `1.0.0` and
-`1.1.0` accepted for their registered payloads. Exact writes again follow
+The host family's current global revision is also `1.2.0`, with `1.0.0`,
+`1.1.0`, and `1.2.0` accepted for their registered payloads. Exact writes again follow
 `CONTRACT_VERSIONS`:
 
 - Role-aware host payloads `host.adapter-message`, `host.init-answers`, and
@@ -154,6 +154,24 @@ Revision `1.8.0` preserves those 107 entries and appends two language policy out
 
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.
+
+Revision `1.9.0` preserves every `1.8.0` entry and appends the curated-memory
+outcomes below. `state.curated-memory@1.0.0`,
+`host.memory-capture@1.2.0`, `host.memory-change@1.2.0`, and
+`host.memory-migration@1.2.0` are additive. `host.phase-handoff@1.2.0` and
+`host.agent-output@1.2.0` add a phase-constrained memory observation. Existing
+schema and catalogue bytes remain unchanged; writers select the explicit
+version rather than widening an old contract.
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `memory.lesson_incomplete` | 2 | A promotion lacks required causal or application guidance |
+| `memory.curation_required` | 3 | The active confirmed surface exceeds its readability limits |
+| `memory.candidate_missing` | 2 | A requested local candidate no longer exists |
+| `memory.projection_drift` | 4 | The committed ledger and Markdown projection disagree |
+| `memory.confirmation_stale` | 3 | The preview values no longer authorize the requested apply |
+| `memory.phase_context_stale` | 3 | A code/review acknowledgement differs from its handoff |
+| `memory.migration_required` | 4 | Legacy Gotchas require explicit lossless adoption |
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
