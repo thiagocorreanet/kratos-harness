@@ -1,8 +1,8 @@
 # Installing Kratos
 
 Kratos is source-first and does not keep a generated `dist` directory in its
-repository. A build creates two temporary, installable packages: one for Codex
-and one for Claude Code. The plugin runtime stays outside the project that uses
+repository. A build creates three temporary, installable packages: one for Codex,
+one for Claude Code, and one for Google Antigravity. The plugin runtime stays outside the project that uses
 Kratos.
 
 ## Prerequisites
@@ -31,7 +31,7 @@ If `KRATOS_BUILD_OUTPUT` is not set, Kratos uses
 `<operating-system-temp>/kratos-plugin-build`. The build refuses to write
 inside the source repository.
 
-The output contains two independent packages and local marketplace manifests:
+The output contains three independent packages and local marketplace manifests:
 
 ```text
 kratos-plugin-build/
@@ -39,6 +39,7 @@ kratos-plugin-build/
   .claude-plugin/marketplace.json
   codex/
   claude-code/
+  antigravity/
 ```
 
 Each package contains its thin host adapter and a private `runtime/` directory.
@@ -54,7 +55,7 @@ npm run kratos -- version
 npm run kratos -- handshake --json
 ```
 
-Select the Claude Code package with `KRATOS_HOST=claude-code`.
+Select the Claude Code package with `KRATOS_HOST=claude-code` or Antigravity with `KRATOS_HOST=antigravity`.
 
 ## Install in Codex
 
@@ -83,6 +84,18 @@ Alternatively, validate a development package directly with
 The host-managed installation receives the motor, contracts, schemas, and thin
 adapter. The application project does not.
 
+## Install in Antigravity
+
+Add the Antigravity package or reference the temporary build in your Antigravity
+configuration or CLI:
+
+```bash
+agy plugin install "$KRATOS_BUILD_OUTPUT/antigravity"
+```
+
+The Antigravity package provides the Kratos skill, workflow hooks, and thin
+pre-tool-use write guards for Google Antigravity.
+
 ## Direct atomic staging
 
 `scripts/install-plugin.mjs` is available for release assembly and controlled
@@ -91,7 +104,7 @@ does not register that directory with a host marketplace:
 
 ```bash
 node scripts/install-plugin.mjs install \
-  --host codex \
+  --host antigravity \
   --source "$KRATOS_BUILD_OUTPUT" \
   --target /absolute/plugin/staging/directory/kratos
 ```
@@ -104,12 +117,12 @@ project and pass its project-relative path:
 
 ```bash
 /absolute/host/plugin/directory/kratos/runtime/kratos.mjs \
-  init --host codex --root /path/to/project \
+  init --host antigravity --root /path/to/project \
   < fixtures/contracts/v1/init-answers.json
 ```
 
 Initialization creates or reconciles only project-facing material such as
-`.brain/`, `AGENTS.md` or `CLAUDE.md`, and the selected bounded host surfaces.
+`.brain/`, `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`, and the selected bounded host surfaces.
 It never copies runtime code, package sources, internal engine skills,
 `node_modules`, TypeScript, or source maps into the project.
 

@@ -1,18 +1,19 @@
 # Embedded runtime distribution contract
 
-Claude Code and Codex invoke a runtime owned by the installed Kratos plugin
+Claude Code, OpenAI Codex, and Google Antigravity invoke a runtime owned by the installed Kratos plugin
 against an arbitrary project working directory. There is no global executable,
 project `node_modules`, or project-local copy of the motor.
 
 ## Build boundary
 
 Kratos is an open-source, source-first repository. `scripts/build.mjs` requires
-an absolute output outside the checkout and stages two independent packages:
+an absolute output outside the checkout and stages three independent packages:
 
 ```text
 kratos-plugin-build/
   codex/
   claude-code/
+  antigravity/
 ```
 
 The default output is the operating system temporary directory. The repository
@@ -32,22 +33,23 @@ embedded runtime:
 | `runtime/THIRD-PARTY-NOTICES.txt` | explicit redistributed-code statement |
 
 Codex assets live at the Codex package root. Claude Code assets follow its
-`.claude-plugin/`, `agents/`, `hooks/`, and `skills/` conventions. A package
-contains only one host's assets.
+`.claude-plugin/`, `agents/`, `hooks/`, and `skills/` conventions. Antigravity
+assets follow its `.antigravity-plugin/`, `hooks/`, and `skills/` conventions.
+A package contains only one host's assets.
 
 The host skill is deliberately thin. It locates `runtime/kratos.mjs` relative
 to the installed plugin, performs the handshake, supplies an explicit project
 root, and relays the runtime result unchanged. It does not implement workflow
 policy, schemas, transitions, gates, approvals, or evidence rules.
 
-Both packages also receive the same
+All packages also receive the same
 `skills/kratos/scripts/project-profile-relay.mjs`. It exposes one canonical
 ten-question initialization interview and shapes keyed leaf answers without
 validating, defaulting, or inferring them. Package verification imports each
 copy and exercises contract-valid scalar, array, not-applicable, and unresolved
 answers through installed initialization. The cross-host equality proof lives
 in `tests/project-profile-relay-distribution.test.ts`, which compares persisted
-values and rendered bytes from both packages directly.
+values and rendered bytes across all packages directly.
 
 ## Why the boot is split
 
@@ -93,8 +95,8 @@ only what its users and agents need to operate that project.
 
 `runtime/manifest.json` records the runtime core digest, the complete modular
 runtime tree digest, the host-assets digest, the minimum Node version, and the
-result, reason-catalog, state, and host contract versions. Codex and Claude Code
-artifacts carry identical runtime content but distinct host identities and
+result, reason-catalog, state, and host contract versions. Codex, Claude Code, and
+Antigravity artifacts carry identical runtime content but distinct host identities and
 host-assets digests.
 
 The installer verifies these digests before staging, before activation, and
@@ -112,13 +114,13 @@ rather than a model-supplied guess.
 
 `npm run package:verify` performs the release-level black-box proof:
 
-1. validate both package inventories, manifests, digests, and host runtime
+1. validate all package inventories, manifests, digests, and host runtime
    paths;
 2. reject symbolic links, TypeScript, source maps, and dependency trees;
 3. install each package through the actual atomic installer;
 4. execute version and handshake from the installed package;
 5. initialize a clean Git project per host;
-6. assert that no motor or engine dependency reached either project;
+6. assert that no motor or engine dependency reached any project;
 7. execute the canonical project-profile relay and reject changed questions or
    value mapping;
 8. record an objective, start revision 1, and read the resulting status.
