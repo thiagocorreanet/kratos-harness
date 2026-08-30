@@ -336,4 +336,69 @@ describe("curated memory domain", () => {
     );
     expect(outcome.ledger.archive[47]?.lessonId).toBe("z".repeat(64));
   });
+
+  it("accepts exactly 48KiB rendered UTF-8 and refuses one byte more", () => {
+    const digest = (value: string) =>
+      `x${String(value.length)}`.padEnd(64, "0");
+    const proposal = {
+      contractVersion: "1.2.0" as const,
+      hostContract: "1.2.0" as const,
+      operation: "promote" as const,
+      reviewer: "reviewer",
+      candidateIds: ["z".repeat(64)],
+      title: "Boundary",
+      why: ["why"],
+      apply: ["apply"],
+    };
+    const ledgerFor = (extra: number): CuratedMemoryV1 => {
+      let remaining = extra;
+      const fields = Array.from({ length: 23 * 16 }, () => {
+        const amount = Math.min(511, remaining);
+        remaining -= amount;
+        return `x${"x".repeat(amount)}`;
+      });
+      let cursor = 0;
+      return {
+        ...EMPTY,
+        confirmed: Array.from({ length: 23 }, (_, index) => ({
+          lessonId: `${String(index).padStart(64, "0")}`,
+          title: `L${String(index)}`,
+          why: Array.from({ length: 8 }, () => fields[cursor++] ?? "x"),
+          apply: Array.from({ length: 8 }, () => fields[cursor++] ?? "x"),
+          candidateIds: ["a".repeat(64)],
+          reviewer: "reviewer",
+          confirmedAt: "2026-08-29T00:00:00Z",
+        })),
+      };
+    };
+    const baseline = reduceMemoryChange(
+      ledgerFor(0),
+      proposal,
+      "2026-08-29T00:00:00Z",
+      digest,
+    );
+    if (baseline.kind !== "ready") throw new Error("expected baseline");
+    const baseBytes = Buffer.byteLength(
+      renderCuratedMemory(baseline.ledger),
+      "utf8",
+    );
+    const accepted = reduceMemoryChange(
+      ledgerFor(48 * 1024 - baseBytes),
+      proposal,
+      "2026-08-29T00:00:00Z",
+      digest,
+    );
+    if (accepted.kind !== "ready") throw new Error("expected exact boundary");
+    expect(
+      Buffer.byteLength(renderCuratedMemory(accepted.ledger), "utf8"),
+    ).toBe(48 * 1024);
+    expect(
+      reduceMemoryChange(
+        ledgerFor(48 * 1024 - baseBytes + 1),
+        proposal,
+        "2026-08-29T00:00:00Z",
+        digest,
+      ),
+    ).toEqual({ kind: "curation_required" });
+  });
 });

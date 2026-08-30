@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars */
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
+  inspectManagedTransactions,
+  recoverManagedMutation,
+  type TransactionServices,
+} from "@kratos/runtime/composition";
+import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
+import { validateCuratedMemoryProjection } from "@kratos/runtime/domain/memory";
+import type { CuratedMemoryV1 } from "@kratos/contracts";
+import {
   fixedClock,
   fixedEnvironment,
   fixedModelRouting,
@@ -137,6 +145,18 @@ async function overwrite(
   await run.ports.durableFileSystem.replaceFile(staged, path);
 }
 
+function transactionServices(
+  run: ReturnType<typeof subject>,
+): TransactionServices {
+  return {
+    clock: fixedClock(NOW),
+    ids: sequentialIds("recovery"),
+    digests: run.storage.digests,
+    durableFileSystem: run.storage.durableFileSystem,
+    schemaRegistry: createSchemaRegistry(),
+  };
+}
+
 function previewAuthorization(text: string): {
   readonly proposalDigest: string;
   readonly planDigest: string;
@@ -233,6 +253,50 @@ describe("curated memory promotion", () => {
       `${JSON.stringify(LEDGER, null, 2)}\n`,
     );
     expect(files[".brain/03-memory/gotchas.md"]).toBe(GOTCHAS);
+  });
+
+  it("recovers a late canonical publication fault without consuming candidates", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    run.storage.fail({
+      operation: "replace_file",
+      timing: "before",
+      occurrence: 2,
+    });
+    expect(await runCommandLine(applyArguments(authorization), run.ports)).toBe(
+      4,
+    );
+    expect(
+      run.storage.snapshot().files[
+        `.brain/03-memory/candidates/${CANDIDATE}.json`
+      ],
+    ).toBeDefined();
+    const services = transactionServices(run);
+    const [summary] = await inspectManagedTransactions(services);
+    if (summary === undefined)
+      throw new Error("expected recoverable transaction");
+    await recoverManagedMutation(
+      {
+        transactionId: summary.transactionId,
+        recoveryToken: summary.recoveryToken,
+      },
+      services,
+    );
+    const files = run.storage.snapshot().files;
+    const ledger = JSON.parse(
+      files[".brain/03-memory/curated-memory.json"] ?? "",
+    ) as CuratedMemoryV1;
+    expect(
+      validateCuratedMemoryProjection(
+        ledger,
+        files[".brain/03-memory/gotchas.md"] ?? "",
+        run.storage.digests.sha256,
+      ),
+    ).toEqual({ kind: "valid" });
+    expect(
+      files[`.brain/03-memory/candidates/${CANDIDATE}.json`],
+    ).toBeDefined();
   });
 
   it("replays the reviewed plan time across a changed wall clock", async () => {

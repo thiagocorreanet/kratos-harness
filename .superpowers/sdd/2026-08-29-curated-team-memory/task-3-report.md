@@ -77,3 +77,9 @@
 - Added real merge preview/apply proof with exact source tombstones and
   replacement, archive rolling-window proof, and byte-exact POSIX quoting/
   root reconstruction. Focused coverage is now 31 tests across 3 files.
+- Boundary completion: a generated valid 23-lesson ledger is promoted exactly
+  at 49,152 rendered UTF-8 bytes and is accepted; the one-byte larger variant
+  is refused as `memory.curation_required`. A `replace_file` occurrence-2
+  failpoint proves recovery after the first canonical swap: recovery restores a
+  ledger/projection-valid pair and retains the unconsumed candidate.
+- GREEN: `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts` — 18 tests passed.
