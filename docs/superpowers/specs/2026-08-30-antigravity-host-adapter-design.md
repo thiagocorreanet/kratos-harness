@@ -9,6 +9,7 @@ Kratos can run under Google Antigravity (`agy` CLI) and Gemini models as a first
 Kratos is designed to be host-neutral: AI agents propose actions, the Kratos deterministic runtime evaluates and authorizes or refuses them, and the append-only event stream records the result.
 
 The Google Antigravity host integration introduces:
+
 1. **Contract Schemas (`schemas/` and `@kratos/contracts`)**: Extension of host unions and model catalog types to include `"antigravity"`.
 2. **Host Adapter (`@kratos/adapters`)**: Relay-only `antigravityAdapter` implementing the 3-method interface (`describe`, `translate`, `relay`), pre-tool mutation normalization for Antigravity's `write_to_file` and `replace_file_content` tools, and default model catalog routing for Gemini models.
 3. **Runtime & CLI (`@kratos/runtime`)**: Support for `--host antigravity` during project initialization (`kratos init`), workspace surface generation (`GEMINI.md` and `.gemini/settings.json`), and launcher host resolution in workflow orchestration.
@@ -48,6 +49,7 @@ flowchart TD
 ### 1. Contract Schemas & Types
 
 #### Schemas (`schemas/`)
+
 - `schemas/host/adapter-message.v1.1.schema.json`:
   - `properties.host.enum`: `["claude", "codex", "antigravity"]`
 - `schemas/host/phase-handoff.v1.1.schema.json`:
@@ -59,6 +61,7 @@ flowchart TD
   - `properties.modelRoles.properties`: add `"antigravity": { "$ref": "#/$defs/roleMap" }`
 
 #### Generated Contracts (`packages/contracts`)
+
 - `SupportedHost`: `"claude-code" | "codex" | "antigravity"`
 - Host model routing and catalog types accept `"antigravity"` as a valid configuration host identifier.
 
@@ -67,7 +70,9 @@ flowchart TD
 ### 2. Host Adapter (`packages/adapters`)
 
 #### Model Routing & Catalog (`packages/adapters/src/index.ts`)
+
 `DEFAULT_CATALOGS.antigravity` specifies:
+
 ```typescript
 antigravity: frozenCatalog({
   host: "antigravity",
@@ -95,9 +100,11 @@ antigravity: frozenCatalog({
   ],
 })
 ```
+
 Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro` vs `gemini-2.5-pro`).
 
 #### Pre-Tool Use Normalization (`packages/adapters/src/antigravity/pre-tool-use.ts`)
+
 - **Recognized Mutation Tools**:
   - `write_to_file`:
     - Payload fields: `TargetFile` (non-empty absolute path string), `CodeContent` (string), `Description` (string), `Overwrite` (optional boolean).
@@ -111,12 +118,14 @@ Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro
   - Any missing required fields, non-absolute `TargetFile`, invalid line numbers, or unrecognized mutation shapes on recognized mutation tools fail closed with `{ kind: "guard", request: uninspectablePreToolRequest() }`.
 
 #### Lifecycle Hooks (`packages/adapters/src/hooks.ts`)
+
 - `normalizeAntigravityHook(kind: HookKind, input: unknown): HookObservationV1 | null`
   - For `tool.before`, uses `normalizeAntigravityPreToolUse(input)` to extract mutations.
   - For `tool.failed`, normalizes tool exit codes, tool family, error diagnostic, and token usage.
   - For `session.sample` and `session.end`, normalizes session ID, timestamp, and cumulative gross tokens.
 
 #### Adapter Instance (`packages/adapters/src/index.ts`)
+
 - `configurationHostFor(host: SupportedHost)`: returns `"antigravity"` when `host === "antigravity"`.
 - `antigravityAdapter(options: HostAdapterOptions): HostAdapter` adheres to the strict 3-method interface:
   - `describe()`: returns `HostDescriptor` with `configurationHost: "antigravity"`.
@@ -128,6 +137,7 @@ Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro
 ### 3. Runtime and CLI (`packages/runtime`)
 
 #### Commands & Domain Configuration
+
 - `packages/runtime/src/domain/cli/adapters.ts`:
   - `SupportedHost`: `"claude-code" | "codex" | "antigravity"`
   - `HOSTS`: `["claude-code", "codex", "antigravity"]`
@@ -150,6 +160,7 @@ Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro
 ### 4. Distribution and Packaging (`distribution/` & `scripts/`)
 
 #### Distribution Files (`distribution/antigravity/`)
+
 - `distribution/shared/hooks.v1.json`:
   - Add matcher `"antigravity": "write_to_file|replace_file_content"` for `tool.before`.
   - Add matcher `"antigravity": ".*"` for `tool.failed`, `session.sample`, and `session.end`.
@@ -162,6 +173,7 @@ Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro
   - Rendered by `scripts/render-hooks.mjs` mapping `PreToolUse`, `PostToolUseFailure`, `Stop`, `SessionEnd`.
 
 #### Build & Tooling (`scripts/`)
+
 - `scripts/build.mjs`:
   - Packages `"antigravity"` in `artifacts` along with `"claude-code"` and `"codex"`.
   - Generates `runtime/manifest.json` with accurate asset digests.
@@ -175,6 +187,7 @@ Implementer and judge canonical models remain strictly distinct (`gemini-3.7-pro
 ## Verification Plan
 
 ### Automated Tests
+
 1. `tests/antigravity-pre-tool-relay.test.ts`: Unit tests verifying `write_to_file` (`create` / `update`), `replace_file_content` (`update`), non-mutation passthrough (`pass`), and malformed payload handling (`guard.target_uninspectable`).
 2. `tests/host-adapter-contract.test.ts`: Conformance suite running `describeHostAdapterContract("Antigravity", ...)` and checking judge/implementer independence.
 3. `tests/support/pre-tool-relay-cases.ts`: Cross-host parity suite asserting identical write guard enforcement across Claude Code, Codex, and Antigravity.

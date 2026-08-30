@@ -23,6 +23,7 @@
 ### Task 1: Contract Schemas and Generated Contract Types
 
 **Files:**
+
 - Modify: `schemas/host/adapter-message.v1.1.schema.json`
 - Modify: `schemas/host/phase-handoff.v1.1.schema.json`
 - Modify: `schemas/host/init-answers.v1.2.schema.json`
@@ -33,6 +34,7 @@
 - Test: `tests/contract-schemas.test.ts`
 
 **Interfaces:**
+
 - Produces: Updated JSON schemas accepting `"antigravity"` in `host` and `hosts` enums and `modelRoles` definitions, and updated `@kratos/contracts` TypeScript definitions (`InitAnswersV1_2`, `InitAnswersV1_3`, `ProjectConfigV1_2`, `ProjectConfigV1_3`, `AdapterMessageV1_1`, `PhaseHandoffV1_1`).
 
 - [ ] **Step 1: Update JSON schemas to accept `"antigravity"`**
@@ -61,11 +63,13 @@ git commit -m "feat(contracts): add antigravity host identifier to schemas and g
 ### Task 2: Pre-Tool-Use Normalization and Lifecycle Hooks for Antigravity
 
 **Files:**
+
 - Create: `packages/adapters/src/antigravity/pre-tool-use.ts`
 - Modify: `packages/adapters/src/hooks.ts`
 - Create: `tests/antigravity-pre-tool-relay.test.ts`
 
 **Interfaces:**
+
 - Consumes: `@kratos/contracts` (`PreToolUseV1`, `HookObservationV1`), `packages/adapters/src/pre-tool-use.ts` (`preToolRequest`, `uninspectablePreToolRequest`, `record`, `relayPreToolUse`, `NormalizedPreToolUse`, `GuardExecutor`, `PreToolRelayResult`).
 - Produces:
   - `normalizeAntigravityPreToolUse(input: unknown): NormalizedPreToolUse`
@@ -84,6 +88,7 @@ Expected: FAIL (modules not found / not implemented)
 - [ ] **Step 3: Implement `normalizeAntigravityPreToolUse` and `relayAntigravityPreToolUse`**
 
 Create `packages/adapters/src/antigravity/pre-tool-use.ts`:
+
 - Validate `TargetFile` (absolute path).
 - Map `write_to_file`: `Overwrite === true ? "update" : "create"`.
 - Map `replace_file_content`: `"update"`.
@@ -111,12 +116,14 @@ git commit -m "feat(adapters): implement antigravity pre-tool normalization and 
 ### Task 3: Antigravity Host Adapter and Model Catalog Routing
 
 **Files:**
+
 - Modify: `packages/adapters/src/index.ts`
 - Modify: `tests/host-adapter-contract.test.ts`
 - Modify: `tests/support/model-routing.ts`
 - Modify: `tests/support/pre-tool-relay-cases.ts`
 
 **Interfaces:**
+
 - Consumes: `@kratos/contracts`, `packages/adapters/src/antigravity/pre-tool-use.ts`, `packages/adapters/src/hooks.ts`.
 - Produces:
   - `SupportedHost`: `"claude-code" | "codex" | "antigravity"`
@@ -136,6 +143,7 @@ Expected: FAIL (`antigravityAdapter` not exported)
 - [ ] **Step 3: Implement `DEFAULT_CATALOGS.antigravity` and `antigravityAdapter` in `packages/adapters/src/index.ts`**
 
 Update `packages/adapters/src/index.ts`:
+
 - Add `"antigravity"` to `SupportedHost` and `DEFAULT_CATALOGS`.
 - Define default roles (`planner`: `gemini-3.7-pro`/`medium`, `implementer`: `gemini-3.7-pro`/`high`, `judge`: `gemini-2.5-pro`/`high`).
 - Update `configurationHostFor` to map `"antigravity"` -> `"antigravity"`.
@@ -159,6 +167,7 @@ git commit -m "feat(adapters): implement antigravity host adapter and model cata
 ### Task 4: Runtime CLI, Workspace Init Surface, and Workflow Resolution
 
 **Files:**
+
 - Modify: `packages/runtime/src/domain/cli/adapters.ts`
 - Modify: `packages/runtime/src/domain/init/answers.ts`
 - Modify: `packages/runtime/src/domain/cli/init.ts`
@@ -170,6 +179,7 @@ git commit -m "feat(adapters): implement antigravity host adapter and model cata
 - Test: `tests/workflow-composition.test.ts`
 
 **Interfaces:**
+
 - Consumes: `@kratos/adapters`, `@kratos/contracts`.
 - Produces:
   - `kratos adapters antigravity` returning versioned manifest.
@@ -211,6 +221,7 @@ git commit -m "feat(runtime): add antigravity host initialization, adapters comm
 ### Task 5: Distribution Assets, Build, Packaging, and Installation Tooling
 
 **Files:**
+
 - Modify: `distribution/shared/hooks.v1.json`
 - Create: `distribution/antigravity/skills/kratos/SKILL.md`
 - Create: `distribution/antigravity/skills/kratos/scripts/phase-agent-relay.mjs`
@@ -221,6 +232,7 @@ git commit -m "feat(runtime): add antigravity host initialization, adapters comm
 - Test: `tests/bundle-smoke.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - Antigravity distribution bundle at build output `/antigravity/` with `runtime/manifest.json`.
   - Skill and hook relay scripts for Antigravity agent lifecycle.
@@ -260,6 +272,7 @@ git commit -m "feat(distribution): add antigravity bundle, skill definition, hoo
 ### Task 6: Full Verification and Quality Gate
 
 **Files:**
+
 - Test: all test suites and quality gates
 
 - [ ] **Step 1: Run typecheck across all workspaces**
