@@ -442,6 +442,11 @@ export {
   relayCodexPreToolUse,
 } from "./codex/pre-tool-use.js";
 export {
+  normalizeAntigravityPreToolUse,
+  relayAntigravityPreToolUse,
+} from "./antigravity/pre-tool-use.js";
+export {
+  normalizeAntigravityHook,
   normalizeClaudeCodeHook,
   normalizeCodexHook,
   type HookKind,
