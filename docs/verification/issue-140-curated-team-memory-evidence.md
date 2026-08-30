@@ -95,6 +95,33 @@ preconditions. Capture does not call a model, access a network/socket, or run a
 project command. Curation is human-authorized and digest-bound; capture cannot
 promote. Hosts relay rather than decide memory policy.
 
+## Final review remediation
+
+Signed-off implementation commit
+`d5f14d8a0fade6e219faee5ce63d76213da96d83` closes the final whole-branch
+review findings. Prospective ledgers now pass the same semantic identity and
+replacement-topology validation as persisted ledgers, so active duplicates,
+retained archive reuse, and colliding merge replacements return
+`memory.curation_required` without writes. Candidate fingerprints are carried
+as host-neutral transaction read guards and rechecked during preparation,
+publication authorization, each publication boundary, and commit. Candidate
+cleanup starts only after durable authority commit and is a separate managed
+fingerprinted delete; a changed candidate is retained.
+
+Conservative failure normalization recognizes Windows drive-qualified source
+locations and supported `AppData\\Local\\Temp` / `Windows\\Temp` nonce paths
+without folding drive, case, path, or substantive numbers. Memory change and
+memory migration previews now publish canonical JSON `Apply argv` as their
+shell-neutral authority, with derived POSIX and PowerShell displays. Tests
+reconstruct hostile POSIX argv containing spaces, apostrophes, dollar signs,
+semicolons, percent signs, exclamation marks, carets, ampersands, pipes, and
+command substitution, and verify literal PowerShell rendering of the same
+array.
+
+The tracked internal Task 2, Task 3, and Task 4 reports were removed in that
+commit. This public file is the sole durable final verification record; ignored
+worker reports are not review authority.
+
 ## Shared temporary-build race baseline
 
 The repository has a historical shared-build hazard: legacy packaged-runtime
@@ -132,11 +159,13 @@ corepack npm run parity:check
 corepack npm test -- tests/built-plugin-isolation.test.ts tests/contract-compatibility.test.ts tests/contract-manifest.test.ts tests/contract-reason-catalog.test.ts tests/contract-schemas.test.ts tests/contract-type-generation.test.ts tests/schema-registry-fixtures.test.ts tests/schema-registry-types.test.ts tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/curated-memory-reasons.test.ts tests/memory-migration-domain.test.ts tests/memory-migration-runtime.test.ts tests/memory-phase-binding.test.ts tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/memory-capture-distribution.test.ts tests/phase-agent-prompts.test.ts tests/phase-agent-relay-distribution.test.ts tests/agent-output-recording.test.ts tests/cli-commands.test.ts tests/cli-composition.test.ts tests/state-ignore-rules.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/runtime-distribution.test.ts
 ```
 
-The portable focused result passed 27 files and 548 tests in 65.26 seconds.
+The portable focused result at base commit
+`bde31f8138c4fc3d0732de9784c54d0a29db526a` passed 27 files and 548 tests in
+65.26 seconds.
 The command includes the process-isolation regression, exact version-selection
 tests, the public-facing memory suites, and the stale initialization-count
-coverage repaired on this branch. The current-HEAD full-gate result is recorded
-in the Task 6 Fix Round 2 report.
+coverage repaired on this branch. The final review implementation supersedes
+that focused count with the current verification record below.
 
 The pinned repository gate is:
 
@@ -145,11 +174,32 @@ corepack npm --version
 corepack npm run verify
 ```
 
-Observed npm version and the fresh committed-current-HEAD result are recorded
-in the Fix Round 1 task report. This record intentionally does not reuse an
-earlier gate as its final or current result. The issue mapping above has 17
-explicit checkbox rows: 8 deliverables, 6 acceptance criteria, and 3 required
-tests. Diff and predecessor-byte audit results are also recorded in that report.
+The original final controller gate ran against exact commit
+`bde31f8138c4fc3d0732de9784c54d0a29db526a` and exited 0: both Vitest runs
+passed 184 files and 4,798 tests; coverage was 92.62% statements, 87.71%
+branches, 94.78% functions, and 93.54% lines. Mutation passed 3/3, gap
+calibration found 10/10 planted gaps with zero false gaps, parity was 0/400,
+contracts verified 41 schemas and 14 legacy profiles, differential comparison
+was equal, both host packages passed, and benchmarks completed.
+
+The predecessor-byte audit compared merge base
+`ebbced0007442477a2f6e76ca249d6a6f3e7d170` with that base commit. Across
+schemas and reason catalogues it found additions only: reason catalogue v1.9,
+manifest schema v1.3, host agent-output / phase-handoff / three memory v1.2
+schemas, and curated-memory v1. No predecessor schema or reason-catalogue file
+was modified.
+
+The fresh full gate for signed-off implementation commit
+`d5f14d8a0fade6e219faee5ce63d76213da96d83` also exited 0. The main and
+coverage runs each passed 184 files and 4,808 tests. Coverage was 92.65%
+statements (7,938/8,567), 87.76% branches (6,067/6,913), 94.83% functions
+(1,376/1,451), and 93.60% lines (7,260/7,756). Mutation passed 3/3; gap
+calibration found 10/10 with zero false gaps; runtime size budgets passed;
+oracle, result, contracts (41 schemas / 14 legacy profiles), parity (0/400),
+differential, build, and both host packages passed. Benchmark p95 values were
+help 166.3465 ms, version 153.992556 ms, and handshake 151.778165 ms; bundle
+size was 1,495,888 bytes. The gate ran before this evidence-only commit and its
+implementation tree exactly matches `d5f14d8...`.
 
 ## Pull-request-ready text
 
