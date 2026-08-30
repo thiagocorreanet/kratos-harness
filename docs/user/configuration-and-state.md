@@ -110,6 +110,13 @@ The additive `state.phase-measurement@1.0.0` records are created lazily. Existin
 projects need no state rewrite or migration, and the initialized empty raw log
 is valid. Published predecessor state remains readable unchanged.
 
+Both measurement destinations are create-once initialization state. A later
+`kratos init` preserves their bytes exactly, including non-canonical line endings
+or trailing spaces, instead of restoring the empty-log or initial-report seed.
+First creation carries a missing-file precondition. Concurrent creation of
+either path therefore returns `runtime.revision_conflict`, preserves the
+concurrent bytes, and prevents partial initialization writes.
+
 Managed markers protect user-authored content. Reconciliation preserves bytes
 outside marked sections and reports a conflict before changing an ambiguous
 file.

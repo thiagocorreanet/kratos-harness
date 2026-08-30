@@ -77,6 +77,14 @@ records appear only when a host starts measured phase work. The tracked
 `.brain/03-memory/task_metrics.md` remains unchanged until an operator runs
 `kratos metrics refresh`.
 
+Reinitialization is not a measurement reset. It preserves both measurement
+files byte for byte while still reconciling ordinary managed instructions. If
+another process creates either measurement file after init observes it as
+missing, the missing-file precondition returns `runtime.revision_conflict` and
+the transaction publishes no partial initialization state. Observe the current
+project state again and rerun init; do not delete or normalize the concurrent
+file merely to make initialization pass.
+
 `session.end` closes the matching open measurement as `interrupted`. If the
 process dies before that hook arrives, the next phase start or `metrics refresh`
 reconciles stale `running` records against canonical workflow events. A recorded

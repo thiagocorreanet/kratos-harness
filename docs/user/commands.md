@@ -54,6 +54,13 @@ current `1.3.0` state during reinitialization; explicit unresolved leaves clear
 it. Initialization never infers these values from stack markers and never
 executes a configured command.
 
+`kratos init` creates the raw phase log and tracked phase report only when each
+path is absent. Reinitialization preserves the exact existing bytes of both
+measurement artifacts while it can still refresh managed instruction sections.
+If either measurement path appears after observation but before the managed
+transaction commits, initialization returns `runtime.revision_conflict` and
+publishes none of its other planned writes.
+
 `kratos doctor` is also read-only. Its `stack-profile` check passes only when
 the deterministic rendered bytes match and no typed leaf is unresolved. It
 warns with actionable key names for unresolved answers, a missing document, or
