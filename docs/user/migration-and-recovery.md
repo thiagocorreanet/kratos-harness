@@ -52,6 +52,29 @@ original configuration bytes. Drift or corruption refuses without changing
 either file. A later retry receives a new contiguous attempt ID and preserves
 the earlier audit bundle; it never overwrites prior recovery evidence.
 
+### Curated-memory adoption
+
+Existing free-form `.brain/03-memory/gotchas.md` is never interpreted as
+Markdown lessons. `kratos migrate memory mapping.json` accepts a closed
+`memory-migration@1.2.0` mapping with the source SHA-256, reviewer, lesson
+title/why/apply values, and one-based source ranges. Every nonblank,
+non-template legacy line must occur in exactly one ordered range; overlaps,
+gaps, out-of-bounds ranges, and changed source bytes are refused.
+
+The first invocation is read-only and prints proposal, source, plan, and time
+digests plus the complete apply command. Apply requires `--yes` and those exact
+three caller-carried values. It atomically writes the structured ledger and
+rendered projection, preserves the original `gotchas.md` bytes beneath
+`.brain/migrations/<id>/backup/`, and writes authorization, receipt, rollback,
+and verification records. `kratos migrate rollback ID` restores those exact
+legacy bytes and removes the migrated ledger after validating the receipt and
+current projection.
+
+Fresh structured memory is already adopted. A missing ledger paired with the
+exact stock empty Gotchas template is safely adoptable; any other free-form
+Gotchas document blocks memory use with `memory.migration_required` until an
+explicit lossless mapping is reviewed and applied.
+
 ## Replay and repair
 
 `kratos audit` replays the event log and identifies the earliest known

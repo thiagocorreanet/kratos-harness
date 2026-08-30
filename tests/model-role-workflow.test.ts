@@ -349,6 +349,53 @@ async function advanceToReview(run: WorkflowSubject): Promise<void> {
 }
 
 describe("read-only model-role handoffs", () => {
+  it.each([
+    ["prd", 0, false],
+    ["spec", 1, false],
+    ["plan", 2, false],
+    ["code", 3, true],
+    ["review", 4, true],
+    ["acceptance", 5, false],
+  ] as const)(
+    "applies the legacy-memory guard only to the %s phase",
+    async (phase, completed, guarded) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            planner: "planner-alias",
+            implementer: "impl-alias",
+            judge: "judge-alias",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, completed);
+      await run.ports.fileSystem.write(
+        ".brain/03-memory/gotchas.md",
+        "# Local legacy notes\n\nDo not lose this custom note.\n",
+      );
+      const before = run.storage.snapshot();
+
+      const exit = await runCommandLine(["--json", "handoff"], run.ports);
+      const result = JSON.parse(run.output.structured_.join("")) as {
+        readonly reasonCode?: string;
+        readonly phase?: string;
+      };
+      if (guarded) {
+        expect(exit).not.toBe(0);
+        expect(result).toMatchObject({
+          reasonCode: "memory.migration_required",
+          evidence: [{ kind: "artifact", ref: ".brain/03-memory/gotchas.md" }],
+        });
+      } else {
+        expect(result.reasonCode).not.toBe("memory.migration_required");
+        expect(exit).toBe(0);
+        expect(result.phase).toBe(phase);
+      }
+      expect(run.storage.snapshot()).toEqual(before);
+    },
+  );
+
   it("returns the runtime-selected judge assignment for the review phase", async () => {
     const configuration = {
       ...roleConfig("codex", {

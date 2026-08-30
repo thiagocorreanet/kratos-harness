@@ -8,6 +8,7 @@ import { resultFor } from "../result/index.js";
 import { canonicalizeJson } from "../schema/index.js";
 
 import { observingCommand } from "./observed.js";
+import { shellArgument } from "./shell-argument.js";
 import type {
   CommandObservation,
   CommandSpec,
@@ -294,10 +295,7 @@ export function renderMemoryApplyCommand(
   planDigest: string,
   planTime: string,
 ): string {
-  const quote = (value: string): string =>
-    /^[A-Za-z0-9_./:@=-]+$/u.test(value)
-      ? value
-      : `'${value.replaceAll("'", "'\\''")}'`;
+  const quote = shellArgument;
   const root = invocation.flags.get("--root");
   return [
     "kratos",

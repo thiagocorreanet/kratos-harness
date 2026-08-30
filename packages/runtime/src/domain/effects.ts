@@ -37,7 +37,15 @@ export type Effect =
       /** Refuse if the destination no longer has this exact identity. */
       readonly expected?: WriteFilePrecondition;
     }
-  | { readonly kind: "delete_file"; readonly path: string }
+  | {
+      readonly kind: "delete_file";
+      readonly path: string;
+      /** Refuse deletion if authority state changed after observation. */
+      readonly expected?: Extract<
+        WriteFilePrecondition,
+        { readonly kind: "file" }
+      >;
+    }
   | { readonly kind: "create_directory"; readonly path: string }
   | AppendEventEffect
   | {

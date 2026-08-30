@@ -80,6 +80,7 @@ import type { RuntimePorts } from "../ports/index.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
+import { observeLegacyMemoryClassification } from "./memory.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -1366,7 +1367,8 @@ type PhaseAssignmentReason =
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
   | "contract.state_version_unsupported"
-  | "model.assignment_stale";
+  | "model.assignment_stale"
+  | "memory.migration_required";
 
 type PhaseAssignmentSubject = string;
 
@@ -1463,6 +1465,16 @@ async function observePhaseAssignment(input: {
   readonly ports: RuntimePorts;
   readonly registry: SchemaRegistry;
 }): Promise<PhaseAssignmentObservation> {
+  if (input.phase === "code" || input.phase === "review") {
+    if (
+      (await observeLegacyMemoryClassification(input.ports)) ===
+      "migration_required"
+    )
+      return refusedAssignment(
+        "memory.migration_required",
+        ".brain/03-memory/gotchas.md",
+      );
+  }
   const launcher = configurationHost(input.launcherHost);
   if (launcher.kind === "refused") {
     return refusedAssignment("model.host_missing", launcher.subject);

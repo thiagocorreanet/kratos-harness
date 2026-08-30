@@ -18,6 +18,7 @@ import type {
   FailureCandidateV1,
   CuratedMemoryV1,
   MemoryChangeV1_2,
+  MemoryMigrationV1_2,
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
@@ -254,7 +255,8 @@ export type CommandObservation =
               | "guard.config_corrupt"
               | "contract.state_version_invalid"
               | "contract.state_version_unsupported"
-              | "model.assignment_stale";
+              | "model.assignment_stale"
+              | "memory.migration_required";
             readonly subject: string;
           };
       /** Host-observed execution validated against the current assignment. */
@@ -412,6 +414,27 @@ export type CommandObservation =
             readonly sha256: string;
           }
         | {
+            readonly kind: "memory";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly proposal: MemoryMigrationV1_2;
+            readonly proposalDigest: string;
+            readonly planDigest: string;
+            readonly ledger: CuratedMemoryV1;
+            readonly projection: string;
+            readonly projectionDigest: string;
+            readonly gotchasExpected: WriteFilePrecondition;
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+            }[];
+          }
+        | { readonly kind: "memory-current" }
+        | {
             readonly kind: "rollback";
             readonly migrationId: string;
             readonly receipt: MigrationV1 | MigrationV1_1 | null;
@@ -428,6 +451,11 @@ export type CommandObservation =
                 readonly content: string;
                 readonly expected: WriteFilePrecondition;
               }[];
+              readonly removeTargets?: readonly string[];
+              readonly removeExpected?: ReadonlyMap<
+                string,
+                WriteFilePrecondition
+              >;
               readonly backupDigest: string;
               readonly destinationDigest: string;
             } | null;

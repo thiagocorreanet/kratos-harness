@@ -2,6 +2,14 @@ import type { CuratedMemoryV1, MemoryChangeV1_2 } from "@kratos/contracts";
 
 import { canonicalizeJson } from "../schema/index.js";
 
+export {
+  classifyLegacyMemory,
+  reduceLegacyMemoryMigration,
+  STOCK_GOTCHAS_TEMPLATE,
+  type LegacyMemoryClassification,
+  type LegacyMemoryMigrationReduction,
+} from "./migration.js";
+
 export const CURATED_MEMORY_RENDERED_MAX_BYTES = 48 * 1024;
 export const CURATED_MEMORY_CONFIRMED_MAX = 24;
 export const CURATED_MEMORY_ARCHIVE_MAX = 48;

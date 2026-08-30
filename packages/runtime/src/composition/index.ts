@@ -560,7 +560,13 @@ function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
         ? { kind, path, content }
         : { kind, path, content, expected };
     }
-    case "delete_file":
+    case "delete_file": {
+      const path = ownData(value, "path");
+      if (typeof path !== "string") throw invalidApplyInput();
+      const expected = snapshotWritePrecondition(value);
+      if (expected?.kind === "missing") throw invalidApplyInput();
+      return expected === undefined ? { kind, path } : { kind, path, expected };
+    }
     case "create_directory": {
       const path = ownData(value, "path");
       if (typeof path !== "string") throw invalidApplyInput();
@@ -884,7 +890,11 @@ function assertWritePreconditions(
   observations: ReadonlyMap<string, PathFingerprint>,
 ): void {
   for (const effect of plan.effects) {
-    if (effect.kind !== "write_file" || effect.expected === undefined) continue;
+    if (
+      (effect.kind !== "write_file" && effect.kind !== "delete_file") ||
+      effect.expected === undefined
+    )
+      continue;
     const observed = observations.get(effect.path);
     if (observed === undefined || !sameFingerprint(effect.expected, observed)) {
       throw new TransactionFailure("runtime.revision_conflict", [

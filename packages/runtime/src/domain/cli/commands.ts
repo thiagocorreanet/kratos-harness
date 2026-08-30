@@ -37,6 +37,7 @@ import {
 import {
   migrateBrainCommand,
   migrateConfigCommand,
+  migrateMemoryCommand,
   migrateRollbackCommand,
 } from "./migration.js";
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
@@ -133,6 +134,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   hookCommand,
   migrateBrainCommand,
   migrateConfigCommand,
+  migrateMemoryCommand,
   migrateRollbackCommand,
   memoryCaptureCommand,
   memoryListCommand,

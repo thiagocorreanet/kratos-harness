@@ -8,6 +8,8 @@ import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { FailureObservation } from "../domain/hooks/index.js";
 import { captureCandidate, sanitizeDiagnostic } from "../domain/hooks/index.js";
 import {
+  classifyLegacyMemory,
+  STOCK_GOTCHAS_TEMPLATE,
   validateCuratedMemoryProjection,
   validatesCuratedMemorySemantics,
 } from "../domain/memory/index.js";
@@ -41,6 +43,18 @@ export async function observeMemory(
   const root = await resolveCommandRoot(invocation, ports, registry);
   if (root.kind === "failure") return root;
   const anchored = anchorPorts(root.target, ports);
+  const migration = await observeLegacyMemoryClassification(anchored);
+  if (migration === "migration_required") {
+    return {
+      kind: "failure",
+      result: resultFor("memory.migration_required", {
+        why: [
+          "Existing gotchas content has not been explicitly mapped into curated memory.",
+        ],
+        evidence: [{ kind: "artifact", ref: ".brain/03-memory/gotchas.md" }],
+      }),
+    };
+  }
   const candidates = await readCandidates(anchored, registry);
   if (candidates.kind === "failure") return candidates;
 
@@ -118,6 +132,34 @@ export async function observeMemory(
   };
 }
 
+export async function observeLegacyMemoryClassification(
+  ports: RuntimePorts,
+): Promise<"adopted" | "safely_adoptable" | "migration_required" | "corrupt"> {
+  const [ledger, gotchas] = await Promise.all([
+    ports.durableFileSystem.inspect(".brain/03-memory/curated-memory.json"),
+    ports.durableFileSystem.inspect(".brain/03-memory/gotchas.md"),
+  ]);
+  let content: string | null = null;
+  if (gotchas.kind === "file") {
+    try {
+      content = await ports.durableFileSystem.readText(
+        ".brain/03-memory/gotchas.md",
+      );
+    } catch {
+      return "corrupt";
+    }
+  }
+  return classifyLegacyMemory({
+    ledger:
+      ledger.kind === "file"
+        ? "present"
+        : ledger.kind === "missing"
+          ? "missing"
+          : "other",
+    gotchas: content,
+  });
+}
+
 async function readCuratedState(
   ports: RuntimePorts,
   registry: SchemaRegistry,
@@ -140,6 +182,31 @@ async function readCuratedState(
     const ledgerEntry = await ports.durableFileSystem.inspect(ledgerPath);
     const projectionEntry =
       await ports.durableFileSystem.inspect(projectionPath);
+    if (ledgerEntry.kind === "missing" && projectionEntry.kind === "file") {
+      const projection = await ports.durableFileSystem.readText(projectionPath);
+      if (projection === STOCK_GOTCHAS_TEMPLATE) {
+        const empty: CuratedMemoryV1 = {
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          revision: 0,
+          projectionDigest: "",
+          updatedAt: "1970-01-01T00:00:00Z",
+          confirmed: [],
+          archive: [],
+        };
+        const digest = ports.digests.sha256(projection);
+        return {
+          kind: "value",
+          value: {
+            ledger: { ...empty, projectionDigest: digest },
+            ledgerExpected: { kind: "missing" },
+            projection,
+            projectionExpected: filePrecondition(projectionEntry),
+            candidateExpected: await candidatePreconditions(ports),
+          },
+        };
+      }
+    }
     if (ledgerEntry.kind !== "file" || projectionEntry.kind !== "file")
       return corrupt(ledgerPath);
     const prepared = registry.validate({
@@ -174,36 +241,43 @@ async function readCuratedState(
         }),
       };
     }
-    const expected = (
-      entry: Extract<typeof ledgerEntry, { readonly kind: "file" }>,
-    ): WriteFilePrecondition => ({
-      kind: "file",
-      size: entry.size,
-      sha256: entry.sha256,
-    });
-    const candidateExpected = new Map<string, WriteFilePrecondition>();
-    const root = ".brain/03-memory/candidates";
-    if ((await ports.durableFileSystem.inspect(root)).kind === "directory") {
-      for (const name of await ports.durableFileSystem.list(root)) {
-        if (!name.endsWith(".json")) continue;
-        const path = `${root}/${name}`;
-        const entry = await ports.durableFileSystem.inspect(path);
-        if (entry.kind === "file") candidateExpected.set(path, expected(entry));
-      }
-    }
     return {
       kind: "value",
       value: {
         ledger: prepared.value,
-        ledgerExpected: expected(ledgerEntry),
+        ledgerExpected: filePrecondition(ledgerEntry),
         projection,
-        projectionExpected: expected(projectionEntry),
-        candidateExpected,
+        projectionExpected: filePrecondition(projectionEntry),
+        candidateExpected: await candidatePreconditions(ports),
       },
     };
   } catch {
     return corrupt(ledgerPath);
   }
+}
+
+function filePrecondition(entry: {
+  readonly kind: "file";
+  readonly size: number;
+  readonly sha256: string;
+}): WriteFilePrecondition {
+  return { kind: "file", size: entry.size, sha256: entry.sha256 };
+}
+
+async function candidatePreconditions(
+  ports: RuntimePorts,
+): Promise<ReadonlyMap<string, WriteFilePrecondition>> {
+  const candidates = new Map<string, WriteFilePrecondition>();
+  const root = ".brain/03-memory/candidates";
+  if ((await ports.durableFileSystem.inspect(root)).kind !== "directory")
+    return candidates;
+  for (const name of await ports.durableFileSystem.list(root)) {
+    if (!name.endsWith(".json")) continue;
+    const path = `${root}/${name}`;
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind === "file") candidates.set(path, filePrecondition(entry));
+  }
+  return candidates;
 }
 
 export type CandidateInbox =

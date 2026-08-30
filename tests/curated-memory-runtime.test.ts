@@ -291,7 +291,7 @@ describe("curated memory promotion", () => {
       validateCuratedMemoryProjection(
         ledger,
         files[".brain/03-memory/gotchas.md"] ?? "",
-        run.storage.digests.sha256,
+        (value) => run.storage.digests.sha256(value),
       ),
     ).toEqual({ kind: "valid" });
     expect(

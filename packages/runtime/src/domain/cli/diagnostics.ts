@@ -288,6 +288,19 @@ function absentOrCorrupt(observation: Observation): Decision {
 }
 
 function handoffRefusal(reasonCode: string, subject: string): Decision {
+  if (reasonCode === "memory.migration_required") {
+    return {
+      result: resultFor(reasonCode, {
+        why: [
+          "Custom legacy memory must be explicitly adopted before code or review handoff.",
+        ],
+        evidence: [{ kind: "artifact", ref: subject }],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   if (subject === "launcher:absent" || subject === "launcher:unsupported") {
     const missing = subject === "launcher:absent";
     return {
