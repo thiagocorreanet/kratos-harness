@@ -65,7 +65,10 @@ async function project(persistScope = true): Promise<string> {
   return projectRoot;
 }
 
-function invocation(host: "claude-code" | "codex", cwd: string): unknown {
+function invocation(
+  host: "claude-code" | "codex" | "antigravity",
+  cwd: string,
+): unknown {
   const common = {
     session_id: "session-package",
     transcript_path: null,
@@ -73,24 +76,36 @@ function invocation(host: "claude-code" | "codex", cwd: string): unknown {
     hook_event_name: "PreToolUse",
     tool_use_id: "tool-package",
   };
-  return host === "claude-code"
-    ? {
-        ...common,
-        tool_name: "Write",
-        tool_input: {
-          file_path: join(cwd, "outside/change.ts"),
-          content: "change\n",
-        },
-      }
-    : {
-        ...common,
-        turn_id: "turn-package",
-        tool_name: "apply_patch",
-        tool_input: {
-          command:
-            "*** Begin Patch\n*** Add File: outside/change.ts\n+change\n*** End Patch",
-        },
-      };
+  if (host === "claude-code") {
+    return {
+      ...common,
+      tool_name: "Write",
+      tool_input: {
+        file_path: join(cwd, "outside/change.ts"),
+        content: "change\n",
+      },
+    };
+  }
+  if (host === "antigravity") {
+    return {
+      ...common,
+      tool_name: "write_to_file",
+      tool_input: {
+        TargetFile: join(cwd, "outside/change.ts"),
+        CodeContent: "change\n",
+        Description: "Add outside change",
+      },
+    };
+  }
+  return {
+    ...common,
+    turn_id: "turn-package",
+    tool_name: "apply_patch",
+    tool_input: {
+      command:
+        "*** Begin Patch\n*** Add File: outside/change.ts\n+change\n*** End Patch",
+    },
+  };
 }
 
 beforeAll(async () => {
@@ -105,7 +120,7 @@ afterAll(async () => {
 describe("packaged synchronous pre-tool relays", () => {
   it("ships one identical reviewer-to-code scope activation step", async () => {
     const sections = await Promise.all(
-      (["claude-code", "codex"] as const).map(async (host) => {
+      (["claude-code", "codex", "antigravity"] as const).map(async (host) => {
         const skill = await readFile(
           join(hostPackage(host), "skills/kratos/SKILL.md"),
           "utf8",
@@ -119,6 +134,7 @@ describe("packaged synchronous pre-tool relays", () => {
     );
 
     expect(sections[0]).toBe(sections[1]);
+    expect(sections[0]).toBe(sections[2]);
     expect(sections[0]).toContain(
       "`node scripts/kratos.mjs scope record --root <absolute-project-root>`",
     );
@@ -128,7 +144,7 @@ describe("packaged synchronous pre-tool relays", () => {
     expect(sections[0]).toContain("The runtime alone");
   });
 
-  it.each(["claude-code", "codex"] as const)(
+  it.each(["claude-code", "codex", "antigravity"] as const)(
     "records packaged %s reviewer scope before guarding code",
     async (host) => {
       const projectRoot = await project(false);
@@ -189,6 +205,7 @@ describe("packaged synchronous pre-tool relays", () => {
   it.each([
     ["claude-code", "Write|Edit|MultiEdit"],
     ["codex", "^apply_patch$"],
+    ["antigravity", "write_to_file|replace_file_content"],
   ] as const)(
     "installs the %s native matcher and executable",
     async (host, matcher) => {
@@ -331,7 +348,7 @@ describe("packaged synchronous pre-tool relays", () => {
     expect(spawnFailure).toEqual({ exitCode: null, stdout: "" });
   });
 
-  it.each(["claude-code", "codex"] as const)(
+  it.each(["claude-code", "codex", "antigravity"] as const)(
     "renders a native denial when the %s adapter cannot import",
     async (host) => {
       const temporary = await mkdtemp(join(tmpdir(), "kratos-hook-import-"));

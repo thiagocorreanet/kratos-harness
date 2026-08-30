@@ -34,7 +34,7 @@
     "phase": {
       "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
     },
-    "host": { "enum": ["claude", "codex"] },
+    "host": { "enum": ["claude", "codex", "antigravity"] },
     "assignment": { "$ref": "#/$defs/assignment" },
     "assignmentDigest": { "$ref": "#/$defs/sha256" },
     "objectiveDigest": { "$ref": "#/$defs/sha256" },

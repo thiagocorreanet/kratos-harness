@@ -41,10 +41,10 @@ const DEFAULTS = {
 } as const;
 
 const DEFAULTABLE = ["language", "policyMode", "snapshots"] as const;
-const HOSTS = ["claude", "codex"] as const;
+const HOSTS = ["claude", "codex", "antigravity"] as const;
 const ROLES = ["planner", "implementer", "judge"] as const;
 
-type Host = "claude" | "codex";
+type Host = "claude" | "codex" | "antigravity";
 type ExplicitRoleMap = NonNullable<InitAnswersV1_3["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */

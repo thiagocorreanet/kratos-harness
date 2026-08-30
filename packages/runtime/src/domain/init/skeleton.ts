@@ -168,6 +168,23 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
       ],
     },
   ],
+  [
+    "antigravity",
+    {
+      roots: [".gemini", "GEMINI.md"],
+      files: (answers) => [
+        [".gemini/settings.json", geminiSettings()],
+        [
+          "GEMINI.md",
+          instructions(
+            answers,
+            "GEMINI.md",
+            "Host settings live in `.gemini/settings.json`.",
+          ),
+        ],
+      ],
+    },
+  ],
 ];
 
 function configuration(answers: Answers): string {
@@ -309,6 +326,10 @@ function taskMetricsDocument(): string {
  * permission nobody granted.
  */
 function claudeSettings(): string {
+  return json({ permissions: { allow: [], deny: [] } });
+}
+
+function geminiSettings(): string {
   return json({ permissions: { allow: [], deny: [] } });
 }
 

@@ -39,13 +39,14 @@ describe("runtime distribution", () => {
     expect((await readdir(buildRoot)).sort()).toEqual([
       ".agents",
       ".claude-plugin",
+      "antigravity",
       "claude-code",
       "codex",
     ]);
     expect(buildRoot.startsWith(repositoryRoot)).toBe(false);
   });
 
-  it.each(["codex", "claude-code"] as const)(
+  it.each(["codex", "claude-code", "antigravity"] as const)(
     "binds the %s manifest to its runtime and host",
     async (host) => {
       const root = hostPackage(host);
@@ -77,7 +78,7 @@ describe("runtime distribution", () => {
     },
   );
 
-  it.each(["codex", "claude-code"] as const)(
+  it.each(["codex", "claude-code", "antigravity"] as const)(
     "ships no development-only files in %s",
     async (host) => {
       const root = hostPackage(host);

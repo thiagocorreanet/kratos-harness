@@ -10,7 +10,7 @@ import fixture from "../fixtures/contracts/v1.3/init-answers.json" with { type: 
 
 import { repositoryRoot } from "./support/built-plugin.js";
 
-type PackageHost = "claude-code" | "codex";
+type PackageHost = "claude-code" | "codex" | "antigravity";
 type ProfileLeaf =
   | { readonly status: "resolved"; readonly value: string | readonly string[] }
   | { readonly status: "not-applicable"; readonly reason: string }
@@ -160,7 +160,7 @@ async function initialize(host: PackageHost) {
   const relay = await packagedRelay(host);
   const root = await mkdtemp(join(tmpdir(), `kratos-${host}-profile-`));
   projects.push(root);
-  const initHost = host === "codex" ? "codex" : "claude";
+  const initHost = host === "claude-code" ? "claude" : host;
   const roles = fixture.modelRoles[initHost];
   const answers = {
     ...fixture,
@@ -205,7 +205,7 @@ afterAll(async () => {
 });
 
 describe("packaged project-profile initialization relay", () => {
-  it.each(["codex", "claude-code"] as const)(
+  it.each(["codex", "claude-code", "antigravity"] as const)(
     "asks the canonical questions and relays exact values in %s",
     async (host) => {
       const relay = await packagedRelay(host);
@@ -217,14 +217,17 @@ describe("packaged project-profile initialization relay", () => {
     },
   );
 
-  it("produces the same authoritative values and rendered bytes for both hosts", async () => {
-    const [codex, claude] = await Promise.all([
+  it("produces the same authoritative values and rendered bytes for all hosts", async () => {
+    const [codex, claude, antigravity] = await Promise.all([
       initialize("codex"),
       initialize("claude-code"),
+      initialize("antigravity"),
     ]);
 
     expect(codex.configuration.projectProfile).toEqual(expectedProfile);
     expect(claude.configuration.projectProfile).toEqual(expectedProfile);
+    expect(antigravity.configuration.projectProfile).toEqual(expectedProfile);
     expect(claude.stackProfile).toBe(codex.stackProfile);
+    expect(antigravity.stackProfile).toBe(codex.stackProfile);
   }, 30_000);
 });

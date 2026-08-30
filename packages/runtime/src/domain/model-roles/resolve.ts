@@ -33,13 +33,13 @@ export function roleForPhase(phase: RunPhase): ModelRole {
 /** Validate and freeze one host-supplied catalog before policy consumes it. */
 export function snapshotHostModelCatalog(
   value: unknown,
-  expectedHost?: "claude" | "codex",
+  expectedHost?: "claude" | "codex" | "antigravity",
 ): HostModelCatalog | null {
   try {
     if (!hasExactDataKeys(value, CATALOG_KEYS)) return null;
     const host = dataValue(value, "host");
     if (
-      (host !== "claude" && host !== "codex") ||
+      (host !== "claude" && host !== "codex" && host !== "antigravity") ||
       (expectedHost !== undefined && host !== expectedHost)
     ) {
       return null;
@@ -75,7 +75,7 @@ export function validateHostIndependence(input: {
 /** Resolve the configured role for a phase and fail closed on invalid routing. */
 export function resolvePhaseAssignment(input: {
   readonly phase: RunPhase;
-  readonly host: "claude" | "codex";
+  readonly host: "claude" | "codex" | "antigravity";
   readonly configuration:
     ProjectConfigV1_3 | ProjectConfigV1_2 | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
@@ -90,12 +90,14 @@ export function resolvePhaseAssignment(input: {
  */
 export function resolvePhaseAssignmentDetailed(input: {
   readonly phase: RunPhase;
-  readonly host: "claude" | "codex";
+  readonly host: "claude" | "codex" | "antigravity";
   readonly configuration:
     ProjectConfigV1_3 | ProjectConfigV1_2 | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): DetailedModelRoleResolution {
-  const configuredRoles = input.configuration.modelRoles[input.host];
+  const modelRoles: ProjectConfigV1_3["modelRoles"] =
+    input.configuration.modelRoles;
+  const configuredRoles = modelRoles[input.host];
   if (configuredRoles === undefined) {
     return detailedRefused("model.host_missing", input.host, null);
   }
@@ -151,7 +153,7 @@ export function resolvePhaseAssignmentDetailed(input: {
 
 function detailedRefused(
   reasonCode: ModelRoleRefusal,
-  host: "claude" | "codex",
+  host: "claude" | "codex" | "antigravity",
   role: ModelRole | null,
 ): DetailedModelRoleResolution {
   return { kind: "refused", reasonCode, subject: { host, role } };
@@ -163,7 +165,7 @@ function refused(reasonCode: ModelRoleRefusal): ModelRoleResolution {
 
 /** Resolve one configured role to its canonical, closed assignment. */
 export function resolveModelRoleAssignment(input: {
-  readonly host: "claude" | "codex";
+  readonly host: "claude" | "codex" | "antigravity";
   readonly role: ModelRole;
   readonly roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>;
   readonly catalog: HostModelCatalog;

@@ -12,5 +12,5 @@
       "allowed_elements": ["a", "p", "img"],
     },
   },
-  "globs": ["**/*.md", "!node_modules"],
+  "globs": ["**/*.md", "!node_modules", "!.superpowers"],
 }

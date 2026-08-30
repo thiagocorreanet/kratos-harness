@@ -2,21 +2,21 @@
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
-// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8
+// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:5618d8b287ffcd797772334da37ceee406ca26330f9d1055872ecf7ab0fd02c7
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
 // source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
-// source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
-// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329
+// source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:81afcd81cd829a8c66c6e2d2cf704e76ed6a818ab873b5534f5265ad2c099112
+// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
-// source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
-// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:4c79699b10b276a5803d783272943011bb97a6ccc131be0feb40a2eb4efff228
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
@@ -38,8 +38,8 @@
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
-// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48
-// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d
+// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -146,7 +146,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "request";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -160,7 +160,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "response";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -173,7 +173,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "model-catalog";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -186,7 +186,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "phase-execution";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -829,7 +829,10 @@ export namespace InitAnswersV1_2Contract {
     /**
      * @minItems 1
      */
-    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
     language?: LanguagePolicy;
     policyMode?: "standard" | "strict";
     snapshots?: boolean;
@@ -847,6 +850,7 @@ export namespace InitAnswersV1_2Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner: Assignment;
@@ -881,7 +885,10 @@ export namespace InitAnswersV1_3Contract {
     /**
      * @minItems 1
      */
-    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
     language?: LanguagePolicy;
     policyMode?: "standard" | "strict";
     snapshots?: boolean;
@@ -900,6 +907,7 @@ export namespace InitAnswersV1_3Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner: Assignment;
@@ -1145,7 +1153,7 @@ export namespace PhaseHandoffV1_1Contract {
     runId: Id;
     revision: number;
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
-    host: "claude" | "codex";
+    host: "claude" | "codex" | "antigravity";
     assignment: Assignment;
     assignmentDigest: Sha256;
     objectiveDigest: Sha256;
@@ -1172,7 +1180,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "prd";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1190,7 +1198,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "spec";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1208,7 +1216,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "plan";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1226,7 +1234,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "code";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1244,7 +1252,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "review";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1262,7 +1270,7 @@ export namespace PhaseHandoffV1_2Contract {
         runId: Id;
         revision: number;
         phase: "acceptance";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         assignment: Assignment;
         assignmentDigest: Sha256;
         objectiveDigest: Sha256;
@@ -1917,6 +1925,7 @@ export namespace ProjectConfigV1_2Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner?: Assignment;
@@ -1972,6 +1981,7 @@ export namespace ProjectConfigV1_3Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner?: Assignment;

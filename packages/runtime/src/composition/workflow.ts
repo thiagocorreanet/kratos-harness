@@ -1714,7 +1714,10 @@ async function observePhaseAssignment(input: {
 }
 
 function configurationHost(launcherHost: string | undefined):
-  | { readonly kind: "resolved"; readonly host: "claude" | "codex" }
+  | {
+      readonly kind: "resolved";
+      readonly host: "claude" | "codex" | "antigravity";
+    }
   | {
       readonly kind: "refused";
       readonly subject: "launcher:absent" | "launcher:unsupported";
@@ -1723,6 +1726,9 @@ function configurationHost(launcherHost: string | undefined):
     return { kind: "resolved", host: "claude" };
   }
   if (launcherHost === "codex") return { kind: "resolved", host: "codex" };
+  if (launcherHost === "antigravity") {
+    return { kind: "resolved", host: "antigravity" };
+  }
   return {
     kind: "refused",
     subject:

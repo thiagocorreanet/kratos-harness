@@ -1,7 +1,7 @@
 # The Host Adapter Protocol
 
 Issue [#35](https://github.com/thiagocorreanet/kratos-harness/issues/35)
-(`ADP-01`) gives Claude Code and Codex one way to reach the runtime.
+(`ADP-01`) gives Claude Code, OpenAI Codex, and Google Antigravity one way to reach the runtime.
 [ADR-0004](../adr/0004-host-adapter-boundary.md) already decided the shape: an
 adapter translates and relays, it never owns transition policy, and every host
 passes one shared conformance suite. This document states the half of that
@@ -36,7 +36,7 @@ capabilities, model catalog, and who is running:
 | Field | Meaning |
 | --- | --- |
 | `host` | The identity carried on every message this adapter sends |
-| `configurationHost` | The `claude` or `codex` configuration key |
+| `configurationHost` | The `claude`, `codex`, or `antigravity` configuration key |
 | `hostContract` | The host contract revision this adapter speaks |
 | `capabilities` | Every capability the host offers, as declared |
 | `modelRouting` | Host-native defaults, aliases, canonical identities, and supported efforts |
@@ -66,6 +66,7 @@ The current bundled defaults are versioned with each adapter:
 | --- | --- | --- | --- |
 | Claude Code (`claude`) | `sonnet@medium` | `opus@medium` | `sonnet@medium` |
 | Codex (`codex`) | `gpt-5.6-terra@medium` | `gpt-5.6-sol@high` | `gpt-5.6-terra@medium` |
+| Antigravity (`antigravity`) | `gemini-2.5-pro@high` | `gemini-2.5-flash@medium` | `gemini-2.5-pro@high` |
 
 Initialization persists the canonical resolved objects, so an existing project
 does not silently inherit different defaults from a later adapter version.
@@ -91,9 +92,9 @@ handoff. Runtime handoff refusals are returned unchanged, and an unavailable
 exact selector is a host capability refusal before work, not permission to
 choose a fallback.
 
-The repository cannot invoke proprietary Codex or Claude Code phase-agent APIs
+The repository cannot invoke proprietary Codex, Claude Code, or Antigravity phase-agent APIs
 in a portable test process. The packaged-host conformance suite therefore
-imports both built relay modules and supplies controlled runtime and launcher
+imports the built relay modules and supplies controlled runtime and launcher
 ports. It executes the complete handoff-to-launch-to-record binding and proves
 that an unsupported selector calls neither launch nor record. This verifies the
 shipped integration contract; it is not a claim that a proprietary host API
@@ -175,7 +176,7 @@ checks the verdict survives.
 `describeHostAdapterContract(label, factory)` follows the same shape as the
 port contracts already in this repository: one suite, run against every
 implementation, so a host that quietly diverges fails there rather than in
-production. The fake, Claude Code, and Codex adapters pass the same suite.
+production. The fake, Claude Code, Codex, and Antigravity adapters pass the same suite.
 Host-specific catalog data changes the facts supplied to the shared runtime,
 not its decision path or stable reason codes.
 

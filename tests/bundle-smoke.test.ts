@@ -8,9 +8,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildPlugin, hostPackage } from "./support/built-plugin.js";
 
 let cleanRoom = "";
-let isolatedArtifact = "";
 
-function execute(argument: "--help" | "--version") {
+function execute(
+  host: "codex" | "claude-code" | "antigravity",
+  argument: "--help" | "--version",
+) {
+  const isolatedArtifact = join(cleanRoom, host, "runtime/kratos.mjs");
   return spawnSync(process.execPath, [isolatedArtifact, argument], {
     cwd: cleanRoom,
     encoding: "utf8",
@@ -27,9 +30,10 @@ function execute(argument: "--help" | "--version") {
 beforeAll(async () => {
   buildPlugin();
   cleanRoom = await mkdtemp(join(tmpdir(), "kratos-bundle-test-"));
-  const plugin = join(cleanRoom, "codex");
-  await cp(hostPackage("codex"), plugin, { recursive: true });
-  isolatedArtifact = join(plugin, "runtime/kratos.mjs");
+  for (const host of ["codex", "claude-code", "antigravity"] as const) {
+    const plugin = join(cleanRoom, host);
+    await cp(hostPackage(host), plugin, { recursive: true });
+  }
 });
 
 afterAll(async () => {
@@ -37,23 +41,29 @@ afterAll(async () => {
 });
 
 describe("standalone runtime package", () => {
-  it("prints help outside the repository", () => {
-    const result = execute("--help");
+  it.each(["codex", "claude-code", "antigravity"] as const)(
+    "prints help outside the repository for %s",
+    (host) => {
+      const result = execute(host, "--help");
 
-    expect(result.status).toBe(0);
-    expect(result.stdout.split("\n")[0]).toBe(
-      "Usage: kratos [--expect <version>] [--json] <command>",
-    );
-    expect(result.stdout).toContain("  init");
-    expect(result.stdout).not.toContain("discover");
-    expect(result.stderr).toBe("");
-  });
+      expect(result.status).toBe(0);
+      expect(result.stdout.split("\n")[0]).toBe(
+        "Usage: kratos [--expect <version>] [--json] <command>",
+      );
+      expect(result.stdout).toContain("  init");
+      expect(result.stdout).not.toContain("discover");
+      expect(result.stderr).toBe("");
+    },
+  );
 
-  it("prints its version outside the repository", () => {
-    const result = execute("--version");
+  it.each(["codex", "claude-code", "antigravity"] as const)(
+    "prints its version outside the repository for %s",
+    (host) => {
+      const result = execute(host, "--version");
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe("0.0.0-development\n");
-    expect(result.stderr).toBe("");
-  });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("0.0.0-development\n");
+      expect(result.stderr).toBe("");
+    },
+  );
 });

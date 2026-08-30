@@ -6,9 +6,13 @@ import type { HostModelCatalog } from "@kratos/adapters";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildPlugin, hostPackage } from "./support/built-plugin.js";
-import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+import {
+  antigravityCatalog,
+  claudeCatalog,
+  codexCatalog,
+} from "./support/model-routing.js";
 
-type PackageHost = "claude-code" | "codex";
+type PackageHost = "claude-code" | "codex" | "antigravity";
 
 interface PackagedPhaseRelay {
   readonly host: PackageHost;
@@ -66,7 +70,7 @@ interface PackagedPhaseRelay {
   >;
 }
 
-function handoff(host: "claude" | "codex"): PhaseHandoffV1_2 {
+function handoff(host: "claude" | "codex" | "antigravity"): PhaseHandoffV1_2 {
   return {
     contractVersion: "1.2.0",
     hostContract: "1.2.0",
@@ -110,6 +114,7 @@ describe("packaged phase-agent relay", () => {
   it.each([
     ["codex", "codex", codexCatalog()],
     ["claude-code", "claude", claudeCatalog()],
+    ["antigravity", "antigravity", antigravityCatalog()],
   ] as const)(
     "binds the %s launch and agent record request to the runtime handoff",
     async (packageHost, configurationHost, modelRouting) => {
@@ -223,6 +228,8 @@ describe("packaged phase-agent relay", () => {
     ["codex", "effort", "codex", codexCatalog(), true, false],
     ["claude-code", "model", "claude", claudeCatalog(), false, true],
     ["claude-code", "effort", "claude", claudeCatalog(), true, false],
+    ["antigravity", "model", "antigravity", antigravityCatalog(), false, true],
+    ["antigravity", "effort", "antigravity", antigravityCatalog(), true, false],
   ] as const)(
     "refuses %s before phase work when exact %s selection is unavailable",
     async (
@@ -270,6 +277,7 @@ describe("packaged phase-agent relay", () => {
   it.each([
     ["codex", codexCatalog()],
     ["claude-code", claudeCatalog()],
+    ["antigravity", antigravityCatalog()],
   ] as const)(
     "relays a %s runtime handoff refusal without phase work",
     async (packageHost, modelRouting) => {

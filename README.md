@@ -12,7 +12,7 @@ a versioned workflow with explicit gates, content-bound approvals, durable
 evidence, and recoverable state.
 
 Instead of asking each host to interpret policy, Kratos keeps workflow authority
-inside one host-neutral runtime. Claude Code, OpenAI Codex, and future adapters
+inside one host-neutral runtime. Claude Code, OpenAI Codex, and Google Antigravity
 translate requests and render results; they do not decide whether work may
 advance.
 
@@ -38,7 +38,7 @@ Kratos makes those answers executable:
 | Safe mutation | Previewable effect plans, path allowlists, atomic transaction boundaries, and crash recovery |
 | Concurrent operation | Recoverable leases and fencing tokens for project and run scopes |
 | Contract-first integration | Versioned schemas, reason codes, results, and host messages |
-| Host neutrality | Thin Codex and Claude Code adapters around the same runtime policy |
+| Host neutrality | Thin Codex, Claude Code, and Google Antigravity adapters around the same runtime policy |
 | Independent phase roles | Host-specific planner, implementer, and judge assignments with strict canonical separation |
 | Project ownership | Durable project state under a project-owned `.brain/` directory |
 
@@ -49,7 +49,7 @@ machine-readable results.
 
 ```mermaid
 flowchart LR
-    H["Codex / Claude Code"] --> A["Thin host adapter"]
+    H["Codex / Claude Code / Antigravity"] --> A["Thin host adapter"]
     A --> E["runtime/kratos.mjs"]
     E --> C["CLI and composition root"]
     K["Contracts, schemas, reason codes"] --> C
@@ -130,7 +130,7 @@ CLI flags, prompts, or agent output.
 | --- | --- |
 | `packages/contracts` | Contract identities, compatibility policy, reason catalog, and generated types |
 | `packages/runtime` | CLI, deterministic domain, ports, Node/fake infrastructure, and composition |
-| `packages/adapters` | Relay-only host protocol and Codex/Claude Code adapter conformance |
+| `packages/adapters` | Relay-only host protocol and Codex/Claude Code/Antigravity adapter conformance |
 | `packages/differential` | Isolated oracle-versus-candidate capture and comparison harness |
 | `schemas` / `fixtures` | Closed JSON Schema catalog and contract examples |
 | `distribution` | Thin host package assets; the runtime stays plugin-owned |
@@ -138,7 +138,7 @@ CLI flags, prompts, or agent output.
 | `docs` | User guides, ADRs, architecture, compatibility, security, and operations |
 
 The installable artifact is an embedded ESM runtime at `runtime/kratos.mjs`.
-The build creates separate Codex and Claude Code packages with the same runtime
+The build creates separate Codex, Claude Code, and Google Antigravity packages with the same runtime
 and contracts. It does not copy runtime source, TypeScript, `node_modules`, or a
 generated `dist` tree into the user's project.
 
@@ -159,7 +159,7 @@ npm ci
 npm run verify
 ```
 
-Build the two temporary host packages, inspect the real CLI surface, and verify
+Build the temporary host packages, inspect the real CLI surface, and verify
 the packages:
 
 ```bash
@@ -181,7 +181,7 @@ the [Kratos user guide](docs/user/README.md), with an exact
 ## Project-owned state
 
 Kratos keeps durable state under `.brain/` and may reconcile bounded sections
-of `.claude/` and `.codex/`, plus `CLAUDE.md` and `AGENTS.md`. Managed writes remain
+of `.claude/` and `.codex/`, plus `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. Managed writes remain
 inside the declared transaction surface and preserve user-owned content outside
 explicit markers.
 
@@ -212,7 +212,7 @@ External validation remains incomplete:
   and `86%` of branches, below the `100%` this project intends; 92 of its 121
   measured files are complete, and the shortfall is concentrated in the command
   surface and its composition wiring;
-- real signed-in Codex and Claude Code E2E runs are still required;
+- real signed-in Codex, Claude Code, and Antigravity E2E runs are still required;
 - public-beta pilots and human graduation approval are not yet available;
 - protected release settings, published provenance, and production support are
   not claimed;

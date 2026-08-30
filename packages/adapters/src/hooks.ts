@@ -1,5 +1,6 @@
 import type { HookObservationV1 } from "@kratos/contracts";
 
+import { normalizeAntigravityPreToolUse } from "./antigravity/pre-tool-use.js";
 import { normalizeClaudeCodePreToolUse } from "./claude-code/pre-tool-use.js";
 import { normalizeCodexPreToolUse } from "./codex/pre-tool-use.js";
 import type { NormalizedPreToolUse } from "./pre-tool-use.js";
@@ -122,6 +123,15 @@ function before(
       { readonly kind: "tool.before" }
     >["mutations"],
   };
+}
+
+export function normalizeAntigravityHook(
+  kind: HookKind,
+  input: unknown,
+): HookObservationV1 | null {
+  return kind === "tool.before"
+    ? before(input, normalizeAntigravityPreToolUse(input))
+    : normalize(kind, input);
 }
 
 export function normalizeClaudeCodeHook(

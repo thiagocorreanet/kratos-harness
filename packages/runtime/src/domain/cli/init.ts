@@ -20,7 +20,7 @@ type Observation = Extract<
   { readonly kind: "initialization" }
 >;
 
-const HOSTS: readonly Host[] = ["claude", "codex"];
+const HOSTS: readonly Host[] = ["claude", "codex", "antigravity"];
 
 /**
  * Establish the managed surface a project needs before anything else runs.
@@ -168,7 +168,7 @@ function decide(
 
 function modelRefusal(
   reasonCode: ModelRoleRefusal,
-  subject: { readonly host: "claude" | "codex"; readonly role?: string },
+  subject: { readonly host: Host; readonly role?: string },
 ): Decision {
   const role = subject.role;
   const why =

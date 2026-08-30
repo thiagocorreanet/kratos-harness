@@ -14,7 +14,7 @@ export function digestPhaseAssignment(
     readonly configDigest: string;
     readonly runId: string;
     readonly revision: number;
-    readonly host: "claude" | "codex";
+    readonly host: "claude" | "codex" | "antigravity";
     readonly assignment: ResolvedPhaseAssignment;
     /** The exact curated-memory observation shown to the assigned agent. */
     readonly memory: PhaseMemoryBinding;

@@ -1,14 +1,15 @@
-# Claude Code and Codex
+# Claude Code, Codex, and Google Antigravity
 
-Both host packages invoke the same embedded runtime by a package-relative path
-and negotiate the same host contract. Neither requires a global legacy binary
+All host packages invoke the same embedded runtime by a package-relative path
+and negotiate the same host contract. None requires a global legacy binary
 or project `node_modules`.
 
 ## Pre-write relay boundary
 
 Each package installs a synchronous `PreToolUse` relay for structured file
 mutation only. Claude Code normalizes `Write`, `Edit`, and legacy `MultiEdit`;
-Codex normalizes `apply_patch`. Both adapters produce the same
+Codex normalizes `apply_patch`; Antigravity normalizes `write_to_file` and
+`replace_file_content`. All adapters produce the same
 `host.pre-tool-use@1.0.0` request (`create`, `update`, `delete`, or ordered
 `move` endpoints). It is a closed record with `contractVersion`, `hostContract`,
 and an ordered `mutations` array; version 1 accepts 1–256 mutations. The
@@ -39,7 +40,7 @@ targets; it is not a transaction or a filesystem lock around the host.
 
 ## Workflow observations
 
-Both packages render four logical hooks from
+All packages render four logical hooks from
 `distribution/shared/hooks.v1.json`: `tool.before`, `tool.failed`,
 `session.sample`, and `session.end`. A native event is normalized into
 `host.hook-observation@1.0.0`, staged beneath the session cache, and referenced
@@ -93,7 +94,15 @@ runtime bytes. Project initialization renders five `.codex/agents/*.toml`
 definitions from the same canonical prompt catalog used by Claude Code.
 Generated instructions use managed sections so repeated setup is idempotent.
 
-Both hosts install a researcher, planner, reviewer, implementer, and evaluator.
+## Google Antigravity
+
+The Antigravity package contains plugin metadata, the Kratos skill, project
+instructions (`GEMINI.md`), hooks, templates, schemas, and the shared runtime.
+Project initialization reconciles managed sections in `GEMINI.md` alongside
+`.brain/config.json`. Default model routing leverages `gemini-2.5-flash` for
+the implementer role and `gemini-2.5-pro` for planner and judge roles.
+
+All hosts install a researcher, planner, reviewer, implementer, and evaluator.
 Their shared instructions require unanswered blocking questions to stop before
 any write. The implementer cannot mark acceptance criteria complete, and the
 evaluator must cite file-and-line or named-test evidence for every judgment.

@@ -32,7 +32,7 @@ afterEach(async () => {
 
 function run(
   command: string,
-  host: "codex" | "claude-code",
+  host: "codex" | "claude-code" | "antigravity",
   source: string | null,
   target: string,
 ): string {
@@ -114,6 +114,25 @@ describe("atomic plugin installer", () => {
     expect(
       await readFile(join(target, "runtime/manifest.json"), "utf8"),
     ).not.toContain(manifest.runtime.sourceTreeSha256);
+  });
+
+  it("installs antigravity package cleanly", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kratos-install-antigravity-"));
+    roots.push(root);
+    const target = join(root, "installed", "kratos-antigravity");
+
+    expect(
+      JSON.parse(run("install", "antigravity", buildRoot, target)),
+    ).toMatchObject({
+      host: "antigravity",
+      installed: true,
+    });
+    expect(
+      JSON.parse(run("install", "antigravity", buildRoot, target)),
+    ).toMatchObject({
+      host: "antigravity",
+      installed: true,
+    });
   });
 
   it("refuses a source whose core digest was substituted", async () => {
