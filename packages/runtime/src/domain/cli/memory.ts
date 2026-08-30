@@ -187,7 +187,7 @@ function memoryChangeCommand(
               `Proposal digest: ${observation.proposalDigest}`,
               `Plan digest: ${planDigest}`,
               `Plan time: ${observation.now}`,
-              `Apply command: ${applyCommand(invocation, observation.proposalDigest, planDigest, observation.now)}`,
+              `Apply command: ${renderMemoryApplyCommand(invocation, observation.proposalDigest, planDigest, observation.now)}`,
             ].join("\n") + "\n",
           payload: null,
         };
@@ -288,7 +288,7 @@ function changePlanDigest(
   );
 }
 
-function applyCommand(
+export function renderMemoryApplyCommand(
   invocation: Invocation,
   proposalDigest: string,
   planDigest: string,

@@ -74,3 +74,6 @@
   ledger, projection, and candidate drift, durable publication failure,
   post-commit cleanup failure retention, and archive preview/apply. The focused
   suite now has 28 tests across 3 files.
+- Added real merge preview/apply proof with exact source tombstones and
+  replacement, archive rolling-window proof, and byte-exact POSIX quoting/
+  root reconstruction. Focused coverage is now 31 tests across 3 files.

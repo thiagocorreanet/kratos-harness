@@ -6,6 +6,7 @@ import {
   dispatch,
   parseInvocation,
 } from "@kratos/runtime/domain/cli";
+import { renderMemoryApplyCommand } from "@kratos/runtime/domain/cli/memory";
 import { USAGE_WHY } from "@kratos/runtime/domain/result";
 
 function invoke(argv: readonly string[]) {
@@ -16,6 +17,23 @@ function invoke(argv: readonly string[]) {
 }
 
 describe("implemented commands", () => {
+  it("quotes memory apply paths and preserves an explicit root", () => {
+    const parsed = parseInvocation(
+      ["memory", "promote", "proposal; $(bad).json", "--root", "a root;$(bad)"],
+      DEFAULT_REGISTRY,
+    );
+    if (parsed.kind !== "invocation") throw new Error("expected invocation");
+    expect(
+      renderMemoryApplyCommand(
+        parsed.invocation,
+        "a".repeat(64),
+        "b".repeat(64),
+        "2026-08-29T00:00:00Z",
+      ),
+    ).toBe(
+      "kratos memory promote --root 'a root;$(bad)' 'proposal; $(bad).json' --yes --proposal-digest aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --plan-digest bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --plan-time 2026-08-29T00:00:00Z",
+    );
+  });
   it("registers exactly the commands that work today", () => {
     expect(
       DEFAULT_REGISTRY.filter((spec) => spec.retired !== true)

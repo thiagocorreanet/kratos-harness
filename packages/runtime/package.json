@@ -17,6 +17,7 @@
     "./application/write-guard": "./src/application/write-guard/index.ts",
     "./domain/agent": "./src/domain/agent/index.ts",
     "./domain/cli": "./src/domain/cli/index.ts",
+    "./domain/cli/memory": "./src/domain/cli/memory.ts",
     "./domain/diagnostics": "./src/domain/diagnostics/index.ts",
     "./domain/effects": "./src/domain/effects.ts",
     "./domain/events": "./src/domain/events/index.ts",

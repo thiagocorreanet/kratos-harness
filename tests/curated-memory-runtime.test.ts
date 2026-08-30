@@ -364,4 +364,84 @@ describe("curated memory promotion", () => {
       ).archive,
     ).toHaveLength(1);
   });
+
+  it("previews and applies real merge commands with source tombstones", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    await runCommandLine(
+      applyArguments(previewAuthorization(run.output.structured_.join(""))),
+      run.ports,
+    );
+    const second = "b".repeat(64);
+    await run.ports.durableFileSystem.writeSynced(
+      `.brain/03-memory/candidates/${second}.json`,
+      `${JSON.stringify({ contractVersion: "1.0.0", stateContract: "1.0.0", candidateId: second, toolFamily: "shell", failureClass: "nonzero_exit", exitCode: 1, diagnostic: "second", firstObservedAt: NOW })}\n`,
+    );
+    await run.ports.fileSystem.write(
+      "second.json",
+      `${JSON.stringify({ ...PROPOSAL, candidateIds: [second], title: "Second", why: ["second why"], apply: ["second apply"] })}\n`,
+    );
+    await runCommandLine(["memory", "promote", "second.json"], run.ports);
+    await runCommandLine(
+      [
+        "memory",
+        "promote",
+        "second.json",
+        "--yes",
+        "--proposal-digest",
+        previewAuthorization(run.output.structured_.join("")).proposalDigest,
+        "--plan-digest",
+        previewAuthorization(run.output.structured_.join("")).planDigest,
+        "--plan-time",
+        previewAuthorization(run.output.structured_.join("")).planTime,
+      ],
+      run.ports,
+    );
+    const lessonIds = (
+      JSON.parse(
+        run.storage.snapshot().files[".brain/03-memory/curated-memory.json"] ??
+          "",
+      ) as { confirmed: { lessonId: string }[] }
+    ).confirmed.map(({ lessonId }) => lessonId);
+    await run.ports.fileSystem.write(
+      "merge.json",
+      `${JSON.stringify({ contractVersion: "1.2.0", hostContract: "1.2.0", operation: "merge", reviewer: "reviewer", lessonIds, title: "Merged" })}\n`,
+    );
+    expect(
+      await runCommandLine(["memory", "merge", "merge.json"], run.ports),
+    ).toBe(0);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    expect(
+      await runCommandLine(
+        applyChange("merge", "merge.json", authorization),
+        run.ports,
+      ),
+    ).toBe(0);
+    const ledger = JSON.parse(
+      run.storage.snapshot().files[".brain/03-memory/curated-memory.json"] ??
+        "",
+    ) as {
+      confirmed: { why: string[]; apply: string[] }[];
+      archive: { replacementLessonId: string | null }[];
+    };
+    expect(ledger.confirmed).toHaveLength(1);
+    expect(ledger.confirmed[0]?.why).toEqual([
+      "The build needs its generated input.",
+      "second why",
+    ]);
+    expect(ledger.archive).toHaveLength(2);
+    expect(
+      ledger.archive.every(
+        ({ replacementLessonId }) =>
+          replacementLessonId ===
+          (
+            JSON.parse(
+              run.storage.snapshot().files[
+                ".brain/03-memory/curated-memory.json"
+              ] ?? "",
+            ) as { confirmed: { lessonId: string }[] }
+          ).confirmed[0]?.lessonId,
+      ),
+    ).toBe(true);
+  });
 });

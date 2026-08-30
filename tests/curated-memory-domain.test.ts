@@ -296,4 +296,44 @@ describe("curated memory domain", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps the newest 48 archive tombstones in append order", () => {
+    const archive = Array.from({ length: 48 }, (_, index) => ({
+      lessonId: `${String(index).padStart(64, "0")}`,
+      title: `Old ${String(index)}`,
+      candidateIds: ["a".repeat(64)],
+      reviewer: "reviewer",
+      archivedAt: "2026-08-29T00:00:00Z",
+      reason: "old",
+      replacementLessonId: null,
+    }));
+    const lesson = {
+      lessonId: "z".repeat(64),
+      title: "Current",
+      why: ["why"],
+      apply: ["apply"],
+      candidateIds: ["b".repeat(64)],
+      reviewer: "reviewer",
+      confirmedAt: "2026-08-29T00:00:00Z",
+    };
+    const outcome = reduceMemoryChange(
+      { ...EMPTY, confirmed: [lesson], archive },
+      {
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        operation: "archive",
+        reviewer: "reviewer",
+        lessonId: lesson.lessonId,
+        reason: "obsolete",
+      },
+      "2026-08-29T00:00:00Z",
+      (value) => `x${String(value.length)}`.padEnd(64, "0"),
+    );
+    if (outcome.kind !== "ready") throw new Error("expected ready");
+    expect(outcome.ledger.archive).toHaveLength(48);
+    expect(outcome.ledger.archive[0]?.lessonId).toBe(
+      `${String(1).padStart(64, "0")}`,
+    );
+    expect(outcome.ledger.archive[47]?.lessonId).toBe("z".repeat(64));
+  });
 });
