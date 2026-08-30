@@ -30,6 +30,9 @@ const LATER = "2026-08-30T12:04:00.000Z";
 const AFTER = "2026-08-30T12:05:00.000Z";
 const DELAYED = "2026-08-30T12:06:00.000Z";
 const REFRESH = "2026-08-30T12:07:00.000Z";
+const FINAL = "2026-08-30T12:08:00.000Z";
+const COMPLETED = "2026-08-30T12:09:00.000Z";
+const ROLLUP = "2026-08-30T12:10:00.000Z";
 const LOG = ".brain/03-memory/task_log.jsonl";
 const COMPLETE_PRD = `# Requirements
 
@@ -311,8 +314,89 @@ function records(run: RuntimeSubject): readonly PhaseMeasurementV1[] {
 }
 
 function usage(run: RuntimeSubject): RunUsageV1 {
-  const path = ".brain/02-features/measure-phase-usage/runs/run-01/usage.json";
+  return usageFor(run, "run-01");
+}
+
+function usageFor(run: RuntimeSubject, runId: string): RunUsageV1 {
+  const path = `.brain/02-features/measure-phase-usage/runs/${runId}/usage.json`;
   return JSON.parse(run.storage.snapshot().files[path] ?? "") as RunUsageV1;
+}
+
+function gatesFor(run: RuntimeSubject, runId: string): GateFactsV1 {
+  const path = `.brain/02-features/measure-phase-usage/runs/${runId}/gates.json`;
+  return JSON.parse(run.storage.snapshot().files[path] ?? "") as GateFactsV1;
+}
+
+function stopLossFor(
+  run: RuntimeSubject,
+  runId: string,
+): GateFactsV1["stopLoss"] {
+  const path = `.brain/02-features/measure-phase-usage/runs/${runId}/gates.json`;
+  const content = run.storage.snapshot().files[path];
+  return content === undefined
+    ? { tripped: false, exhausted: false }
+    : (JSON.parse(content) as GateFactsV1).stopLoss;
+}
+
+async function switchToEmptyRun(
+  run: RuntimeSubject,
+  runId: string,
+): Promise<void> {
+  const previousUsage = usage(run);
+  const previousGatesPath =
+    ".brain/02-features/measure-phase-usage/runs/run-01/gates.json";
+  const previousGatesContent = run.storage.snapshot().files[previousGatesPath];
+  const previousGates: GateFactsV1 =
+    previousGatesContent === undefined
+      ? {
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          runId: "run-01",
+          openGaps: 0,
+          openGapIds: [],
+          stopLoss: { tripped: false, exhausted: false },
+          partitionRequired: false,
+          partitionApproved: true,
+          derivedAt: LATER,
+        }
+      : (JSON.parse(previousGatesContent) as GateFactsV1);
+  await run.ports.fileSystem.write(
+    `.brain/02-features/measure-phase-usage/runs/${runId}/usage.json`,
+    `${JSON.stringify(
+      {
+        ...previousUsage,
+        runId,
+        totalGrossTokens: 0,
+        epoch: {
+          number: 1,
+          baselineGrossTokens: 0,
+          exhaustedAt: null,
+        },
+        sessions: [],
+        measurementFaultAt: null,
+        updatedAt: LATER,
+      } satisfies RunUsageV1,
+      null,
+      2,
+    )}\n`,
+  );
+  await run.ports.fileSystem.write(
+    `.brain/02-features/measure-phase-usage/runs/${runId}/gates.json`,
+    `${JSON.stringify(
+      {
+        ...previousGates,
+        runId,
+        stopLoss: { tripped: false, exhausted: false },
+        derivedAt: LATER,
+      } satisfies GateFactsV1,
+      null,
+      2,
+    )}\n`,
+  );
+  await run.ports.fileSystem.write(
+    ".brain/02-features/measure-phase-usage/active-run",
+    `${runId}\n`,
+  );
 }
 
 async function setTokenBudget(
@@ -683,14 +767,20 @@ describe("phase measurement runtime lifecycle", () => {
     });
   });
 
-  it("attributes a delayed final session contribution only to its completed phase", async () => {
+  it("keeps every repeated, regressing, and final increment in its owning phase through completion and refresh", async () => {
     const run = await started();
-    await setTokenBudget(run, 75);
+    await setTokenBudget(run, 100);
     await startPhase(run, "session-a");
     await samplePhase(run, "session-a", 40, "session-a-sample", SAMPLE);
     await completeCurrentPhase(run, 0);
     await startPhase(run, "session-b", LATER);
     await samplePhase(run, "session-b", 30, "session-b-sample", AFTER);
+    const beforeDelayedSamples = run.storage.snapshot().files[LOG];
+
+    await samplePhase(run, "session-a", 40, "session-a-repeated", DELAYED);
+    await samplePhase(run, "session-a", 35, "session-a-regressing", REFRESH);
+    expect(run.storage.snapshot().files[LOG]).toBe(beforeDelayedSamples);
+    expect(usage(run).totalGrossTokens).toBe(70);
 
     expect(
       await samplePhase(
@@ -698,10 +788,15 @@ describe("phase measurement runtime lifecycle", () => {
         "session-a",
         45,
         "session-a-delayed-final",
-        DELAYED,
+        FINAL,
         "session.end",
       ),
     ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    expect(await completeCurrentPhase(run, 1, COMPLETED)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
 
     const prd = records(run).find(({ phase }) => phase === "prd");
     const spec = records(run).find(({ phase }) => phase === "spec");
@@ -711,13 +806,15 @@ describe("phase measurement runtime lifecycle", () => {
       finalGrossTokens: 45,
       grossTokens: 45,
       endedAt: END,
-      updatedAt: DELAYED,
+      updatedAt: FINAL,
     });
     expect(spec).toMatchObject({
-      status: "running",
+      status: "completed",
       baselineGrossTokens: 40,
-      finalGrossTokens: null,
+      finalGrossTokens: 70,
       grossTokens: 30,
+      endedAt: COMPLETED,
+      closeReason: "phase_completed",
     });
     expect(
       records(run).reduce((sum, record) => sum + record.grossTokens, 0),
@@ -728,14 +825,249 @@ describe("phase measurement runtime lifecycle", () => {
         { sessionId: "session-a", cumulativeGrossTokens: 45 },
         { sessionId: "session-b", cumulativeGrossTokens: 30 },
       ],
-      epoch: { exhaustedAt: DELAYED },
+      epoch: { exhaustedAt: null },
     });
-    const gates = JSON.parse(
+    expect(stopLossFor(run, "run-01")).toEqual({
+      tripped: false,
+      exhausted: false,
+    });
+
+    expect(
+      await result(run, ["metrics", "refresh"], portsAt(run, ROLLUP)),
+    ).toMatchObject({ reasonCode: "metrics.calibration_insufficient" });
+    const rollup =
+      run.storage.snapshot().files[".brain/03-memory/task_metrics.md"] ?? "";
+    expect(rollup).toContain(
+      "| prd | 1 | 0 | measure-phase-usage/run-01 | 45 | 45 | 45 | 45 |",
+    );
+    expect(rollup).toContain(
+      "| spec | 1 | 0 | measure-phase-usage/run-01 | 30 | 30 | 30 | 30 |",
+    );
+  });
+
+  it("completes a phase with no hook samples without claiming another session's delayed increment", async () => {
+    const run = await started();
+    await setTokenBudget(run, 100);
+    await startPhase(run, "session-a");
+    await samplePhase(run, "session-a", 40, "session-a-sample", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await startPhase(run, "session-b", LATER);
+
+    await samplePhase(
+      run,
+      "session-a",
+      45,
+      "session-a-delayed-final",
+      AFTER,
+      "session.end",
+    );
+    expect(await completeCurrentPhase(run, 1, DELAYED)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    expect(records(run).find(({ phase }) => phase === "prd")).toMatchObject({
+      status: "completed",
+      finalGrossTokens: 45,
+      grossTokens: 45,
+    });
+    expect(records(run).find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "completed",
+      baselineGrossTokens: 40,
+      finalGrossTokens: 40,
+      grossTokens: 0,
+    });
+    expect(
+      records(run).reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(45);
+    expect(usage(run).totalGrossTokens).toBe(45);
+  });
+
+  it("routes a delayed measured session to its owning run after the active run changes", async () => {
+    const run = await started();
+    await setTokenBudget(run, 45);
+    await startPhase(run, "session-old");
+    await samplePhase(run, "session-old", 40, "old-sample", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await switchToEmptyRun(run, "run-02");
+    const newUsage =
       run.storage.snapshot().files[
-        ".brain/02-features/measure-phase-usage/runs/run-01/gates.json"
-      ] ?? "",
-    ) as GateFactsV1;
-    expect(gates.stopLoss).toEqual({ tripped: false, exhausted: true });
+        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+      ];
+    const newGates =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+      ];
+
+    expect(
+      await samplePhase(
+        run,
+        "session-old",
+        45,
+        "old-delayed-final",
+        AFTER,
+        "session.end",
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    expect(usageFor(run, "run-01")).toMatchObject({
+      totalGrossTokens: 45,
+      sessions: [{ sessionId: "session-old", cumulativeGrossTokens: 45 }],
+      epoch: { exhaustedAt: AFTER },
+    });
+    expect(gatesFor(run, "run-01").stopLoss).toEqual({
+      tripped: false,
+      exhausted: true,
+    });
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+      ],
+    ).toBe(newUsage);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+      ],
+    ).toBe(newGates);
+    expect(records(run)[0]).toMatchObject({
+      runId: "run-01",
+      status: "completed",
+      finalGrossTokens: 45,
+      grossTokens: 45,
+    });
+    expect(
+      JSON.parse(
+        run.storage.snapshot().files[
+          ".brain/03-memory/telemetry/session-old.json"
+        ] ?? "",
+      ),
+    ).toMatchObject({ runId: "run-01", grossTokens: 45 });
+  });
+
+  it.each([
+    {
+      label: "missing usage",
+      path: ".brain/02-features/measure-phase-usage/runs/run-01/usage.json",
+      damage: async (run: RuntimeSubject, path: string) =>
+        run.ports.fileSystem.remove(path),
+    },
+    {
+      label: "malformed gates",
+      path: ".brain/02-features/measure-phase-usage/runs/run-01/gates.json",
+      damage: async (run: RuntimeSubject, path: string) =>
+        run.ports.fileSystem.write(path, "{not-json}\n"),
+    },
+  ])(
+    "fails closed when the cross-run measurement owner has $label",
+    async ({ path, damage }) => {
+      const run = await started();
+      await startPhase(run, "session-old");
+      await samplePhase(run, "session-old", 40, "old-sample", SAMPLE);
+      await completeCurrentPhase(run, 0);
+      await switchToEmptyRun(run, "run-02");
+      await damage(run, path);
+      const priorRaw = run.storage.snapshot().files[LOG];
+      const priorOldUsage =
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-01/usage.json"
+        ];
+      const priorOldGates =
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-01/gates.json"
+        ];
+      const priorNewUsage =
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+        ];
+      const priorNewGates =
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+        ];
+
+      expect(
+        await samplePhase(
+          run,
+          "session-old",
+          45,
+          "old-delayed-invalid-owner",
+          AFTER,
+          "session.end",
+        ),
+      ).toMatchObject({
+        exitCode: 4,
+        reasonCode: "runtime.state_corrupt",
+        stateChanged: false,
+        evidence: [{ ref: path }],
+      });
+      expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-01/usage.json"
+        ],
+      ).toBe(priorOldUsage);
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-01/gates.json"
+        ],
+      ).toBe(priorOldGates);
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+        ],
+      ).toBe(priorNewUsage);
+      expect(
+        run.storage.snapshot().files[
+          ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+        ],
+      ).toBe(priorNewGates);
+      expect(
+        run.storage.snapshot().files[
+          ".brain/03-memory/telemetry/session-old.json"
+        ],
+      ).toBeUndefined();
+    },
+  );
+
+  it("fails closed when one measured session ambiguously names multiple runs", async () => {
+    const run = await started();
+    await startPhase(run, "session-shared");
+    await samplePhase(run, "session-shared", 40, "shared-sample", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await switchToEmptyRun(run, "run-02");
+    const first = records(run)[0];
+    if (first === undefined) throw new Error("Missing measured session");
+    const ambiguousRaw = `${JSON.stringify(first)}\n${JSON.stringify({
+      ...first,
+      runId: "run-02",
+      phase: "spec",
+    })}\n`;
+    await run.ports.fileSystem.write(LOG, ambiguousRaw);
+    const priorOldUsage = JSON.stringify(usageFor(run, "run-01"));
+    const priorNewUsage = JSON.stringify(usageFor(run, "run-02"));
+
+    expect(
+      await samplePhase(
+        run,
+        "session-shared",
+        45,
+        "shared-delayed-final",
+        AFTER,
+        "session.end",
+      ),
+    ).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+      evidence: [{ ref: LOG }],
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(ambiguousRaw);
+    expect(JSON.stringify(usageFor(run, "run-01"))).toBe(priorOldUsage);
+    expect(JSON.stringify(usageFor(run, "run-02"))).toBe(priorNewUsage);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/03-memory/telemetry/session-shared.json"
+      ],
+    ).toBeUndefined();
   });
 
   it("recovers an accepted stale running phase before starting the next phase", async () => {

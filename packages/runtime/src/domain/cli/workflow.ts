@@ -666,7 +666,7 @@ function completionMeasurementEffect(
   const eventIdentity = workflow.event.observedIdentity;
   const completed = completePhaseMeasurement({
     record,
-    totalGrossTokens: observation.usage.totalGrossTokens,
+    totalGrossTokens: record.baselineGrossTokens + record.grossTokens,
     now: workflow.event.occurredAt,
     observedIdentity: {
       model: eventIdentity.model ?? record.observedIdentity.model,
