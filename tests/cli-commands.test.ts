@@ -19,7 +19,11 @@ import {
   parseInvocation,
 } from "@kratos/runtime/domain/cli";
 import { renderMemoryApplyCommand } from "@kratos/runtime/domain/cli/memory";
-import { renderMemoryMigrationApply } from "@kratos/runtime/domain/cli";
+import {
+  memoryMigrationApplyArgv,
+  renderMemoryMigrationApply,
+  renderPowerShellCommand,
+} from "@kratos/runtime/domain/cli";
 import { USAGE_WHY } from "@kratos/runtime/domain/result";
 
 function invoke(argv: readonly string[]) {
@@ -80,9 +84,9 @@ describe("implemented commands", () => {
       [
         "migrate",
         "memory",
-        "proposal 'x'; $(bad) $ mapping.json",
+        "proposal 'x'; $(bad) $ % ! ^ & | mapping.json",
         "--root",
-        "a root'$;$(bad)",
+        "a root'$;$(bad) % ! ^ & |",
       ],
       DEFAULT_REGISTRY,
     );
@@ -94,7 +98,31 @@ describe("implemented commands", () => {
       "2026-08-29T00:00:00Z",
     );
 
-    expect(command).toContain(String.raw`'a root'\''$;$(bad)'`);
+    expect(command).toContain(String.raw`'a root'\''$;$(bad) % ! ^ & |'`);
+    const argv = memoryMigrationApplyArgv(
+      parsed.invocation,
+      "a".repeat(64),
+      "b".repeat(64),
+      "2026-08-29T00:00:00Z",
+    );
+    expect(argv).toEqual([
+      "kratos",
+      "migrate",
+      "memory",
+      "--root",
+      "a root'$;$(bad) % ! ^ & |",
+      "proposal 'x'; $(bad) $ % ! ^ & | mapping.json",
+      "--yes",
+      "--proposal-digest",
+      "a".repeat(64),
+      "--plan-digest",
+      "b".repeat(64),
+      "--plan-time",
+      "2026-08-29T00:00:00Z",
+    ]);
+    expect(renderPowerShellCommand(argv)).toBe(
+      `& 'kratos' 'migrate' 'memory' '--root' 'a root''$;$(bad) % ! ^ & |' 'proposal ''x''; $(bad) $ % ! ^ & | mapping.json' '--yes' '--proposal-digest' '${"a".repeat(64)}' '--plan-digest' '${"b".repeat(64)}' '--plan-time' '2026-08-29T00:00:00Z'`,
+    );
     execFileSync("/usr/bin/bash", ["-c", command], {
       env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` },
     });
@@ -103,8 +131,8 @@ describe("implemented commands", () => {
         "migrate",
         "memory",
         "--root",
-        "a root'$;$(bad)",
-        "proposal 'x'; $(bad) $ mapping.json",
+        "a root'$;$(bad) % ! ^ & |",
+        "proposal 'x'; $(bad) $ % ! ^ & | mapping.json",
         "--yes",
         "--proposal-digest",
         "a".repeat(64),

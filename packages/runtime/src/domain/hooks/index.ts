@@ -129,6 +129,8 @@ const ansiEscape = new RegExp(
 // generated. These finite terminal markers keep release/version names intact.
 const temporaryNonce =
   /((?:\/tmp|\/var\/tmp)\/[^\s/]+?-(?:test|tmp|temp|run|build|cache))-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\/|\s|$))(?=(?:[A-Za-z0-9]*[A-Za-z]){2}[A-Za-z0-9]*(?=\/|\s|$))(?=(?:[A-Za-z0-9]*\d){2}[A-Za-z0-9]*(?=\/|\s|$))[A-Za-z0-9]{6})(?=\/|\s|$)/gu;
+const windowsTemporaryNonce =
+  /((?:[A-Za-z]:\\(?:Users\\[^\\\s]+\\AppData\\Local\\Temp|Windows\\Temp))\\[^\\\s]+?-(?:test|tmp|temp|run|build|cache))-(?:[0-9]{6,}|[a-f0-9]{8,}|(?=[A-Za-z0-9]{6}(?=\\|\s|$))(?=(?:[A-Za-z0-9]*[A-Za-z]){2}[A-Za-z0-9]*(?=\\|\s|$))(?=(?:[A-Za-z0-9]*\d){2}[A-Za-z0-9]*(?=\\|\s|$))[A-Za-z0-9]{6})(?=\\|\s|$)/gu;
 
 function stripAnsi(value: string): string {
   return value.replace(ansiEscape, "");
@@ -231,6 +233,11 @@ function normalizeCandidateDiagnostic(value: string): string {
       "<uuid>",
     )
     .replace(temporaryNonce, "$1-<nonce>")
+    .replace(windowsTemporaryNonce, "$1-<nonce>")
+    .replace(
+      /(^|[\s(])([A-Za-z]:\\[^\s:()]+?\.[A-Za-z0-9]{1,10}):\d+:\d+\b/gu,
+      "$1$2:<line>:<column>",
+    )
     .replace(
       /(^|[\s(])([^\s:()]+?\.[A-Za-z0-9]{1,10}):\d+:\d+\b/gu,
       "$1$2:<line>:<column>",

@@ -31,6 +31,7 @@ import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
 import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
+import { planOf } from "../domain/effects.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
@@ -279,15 +280,15 @@ export async function runCommandLine(
     ) {
       for (const candidate of decision.cleanupCandidates) {
         try {
-          const current = await applyPorts.durableFileSystem.inspect(
-            candidate.path,
+          await applyPlan(
+            planOf({
+              kind: "delete_file",
+              path: candidate.path,
+              expected: candidate.expected,
+            }),
+            applyPorts,
+            { rootMode: "existing" },
           );
-          if (
-            current.kind === "file" &&
-            current.size === candidate.expected.size &&
-            current.sha256 === candidate.expected.sha256
-          )
-            await applyPorts.durableFileSystem.removeFile(candidate.path);
         } catch {
           // Candidate cleanup is deliberately best effort after authority commits.
         }

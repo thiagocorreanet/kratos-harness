@@ -184,6 +184,14 @@ describe("curated memory promotion", () => {
       await runCommandLine(["memory", "promote", "proposal.json"], run.ports),
     ).toBe(0);
     const authorization = previewAuthorization(run.output.structured_.join(""));
+    const preview = run.output.structured_.join("");
+    expect(preview).toContain(
+      'Apply argv: ["kratos","memory","promote","proposal.json","--yes"',
+    );
+    expect(preview).toContain("Apply command (POSIX): kratos memory promote");
+    expect(preview).toContain(
+      "Apply command (PowerShell): & 'kratos' 'memory' 'promote'",
+    );
     expect(authorization.planDigest).toMatch(/^[a-f0-9]{64}$/u);
     expect(
       run.storage.snapshot().files[
@@ -253,6 +261,41 @@ describe("curated memory promotion", () => {
       `${JSON.stringify(LEDGER, null, 2)}\n`,
     );
     expect(files[".brain/03-memory/gotchas.md"]).toBe(GOTCHAS);
+  });
+
+  it("aborts authority publication when a candidate changes during transaction preparation", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    const durable = run.ports.durableFileSystem;
+    const candidatePath = `.brain/03-memory/candidates/${CANDIDATE}.json`;
+    const replacement = `${JSON.stringify({ contractVersion: "1.0.0", stateContract: "1.0.0", candidateId: CANDIDATE, toolFamily: "shell", failureClass: "nonzero_exit", exitCode: 1, diagnostic: "replacement arrived before commit", firstObservedAt: NOW }, null, 2)}\n`;
+    let raced = false;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...durable,
+        writeSynced: async (path, content) => {
+          if (!raced && path.startsWith(".brain/transactions/")) {
+            raced = true;
+            const staged = ".brain/03-memory/precommit-race.tmp";
+            await durable.writeSynced(staged, replacement);
+            await durable.replaceFile(staged, candidatePath);
+          }
+          await durable.writeSynced(path, content);
+        },
+      },
+    };
+
+    expect(await runCommandLine(applyArguments(authorization), ports)).not.toBe(
+      0,
+    );
+    const files = run.storage.snapshot().files;
+    expect(files[".brain/03-memory/curated-memory.json"]).toBe(
+      `${JSON.stringify(LEDGER, null, 2)}\n`,
+    );
+    expect(files[".brain/03-memory/gotchas.md"]).toBe(GOTCHAS);
+    expect(files[candidatePath]).toBe(replacement);
   });
 
   it("recovers a late canonical publication fault without consuming candidates", async () => {
@@ -412,6 +455,63 @@ describe("curated memory promotion", () => {
     ).toContain("Avoid flaky build");
   });
 
+  it("retains a replacement that arrives between cleanup validation and execution", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    const durable = run.ports.durableFileSystem;
+    const candidatePath = `.brain/03-memory/candidates/${CANDIDATE}.json`;
+    const replacement = `${JSON.stringify({ contractVersion: "1.0.0", stateContract: "1.0.0", candidateId: CANDIDATE, toolFamily: "shell", failureClass: "nonzero_exit", exitCode: 1, diagnostic: "replacement arrived during cleanup", firstObservedAt: NOW }, null, 2)}\n`;
+    let transactionStarts = 0;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      durableFileSystem: {
+        ...durable,
+        createDirectoryExclusive: async (path) => {
+          if (
+            path.startsWith(".brain/transactions/") &&
+            ++transactionStarts === 2
+          ) {
+            const staged = ".brain/03-memory/cleanup-race.tmp";
+            await durable.writeSynced(staged, replacement);
+            await durable.replaceFile(staged, candidatePath);
+          }
+          await durable.createDirectoryExclusive(path);
+        },
+      },
+    };
+
+    expect(await runCommandLine(applyArguments(authorization), ports)).toBe(0);
+    expect(run.storage.snapshot().files[candidatePath]).toBe(replacement);
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/gotchas.md"],
+    ).toContain("Avoid flaky build");
+  });
+
+  it("refuses a duplicate active identity without poisoning the next memory command", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    await runCommandLine(
+      applyArguments(previewAuthorization(run.output.structured_.join(""))),
+      run.ports,
+    );
+    await run.ports.durableFileSystem.writeSynced(
+      `.brain/03-memory/candidates/${CANDIDATE}.json`,
+      `${JSON.stringify({ contractVersion: "1.0.0", stateContract: "1.0.0", candidateId: CANDIDATE, toolFamily: "shell", failureClass: "nonzero_exit", exitCode: 1, diagnostic: "recaptured", firstObservedAt: NOW }, null, 2)}\n`,
+    );
+
+    expect(
+      await runCommandLine(
+        ["--json", "memory", "promote", "proposal.json"],
+        run.ports,
+      ),
+    ).toBe(3);
+    expect(JSON.parse(run.output.structured_.at(-1) ?? "{}")).toMatchObject({
+      reasonCode: "memory.curation_required",
+    });
+    expect(await runCommandLine(["memory", "list"], run.ports)).toBe(0);
+  });
+
   it("previews and applies real archive commands", async () => {
     const run = subject();
     await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
@@ -430,6 +530,9 @@ describe("curated memory promotion", () => {
     expect(
       await runCommandLine(["memory", "archive", "archive.json"], run.ports),
     ).toBe(0);
+    expect(run.output.structured_.join("")).toContain(
+      '["kratos","memory","archive","archive.json","--yes"',
+    );
     const authorization = previewAuthorization(run.output.structured_.join(""));
     expect(
       await runCommandLine(
@@ -493,6 +596,9 @@ describe("curated memory promotion", () => {
     expect(
       await runCommandLine(["memory", "merge", "merge.json"], run.ports),
     ).toBe(0);
+    expect(run.output.structured_.join("")).toContain(
+      '["kratos","memory","merge","merge.json","--yes"',
+    );
     const authorization = previewAuthorization(run.output.structured_.join(""));
     expect(
       await runCommandLine(

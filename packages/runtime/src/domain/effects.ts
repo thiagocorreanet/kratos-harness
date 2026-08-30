@@ -31,6 +31,15 @@ export type WriteFilePrecondition =
 
 export type Effect =
   | {
+      readonly kind: "assert_file";
+      readonly path: string;
+      /** Bind a separate authority mutation to this exact observed file. */
+      readonly expected: Extract<
+        WriteFilePrecondition,
+        { readonly kind: "file" }
+      >;
+    }
+  | {
       readonly kind: "write_file";
       readonly path: string;
       readonly content: string;

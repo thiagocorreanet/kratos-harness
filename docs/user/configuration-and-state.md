@@ -93,10 +93,14 @@ two-section projection.
 
 Candidate diagnostics are sanitized and limited to 2 KiB before persistence.
 Capture performs no model call, network/socket operation, or project command.
-It uses no automatic promotion path. Managed publication checks candidate,
-ledger, and projection preconditions, so an interruption leaves the old pair
-or a recoverable transaction; it never makes candidate deletion authority out
-of an uncommitted change.
+It uses no automatic promotion path. Windows and POSIX diagnostics share the
+same conservative volatile matcher without folding drive, path, or case.
+Managed publication carries candidate fingerprints as execution-time read
+guards alongside ledger and projection preconditions. Candidate cleanup starts
+only after authority commits and uses a separate fingerprinted managed delete,
+so a replacement candidate is retained rather than unconditionally unlinked.
+An interruption leaves the old pair or a recoverable transaction; it never
+makes candidate deletion authority out of an uncommitted change.
 
 Managed markers protect user-authored content. Reconciliation preserves bytes
 outside marked sections and reports a conflict before changing an ambiguous

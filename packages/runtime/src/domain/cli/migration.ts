@@ -12,7 +12,11 @@ import { planOf, type Effect } from "../effects.js";
 import { resultFor } from "../result/index.js";
 
 import { observingCommand } from "./observed.js";
-import { shellArgument } from "./shell-argument.js";
+import {
+  renderApplyInstructions,
+  renderPosixCommand,
+  shellArgument,
+} from "./shell-argument.js";
 import type {
   CommandObservation,
   CommandSpec,
@@ -353,7 +357,14 @@ function migrateMemory(
           `Source SHA-256: ${operation.source.sha256}`,
           `Plan digest: ${operation.planDigest}`,
           `Plan time: ${operation.now}`,
-          `Apply command: ${renderMemoryMigrationApply(invocation, operation.proposalDigest, operation.planDigest, operation.now)}`,
+          ...renderApplyInstructions(
+            memoryMigrationApplyArgv(
+              invocation,
+              operation.proposalDigest,
+              operation.planDigest,
+              operation.now,
+            ),
+          ),
         ].join("\n") + "\n",
       payload: null,
     };
@@ -400,7 +411,17 @@ export function renderMemoryMigrationApply(
   planDigest: string,
   planTime: string,
 ): string {
-  const quote = shellArgument;
+  return renderPosixCommand(
+    memoryMigrationApplyArgv(invocation, proposalDigest, planDigest, planTime),
+  );
+}
+
+export function memoryMigrationApplyArgv(
+  invocation: Invocation,
+  proposalDigest: string,
+  planDigest: string,
+  planTime: string,
+): string[] {
   const root = invocation.flags.get("--root");
   const mapping = invocation.positionals[0] ?? "<mapping>";
   return [
@@ -408,8 +429,8 @@ export function renderMemoryMigrationApply(
     "migrate",
     "memory",
     typeof root === "string" ? "--root" : null,
-    typeof root === "string" ? quote(root) : null,
-    quote(mapping),
+    typeof root === "string" ? root : null,
+    mapping,
     "--yes",
     "--proposal-digest",
     proposalDigest,
@@ -417,9 +438,7 @@ export function renderMemoryMigrationApply(
     planDigest,
     "--plan-time",
     planTime,
-  ]
-    .filter((value): value is string => value !== null)
-    .join(" ");
+  ].filter((value): value is string => value !== null);
 }
 
 function memoryConfirmationStale(): Decision {

@@ -74,6 +74,12 @@ The same sanitized, conservative identity reducer used by failed-tool hooks
 deduplicates local candidates. A capture never writes the ledger, Markdown
 projection, or a promotion.
 
+Volatile normalization is platform-aware. It recognizes supported POSIX temp
+roots and Windows `AppData\Local\Temp` or `Windows\Temp` roots, their native
+separators, and source-file line/column suffixes. Drive letter, path spelling,
+case, and substantive numbers remain part of identity outside those exact
+volatile positions.
+
 ```bash
 kratos memory list --root PATH
 kratos memory capture --root PATH capture.json
@@ -94,8 +100,11 @@ kratos memory archive --root PATH archive.json
 ```
 
 These three invocations are previews: they make no write and print the
-proposal digest, plan digest, plan time, and an exact shell-quoted apply
-command. Copy that command after review; its general grammar is:
+proposal digest, plan digest, plan time, and `Apply argv`, a JSON string array
+that is the shell-neutral apply authority. POSIX and PowerShell commands are
+derived displays; the legacy `Apply command` line remains the POSIX rendering
+for compatibility. Use the argv array directly when a launcher accepts an
+executable plus arguments. Its general grammar is:
 
 ```bash
 kratos memory <promote|merge|archive> --root PATH proposal.json \
@@ -104,9 +113,13 @@ kratos memory <promote|merge|archive> --root PATH proposal.json \
 
 `--yes` alone is refused as `memory.confirmation_stale`. Proposal, candidate,
 ledger, projection, or authorization drift also invalidates the reviewed plan.
+An identity already active or retained in the archive, or an invalid merge
+replacement link, is `memory.curation_required`; no ledger bytes change.
 The managed transaction publishes `curated-memory.json` and `gotchas.md`
-together; only after publication does best-effort candidate cleanup occur, so
-a failed cleanup retains a candidate safely.
+together while asserting every promoted candidate fingerprint at execution.
+Only after durable authority publication does a separate fingerprinted managed
+delete attempt candidate cleanup. A changed or failed cleanup retains the
+candidate safely.
 
 Confirmed memory permits at most 24 active lessons and 48 KiB of rendered
 UTF-8 Markdown. The archive retains at most 48 rolling tombstones; prior

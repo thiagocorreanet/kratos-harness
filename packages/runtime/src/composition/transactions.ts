@@ -67,6 +67,8 @@ export interface EventStorePrecondition {
 export interface ExecuteManagedMutationOptions {
   readonly rootMode: "existing" | "initialize";
   readonly eventStorePreconditions?: readonly EventStorePrecondition[];
+  /** Read-only authority facts that must still hold at publication time. */
+  readonly guardPreconditions?: readonly EventStorePrecondition[];
   /**
    * Authority for a protected caller mutation. Present means the caller claims
    * to hold a lease; it never means the claim is still true, which is re-derived
@@ -133,6 +135,10 @@ export async function executeManagedMutation(
       frozenOptions.eventStorePreconditions,
       services,
     );
+    await assertDeclaredGuardPreconditions(
+      frozenOptions.guardPreconditions,
+      services,
+    );
     return await driveExecution(frozenPlan, frozenOptions, services, attempt);
   } catch (error) {
     return classifyDriverFailure(error, services, attempt);
@@ -143,14 +149,25 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
   try {
     const root = exactData(
       value,
-      ["rootMode", "eventStorePreconditions", "leaseGuard"],
+      [
+        "rootMode",
+        "eventStorePreconditions",
+        "guardPreconditions",
+        "leaseGuard",
+      ],
       true,
     );
     const rootMode = root.rootMode;
     if (rootMode !== "existing" && rootMode !== "initialize") throw new Error();
     const leaseGuard = freezeLeaseGuard(root);
-    if (!("eventStorePreconditions" in root))
-      return leaseGuard === undefined ? { rootMode } : { rootMode, leaseGuard };
+    const guardPreconditions = freezeGuardPreconditions(root);
+    if (!("eventStorePreconditions" in root)) {
+      return {
+        rootMode,
+        ...(guardPreconditions === undefined ? {} : { guardPreconditions }),
+        ...(leaseGuard === undefined ? {} : { leaseGuard }),
+      };
+    }
     const tuple = root.eventStorePreconditions;
     if (
       !Array.isArray(tuple) ||
@@ -181,12 +198,41 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
       left[2] !== right[2]
     )
       throw new Error();
-    return leaseGuard === undefined
-      ? { rootMode, eventStorePreconditions: preconditions }
-      : { rootMode, eventStorePreconditions: preconditions, leaseGuard };
+    return {
+      rootMode,
+      eventStorePreconditions: preconditions,
+      ...(guardPreconditions === undefined ? {} : { guardPreconditions }),
+      ...(leaseGuard === undefined ? {} : { leaseGuard }),
+    };
   } catch {
     throw new TransactionFailure("runtime.internal_failure", []);
   }
+}
+
+function freezeGuardPreconditions(
+  root: Record<string, unknown>,
+): readonly EventStorePrecondition[] | undefined {
+  if (!("guardPreconditions" in root)) return undefined;
+  const entries = root.guardPreconditions;
+  if (
+    !Array.isArray(entries) ||
+    types.isProxy(entries) ||
+    Object.getPrototypeOf(entries) !== Array.prototype ||
+    entries.length === 0 ||
+    entries.length > 256 ||
+    Reflect.ownKeys(entries).length !== entries.length + 1
+  )
+    throw new Error();
+  const frozen = entries.map((_, index) =>
+    freezePrecondition(arrayData(entries, index)),
+  );
+  const paths = new Set<string>();
+  for (const entry of frozen) {
+    const key = entry.path.toLowerCase();
+    if (!isManagedDestination(entry.path) || paths.has(key)) throw new Error();
+    paths.add(key);
+  }
+  return Object.freeze(frozen);
 }
 
 /** A frozen plain object, refusing a proxy or an exotic prototype. */
@@ -526,6 +572,22 @@ async function assertDeclaredEventStorePreconditions(
   }
   if (evidence.length !== 0)
     throw new TransactionFailure("runtime.revision_conflict", evidence);
+}
+
+async function assertDeclaredGuardPreconditions(
+  entries: readonly EventStorePrecondition[] | undefined,
+  services: TransactionServices,
+): Promise<void> {
+  if (entries === undefined) return;
+  const changed: EvidenceRef[] = [];
+  for (const entry of entries) {
+    const observed = await observeFingerprint(entry.path, services);
+    if (!sameFingerprint(observed, entry.expected)) {
+      changed.push({ kind: "artifact", ref: entry.path });
+    }
+  }
+  if (changed.length !== 0)
+    throw new TransactionFailure("runtime.revision_conflict", changed);
 }
 
 /**
@@ -900,6 +962,7 @@ async function driveExecution(
     await services.durableFileSystem.syncDirectory(root),
   );
 
+  await assertDeclaredGuardPreconditions(options.guardPreconditions, services);
   await assertPreconditions(manifest, services);
   let progress = validateProgress(
     {
@@ -917,6 +980,7 @@ async function driveExecution(
   // Authorizing publication is the last point at which a refusal still leaves a
   // transaction recovery can simply abort, so the guard is re-derived here.
   await assertLeaseAuthority(authority, services);
+  await assertDeclaredGuardPreconditions(options.guardPreconditions, services);
   progress = validateProgress(
     {
       ...progress,
@@ -932,6 +996,10 @@ async function driveExecution(
   const publishedOperationIds: string[] = [];
   for (const operation of plan.operations) {
     await assertLeaseAuthority(authority, services);
+    await assertDeclaredGuardPreconditions(
+      options.guardPreconditions,
+      services,
+    );
     await assertPublishable(operation, services);
     if (operation.kind === "write_file") {
       await assertExecutionPayload(operation, root, services);
@@ -956,6 +1024,7 @@ async function driveExecution(
   }
 
   await assertResults(manifest, services);
+  await assertDeclaredGuardPreconditions(options.guardPreconditions, services);
   progress = validateProgress(
     {
       ...progress,

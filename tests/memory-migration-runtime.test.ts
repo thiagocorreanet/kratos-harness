@@ -200,6 +200,12 @@ describe("legacy memory migration", () => {
     expect(run.storage.snapshot()).toEqual(before);
     const preview = authorization(run.output.structured_.join(""));
     expect(preview.planDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(run.output.structured_.join("")).toContain(
+      'Apply argv: ["kratos","migrate","memory","mapping.json","--yes"',
+    );
+    expect(run.output.structured_.join("")).toContain(
+      "Apply command (PowerShell): & 'kratos' 'migrate' 'memory'",
+    );
 
     expect(
       await runCommandLine(

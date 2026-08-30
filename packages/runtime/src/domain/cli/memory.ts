@@ -8,7 +8,10 @@ import { resultFor } from "../result/index.js";
 import { canonicalizeJson } from "../schema/index.js";
 
 import { observingCommand } from "./observed.js";
-import { shellArgument } from "./shell-argument.js";
+import {
+  renderApplyInstructions,
+  renderPosixCommand,
+} from "./shell-argument.js";
 import type {
   CommandObservation,
   CommandSpec,
@@ -188,7 +191,14 @@ function memoryChangeCommand(
               `Proposal digest: ${observation.proposalDigest}`,
               `Plan digest: ${planDigest}`,
               `Plan time: ${observation.now}`,
-              `Apply command: ${renderMemoryApplyCommand(invocation, observation.proposalDigest, planDigest, observation.now)}`,
+              ...renderApplyInstructions(
+                memoryApplyArgv(
+                  invocation,
+                  observation.proposalDigest,
+                  planDigest,
+                  observation.now,
+                ),
+              ),
             ].join("\n") + "\n",
           payload: null,
         };
@@ -229,6 +239,13 @@ function memoryChangeCommand(
           return result("memory.confirmation_stale");
         cleanupCandidates.push({ path: candidatePath, expected });
       }
+      effects.unshift(
+        ...cleanupCandidates.map(({ path: candidatePath, expected }) => ({
+          kind: "assert_file" as const,
+          path: candidatePath,
+          expected,
+        })),
+      );
       return {
         result: resultFor("trail.ok", {
           summary: `Committed curated memory ${observation.proposal.operation}.`,
@@ -295,14 +312,24 @@ export function renderMemoryApplyCommand(
   planDigest: string,
   planTime: string,
 ): string {
-  const quote = shellArgument;
+  return renderPosixCommand(
+    memoryApplyArgv(invocation, proposalDigest, planDigest, planTime),
+  );
+}
+
+export function memoryApplyArgv(
+  invocation: Invocation,
+  proposalDigest: string,
+  planDigest: string,
+  planTime: string,
+): string[] {
   const root = invocation.flags.get("--root");
   return [
     "kratos",
     ...invocation.command.path,
     typeof root === "string" ? "--root" : null,
-    typeof root === "string" ? quote(root) : null,
-    quote(invocation.positionals[0] ?? "<proposal>"),
+    typeof root === "string" ? root : null,
+    invocation.positionals[0] ?? "<proposal>",
     "--yes",
     "--proposal-digest",
     proposalDigest,
@@ -310,9 +337,7 @@ export function renderMemoryApplyCommand(
     planDigest,
     "--plan-time",
     planTime,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(" ");
+  ].filter((part): part is string => part !== null);
 }
 
 function write(

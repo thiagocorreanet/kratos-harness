@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unnecessary-template-expression, @typescript-eslint/restrict-template-expressions */
+import { createHash } from "node:crypto";
+
 import type { CuratedMemoryV1 } from "@kratos/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -8,6 +10,7 @@ import {
   renderCuratedMemory,
   validatesCuratedMemorySemantics,
 } from "@kratos/runtime/domain/memory";
+import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 
 const EMPTY: CuratedMemoryV1 = {
   contractVersion: "1.0.0",
@@ -297,6 +300,137 @@ describe("curated memory domain", () => {
     ).toBe(false);
   });
 
+  it("refuses active and retained-archive identity reuse while distinct promotions remain valid", () => {
+    const digest = (value: string) =>
+      createHash("sha256").update(value).digest("hex");
+    const proposal = {
+      contractVersion: "1.2.0" as const,
+      hostContract: "1.2.0" as const,
+      operation: "promote" as const,
+      reviewer: "reviewer",
+      candidateIds: ["a".repeat(64)],
+      title: "Stable identity",
+      why: ["Same cause"],
+      apply: ["Same action"],
+    };
+    const first = reduceMemoryChange(
+      EMPTY,
+      proposal,
+      "2026-08-29T00:00:00Z",
+      digest,
+    );
+    if (first.kind !== "ready") throw new Error("expected first promotion");
+
+    expect(
+      reduceMemoryChange(
+        first.ledger,
+        proposal,
+        "2026-08-29T00:01:00Z",
+        digest,
+      ),
+    ).toEqual({ kind: "curation_required" });
+
+    const lessonId = first.ledger.confirmed[0]!.lessonId;
+    const archived = reduceMemoryChange(
+      first.ledger,
+      {
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        operation: "archive",
+        reviewer: "reviewer",
+        lessonId,
+        reason: "Superseded",
+      },
+      "2026-08-29T00:02:00Z",
+      digest,
+    );
+    if (archived.kind !== "ready") throw new Error("expected archive");
+    expect(
+      reduceMemoryChange(
+        archived.ledger,
+        proposal,
+        "2026-08-29T00:03:00Z",
+        digest,
+      ),
+    ).toEqual({ kind: "curation_required" });
+
+    expect(
+      reduceMemoryChange(
+        archived.ledger,
+        { ...proposal, title: "Truly distinct" },
+        "2026-08-29T00:04:00Z",
+        digest,
+      ).kind,
+    ).toBe("ready");
+  });
+
+  it("refuses merge replacements that collide with an active or archived identity", () => {
+    const digest = (value: string) =>
+      createHash("sha256").update(value).digest("hex");
+    const promote = (ledger: CuratedMemoryV1, title: string) => {
+      const outcome = reduceMemoryChange(
+        ledger,
+        {
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
+          operation: "promote",
+          reviewer: "reviewer",
+          candidateIds: ["c".repeat(64)],
+          title,
+          why: ["shared cause"],
+          apply: ["shared action"],
+        },
+        "2026-08-29T00:00:00Z",
+        digest,
+      );
+      if (outcome.kind !== "ready") throw new Error("expected promotion");
+      return outcome.ledger;
+    };
+    const withReplacement = promote(EMPTY, "Replacement");
+    const withA = promote(withReplacement, "A");
+    const withB = promote(withA, "B");
+    const sourceIds = withB.confirmed
+      .filter(({ title }) => title === "A" || title === "B")
+      .map(({ lessonId }) => lessonId);
+    const merge = {
+      contractVersion: "1.2.0" as const,
+      hostContract: "1.2.0" as const,
+      operation: "merge" as const,
+      reviewer: "reviewer",
+      lessonIds: sourceIds,
+      title: "Replacement",
+    };
+    expect(
+      reduceMemoryChange(withB, merge, "2026-08-29T00:01:00Z", digest),
+    ).toEqual({ kind: "curation_required" });
+
+    const replacement = withB.confirmed.find(
+      ({ title }) => title === "Replacement",
+    )!;
+    const archived = reduceMemoryChange(
+      withB,
+      {
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        operation: "archive",
+        reviewer: "reviewer",
+        lessonId: replacement.lessonId,
+        reason: "Retain identity",
+      },
+      "2026-08-29T00:02:00Z",
+      digest,
+    );
+    if (archived.kind !== "ready") throw new Error("expected archive");
+    expect(
+      reduceMemoryChange(
+        archived.ledger,
+        merge,
+        "2026-08-29T00:03:00Z",
+        digest,
+      ),
+    ).toEqual({ kind: "curation_required" });
+  });
+
   it("keeps the newest 48 archive tombstones in append order", () => {
     const archive = Array.from({ length: 48 }, (_, index) => ({
       lessonId: `${String(index).padStart(64, "0")}`,
@@ -339,7 +473,7 @@ describe("curated memory domain", () => {
 
   it("accepts exactly 48KiB rendered UTF-8 and refuses one byte more", () => {
     const digest = (value: string) =>
-      `x${String(value.length)}`.padEnd(64, "0");
+      createHash("sha256").update(value).digest("hex");
     const proposal = {
       contractVersion: "1.2.0" as const,
       hostContract: "1.2.0" as const,
@@ -360,15 +494,31 @@ describe("curated memory domain", () => {
       let cursor = 0;
       return {
         ...EMPTY,
-        confirmed: Array.from({ length: 23 }, (_, index) => ({
-          lessonId: `${String(index).padStart(64, "0")}`,
-          title: `L${String(index)}`,
-          why: Array.from({ length: 8 }, () => fields[cursor++] ?? "x"),
-          apply: Array.from({ length: 8 }, () => fields[cursor++] ?? "x"),
-          candidateIds: ["a".repeat(64)],
-          reviewer: "reviewer",
-          confirmedAt: "2026-08-29T00:00:00Z",
-        })),
+        confirmed: Array.from({ length: 23 }, (_, index) => {
+          const title = `L${String(index)}`;
+          const why = Array.from({ length: 8 }, () => fields[cursor++] ?? "x");
+          const apply = Array.from(
+            { length: 8 },
+            () => fields[cursor++] ?? "x",
+          );
+          const candidateIds = ["a".repeat(64)];
+          return {
+            lessonId: digest(
+              canonicalizeJson({
+                title,
+                why: [...new Set(why)].sort(),
+                apply: [...new Set(apply)].sort(),
+                candidateIds,
+              }),
+            ),
+            title,
+            why,
+            apply,
+            candidateIds,
+            reviewer: "reviewer",
+            confirmedAt: "2026-08-29T00:00:00Z",
+          };
+        }),
       };
     };
     const baseline = reduceMemoryChange(

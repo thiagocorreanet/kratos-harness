@@ -285,8 +285,12 @@ function complete(
   };
   const projection = projectCuratedMemory(provisional, sha256);
   if (
+    !validatesCuratedMemorySemantics(
+      { ...provisional, projectionDigest: projection.projectionDigest },
+      sha256,
+    ) ||
     new TextEncoder().encode(projection.content).byteLength >
-    CURATED_MEMORY_RENDERED_MAX_BYTES
+      CURATED_MEMORY_RENDERED_MAX_BYTES
   ) {
     return { kind: "curation_required" };
   }

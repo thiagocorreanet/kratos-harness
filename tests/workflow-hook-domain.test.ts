@@ -61,6 +61,16 @@ describe("workflow hook domain", () => {
       "src/a.ts:12:34 failed",
       "src/a.ts:99:1 failed",
     ],
+    [
+      "Windows line and column locations",
+      String.raw`C:\work\src\a.ts:12:34 failed`,
+      String.raw`C:\work\src\a.ts:99:1 failed`,
+    ],
+    [
+      "Windows temporary path nonces",
+      String.raw`failed in C:\Users\runner\AppData\Local\Temp\kratos-test-123456\output`,
+      String.raw`failed in C:\Users\runner\AppData\Local\Temp\kratos-test-654321\output`,
+    ],
   ])("deduplicates volatile %s", (_name, oneDiagnostic, twoDiagnostic) => {
     const digest = (text: string): string => `digest:${text}`;
     const one = candidateNormalizationKey(
@@ -110,6 +120,21 @@ describe("workflow hook domain", () => {
     ["relative paths", "src/a.ts failed", "src/b.ts failed"],
     ["commands", "npm test failed", "npm run build failed"],
     ["test names", "test adds users failed", "test removes users failed"],
+    [
+      "Windows drive-qualified source paths",
+      String.raw`C:\work\src\a.ts failed`,
+      String.raw`D:\work\src\a.ts failed`,
+    ],
+    [
+      "Windows path case",
+      String.raw`C:\work\src\A.ts failed`,
+      String.raw`C:\work\src\a.ts failed`,
+    ],
+    [
+      "Windows substantive numbered paths",
+      String.raw`C:\work\release-v1\output failed`,
+      String.raw`C:\work\release-v2\output failed`,
+    ],
   ])("keeps %s distinct", (_name, oneDiagnostic, twoDiagnostic) => {
     const digest = (text: string): string => `digest:${text}`;
     const one = candidateNormalizationKey(

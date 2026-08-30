@@ -2,7 +2,15 @@ export { renderHelp, usageLine } from "./help.js";
 export { DEFAULT_REGISTRY } from "./commands.js";
 export { dispatch } from "./dispatch.js";
 export { initCommand } from "./init.js";
-export { renderMemoryMigrationApply } from "./migration.js";
+export {
+  memoryMigrationApplyArgv,
+  renderMemoryMigrationApply,
+} from "./migration.js";
+export {
+  renderApplyInstructions,
+  renderPosixCommand,
+  renderPowerShellCommand,
+} from "./shell-argument.js";
 export { hookCommand } from "./hook.js";
 export { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 export { objectiveCommand } from "./objective.js";

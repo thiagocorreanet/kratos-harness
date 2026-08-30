@@ -62,8 +62,10 @@ non-template legacy line must occur in exactly one ordered range; overlaps,
 gaps, out-of-bounds ranges, and changed source bytes are refused.
 
 The first invocation is read-only and prints proposal, source, plan, and time
-digests plus the complete apply command. Apply requires `--yes` and those exact
-three caller-carried values. It atomically writes the structured ledger and
+digests plus canonical JSON `Apply argv`. That array is shell-neutral authority;
+the adjacent POSIX and PowerShell commands are derived displays, and the legacy
+`Apply command` field remains a POSIX compatibility rendering. Apply requires
+`--yes` and those exact three caller-carried values. It atomically writes the structured ledger and
 rendered projection, preserves the original `gotchas.md` bytes beneath
 `.brain/migrations/<id>/backup/`, and writes authorization, receipt, rollback,
 and verification records. `kratos migrate rollback ID` restores those exact
