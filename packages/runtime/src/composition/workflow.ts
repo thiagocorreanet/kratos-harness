@@ -2128,10 +2128,11 @@ function corruptRun(): {
   };
 }
 
-function managed(path: GitPath): boolean {
+function managed(path: GitPath, worktreePrefix: string): boolean {
+  const managedRoot = `${worktreePrefix}.brain`;
   return (
     path.kind === "text" &&
-    (path.value === ".brain" || path.value.startsWith(".brain/"))
+    (path.value === managedRoot || path.value.startsWith(`${managedRoot}/`))
   );
 }
 
@@ -2150,7 +2151,9 @@ async function observeGitContext(
   return {
     clean: observation.repository.changes.every(
       ({ path, renamedFrom }) =>
-        managed(path) && (renamedFrom === null || managed(renamedFrom)),
+        managed(path, observation.repository.worktreePrefix) &&
+        (renamedFrom === null ||
+          managed(renamedFrom, observation.repository.worktreePrefix)),
     ),
     commit: head.kind === "unborn" ? null : head.commit,
   };

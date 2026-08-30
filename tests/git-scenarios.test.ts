@@ -56,6 +56,7 @@ function repository(
   head: GitHead,
   options: {
     readonly worktree?: GitRepository["worktree"];
+    readonly worktreePrefix?: string;
     readonly operation?: GitRepository["operation"];
     readonly changes?: readonly GitChange[];
   } = {},
@@ -63,6 +64,7 @@ function repository(
   return {
     head,
     worktree: options.worktree ?? "principal",
+    worktreePrefix: options.worktreePrefix ?? "",
     operation: options.operation ?? "none",
     changes: options.changes ?? [],
   };
@@ -579,6 +581,7 @@ describe("real-repository scenario corpus", () => {
           "--is-inside-work-tree",
           "--git-dir",
           "--git-common-dir",
+          "--show-prefix",
           "status",
           "--porcelain=v2",
           "-z",

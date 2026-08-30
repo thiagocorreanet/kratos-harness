@@ -7,26 +7,38 @@ import {
 } from "../packages/runtime/src/domain/git/refs.js";
 
 describe("parseRevParse", () => {
-  it("reads the three fields in argument order", () => {
-    expect(parseRevParse("true\n/tmp/p/.git\n/tmp/p/.git\n")).toEqual({
+  it("reads a root project prefix in argument order", () => {
+    expect(parseRevParse("true\n/tmp/p/.git\n/tmp/p/.git\n\n")).toEqual({
       insideWorkTree: true,
       gitDir: "/tmp/p/.git",
       gitCommonDir: "/tmp/p/.git",
+      worktreePrefix: "",
+    });
+  });
+
+  it("reads a nested project prefix", () => {
+    expect(
+      parseRevParse("true\n/tmp/p/.git\n/tmp/p/.git\napp/packages/\n"),
+    ).toEqual({
+      insideWorkTree: true,
+      gitDir: "/tmp/p/.git",
+      gitCommonDir: "/tmp/p/.git",
+      worktreePrefix: "app/packages/",
     });
   });
 
   it("reads a false work-tree report", () => {
     expect(
-      parseRevParse("false\n/tmp/p.git\n/tmp/p.git\n")?.insideWorkTree,
+      parseRevParse("false\n/tmp/p.git\n/tmp/p.git\n\n")?.insideWorkTree,
     ).toBe(false);
   });
 
   it("returns null when a field is missing", () => {
-    expect(parseRevParse("true\n/tmp/p/.git\n")).toBeNull();
+    expect(parseRevParse("true\n/tmp/p/.git\n/tmp/p/.git\n")).toBeNull();
   });
 
   it("returns null on a non-boolean work-tree field", () => {
-    expect(parseRevParse("maybe\n/tmp/p/.git\n/tmp/p/.git\n")).toBeNull();
+    expect(parseRevParse("maybe\n/tmp/p/.git\n/tmp/p/.git\n\n")).toBeNull();
   });
 
   it("returns null on empty output", () => {
@@ -35,11 +47,14 @@ describe("parseRevParse", () => {
 
   it("does not transpose gitDir and gitCommonDir", () => {
     expect(
-      parseRevParse("true\n/repo/.git/worktrees/feature\n/repo/.git\n"),
+      parseRevParse(
+        "true\n/repo/.git/worktrees/feature\n/repo/.git\npackages/app/\n",
+      ),
     ).toEqual({
       insideWorkTree: true,
       gitDir: "/repo/.git/worktrees/feature",
       gitCommonDir: "/repo/.git",
+      worktreePrefix: "packages/app/",
     });
   });
 });
@@ -51,6 +66,7 @@ describe("classifyWorktree", () => {
         insideWorkTree: true,
         gitDir: "/p/.git",
         gitCommonDir: "/p/.git",
+        worktreePrefix: "",
       }),
     ).toBe("principal");
   });
@@ -61,13 +77,14 @@ describe("classifyWorktree", () => {
         insideWorkTree: true,
         gitDir: "/p/.git/worktrees/feature",
         gitCommonDir: "/p/.git",
+        worktreePrefix: "app/",
       }),
     ).toBe("linked");
   });
 
   it("derives a linked worktree from parsed rev-parse output", () => {
     const facts = parseRevParse(
-      "true\n/repo/.git/worktrees/feature\n/repo/.git\n",
+      "true\n/repo/.git/worktrees/feature\n/repo/.git\napp/\n",
     );
     if (facts === null) throw new Error("expected parseRevParse to succeed");
     expect(classifyWorktree(facts)).toBe("linked");

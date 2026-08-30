@@ -66,6 +66,15 @@ export interface Scenario {
   dispose(): Promise<void>;
 }
 
+export interface NestedProjectRepository {
+  readonly repositoryRoot: string;
+  readonly projectRoot: string;
+  commitAll(message?: string): void;
+  dispose(): Promise<void>;
+}
+
+export type RootProjectRepository = NestedProjectRepository;
+
 // ---------------------------------------------------------------------------
 // Process-level git helpers
 // ---------------------------------------------------------------------------
@@ -730,6 +739,44 @@ export function createScenarioRepository(
   name: ScenarioName,
 ): Promise<Scenario> {
   return BUILDERS[name]();
+}
+
+/** Build a real repository whose selected project is the `app` child. */
+export async function createNestedProjectRepository(): Promise<NestedProjectRepository> {
+  const repositoryRoot = await scratchDir("kratos-git-nested-project-");
+  return withCleanup(repositoryRoot, async () => {
+    await initRepositoryAt(repositoryRoot);
+    const projectRoot = join(repositoryRoot, "app");
+    await mkdir(projectRoot);
+    commitEmpty(repositoryRoot, "initial");
+    return {
+      repositoryRoot,
+      projectRoot,
+      commitAll: (message = "project state") => {
+        git(repositoryRoot, ["add", "-A"]);
+        commit(repositoryRoot, message);
+      },
+      dispose: disposer(repositoryRoot),
+    };
+  });
+}
+
+/** Build a real repository whose selected project is the worktree root. */
+export async function createRootProjectRepository(): Promise<RootProjectRepository> {
+  const repositoryRoot = await scratchDir("kratos-git-root-project-");
+  return withCleanup(repositoryRoot, async () => {
+    await initRepositoryAt(repositoryRoot);
+    commitEmpty(repositoryRoot, "initial");
+    return {
+      repositoryRoot,
+      projectRoot: repositoryRoot,
+      commitAll: (message = "project state") => {
+        git(repositoryRoot, ["add", "-A"]);
+        commit(repositoryRoot, message);
+      },
+      dispose: disposer(repositoryRoot),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
