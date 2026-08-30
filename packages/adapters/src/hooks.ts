@@ -151,4 +151,3 @@ export function normalizeCodexHook(
     ? before(input, normalizeCodexPreToolUse(input))
     : normalize(kind, input);
 }
-

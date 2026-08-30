@@ -28,7 +28,10 @@ function snapshotCatalog(catalog: HostModelCatalog): HostModelCatalog {
 export function fixedModelRouting(
   catalogs: readonly HostModelCatalog[],
 ): ModelRouting {
-  const snapshots = new Map<"claude" | "codex", HostModelCatalog>();
+  const snapshots = new Map<
+    "claude" | "codex" | "antigravity",
+    HostModelCatalog
+  >();
   for (const catalog of catalogs) {
     if (snapshots.has(catalog.host)) {
       throw new Error(`Duplicate model catalog for ${catalog.host}`);
@@ -36,7 +39,7 @@ export function fixedModelRouting(
     snapshots.set(catalog.host, snapshotCatalog(catalog));
   }
   return Object.freeze({
-    observe: (host: "claude" | "codex") =>
+    observe: (host: "claude" | "codex" | "antigravity") =>
       Promise.resolve(snapshots.get(host) ?? null),
   });
 }

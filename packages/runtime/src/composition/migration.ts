@@ -446,11 +446,11 @@ async function observeConfig(
   }
 
   let destination: ProjectConfigV1_3;
-  let hosts: readonly ("claude" | "codex")[];
+  let hosts: readonly ("claude" | "codex" | "antigravity")[];
   let answersAuthority: { readonly ref: string; readonly sha256: string };
   let defaulted: readonly string[];
   const observedCatalogs = new Map<
-    "claude" | "codex",
+    "claude" | "codex" | "antigravity",
     HostModelCatalog | null
   >();
 
@@ -651,7 +651,7 @@ async function observeConfig(
           ? resultFailure("runtime.revision_conflict", CONFIG_REF)
           : document;
       }
-      hosts = (["claude", "codex"] as const).filter(
+      hosts = (["claude", "codex", "antigravity"] as const).filter(
         (host) => legacy.modelRoles[host] !== undefined,
       );
       answersAuthority = { ref: "config", sha256: entry.sha256 };
@@ -904,10 +904,10 @@ async function readStableFile(
 interface ConfigLineageContext {
   readonly source: { readonly content: string; readonly sha256: string };
   readonly destinationDigest: string;
-  readonly hosts: readonly ("claude" | "codex")[];
+  readonly hosts: readonly ("claude" | "codex" | "antigravity")[];
   readonly answers: { readonly ref: string; readonly sha256: string };
   readonly catalogs: readonly {
-    readonly host: "claude" | "codex";
+    readonly host: "claude" | "codex" | "antigravity";
     readonly sha256: string;
   }[];
   readonly modelRoles: ProjectConfigV1_3["modelRoles"];
@@ -1275,7 +1275,11 @@ function supplementLegacyDefaults(
 
 function migrationAnswerFailure(
   subject:
-    { readonly host: "claude" | "codex"; readonly role?: string } | undefined,
+    | {
+        readonly host: "claude" | "codex" | "antigravity";
+        readonly role?: string;
+      }
+    | undefined,
 ): string {
   if (subject === undefined) {
     return "The migration answers do not satisfy their contract.";
@@ -1301,8 +1305,8 @@ function hasOwn(value: unknown, key: string): boolean {
 
 function configuredHosts(
   modelRoles: ProjectConfigV1_3["modelRoles"],
-): readonly ("claude" | "codex")[] {
-  return (["claude", "codex"] as const).filter(
+): readonly ("claude" | "codex" | "antigravity")[] {
+  return (["claude", "codex", "antigravity"] as const).filter(
     (host) => modelRoles[host] !== undefined,
   );
 }
@@ -1324,10 +1328,15 @@ function mergeExplicitModelRoles(
     supplied !== undefined && hasOwn(supplied, "codex")
       ? resolved.codex
       : undefined;
+  const antigravity =
+    supplied !== undefined && hasOwn(supplied, "antigravity")
+      ? resolved.antigravity
+      : undefined;
   return {
     ...persisted,
     ...(claude === undefined ? {} : { claude }),
     ...(codex === undefined ? {} : { codex }),
+    ...(antigravity === undefined ? {} : { antigravity }),
   };
 }
 

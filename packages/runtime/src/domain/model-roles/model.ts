@@ -19,7 +19,7 @@ export interface NormalizedModelAssignment {
 }
 
 export interface HostModelCatalog {
-  readonly host: "claude" | "codex";
+  readonly host: "claude" | "codex" | "antigravity";
   readonly defaults: Readonly<Record<ModelRole, NormalizedModelAssignment>>;
   readonly models: readonly {
     readonly canonicalModel: string;
@@ -53,7 +53,7 @@ export type DetailedModelRoleResolution =
       readonly kind: "refused";
       readonly reasonCode: ModelRoleRefusal;
       readonly subject: {
-        readonly host: "claude" | "codex";
+        readonly host: "claude" | "codex" | "antigravity";
         readonly role: ModelRole | null;
       };
     };

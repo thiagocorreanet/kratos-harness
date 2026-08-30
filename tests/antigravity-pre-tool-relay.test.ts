@@ -223,9 +223,7 @@ describe("Antigravity pre-tool use normalization", () => {
     });
 
     it("fails closed when tool_name is missing or invalid", () => {
-      expect(normalizeAntigravityPreToolUse({})).toEqual(
-        uninspectableExpected,
-      );
+      expect(normalizeAntigravityPreToolUse({})).toEqual(uninspectableExpected);
       expect(normalizeAntigravityPreToolUse({ tool_name: 123 })).toEqual(
         uninspectableExpected,
       );
@@ -375,7 +373,11 @@ describe("Antigravity pre-tool relay execution", () => {
     };
 
     const result = relayAntigravityPreToolUse(
-      { cwd: root, tool_name: "view_file", tool_input: { AbsolutePath: "/workspace/file.ts" } },
+      {
+        cwd: root,
+        tool_name: "view_file",
+        tool_input: { AbsolutePath: "/workspace/file.ts" },
+      },
       executor,
     );
 
@@ -426,7 +428,8 @@ describe("Antigravity pre-tool relay execution", () => {
       evidence: [],
       stateChanged: false,
       retryable: true,
-      recovery: "Choose a permitted target or obtain an explicit reviewed change to the deny policy.",
+      recovery:
+        "Choose a permitted target or obtain an explicit reviewed change to the deny policy.",
     };
     const executor: GuardExecutor = () => ({
       exitCode: 2,

@@ -404,13 +404,13 @@ export type CommandObservation =
             /** Stable receipt lineage digest embedded in migration records. */
             readonly receiptPlanDigest: string;
             readonly expected: WriteFilePrecondition;
-            readonly hosts: readonly ("claude" | "codex")[];
+            readonly hosts: readonly ("claude" | "codex" | "antigravity")[];
             readonly answers: {
               readonly ref: string;
               readonly sha256: string;
             };
             readonly catalogs: readonly {
-              readonly host: "claude" | "codex";
+              readonly host: "claude" | "codex" | "antigravity";
               readonly sha256: string;
             }[];
             readonly defaulted: readonly string[];
