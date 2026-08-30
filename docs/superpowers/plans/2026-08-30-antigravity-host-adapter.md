@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6, Node.js 24+, Vitest, JSON Schema 2020-12, npm workspaces.
 
-**Spec:** [`docs/superpowers/specs/2026-08-30-antigravity-host-adapter-design.md`](file:///home/thiago-botelho/orca/workspaces/kratos-harness/adp-06-add-antigravity-agy-and-gemini-host-adapt/docs/superpowers/specs/2026-08-30-antigravity-host-adapter-design.md)
+**Spec:** [`docs/superpowers/specs/2026-08-30-antigravity-host-adapter-design.md`](../specs/2026-08-30-antigravity-host-adapter-design.md)
 
 ## Global Constraints
 
