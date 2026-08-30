@@ -363,6 +363,26 @@ describe("metrics refresh", () => {
     expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
   });
 
+  it("preserves raw and rollup bytes when a running record event stream is corrupt", async () => {
+    const priorRaw = renderPhaseMeasurementLog([running("run-corrupt-events")]);
+    const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
+    const eventsPath =
+      ".brain/02-features/feature-b/runs/run-corrupt-events/events.jsonl";
+    const run = subject({
+      [LOG]: priorRaw,
+      [ROLLUP]: priorRollup,
+      [eventsPath]: "{not-json}\n",
+    });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
+  });
+
   it("leaves the committed rollup unchanged for non-refresh diagnostics", async () => {
     const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
     const run = subject({ [LOG]: "", [ROLLUP]: priorRollup });
