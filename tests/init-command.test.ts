@@ -182,6 +182,52 @@ describe("the init command", () => {
     expect(again.output.structured_.join("")).toContain("preserved");
   });
 
+  it("creates measurement artifacts once and preserves their bytes while refreshing managed instructions", async () => {
+    const first = subject();
+    expect(await runCommandLine(["init"], first.ports)).toBe(0);
+    const initialized = Object.fromEntries(
+      Object.entries(first.storage.snapshot().files).filter(
+        ([path]) => !path.startsWith(".brain/transactions/"),
+      ),
+    );
+    expect(initialized[".brain/03-memory/task_log.jsonl"]).toBe("");
+    expect(initialized[".brain/03-memory/task_metrics.md"]).toContain(
+      "# Task metrics",
+    );
+
+    const raw = '{"measured":"raw bytes"}\r\n';
+    const rollup = "# Task metrics\r\n\r\nMeasured rollup bytes.  \r\n";
+    const instructions = initialized["CLAUDE.md"];
+    if (instructions === undefined) {
+      throw new Error("Initialization did not create CLAUDE.md");
+    }
+    const staleInstructions = `# Project-owned prefix\r\n\r\n${instructions.replace("# Kratos", "# Stale Kratos")}`;
+    const again = subject(
+      ANSWERS,
+      {
+        ...initialized,
+        ".brain/03-memory/task_log.jsonl": raw,
+        ".brain/03-memory/task_metrics.md": rollup,
+        "CLAUDE.md": staleInstructions,
+      },
+      {},
+      [],
+      first.storage.snapshot().directories,
+    );
+
+    expect(
+      await runCommandLine(["init"], again.ports),
+      again.output.human_.join("") + again.output.structured_.join(""),
+    ).toBe(0);
+
+    const reinitialized = again.storage.snapshot().files;
+    expect(reinitialized[".brain/03-memory/task_log.jsonl"]).toBe(raw);
+    expect(reinitialized[".brain/03-memory/task_metrics.md"]).toBe(rollup);
+    expect(reinitialized["CLAUDE.md"]).toBe(
+      `# Project-owned prefix\r\n\r\n${instructions}`,
+    );
+  });
+
   it("persists every profile leaf as unresolved on a fresh initialization", async () => {
     const run = subject();
 

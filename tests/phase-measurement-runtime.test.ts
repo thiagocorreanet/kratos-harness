@@ -1,4 +1,5 @@
 import type {
+  GateFactsV1,
   OperationResultV1,
   PhaseHandoffV1_1,
   PhaseMeasurementV1,
@@ -312,6 +313,26 @@ function usage(run: RuntimeSubject): RunUsageV1 {
   return JSON.parse(run.storage.snapshot().files[path] ?? "") as RunUsageV1;
 }
 
+async function setTokenBudget(
+  run: RuntimeSubject,
+  tokens: number,
+): Promise<void> {
+  const path = ".brain/02-features/measure-phase-usage/state.json";
+  const state = JSON.parse(
+    run.storage.snapshot().files[path] ?? "",
+  ) as Readonly<Record<string, unknown>> & {
+    readonly objective: Readonly<Record<string, unknown>>;
+  };
+  await run.ports.fileSystem.write(
+    path,
+    `${JSON.stringify(
+      { ...state, objective: { ...state.objective, budget: { tokens } } },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
 async function completeCurrentPhase(
   run: RuntimeSubject,
   index: number,
@@ -431,6 +452,49 @@ async function enterCodePhase(run: RuntimeSubject): Promise<void> {
 }
 
 describe("phase measurement runtime lifecycle", () => {
+  it("closes an over-budget measured phase and latches stop-loss in the same lifecycle", async () => {
+    const run = await started();
+    await setTokenBudget(run, 100);
+    await startPhase(run, "session-budgeted");
+
+    expect(
+      await samplePhase(
+        run,
+        "session-budgeted",
+        125,
+        "over-budget-end",
+        END,
+        "session.end",
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    expect(records(run)).toEqual([
+      expect.objectContaining({
+        status: "interrupted",
+        endedAt: END,
+        finalGrossTokens: 125,
+        grossTokens: 125,
+        closeReason: "session_interrupted",
+        resolvedAssignment: {
+          host: "codex",
+          role: "planner",
+          model: "planner-canonical",
+          effort: "medium",
+        },
+      }),
+    ]);
+    expect(usage(run)).toMatchObject({
+      totalGrossTokens: 125,
+      epoch: { exhaustedAt: END },
+    });
+    const gates = JSON.parse(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-01/gates.json"
+      ] ?? "",
+    ) as GateFactsV1;
+    expect(gates.stopLoss).toEqual({ tripped: false, exhausted: true });
+  });
+
   it("reports validated measured usage numerically without inventing legacy zero", async () => {
     const unmeasured = await started();
     expect((await result(unmeasured, ["budgets"])).why).toContain(
