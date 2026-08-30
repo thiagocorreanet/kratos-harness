@@ -5,6 +5,7 @@ import type {
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
+  AgentOutputV1,
   AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
@@ -299,7 +300,7 @@ export type CommandObservation =
       /** The agent reply an output-recording command was pointed at, if any. */
       readonly agentOutput: AgentOutputObservation;
       /** Every agent output the run recorded, in agent order. */
-      readonly agentOutputs: readonly AgentOutputV1_2[];
+      readonly agentOutputs: readonly (AgentOutputV1 | AgentOutputV1_2)[];
       readonly agentOutputsReadable: boolean;
       /** Parsed task declarations and immutable acceptance history. */
       readonly acceptanceCriteria: {

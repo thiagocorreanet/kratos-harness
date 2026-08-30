@@ -1,5 +1,6 @@
 import type {
   AdapterMessageV1_1,
+  AgentOutputV1,
   AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
@@ -81,6 +82,7 @@ import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
 import { observePhaseMemoryBinding } from "./memory.js";
+import { declaredContractVersion } from "./contract-version.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -876,7 +878,12 @@ async function observeAgentReply(
   });
   return validated.kind === "valid"
     ? { kind: "valid", ref, value: validated.value }
-    : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+    : {
+        kind: "invalid",
+        ref,
+        diagnostics: validated.diagnostics,
+        value: extracted.value,
+      };
 }
 
 /**
@@ -892,25 +899,34 @@ async function observeAgentOutputs(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly AgentOutputV1_2[];
+  readonly values: readonly (AgentOutputV1 | AgentOutputV1_2)[];
 }> {
   const root = `${runRoot(configuration)}/agent-output`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: AgentOutputV1_2[] = [];
+    const values: (AgentOutputV1 | AgentOutputV1_2)[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
       const file = await ports.durableFileSystem.inspect(path);
       if (file.kind !== "file") return { readable: false, values: [] };
+      const document = JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown;
+      const version = declaredContractVersion(
+        document,
+        "contractVersion",
+        "1.0.0",
+      );
+      if (version !== "1.0.0" && version !== "1.2.0") {
+        return { readable: false, values: [] };
+      }
       const validated = registry.validate({
         id: "host.agent-output",
-        version: "1.2.0",
-        value: JSON.parse(
-          await ports.durableFileSystem.readText(path),
-        ) as unknown,
+        version,
+        value: document,
         structuralReasonCode: "trail.output_invalido",
       });
       if (
@@ -1575,7 +1591,7 @@ async function observePhaseAssignment(input: {
     return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
   }
 
-  const value: PhaseHandoffV1_2 = {
+  const value = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -1590,6 +1606,7 @@ async function observePhaseAssignment(input: {
         revision: input.revision,
         host,
         assignment: currentResolution.assignment,
+        memory: memory.value,
       },
       (canonical) => input.ports.digests.sha256(canonical),
     ),
@@ -1606,7 +1623,7 @@ async function observePhaseAssignment(input: {
           ? "Review the evidence bundle, record final approval, and run kratos done."
           : `Complete the ${input.phase} phase and run kratos continue.`,
     memory: memory.value,
-  };
+  } as PhaseHandoffV1_2;
   return { kind: "resolved", value };
 }
 

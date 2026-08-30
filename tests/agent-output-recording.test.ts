@@ -2,7 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { AgentOutputV1_2, EventV1 } from "@kratos/contracts";
+import type {
+  AgentOutputV1,
+  AgentOutputV1_2,
+  EventV1,
+} from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import type { Result } from "@kratos/runtime/domain/result";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
@@ -355,6 +359,28 @@ describe("replies the runtime refuses to route on", () => {
         next(corrupted, { [REPLY]: reply() }).ports,
       ),
     ).toBe(4);
+  });
+
+  it("reads a valid predecessor output from an active run without migration", async () => {
+    const first = await record(started, reply());
+    const legacy: AgentOutputV1 = {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      agent: "prd",
+      outcome: PRD_BLOCK.outcome,
+      artifacts: PRD_BLOCK.artifacts,
+      changedFiles: PRD_BLOCK.changedFiles,
+      payload: PRD_BLOCK.payload,
+    };
+    const active = next(first.after, {
+      [outputPath(first.after, "prd")]: `${JSON.stringify(legacy, null, 2)}\n`,
+    });
+
+    expect(await runCommandLine(["--json", "handoff"], active.ports)).toBe(0);
+    expect(JSON.parse(active.output.structured_.join(""))).toMatchObject({
+      contractVersion: "1.2.0",
+      phase: "prd",
+    });
   });
 
   it("refuses to record against a project with no active run", async () => {

@@ -483,7 +483,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: PrdPayload;
-        memory: Memory;
+        memory: null & (null | MemoryObservation);
       }
     | {
         contractVersion: "1.2.0";
@@ -493,7 +493,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: SpecPayload;
-        memory: Memory;
+        memory: null & (null | MemoryObservation);
       }
     | {
         contractVersion: "1.2.0";
@@ -503,7 +503,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: PlanPayload;
-        memory: Memory;
+        memory: null & (null | MemoryObservation);
       }
     | {
         contractVersion: "1.2.0";
@@ -513,7 +513,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: CodePayload;
-        memory: Memory;
+        memory: MemoryObservation;
       }
     | {
         contractVersion: "1.2.0";
@@ -523,7 +523,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: ReviewPayload;
-        memory: Memory;
+        memory: MemoryObservation;
       }
     | {
         contractVersion: "1.2.0";
@@ -533,7 +533,7 @@ export namespace AgentOutputV1_2Contract {
         artifacts: Artifacts;
         changedFiles: ChangedFiles;
         payload: AcceptancePayload;
-        memory: Memory;
+        memory: null & (null | MemoryObservation);
       };
   export type Outcome = {
     [k: string]: unknown | undefined;
@@ -574,7 +574,6 @@ export namespace AgentOutputV1_2Contract {
     ref: Reference;
     change: "added" | "modified" | "deleted";
   }[];
-  export type Memory = null | MemoryObservation;
   export type Sha256 = string;
 
   export interface Option {
@@ -1058,29 +1057,117 @@ export namespace PhaseHandoffV1_1Contract {
 }
 export type PhaseHandoffV1_1 = PhaseHandoffV1_1Contract.PhaseHandoffV1_1;
 export namespace PhaseHandoffV1_2Contract {
-  export type PhaseHandoffV1_2 = {
-    [k: string]: unknown | undefined;
-  } & {
-    contractVersion: "1.2.0";
-    hostContract: "1.2.0";
-    feature: Id;
-    runId: Id;
-    revision: number;
-    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
-    host: "claude" | "codex";
-    assignment: Assignment;
-    assignmentDigest: Sha256;
-    objectiveDigest: Sha256;
-    status: "idle" | "active" | "blocked" | "completed";
-    gateOutcome: "pass" | "warn" | "block";
-    blockers: Id[];
-    openGaps: number;
-    nextAction: string;
-    memory: Memory;
-  };
+  export type PhaseHandoffV1_2 =
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "prd";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "spec";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "plan";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "code";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "review";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "acceptance";
+        host: "claude" | "codex";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      };
   export type Id = string;
   export type Sha256 = string;
-  export type Memory = null | MemoryObservation;
 
   export interface Assignment {
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";

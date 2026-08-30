@@ -71,7 +71,7 @@ describe("implemented commands", () => {
     await mkdir(bin);
     await writeFile(
       join(bin, "kratos"),
-      `#!/bin/sh\n: > '${argvPath}'\nfor arg in \"$@\"; do printf '%s\\0' \"$arg\" >> '${argvPath}'; done\n`,
+      `#!/bin/sh\n: > '${argvPath}'\nfor arg in "$@"; do printf '%s\\0' "$arg" >> '${argvPath}'; done\n`,
     );
     await writeFile(join(bin, "bad"), `#!/bin/sh\n: > '${badPath}'\n`);
     await chmod(join(bin, "kratos"), 0o755);

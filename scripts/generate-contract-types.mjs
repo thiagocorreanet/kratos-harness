@@ -154,17 +154,46 @@ function transactionProgressTypeSchema(schema) {
 function agentOutputTypeSchema(schema) {
   const variants = schema.allOf.map((rule) => {
     const agent = rule.if?.properties?.agent;
-    const payload = rule.then?.properties?.payload;
-    if (agent === undefined || payload === undefined) {
+    const branch = rule.then?.properties;
+    if (agent === undefined || branch === undefined) {
       throw new Error("agent output conditional branch is incomplete");
     }
-    return closedObjectVariant(schema, { agent, payload });
+    return closedObjectVariant(schema, { agent, ...branch });
   });
   return {
     $schema: schema.$schema,
     $id: schema.$id,
     title: schema.title,
     oneOf: variants,
+    $defs: schema.$defs,
+  };
+}
+
+/**
+ * A handoff is closed at runtime but its memory acknowledgement is conditional
+ * on the selected phase. Rebuild that conditional as a TypeScript union so
+ * consumers cannot construct a code/review handoff with `memory: null` (or
+ * accidentally receive the compiler's permissive allOf index signature).
+ */
+function phaseHandoffTypeSchema(schema) {
+  const memoryObservation = schema.$defs?.memoryObservation;
+  if (memoryObservation === undefined) {
+    throw new Error("phase handoff memory observation is missing");
+  }
+  const phases = ["prd", "spec", "plan", "code", "review", "acceptance"];
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: phases.map((phase) =>
+      closedObjectVariant(schema, {
+        phase: { const: phase },
+        memory:
+          phase === "code" || phase === "review"
+            ? { $ref: "#/$defs/memoryObservation" }
+            : { type: "null" },
+      }),
+    ),
     $defs: schema.$defs,
   };
 }
@@ -223,6 +252,9 @@ function memoryTypeSchema(schema) {
 function schemaForTypeGeneration(id, schema) {
   if (id === "host.agent-output") {
     return agentOutputTypeSchema(schema);
+  }
+  if (id === "host.phase-handoff" && schema.$id.endsWith("/v1.2")) {
+    return phaseHandoffTypeSchema(schema);
   }
   if (id === "state.transaction-manifest") {
     return transactionManifestTypeSchema(schema);

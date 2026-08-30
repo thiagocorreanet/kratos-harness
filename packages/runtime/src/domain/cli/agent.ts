@@ -1,4 +1,4 @@
-import type { AgentOutputV1_2 } from "@kratos/contracts";
+import type { AgentOutputV1, AgentOutputV1_2 } from "@kratos/contracts";
 
 import {
   checkAgentOutput,
@@ -75,6 +75,17 @@ function decideRecord(observation: Observation): Decision {
   if (unusable !== null) return unusable;
 
   const observed = observation.agentOutput;
+  const phase =
+    observation.workflow.kind === "present"
+      ? observation.workflow.state.currentStep
+      : null;
+  if (
+    (phase === "code" || phase === "review") &&
+    observed.kind === "invalid" &&
+    missingMemoryAcknowledgement(observed.value)
+  ) {
+    return phaseContextStale(observed.ref);
+  }
   if (observed.kind !== "valid") return refuseReply(observed);
 
   const refusal = checkAgentOutput(observed.value);
@@ -82,10 +93,6 @@ function decideRecord(observation: Observation): Decision {
     return invalidOutput(observed.ref, describeAgentOutputRefusal(refusal));
   }
 
-  const phase =
-    observation.workflow.kind === "present"
-      ? observation.workflow.state.currentStep
-      : null;
   if (observed.value.agent !== phase) {
     return invalidOutput(
       observed.ref,
@@ -394,7 +401,7 @@ function refuseReply(
  * Persisted blocks are written exactly as validated, so reading one back
  * through the same contract yields the value the decision saw.
  */
-function serialize(value: AgentOutputV1_2): string {
+function serialize(value: AgentOutputV1 | AgentOutputV1_2): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
@@ -534,12 +541,27 @@ function sameMemory(
 ): boolean {
   return (
     left !== null &&
-    left.ref === right.ref &&
     left.sha256 === right.sha256 &&
     left.lessonIds.length === right.lessonIds.length &&
     left.lessonIds.every(
       (lessonId, index) => lessonId === right.lessonIds[index],
     )
+  );
+}
+
+/**
+ * Classify only the dedicated acknowledgement omission before schema refusal.
+ * Other malformed blocks stay ordinary contract failures, so an agent cannot
+ * hide an unrelated invalid document behind this more specific policy result.
+ */
+function missingMemoryAcknowledgement(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, "memory");
+  return (
+    descriptor === undefined ||
+    ("value" in descriptor && descriptor.value === null)
   );
 }
 

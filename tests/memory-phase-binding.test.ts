@@ -50,7 +50,9 @@ function populatedMemory(): Readonly<Record<string, string>> {
     confirmed: [{ ...lesson, lessonId }],
     archive: [],
   };
-  const projection = projectCuratedMemory(draft, ports.digests.sha256);
+  const projection = projectCuratedMemory(draft, (content) =>
+    ports.digests.sha256(content),
+  );
   const ledger = { ...draft, projectionDigest: projection.projectionDigest };
   return {
     ".brain/03-memory/curated-memory.json": JSON.stringify(ledger),

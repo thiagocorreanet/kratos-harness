@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 
-import type { AdapterMessageV1_1, PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { AdapterMessageV1_1, PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { HostModelCatalog } from "@kratos/adapters";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -36,6 +36,11 @@ interface PackagedPhaseRelay {
         readonly role: string;
         readonly model: string;
         readonly effort: string;
+        readonly memory: null | {
+          readonly ref: ".brain/03-memory/gotchas.md";
+          readonly sha256: string;
+          readonly lessonIds: readonly string[];
+        };
       }): Promise<{
         readonly payload: { readonly ref: string; readonly sha256: string };
         readonly observedIdentity: {
@@ -61,10 +66,10 @@ interface PackagedPhaseRelay {
   >;
 }
 
-function handoff(host: "claude" | "codex"): PhaseHandoffV1_1 {
+function handoff(host: "claude" | "codex"): PhaseHandoffV1_2 {
   return {
-    contractVersion: "1.1.0",
-    hostContract: "1.1.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     feature: "relay-feature",
     runId: "run-01",
     revision: 7,
@@ -83,6 +88,11 @@ function handoff(host: "claude" | "codex"): PhaseHandoffV1_1 {
     blockers: [],
     openGaps: 0,
     nextAction: "Complete the selected phase.",
+    memory: {
+      ref: ".brain/03-memory/gotchas.md",
+      sha256: "d".repeat(64),
+      lessonIds: ["e".repeat(64)],
+    },
   };
 }
 
@@ -154,6 +164,11 @@ describe("packaged phase-agent relay", () => {
           role: "judge",
           model: "judge-canonical",
           effort: "high",
+          memory: {
+            ref: ".brain/03-memory/gotchas.md",
+            sha256: "d".repeat(64),
+            lessonIds: ["e".repeat(64)],
+          },
         },
       ]);
       expect(runtimeCalls).toHaveLength(2);
@@ -181,7 +196,7 @@ describe("packaged phase-agent relay", () => {
         messageType: "request",
         host: configurationHost,
         operation: "sdd.agent.record:phase-result-01",
-        payloadContract: "host.agent-output@1.0.0",
+        payloadContract: "host.agent-output@1.2.0",
         payload: {
           ref: ".brain/agent-replies/review.md",
           sha256: "c".repeat(64),

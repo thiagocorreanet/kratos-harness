@@ -146,6 +146,8 @@ export type AgentOutputObservation =
       readonly kind: "invalid";
       readonly ref: string;
       readonly diagnostics: readonly ValidationDiagnostic[];
+      /** Parsed, still untrusted bytes for policy classification only. */
+      readonly value?: unknown;
     }
   | {
       readonly kind: "valid";

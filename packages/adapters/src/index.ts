@@ -2,7 +2,7 @@ import {
   CONTRACT_VERSIONS,
   KRATOS_VERSION,
   type AdapterMessageV1_1,
-  type PhaseHandoffV1_1,
+  type PhaseHandoffV1_2,
 } from "@kratos/contracts";
 
 export interface HostModelAssignment {
@@ -158,7 +158,7 @@ export interface HostRendering {
 
 export interface HostPhaseRuntime {
   handoff(): Promise<
-    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_1 }
+    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_2 }
     | { readonly kind: "refused"; readonly rendering: HostRendering }
   >;
   record(message: AdapterMessageV1_1): Promise<HostRendering>;
@@ -171,10 +171,12 @@ export interface HostPhaseLauncher {
     readonly effort: boolean;
   };
   launch(request: {
-    readonly phase: PhaseHandoffV1_1["phase"];
-    readonly role: PhaseHandoffV1_1["assignment"]["role"];
+    readonly phase: PhaseHandoffV1_2["phase"];
+    readonly role: PhaseHandoffV1_2["assignment"]["role"];
     readonly model: string;
     readonly effort: string;
+    /** Exact runtime handoff acknowledgement the host gives the phase agent. */
+    readonly memory: PhaseHandoffV1_2["memory"];
   }): Promise<{
     readonly payload: { readonly ref: string; readonly sha256: string };
     /** Host observation only; nullable values are never filled from selection. */
@@ -393,6 +395,7 @@ export async function relaySelectedPhase(
       role: handoff.assignment.role,
       model: handoff.assignment.model,
       effort: handoff.assignment.effort,
+      memory: handoff.memory,
     }),
   );
   const adapter = createHostAdapter(host, {
@@ -410,7 +413,7 @@ export async function relaySelectedPhase(
     messageId: input.messageId,
     correlationId: input.correlationId,
     operation: `sdd.agent.record:${input.correlationId}`,
-    payloadContract: "host.agent-output@1.0.0",
+    payloadContract: "host.agent-output@1.2.0",
     payload: { ...execution.payload },
     phaseExecution: {
       assignmentDigest: handoff.assignmentDigest,
