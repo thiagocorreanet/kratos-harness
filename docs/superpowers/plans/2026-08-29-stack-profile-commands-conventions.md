@@ -25,6 +25,7 @@
 ### Task 1: Versioned profile contracts and pure resolution
 
 **Files:**
+
 - Create: `schemas/host/init-answers.v1.3.schema.json`
 - Create: `schemas/state/project-config.v1.3.schema.json`
 - Create: `packages/runtime/src/domain/init/profile.ts`
@@ -32,6 +33,7 @@
 - Test: `tests/contract-schemas.test.ts`, `tests/init-answers.test.ts`, and a focused profile test file.
 
 **Interfaces:**
+
 - Produce `ResolvedProjectProfile`, `unresolvedProjectProfile()`, `resolveProjectProfile(explicit, persisted)`, and `unresolvedProjectProfileKeys(profile)`.
 - Update resolved initialization answers to carry a complete `projectProfile`.
 
@@ -44,11 +46,13 @@
 ### Task 2: Initialization merge, rendering, and migration
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/init/stack-profile.ts`
 - Modify: `packages/runtime/src/domain/init/skeleton.ts`, initialization composition/observations, configuration compatibility, migration, fixtures, and init tests.
 - Test: `tests/init-skeleton.test.ts`, `tests/init-command.test.ts`, and `tests/config-migration.test.ts`.
 
 **Interfaces:**
+
 - Produce `renderStackProfile(stack, projectProfile, languagePolicy)` and use it from `skeletonEffects`.
 - Initialization observes a current persisted profile before resolving answers; v1.2 state requires explicit migration.
 
@@ -61,10 +65,12 @@
 ### Task 3: Doctor readiness, host relay parity, documentation, and evidence
 
 **Files:**
+
 - Modify: workflow observation and doctor decision modules, both host skill surfaces, public architecture/user/compatibility docs, and verification evidence.
 - Test: `tests/diagnostics.test.ts`, doctor command tests, distribution parity tests, and package verification tests.
 
 **Interfaces:**
+
 - Workflow observation supplies stack-profile existence/readability, expected bytes, actual bytes, and unresolved keys.
 - Doctor emits one `stack-profile` check with pass/warn/fail and actionable unresolved-key details.
 
@@ -77,6 +83,7 @@
 ### Task 4: Full verification and completion evidence
 
 **Files:**
+
 - Modify only files required by failures attributable to this feature.
 - Update: `docs/verification/issue-142-stack-profile-evidence.md` with final command outcomes.
 
