@@ -1,10 +1,11 @@
-import type { HookObservationV1 } from "@kratos/contracts";
+import type { HookObservationV1, PhaseLifecycleV1 } from "@kratos/contracts";
 
 import { normalizeClaudeCodePreToolUse } from "./claude-code/pre-tool-use.js";
 import { normalizeCodexPreToolUse } from "./codex/pre-tool-use.js";
 import type { NormalizedPreToolUse } from "./pre-tool-use.js";
 
-export type HookKind = HookObservationV1["kind"];
+export type HookKind = HookObservationV1["kind"] | PhaseLifecycleV1["kind"];
+type NormalizedHook = HookObservationV1 | PhaseLifecycleV1;
 
 function record(value: unknown): Readonly<Record<string, unknown>> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -21,6 +22,14 @@ function stringField(
     if (typeof candidate === "string" && candidate.length > 0) return candidate;
   }
   return "unknown";
+}
+
+function requiredStringField(
+  value: Readonly<Record<string, unknown>>,
+  ...names: readonly string[]
+): string | null {
+  const candidate = stringField(value, ...names);
+  return candidate === "unknown" ? null : candidate;
 }
 
 function usage(
@@ -56,9 +65,45 @@ function toolFamily(
   return "other";
 }
 
-function normalize(kind: HookKind, input: unknown): HookObservationV1 | null {
+function normalize(kind: HookKind, input: unknown): NormalizedHook | null {
   const native = record(input);
   if (native === null) return null;
+  if (kind === "phase.start") {
+    const sessionId = requiredStringField(native, "session_id", "sessionId");
+    const correlationId = requiredStringField(
+      native,
+      "correlation_id",
+      "correlationId",
+    );
+    const occurredAt = requiredStringField(
+      native,
+      "occurred_at",
+      "occurredAt",
+      "timestamp",
+    );
+    const assignmentDigest = requiredStringField(
+      native,
+      "assignment_digest",
+      "assignmentDigest",
+    );
+    if (
+      sessionId === null ||
+      correlationId === null ||
+      occurredAt === null ||
+      assignmentDigest === null
+    ) {
+      return null;
+    }
+    return {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      kind,
+      sessionId,
+      correlationId,
+      occurredAt,
+      assignmentDigest,
+    };
+  }
   const sessionId = stringField(native, "session_id", "sessionId");
   const occurredAt = stringField(
     native,
@@ -127,7 +172,7 @@ function before(
 export function normalizeClaudeCodeHook(
   kind: HookKind,
   input: unknown,
-): HookObservationV1 | null {
+): NormalizedHook | null {
   return kind === "tool.before"
     ? before(input, normalizeClaudeCodePreToolUse(input))
     : normalize(kind, input);
@@ -136,7 +181,7 @@ export function normalizeClaudeCodeHook(
 export function normalizeCodexHook(
   kind: HookKind,
   input: unknown,
-): HookObservationV1 | null {
+): NormalizedHook | null {
   return kind === "tool.before"
     ? before(input, normalizeCodexPreToolUse(input))
     : normalize(kind, input);

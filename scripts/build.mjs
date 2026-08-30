@@ -224,8 +224,16 @@ async function buildHost(output, host, runtimeTemplate, runtimeMetadata) {
     join(artifact, "hooks/workflow-hook-runner.mjs"),
   );
   await cp(
+    join(repositoryRoot, "distribution/shared/host-operation-transport.mjs"),
+    join(artifact, "hooks/host-operation-transport.mjs"),
+  );
+  await cp(
     join(repositoryRoot, "distribution/shared/phase-agent-runtime.mjs"),
     join(artifact, "skills/kratos/scripts/phase-agent-runtime.mjs"),
+  );
+  await cp(
+    join(repositoryRoot, "distribution/shared/host-operation-transport.mjs"),
+    join(artifact, "skills/kratos/scripts/host-operation-transport.mjs"),
   );
   await cp(
     join(repositoryRoot, "distribution/shared/project-profile-relay.mjs"),

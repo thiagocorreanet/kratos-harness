@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 
+import { executeHostObservation } from "./host-operation-transport.mjs";
+
 function execute(spawnRuntime, runtimeEntry, args, input) {
   const result = spawnRuntime(process.execPath, [runtimeEntry, ...args], {
     encoding: "utf8",
@@ -16,6 +18,7 @@ function execute(spawnRuntime, runtimeEntry, args, input) {
 /** Build the literal CLI transport used by both packaged phase relays. */
 export function createPhaseRuntimeTransport({
   root,
+  host,
   runtimeEntry,
   spawnRuntime = spawnSync,
 }) {
@@ -32,6 +35,15 @@ export function createPhaseRuntimeTransport({
       }
       return { kind: "ready", handoff: JSON.parse(rendering.stdout) };
     },
+    start: async (lifecycle) =>
+      executeHostObservation({
+        root,
+        host,
+        kind: "phase.start",
+        observation: lifecycle,
+        runtimeEntry,
+        spawnRuntime,
+      }),
     record: async (message) => {
       if (message.messageType !== "request") {
         throw new Error("Expected an agent record request");

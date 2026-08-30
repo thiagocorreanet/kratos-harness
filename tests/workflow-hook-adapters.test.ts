@@ -8,6 +8,38 @@ const common = {
 };
 
 describe("workflow hook adapters", () => {
+  it("normalizes equivalent trusted phase starts identically", () => {
+    const lifecycle = {
+      session_id: "session-a",
+      correlation_id: "phase-start-a",
+      occurred_at: "2026-08-28T12:00:00.000Z",
+      assignment_digest: "a".repeat(64),
+    };
+
+    expect(normalizeClaudeCodeHook("phase.start", lifecycle)).toEqual(
+      normalizeCodexHook("phase.start", lifecycle),
+    );
+    expect(normalizeCodexHook("phase.start", lifecycle)).toEqual({
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      kind: "phase.start",
+      sessionId: "session-a",
+      correlationId: "phase-start-a",
+      occurredAt: "2026-08-28T12:00:00.000Z",
+      assignmentDigest: "a".repeat(64),
+    });
+  });
+
+  it("does not invent missing trusted phase session identity", () => {
+    expect(
+      normalizeClaudeCodeHook("phase.start", {
+        correlation_id: "phase-start-a",
+        occurred_at: "2026-08-28T12:00:00.000Z",
+        assignment_digest: "a".repeat(64),
+      }),
+    ).toBeNull();
+  });
+
   it.each(["session.sample", "session.end"] as const)(
     "normalizes equivalent %s observations identically",
     (kind) => {
