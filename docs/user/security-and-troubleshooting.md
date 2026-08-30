@@ -12,6 +12,9 @@
   refusal.
 - Bind approvals, migrations, repairs, and attestations to canonical digests.
 - Do not persist prompts, secrets, source contents, or credentials in evidence.
+- Keep phase measurements to bounded identifiers, timestamps, counters, and
+  runtime-resolved assignment metadata; never persist prompts, transcripts, or
+  raw host payloads in the measurement ledger.
 - Refuse symlinks and paths that escape the selected project root.
 - Verify package checksums, SBOM, provenance, versions, and host compatibility.
 
@@ -42,6 +45,10 @@ Common findings:
 | `model.independence_violation` | Implementer and judge resolve to one canonical model | Configure a distinct canonical judging model; there is no warning-only mode |
 | `model.assignment_stale` | Configuration, run, revision, phase, or assignment changed after handoff | Request a fresh handoff and rerun the phase |
 | `model.execution_mismatch` | A known host-observed model or effort differs from selection | Correct host routing and rerun with a fresh handoff |
+| `metrics.phase_not_started` | A transition attempted to finish phase work without its validated start | Request a fresh handoff and restart that phase through the host relay |
+| `metrics.phase_assignment_conflict` | The open measurement belongs to a different runtime-resolved assignment | Stop the launch, inspect current configuration and run state, then request a fresh handoff |
+| `metrics.log_invalid` | The ignored local phase-measurement log is malformed | Preserve the raw log and tracked rollup, repair or restore valid local raw bytes, then rerun `metrics refresh` |
+| `metrics.calibration_insufficient` | Refresh succeeded but at least one phase has fewer than five completed samples | Keep collecting completed samples; do not treat interrupted runs as calibration input |
 
 For a migration or routing refusal, inspect only bounded host/role/phase
 subjects and stable reason codes. Public results intentionally do not echo an

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Measure gross tokens and duration once per run phase, feed existing budget/stop-loss reporting, and publish deliberate distribution rollups.
+**Goal:** Measure gross tokens and duration once per run phase, feed existing budget/stop-loss reporting, and publish deliberate distribution reports.
 
 **Architecture:** A pure phase-measurement domain owns keyed records, lifecycle transitions, recovery, and statistics. Runtime composition binds it to the existing run-usage ledger and managed transactions; shared host relays publish only normalized phase starts. `metrics refresh` is the sole committed-rollup writer.
 
@@ -138,7 +138,7 @@ git commit -m "feat(metrics): measure phase lifecycle consumption"
 
 **Interfaces:**
 - Produces: `nearestRank(values, ratio)`, `derivePhaseDistributions(records, 5)`, and `renderTaskMetrics(report)`.
-- Refresh returns `metrics.refresh_ok` when every represented phase is calibratable, otherwise `metrics.calibration_insufficient` while still writing distributions.
+- Refresh returns `metrics.refresh_ok` when every represented phase has sufficient calibration, otherwise `metrics.calibration_insufficient` while still writing distributions.
 
 - [ ] **Step 1: Write failing tests for literal nearest-rank values, interrupted exclusion, 4/5 refusal, 5/5 p95 recommendation, malformed-log preservation, and non-refresh stability**
 

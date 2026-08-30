@@ -68,3 +68,25 @@ changed preconditions invalidate it. Corrupted originals are preserved.
 
 Rollback validates the receipt, backup digest, current target, and unchanged
 files. It refuses rather than deleting the only known-good copy.
+
+## Phase-measurement recovery
+
+Phase measurement is additive and requires no project migration. The existing
+ignored `.brain/03-memory/task_log.jsonl` begins as a valid empty ledger, and
+records appear only when a host starts measured phase work. The tracked
+`.brain/03-memory/task_metrics.md` remains unchanged until an operator runs
+`kratos metrics refresh`.
+
+`session.end` closes the matching open measurement as `interrupted`. If the
+process dies before that hook arrives, the next phase start or `metrics refresh`
+reconciles stale `running` records against canonical workflow events. A recorded
+accepted transition recovers the record as completed at the transition time;
+otherwise recovery closes it as interrupted. No stale running record survives
+that boundary. Run refresh between executions because refreshing during live
+work deliberately closes the current measurement.
+
+Malformed raw lines, corrupt events needed for reconciliation, assignment
+conflicts, and stale write preconditions fail closed. A managed transaction
+cannot publish recovered raw bytes without its matching rollup, or publish a
+rollup from raw bytes that changed after observation. Preserve both files and
+correct the reported local-state problem before retrying refresh.

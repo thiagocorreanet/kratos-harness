@@ -40,6 +40,7 @@ Kratos makes those answers executable:
 | Contract-first integration | Versioned schemas, reason codes, results, and host messages |
 | Host neutrality | Thin Codex and Claude Code adapters around the same runtime policy |
 | Independent phase roles | Host-specific planner, implementer, and judge assignments with strict canonical separation |
+| Measured execution | Runtime-owned phase token and duration measurements, numeric run usage, and explicit distribution refresh |
 | Project ownership | Durable project state under a project-owned `.brain/` directory |
 
 The foundation includes versioned contracts, schemas, reason codes, and stable
@@ -123,6 +124,13 @@ digest. Phase-result recording revalidates that assignment before append and
 keeps runtime-selected metadata separate from nullable host-observed model and
 effort. Unknown execution stays `null`; it is never inferred from configuration,
 CLI flags, prompts, or agent output.
+
+Phase execution uses the same numeric gross-token ledger as `budgets`, evidence
+bundles, and the existing stop-loss gate. Raw per-run measurements stay in the
+ignored `.brain/03-memory/task_log.jsonl`; `kratos metrics refresh` deliberately
+regenerates the tracked `.brain/03-memory/task_metrics.md` distribution report.
+The refresh reports all six canonical phases and never changes the explicit
+objective budget.
 
 ## Repository map
 

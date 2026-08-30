@@ -85,6 +85,8 @@ not shared runtime constants and not dynamic inheritance.
 | `.brain/02-features/` | Managed state | Objectives, runs, and materialized snapshots |
 | `.brain/approvals/` | Managed state | Content-bound decisions |
 | `.brain/evidence/` | Managed metadata | Digests, classification, and references |
+| `.brain/03-memory/task_log.jsonl` | Ignored local state | Raw keyed phase token/duration measurements |
+| `.brain/03-memory/task_metrics.md` | Tracked managed report | Deliberately refreshed phase distributions and bounded provenance |
 | `.brain/02-features/<feature>/runs/<run>/gaps/` | Managed state | One record per detected gap and the answer it carries |
 | `.brain/02-features/<feature>/runs/<run>/gates.json` | Derived state | The facts the gates read, derived from the records |
 | `.brain/migrations/` | Managed recovery | Plans, receipts, backups, and rollback records |
@@ -95,6 +97,18 @@ Commit configuration, events, and non-sensitive evidence metadata when project
 policy requires an auditable trail. Ignore local dashboards, transient locks,
 and sensitive external evidence. Never add a broad ignore rule that hides the
 entire `.brain` directory without an explicit governance decision.
+
+Initialization places `03-memory/task_log.jsonl` in `.brain/.gitignore`. The
+file is a canonical keyed set despite its JSONL form: one line is identified by
+`(runId, phase)`, and managed transactions atomically replace validated bytes.
+It is raw machine-local operational state and is not a history stream. The
+tracked `task_metrics.md` is the reviewable projection; only `metrics refresh`
+may replace it. Refresh records a raw-log digest, generation time, bounded
+feature/run sources, counts, and distributions, but no prompts or transcripts.
+
+The additive `state.phase-measurement@1.0.0` records are created lazily. Existing
+projects need no state rewrite or migration, and the initialized empty raw log
+is valid. Published predecessor state remains readable unchanged.
 
 Managed markers protect user-authored content. Reconciliation preserves bytes
 outside marked sections and reports a conflict before changing an ambiguous

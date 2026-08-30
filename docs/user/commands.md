@@ -21,6 +21,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `unlock stop-loss --run ID` | Confirm `UNLOCK ID` on standard input and start a new budget epoch | Conditional |
 | `done` | Request accepted final completion | Conditional |
 | `status`, `stats`, `budgets` | Derive active-run views | No |
+| `metrics refresh` | Refresh the tracked phase-distribution rollup from validated local measurements | Yes |
 | `doctor`, `explain CODE` | Diagnose state and explain recovery | No |
 | `handoff` | Derive a phase handoff | No |
 | `hook` | Accept one versioned host operation from standard input | Conditional |
@@ -73,6 +74,44 @@ referenced output bytes. A known mismatch returns
 `model.execution_mismatch`. With no host execution report, direct CLI recording
 persists `model: null` and `effort: null`; `--model` remains diagnostic input and
 does not manufacture an observation.
+
+## Phase measurements, budgets, and reports
+
+The runtime measures gross tokens and elapsed duration once for each of the six
+canonical phases, in order: `prd`, `spec`, `plan`, `code`, `review`, and
+`acceptance`. A completed phase has one physical record keyed by run and phase.
+Retries update that record or leave its bytes unchanged; they do not append a
+second copy.
+
+`kratos budgets --json` and `kratos evidence bundle --json` report numeric
+`used` values after the run has a validated usage sample. That number comes from
+the run-wide `totalGrossTokens` ledger that also drives the existing stop-loss
+gate. It does not come from adding recommendations, and neither measurement nor
+calibration can create, raise, or replace the explicit token allocation supplied
+with the objective.
+
+Refresh the committed distribution report explicitly:
+
+```bash
+kratos metrics refresh --root PATH --json
+```
+
+The command validates the local raw log and writes
+`.brain/03-memory/task_metrics.md`. It renders completed and interrupted counts,
+completed feature/run sources, and token and duration `min`, `p50`, `p95`, and
+`max` for every canonical phase. Percentiles use nearest rank over ascending
+integer samples: the selected zero-based position is
+`ceil(ratio * sample count) - 1`. A recommendation is the token p95 and requires
+at least five completed samples for that phase. With fewer than five, refresh
+still writes the available distribution, returns the successful advisory
+`metrics.calibration_insufficient`, and identifies the exact `n/5` shortfall.
+Interrupted records remain visible in their count but are excluded from sample
+statistics and recommendations.
+
+Only `metrics refresh` writes the tracked rollup. `stats` and `budgets` remain
+read-only and do not refresh it implicitly. Run refresh between executions: it
+is also a recovery boundary and closes stale `running` entries before rendering
+the report.
 
 ## Configuration migration commands
 
