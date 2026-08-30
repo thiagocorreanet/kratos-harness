@@ -9,6 +9,7 @@ const measurement = {
   phase: "code",
   sessionId: "session-144",
   contributingSessionIds: ["session-144", "session-worker"],
+  contributorCheckpoints: [],
   correlationId: "correlation-144",
   status: "completed",
   startedAt: "2026-08-30T12:00:00.000Z",
@@ -66,6 +67,74 @@ describe("phase measurement contract", () => {
       kind: "valid",
       value: missingContributors,
     });
+  });
+
+  it("accepts a legacy v1 measurement without contributor checkpoints", () => {
+    const legacy: Record<string, unknown> = { ...measurement };
+    delete legacy.contributorCheckpoints;
+    const result = ajvSchemaRegistry().validate({
+      id: "state.phase-measurement",
+      version: measurement.stateContract,
+      value: legacy,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(result).toEqual({ kind: "valid", value: legacy });
+  });
+
+  it.each([
+    {
+      label: "an invalid session id",
+      checkpoints: [
+        {
+          sessionId: "invalid session",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    },
+    {
+      label: "an invalid timestamp",
+      checkpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 20,
+          occurredAt: "not-a-timestamp",
+        },
+      ],
+    },
+    {
+      label: "an exact duplicate",
+      checkpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    },
+    {
+      label: "more than 256 entries",
+      checkpoints: Array.from({ length: 257 }, (_, index) => ({
+        sessionId: `session-${String(index).padStart(3, "0")}`,
+        cumulativeGrossTokens: index,
+        occurredAt: "2026-08-30T12:01:00.000Z",
+      })),
+    },
+  ])("rejects contributor checkpoints with $label", ({ checkpoints }) => {
+    const result = ajvSchemaRegistry().validate({
+      id: "state.phase-measurement",
+      version: measurement.stateContract,
+      value: { ...measurement, contributorCheckpoints: checkpoints },
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(result.kind).toBe("invalid");
   });
 
   it("rejects duplicate contributor ownership", () => {

@@ -35,6 +35,7 @@ const LEGACY_MEASUREMENT = {
   runId: "run-144",
   phase: "code",
   sessionId: "session-144",
+  contributingSessionIds: ["session-144"],
   correlationId: "correlation-144",
   status: "completed",
   startedAt: "2026-08-30T12:00:00.000Z",
@@ -72,6 +73,7 @@ function completed(
     phase,
     sessionId: `session-${runId}`,
     contributingSessionIds: [`session-${runId}`],
+    contributorCheckpoints: [],
     correlationId: `correlation-${runId}`,
     status: "completed",
     startedAt,
@@ -237,7 +239,7 @@ describe("phase metric distributions", () => {
 });
 
 describe("metrics refresh", () => {
-  it("canonicalizes the exact legacy v1 record on its next raw-log rewrite", async () => {
+  it("canonicalizes a checkpoint-less v1 record without changing its distribution", async () => {
     const legacyRaw = `${JSON.stringify(LEGACY_MEASUREMENT)}\n`;
     const run = subject({ [LOG]: legacyRaw });
 
@@ -248,8 +250,11 @@ describe("metrics refresh", () => {
     expect(run.storage.snapshot().files[LOG]).toBe(
       `${JSON.stringify({
         ...LEGACY_MEASUREMENT,
-        contributingSessionIds: ["session-144"],
+        contributorCheckpoints: [],
       })}\n`,
+    );
+    expect(run.storage.snapshot().files[ROLLUP]).toContain(
+      "| code | 1 | 0 | feature-144/run-144 | 60 | 60 | 60 | 60 |",
     );
   });
 

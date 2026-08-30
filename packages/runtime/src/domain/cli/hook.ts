@@ -4,10 +4,10 @@ import { recordUsageSample } from "../hooks/index.js";
 import {
   addPhaseMeasurementContributor,
   interruptPhaseMeasurement,
+  reconcileContributorCheckpoint,
   recoverPhaseMeasurement,
   renderPhaseMeasurementLog,
   samePhaseMeasurementAssignment,
-  samplePhaseMeasurement,
   startPhaseMeasurement,
   upsertPhaseMeasurement,
   type PhaseMeasurement,
@@ -76,7 +76,15 @@ function decide(
   const hook = observation.hook;
   if (
     context.measurementTarget?.claimSession === true &&
-    context.usage.sessions.some(({ sessionId }) => sessionId === hook.sessionId)
+    context.usage.sessions.some(
+      ({ sessionId }) => sessionId === hook.sessionId,
+    ) &&
+    !context.measurements.records.some(
+      (record) =>
+        record.feature === context.feature &&
+        record.runId === context.runId &&
+        record.contributingSessionIds.includes(hook.sessionId),
+    )
   ) {
     return refusedMetric(
       "runtime.state_corrupt",
@@ -122,47 +130,53 @@ function decide(
     );
   }
   if (measured !== null) {
-    if (
-      context.measurementTarget?.claimSession === true &&
-      sampled.newlyObservedGrossTokens === 0
-    ) {
+    let nextRecords = context.measurements.records;
+    if (cumulativeGrossTokens !== null) {
+      try {
+        nextRecords = reconcileContributorCheckpoint({
+          records: nextRecords,
+          feature: context.feature,
+          runId: context.runId,
+          phase: measured.phase,
+          sessionId: hook.sessionId,
+          cumulativeGrossTokens,
+          occurredAt: hook.occurredAt,
+          claimContributor: context.measurementTarget?.claimSession === true,
+          expectedRunGrossTokens: sampled.usage.totalGrossTokens,
+        });
+      } catch {
+        return refusedMetric(
+          "runtime.state_corrupt",
+          "The phase checkpoint cannot be reconciled without inventing usage.",
+        );
+      }
+    }
+    const sampledMeasurement = measurementForTarget(
+      nextRecords,
+      context.feature,
+      context.runId,
+      measured.phase,
+    );
+    if (sampledMeasurement === null) {
       return refusedMetric(
         "runtime.state_corrupt",
-        "The unowned hook session supplied no newly accepted usage to claim.",
+        "The reconciled phase measurement owner is unavailable.",
       );
     }
-    const measuredTotalGrossTokens =
-      measured.status === "running"
-        ? measured.baselineGrossTokens + measured.grossTokens
-        : measured.finalGrossTokens;
-    const attributedTotalGrossTokens =
-      measuredTotalGrossTokens + sampled.newlyObservedGrossTokens;
-    const sampledMeasurement =
-      sampled.newlyObservedGrossTokens === 0
-        ? measured
-        : samplePhaseMeasurement({
-            record: measured,
-            totalGrossTokens: attributedTotalGrossTokens,
-            ...(context.measurementTarget?.claimSession === true
-              ? { contributingSessionId: hook.sessionId }
-              : {}),
-            now: hook.occurredAt,
-          });
     const nextMeasurement =
       hook.kind === "session.end" &&
       hook.sessionId === sampledMeasurement.sessionId &&
       sampledMeasurement.status === "running"
         ? interruptPhaseMeasurement({
             record: sampledMeasurement,
-            totalGrossTokens: attributedTotalGrossTokens,
+            totalGrossTokens:
+              sampledMeasurement.baselineGrossTokens +
+              sampledMeasurement.grossTokens,
             now: hook.occurredAt,
             closeReason: "session_interrupted",
           })
         : sampledMeasurement;
-    const nextRecords = upsertPhaseMeasurement(
-      context.measurements.records,
-      nextMeasurement,
-    );
+    nextRecords = upsertPhaseMeasurement(nextRecords, nextMeasurement);
     const measurementEffect = writeMeasurements(
       context.measurements,
       nextRecords,

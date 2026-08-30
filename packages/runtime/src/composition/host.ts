@@ -445,9 +445,49 @@ function measurementTarget(
   const owners = measurements.records.filter((record) =>
     record.contributingSessionIds.includes(hook.sessionId),
   );
-  if (owners.length > 0) return ownedMeasurementAt(hook.occurredAt, owners);
   const cumulativeGrossTokens =
     "usage" in hook ? (hook.usage?.cumulativeGrossTokens ?? null) : null;
+  const eligible =
+    cumulativeGrossTokens === null ||
+    activeFeature === null ||
+    activeRunId === null
+      ? []
+      : measurements.records.filter(
+          (record) =>
+            record.feature === activeFeature &&
+            record.runId === activeRunId &&
+            record.status === "running",
+        );
+  if (eligible.length > 1) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has multiple running phase measurement owners.",
+    };
+  }
+  const eligibleOwner = eligible[0];
+  const candidates =
+    eligibleOwner === undefined || owners.includes(eligibleOwner)
+      ? owners
+      : [...owners, eligibleOwner];
+  if (candidates.length > 0) {
+    const selected = ownedMeasurementAt(hook.occurredAt, candidates);
+    if (selected.kind === "corrupt") return selected;
+    if (selected.kind !== "owned") return ambiguousMeasuredSession();
+    const claim = !selected.record.contributingSessionIds.includes(
+      hook.sessionId,
+    );
+    if (
+      claim &&
+      selected.record.contributingSessionIds.length >=
+        MAX_PHASE_MEASUREMENT_CONTRIBUTORS
+    ) {
+      return {
+        kind: "corrupt",
+        why: "The running phase measurement cannot accept another contributor.",
+      };
+    }
+    return claim ? { kind: "claim", record: selected.record } : selected;
+  }
   if (cumulativeGrossTokens === null) return { kind: "none" };
   if (activeFeature === null || activeRunId === null) {
     return {
@@ -455,35 +495,13 @@ function measurementTarget(
       why: "The accepted hook sample has no active phase measurement owner.",
     };
   }
-  const eligible = measurements.records.filter(
-    (record) =>
-      record.feature === activeFeature &&
-      record.runId === activeRunId &&
-      record.status === "running",
-  );
-  const eligibleOwner = eligible[0];
   if (eligibleOwner === undefined) {
     return {
       kind: "corrupt",
       why: "The accepted hook sample has no running phase measurement owner.",
     };
   }
-  if (eligible.length > 1) {
-    return {
-      kind: "corrupt",
-      why: "The accepted hook sample has multiple running phase measurement owners.",
-    };
-  }
-  if (
-    eligibleOwner.contributingSessionIds.length >=
-    MAX_PHASE_MEASUREMENT_CONTRIBUTORS
-  ) {
-    return {
-      kind: "corrupt",
-      why: "The running phase measurement cannot accept another contributor.",
-    };
-  }
-  return { kind: "claim", record: eligibleOwner };
+  return ambiguousMeasuredSession();
 }
 
 function ownedMeasurementAt(

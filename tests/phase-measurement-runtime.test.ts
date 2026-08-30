@@ -629,6 +629,7 @@ describe("phase measurement runtime lifecycle", () => {
       runId: "run-01",
       phase: "prd",
       status: "running",
+      contributorCheckpoints: [],
       resolvedAssignment: {
         host: "codex",
         role: "planner",
@@ -693,11 +694,10 @@ describe("phase measurement runtime lifecycle", () => {
     expect(usage(run).totalGrossTokens).toBe(40);
   });
 
-  it("atomically claims an unowned subagent for the sole running phase and retains its sample through refresh", async () => {
+  it("completes from a claimed subagent without a direct launcher hook and retains it through refresh", async () => {
     const run = await started();
     await setTokenBudget(run, 100);
     await startPhase(run, "session-principal");
-    await samplePhase(run, "session-principal", 0, "principal-zero", START);
 
     expect(
       await samplePhase(run, "session-subagent", 20, "subagent-first", SAMPLE),
@@ -706,6 +706,13 @@ describe("phase measurement runtime lifecycle", () => {
       status: "running",
       grossTokens: 20,
       contributingSessionIds: ["session-principal", "session-subagent"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 20,
+          occurredAt: SAMPLE,
+        },
+      ],
     });
     expect(usage(run)).toMatchObject({
       totalGrossTokens: 20,
@@ -730,6 +737,13 @@ describe("phase measurement runtime lifecycle", () => {
       finalGrossTokens: 20,
       grossTokens: 20,
       contributingSessionIds: ["session-principal", "session-subagent"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 20,
+          occurredAt: SAMPLE,
+        },
+      ],
     });
     expect(
       run.storage.snapshot().files[".brain/03-memory/task_metrics.md"],
@@ -789,7 +803,7 @@ describe("phase measurement runtime lifecycle", () => {
     ).toBeUndefined();
   });
 
-  it("routes a reused launcher by hook time across phases and an active-run switch", async () => {
+  it("reallocates an out-of-order launcher checkpoint across completed phases", async () => {
     const run = await started();
     await setTokenBudget(run, 100);
     await startPhase(run, "session-shared");
@@ -799,88 +813,316 @@ describe("phase measurement runtime lifecycle", () => {
       reasonCode: "trail.ok",
       stateChanged: true,
     });
-    expect(records(run)).toHaveLength(2);
-    expect(
-      records(run).every(({ contributingSessionIds }) =>
-        contributingSessionIds.includes("session-shared"),
-      ),
-    ).toBe(true);
-    await switchToEmptyRun(run, "run-02");
-    const newUsage =
-      run.storage.snapshot().files[
-        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
-      ];
-    const newGates =
-      run.storage.snapshot().files[
-        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
-      ];
 
+    expect(
+      await samplePhase(run, "session-shared", 75, "shared-current-b", AFTER),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
     expect(
       await samplePhase(
         run,
         "session-shared",
         45,
-        "shared-delayed-a-end",
+        "shared-delayed-a",
         "2026-08-30T12:02:00.000Z",
-        "session.end",
-        DELAYED,
-      ),
-    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
-    expect(
-      await samplePhase(
-        run,
-        "session-shared",
-        75,
-        "shared-current-b",
-        AFTER,
         "session.sample",
         REFRESH,
       ),
     ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
-    expect(
-      await samplePhase(
-        run,
-        "session-shared",
-        75,
-        "shared-current-b-end",
-        FINAL,
-        "session.end",
-      ),
-    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
-    expect(
-      await samplePhase(run, "session-shared", 80, "shared-after-b", ROLLUP),
-    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    const reallocatedRaw = run.storage.snapshot().files[LOG];
+    await samplePhase(
+      run,
+      "session-shared",
+      45,
+      "shared-delayed-a-repeated",
+      "2026-08-30T12:02:30.000Z",
+      "session.sample",
+      FINAL,
+    );
+    await samplePhase(
+      run,
+      "session-shared",
+      35,
+      "shared-delayed-a-regressed",
+      "2026-08-30T12:02:40.000Z",
+      "session.sample",
+      FINAL,
+    );
+    expect(run.storage.snapshot().files[LOG]).toBe(reallocatedRaw);
+    expect(await completeCurrentPhase(run, 1, COMPLETED)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
 
     expect(records(run).find(({ phase }) => phase === "prd")).toMatchObject({
       status: "completed",
       grossTokens: 45,
       finalGrossTokens: 45,
       endedAt: END,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-shared",
+          cumulativeGrossTokens: 45,
+          occurredAt: "2026-08-30T12:02:00.000Z",
+        },
+      ],
     });
     expect(records(run).find(({ phase }) => phase === "spec")).toMatchObject({
-      status: "interrupted",
-      grossTokens: 35,
-      finalGrossTokens: 75,
-      endedAt: FINAL,
+      status: "completed",
+      grossTokens: 30,
+      finalGrossTokens: 70,
+      endedAt: COMPLETED,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-shared",
+          cumulativeGrossTokens: 75,
+          occurredAt: AFTER,
+        },
+      ],
     });
-    expect(usageFor(run, "run-01").totalGrossTokens).toBe(80);
+    expect(usage(run).totalGrossTokens).toBe(75);
     expect(
       records(run).reduce((sum, record) => sum + record.grossTokens, 0),
-    ).toBe(80);
+    ).toBe(75);
+    expect(
+      await result(run, ["metrics", "refresh"], portsAt(run, ROLLUP)),
+    ).toMatchObject({ reasonCode: "metrics.calibration_insufficient" });
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/task_metrics.md"],
+    ).toContain(
+      "| spec | 1 | 0 | measure-phase-usage/run-01 | 30 | 30 | 30 | 30 |",
+    );
+  });
+
+  it("selects and claims an active-run phase ahead of a historical non-launcher owner", async () => {
+    const run = await started();
+    await setTokenBudget(run, 100);
+    await startPhase(run, "session-a");
+    await samplePhase(run, "session-subagent", 20, "subagent-a", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    const first = records(run)[0];
+    if (first === undefined) throw new Error("Missing first measurement");
+    await switchToEmptyRun(run, "run-02");
+    const second = {
+      ...first,
+      runId: "run-02",
+      phase: "spec" as const,
+      sessionId: "session-b",
+      contributingSessionIds: ["session-b"],
+      contributorCheckpoints: [],
+      correlationId: "start-session-b",
+      status: "running" as const,
+      startedAt: LATER,
+      endedAt: null,
+      durationMs: null,
+      baselineGrossTokens: 0,
+      finalGrossTokens: null,
+      grossTokens: 0,
+      observedIdentity: { model: null, effort: null },
+      closeReason: null,
+      updatedAt: LATER,
+    };
+    await run.ports.fileSystem.write(
+      LOG,
+      `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`,
+    );
+
+    expect(
+      await samplePhase(
+        run,
+        "session-subagent",
+        30,
+        "subagent-active-b",
+        AFTER,
+        "session.sample",
+        REFRESH,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    const runTwoUsage =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+      ];
+    const runTwoGates =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+      ];
+    expect(
+      await samplePhase(
+        run,
+        "session-subagent",
+        25,
+        "subagent-historical-a",
+        "2026-08-30T12:02:00.000Z",
+        "session.sample",
+        FINAL,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    expect(records(run).find(({ runId }) => runId === "run-01")).toMatchObject({
+      status: "completed",
+      grossTokens: 25,
+      finalGrossTokens: 25,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 25,
+          occurredAt: "2026-08-30T12:02:00.000Z",
+        },
+      ],
+    });
+    expect(records(run).find(({ runId }) => runId === "run-02")).toMatchObject({
+      status: "running",
+      grossTokens: 30,
+      contributingSessionIds: ["session-b", "session-subagent"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 30,
+          occurredAt: AFTER,
+        },
+      ],
+    });
+    expect(usageFor(run, "run-01").totalGrossTokens).toBe(25);
+    expect(usageFor(run, "run-02").totalGrossTokens).toBe(30);
     expect(
       run.storage.snapshot().files[
         ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
       ],
-    ).toBe(newUsage);
+    ).toBe(runTwoUsage);
     expect(
       run.storage.snapshot().files[
         ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
       ],
-    ).toBe(newGates);
-    expect(stopLossFor(run, "run-02")).toEqual({
-      tripped: false,
-      exhausted: false,
+    ).toBe(runTwoGates);
+  });
+
+  it("reallocates only an out-of-order subagent while preserving principal contributions", async () => {
+    const run = await started();
+    await setTokenBudget(run, 100);
+    await startPhase(run, "session-a");
+    await samplePhase(
+      run,
+      "session-a",
+      10,
+      "principal-a",
+      "2026-08-30T12:00:30.000Z",
+    );
+    await samplePhase(run, "session-subagent", 20, "subagent-a", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await startPhase(run, "session-b", LATER);
+    await samplePhase(run, "session-b", 15, "principal-b", AFTER);
+    await samplePhase(run, "session-subagent", 50, "subagent-b", DELAYED);
+
+    expect(
+      await samplePhase(
+        run,
+        "session-subagent",
+        25,
+        "subagent-delayed-a",
+        "2026-08-30T12:02:00.000Z",
+        "session.sample",
+        REFRESH,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    const reallocatedRaw = run.storage.snapshot().files[LOG];
+    await samplePhase(
+      run,
+      "session-subagent",
+      25,
+      "subagent-delayed-a-repeated",
+      "2026-08-30T12:02:30.000Z",
+      "session.sample",
+      FINAL,
+    );
+    await samplePhase(
+      run,
+      "session-subagent",
+      15,
+      "subagent-delayed-a-regressed",
+      "2026-08-30T12:02:40.000Z",
+      "session.sample",
+      FINAL,
+    );
+    expect(run.storage.snapshot().files[LOG]).toBe(reallocatedRaw);
+    await completeCurrentPhase(run, 1, COMPLETED);
+
+    expect(records(run).find(({ phase }) => phase === "prd")).toMatchObject({
+      grossTokens: 35,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-a",
+          cumulativeGrossTokens: 10,
+          occurredAt: "2026-08-30T12:00:30.000Z",
+        },
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 25,
+          occurredAt: "2026-08-30T12:02:00.000Z",
+        },
+      ],
     });
+    expect(records(run).find(({ phase }) => phase === "spec")).toMatchObject({
+      grossTokens: 40,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-b",
+          cumulativeGrossTokens: 15,
+          occurredAt: AFTER,
+        },
+        {
+          sessionId: "session-subagent",
+          cumulativeGrossTokens: 50,
+          occurredAt: DELAYED,
+        },
+      ],
+    });
+    expect(usage(run)).toMatchObject({
+      totalGrossTokens: 75,
+      sessions: [
+        { sessionId: "session-a", cumulativeGrossTokens: 10 },
+        { sessionId: "session-b", cumulativeGrossTokens: 15 },
+        { sessionId: "session-subagent", cumulativeGrossTokens: 50 },
+      ],
+    });
+    expect(
+      records(run).reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(75);
+  });
+
+  it("fails closed when a later phase checkpoint contradicts chronological cumulative usage", async () => {
+    const run = await started();
+    await setTokenBudget(run, 200);
+    await startPhase(run, "session-shared");
+    await samplePhase(run, "session-shared", 80, "shared-a", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await startPhase(run, "session-shared", LATER);
+    const priorRaw = run.storage.snapshot().files[LOG];
+    const usagePath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/usage.json";
+    const gatesPath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/gates.json";
+    const cachePath =
+      ".brain/03-memory/.cache/hooks/session-shared/telemetry.json";
+    const priorUsage = run.storage.snapshot().files[usagePath];
+    const priorGates = run.storage.snapshot().files[gatesPath];
+    const priorCache = run.storage.snapshot().files[cachePath];
+
+    expect(
+      await samplePhase(run, "session-shared", 75, "contradictory-b", AFTER),
+    ).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+      evidence: [{ ref: LOG }],
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[usagePath]).toBe(priorUsage);
+    expect(run.storage.snapshot().files[gatesPath]).toBe(priorGates);
+    expect(run.storage.snapshot().files[cachePath]).toBe(priorCache);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/03-memory/telemetry/session-shared.json"
+      ],
+    ).toBeUndefined();
   });
 
   it("routes a delayed contributing subagent final to its old phase and run", async () => {
@@ -964,6 +1206,7 @@ describe("phase measurement runtime lifecycle", () => {
       phase: "spec",
       sessionId: "session-b",
       contributingSessionIds: ["session-b", "session-subagent"],
+      contributorCheckpoints: [],
     })}\n`;
     await run.ports.fileSystem.write(LOG, ambiguousRaw);
     const priorUsage =
@@ -1186,8 +1429,24 @@ describe("phase measurement runtime lifecycle", () => {
     await samplePhase(run, "session-b", 30, "session-b-sample", AFTER);
     const beforeDelayedSamples = run.storage.snapshot().files[LOG];
 
-    await samplePhase(run, "session-a", 40, "session-a-repeated", DELAYED);
-    await samplePhase(run, "session-a", 35, "session-a-regressing", REFRESH);
+    await samplePhase(
+      run,
+      "session-a",
+      40,
+      "session-a-repeated",
+      "2026-08-30T12:02:00.000Z",
+      "session.sample",
+      DELAYED,
+    );
+    await samplePhase(
+      run,
+      "session-a",
+      35,
+      "session-a-regressing",
+      "2026-08-30T12:02:15.000Z",
+      "session.sample",
+      REFRESH,
+    );
     expect(run.storage.snapshot().files[LOG]).toBe(beforeDelayedSamples);
     expect(usage(run).totalGrossTokens).toBe(70);
 
@@ -1197,8 +1456,9 @@ describe("phase measurement runtime lifecycle", () => {
         "session-a",
         45,
         "session-a-delayed-final",
-        FINAL,
+        "2026-08-30T12:02:30.000Z",
         "session.end",
+        FINAL,
       ),
     ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
 
@@ -1215,7 +1475,7 @@ describe("phase measurement runtime lifecycle", () => {
       finalGrossTokens: 45,
       grossTokens: 45,
       endedAt: END,
-      updatedAt: FINAL,
+      updatedAt: END,
     });
     expect(spec).toMatchObject({
       status: "completed",
@@ -1267,8 +1527,9 @@ describe("phase measurement runtime lifecycle", () => {
       "session-a",
       45,
       "session-a-delayed-final",
-      AFTER,
+      "2026-08-30T12:02:00.000Z",
       "session.end",
+      AFTER,
     );
     expect(await completeCurrentPhase(run, 1, DELAYED)).toMatchObject({
       reasonCode: "trail.ok",

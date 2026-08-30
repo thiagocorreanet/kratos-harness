@@ -3,12 +3,20 @@ import type { PhaseMeasurementV1 } from "@kratos/contracts";
 import type { SchemaRegistry } from "../schema/index.js";
 import { RUN_PHASES, type RunPhase } from "../workflow/index.js";
 
-type WithContributorOwnership<T> = T extends PhaseMeasurementV1
-  ? T & { contributingSessionIds: [string, ...string[]] }
+export type ContributorCheckpoint = NonNullable<
+  PhaseMeasurementV1["contributorCheckpoints"]
+>[number];
+
+type WithNormalizedMeasurementState<T> = T extends PhaseMeasurementV1
+  ? T & {
+      contributingSessionIds: [string, ...string[]];
+      contributorCheckpoints: ContributorCheckpoint[];
+    }
   : never;
 
 /** Normalized runtime record. The wire contract also accepts legacy omission. */
-export type PhaseMeasurement = WithContributorOwnership<PhaseMeasurementV1>;
+export type PhaseMeasurement =
+  WithNormalizedMeasurementState<PhaseMeasurementV1>;
 
 export const MAX_PHASE_MEASUREMENT_CONTRIBUTORS = 256;
 
@@ -29,6 +37,18 @@ export interface SamplePhaseMeasurementInput {
   readonly totalGrossTokens: number;
   readonly contributingSessionId?: string;
   readonly now: string;
+}
+
+export interface ReconcileContributorCheckpointInput {
+  readonly records: readonly PhaseMeasurement[];
+  readonly feature: string;
+  readonly runId: string;
+  readonly phase: RunPhase;
+  readonly sessionId: string;
+  readonly cumulativeGrossTokens: number;
+  readonly occurredAt: string;
+  readonly claimContributor: boolean;
+  readonly expectedRunGrossTokens: number;
 }
 
 export interface CompletePhaseMeasurementInput extends SamplePhaseMeasurementInput {
@@ -73,6 +93,7 @@ export function startPhaseMeasurement(
     phase: input.phase,
     sessionId: input.sessionId,
     contributingSessionIds: [input.sessionId],
+    contributorCheckpoints: [],
     correlationId: input.correlationId,
     status: "running",
     startedAt: input.now,
@@ -129,6 +150,128 @@ export function addPhaseMeasurementContributor(
     ...record,
     contributingSessionIds: contributorIds(record, sessionId),
   };
+}
+
+/**
+ * Reallocate one session's cumulative checkpoints without guessing at opaque
+ * legacy gross-token residuals.
+ */
+export function reconcileContributorCheckpoint(
+  input: ReconcileContributorCheckpointInput,
+): readonly PhaseMeasurement[] {
+  const runRecords = input.records.filter(
+    (record) =>
+      record.feature === input.feature && record.runId === input.runId,
+  );
+  const target = runRecords.find((record) => record.phase === input.phase);
+  const occurredAt = timestampOrderKey(input.occurredAt);
+  const targetStartedAt =
+    target === undefined ? null : timestampOrderKey(target.startedAt);
+  if (
+    target === undefined ||
+    occurredAt === null ||
+    targetStartedAt === null ||
+    occurredAt < targetStartedAt ||
+    !isCount(input.cumulativeGrossTokens) ||
+    !isCount(input.expectedRunGrossTokens)
+  ) {
+    throw new Error("Phase measurement checkpoint state is invalid");
+  }
+
+  const oldAllocations = checkpointAllocations(runRecords);
+  const residualByPhase = new Map<RunPhase, number>();
+  for (const record of runRecords) {
+    const residual = record.grossTokens - (oldAllocations.get(record) ?? 0);
+    if (!isCount(residual)) {
+      throw new Error("Phase measurement checkpoint residual is invalid");
+    }
+    residualByPhase.set(record.phase, residual);
+  }
+
+  const claimed = input.claimContributor
+    ? addPhaseMeasurementContributor(target, input.sessionId)
+    : target;
+  const previous = claimed.contributorCheckpoints.find(
+    ({ sessionId }) => sessionId === input.sessionId,
+  );
+  const nextTarget =
+    previous !== undefined &&
+    previous.cumulativeGrossTokens >= input.cumulativeGrossTokens
+      ? claimed
+      : {
+          ...claimed,
+          contributorCheckpoints: [
+            ...claimed.contributorCheckpoints.filter(
+              ({ sessionId }) => sessionId !== input.sessionId,
+            ),
+            {
+              sessionId: input.sessionId,
+              cumulativeGrossTokens: input.cumulativeGrossTokens,
+              occurredAt: input.occurredAt,
+            },
+          ].sort((left, right) =>
+            left.sessionId.localeCompare(right.sessionId, "en-US"),
+          ),
+          updatedAt: latestTimestamp(claimed.updatedAt, input.occurredAt),
+        };
+  if (!hasValidCheckpointState(nextTarget)) {
+    throw new Error("Phase measurement checkpoint state is invalid");
+  }
+
+  const staged = input.records.map((record) =>
+    record === target ? nextTarget : record,
+  );
+  const stagedRun = staged.filter(
+    (record) =>
+      record.feature === input.feature && record.runId === input.runId,
+  );
+  const newAllocations = checkpointAllocations(stagedRun);
+  const reconciledByPhase = new Map<RunPhase, PhaseMeasurement>();
+  for (const record of stagedRun) {
+    const grossTokens =
+      (residualByPhase.get(record.phase) ?? 0) +
+      (newAllocations.get(record) ?? 0);
+    if (!isCount(grossTokens)) {
+      throw new Error("Phase measurement checkpoint residual is invalid");
+    }
+    const reconciled =
+      record.status === "running"
+        ? { ...record, grossTokens }
+        : {
+            ...record,
+            grossTokens,
+            finalGrossTokens: record.baselineGrossTokens + grossTokens,
+          };
+    if (!hasValidMeasurementSemantics(reconciled)) {
+      throw new Error("Phase measurement checkpoint state is invalid");
+    }
+    reconciledByPhase.set(record.phase, reconciled);
+  }
+
+  const minimumBaseline = Math.min(
+    ...stagedRun.map(({ baselineGrossTokens }) => baselineGrossTokens),
+  );
+  const measurableGrossTokens = input.expectedRunGrossTokens - minimumBaseline;
+  const reconciledGrossTokens = [...reconciledByPhase.values()].reduce(
+    (sum, record) => sum + record.grossTokens,
+    0,
+  );
+  if (
+    !isCount(measurableGrossTokens) ||
+    reconciledGrossTokens !== measurableGrossTokens
+  ) {
+    throw new Error("Phase measurement checkpoint conservation is unprovable");
+  }
+
+  const reconciled = staged.map((record) =>
+    record.feature === input.feature && record.runId === input.runId
+      ? (reconciledByPhase.get(record.phase) ?? record)
+      : record,
+  );
+  if (!hasValidCheckpointChronology(reconciled)) {
+    throw new Error("Phase measurement checkpoint chronology is invalid");
+  }
+  return reconciled;
 }
 
 export function completePhaseMeasurement(
@@ -236,6 +379,9 @@ export function upsertPhaseMeasurement(
   if (!hasValidContributorOwnership(next)) {
     throw new Error("Phase measurement contributor ownership is invalid");
   }
+  if (!hasValidCheckpointState(next)) {
+    throw new Error("Phase measurement checkpoint state is invalid");
+  }
   const existing = records.find(
     (record) => record.runId === next.runId && record.phase === next.phase,
   );
@@ -250,7 +396,7 @@ export function upsertPhaseMeasurement(
       "Phase measurement assignment conflicts with the open record",
     );
   }
-  return [
+  const updated = [
     ...records.filter(
       (record) => record.runId !== next.runId || record.phase !== next.phase,
     ),
@@ -260,6 +406,13 @@ export function upsertPhaseMeasurement(
       left.runId.localeCompare(right.runId) ||
       phaseOrder(left.phase) - phaseOrder(right.phase),
   );
+  if (!hasValidCheckpointChronology(updated)) {
+    throw new Error("Phase measurement checkpoint chronology is invalid");
+  }
+  if (!hasValidCheckpointResiduals(updated)) {
+    throw new Error("Phase measurement checkpoint residual is invalid");
+  }
+  return updated;
 }
 
 function stateContract(value: unknown): unknown {
@@ -304,8 +457,153 @@ function hasValidContributorOwnership(record: PhaseMeasurement): boolean {
   );
 }
 
+const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+
+function isCount(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function hasValidCheckpointState(record: PhaseMeasurement): boolean {
+  const checkpoints = record.contributorCheckpoints;
+  const canonical = [...checkpoints].sort((left, right) =>
+    left.sessionId.localeCompare(right.sessionId, "en-US"),
+  );
+  const startedAt = timestampOrderKey(record.startedAt);
+  return (
+    checkpoints.length <= MAX_PHASE_MEASUREMENT_CONTRIBUTORS &&
+    startedAt !== null &&
+    new Set(checkpoints.map(({ sessionId }) => sessionId)).size ===
+      checkpoints.length &&
+    canonical.every((checkpoint, index) => checkpoint === checkpoints[index]) &&
+    checkpoints.every((checkpoint) => {
+      const occurredAt = timestampOrderKey(checkpoint.occurredAt);
+      return (
+        Object.keys(checkpoint).sort().join("\u0000") ===
+          "cumulativeGrossTokens\u0000occurredAt\u0000sessionId" &&
+        ID_PATTERN.test(checkpoint.sessionId) &&
+        isCount(checkpoint.cumulativeGrossTokens) &&
+        occurredAt !== null &&
+        occurredAt >= startedAt &&
+        record.contributingSessionIds.includes(checkpoint.sessionId)
+      );
+    })
+  );
+}
+
+function checkpointAllocations(
+  records: readonly PhaseMeasurement[],
+): ReadonlyMap<PhaseMeasurement, number> {
+  const allocations = new Map<PhaseMeasurement, number>(
+    records.map((record) => [record, 0]),
+  );
+  const bySession = new Map<
+    string,
+    {
+      readonly record: PhaseMeasurement;
+      readonly checkpoint: ContributorCheckpoint;
+      readonly startedAt: string;
+    }[]
+  >();
+  for (const record of records) {
+    const startedAt = timestampOrderKey(record.startedAt);
+    if (startedAt === null || !hasValidCheckpointState(record)) {
+      throw new Error("Phase measurement checkpoint state is invalid");
+    }
+    for (const checkpoint of record.contributorCheckpoints) {
+      const values = bySession.get(checkpoint.sessionId) ?? [];
+      values.push({ record, checkpoint, startedAt });
+      bySession.set(checkpoint.sessionId, values);
+    }
+  }
+  for (const values of bySession.values()) {
+    values.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+    let previousStartedAt: string | null = null;
+    let previousCumulative = 0;
+    for (const { record, checkpoint, startedAt } of values) {
+      if (
+        startedAt === previousStartedAt ||
+        checkpoint.cumulativeGrossTokens < previousCumulative
+      ) {
+        throw new Error("Phase measurement checkpoint chronology is invalid");
+      }
+      const contribution =
+        checkpoint.cumulativeGrossTokens - previousCumulative;
+      allocations.set(record, (allocations.get(record) ?? 0) + contribution);
+      previousStartedAt = startedAt;
+      previousCumulative = checkpoint.cumulativeGrossTokens;
+    }
+  }
+  return allocations;
+}
+
+function hasValidCheckpointChronology(
+  records: readonly PhaseMeasurement[],
+): boolean {
+  const groups = new Map<string, PhaseMeasurement[]>();
+  for (const record of records) {
+    const key = `${record.feature}\u0000${record.runId}`;
+    const group = groups.get(key) ?? [];
+    group.push(record);
+    groups.set(key, group);
+  }
+  try {
+    for (const group of groups.values()) checkpointAllocations(group);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasValidCheckpointResiduals(
+  records: readonly PhaseMeasurement[],
+): boolean {
+  const groups = new Map<string, PhaseMeasurement[]>();
+  for (const record of records) {
+    const key = `${record.feature}\u0000${record.runId}`;
+    const group = groups.get(key) ?? [];
+    group.push(record);
+    groups.set(key, group);
+  }
+  try {
+    for (const group of groups.values()) {
+      const allocations = checkpointAllocations(group);
+      for (const record of group) {
+        if (record.grossTokens < (allocations.get(record) ?? 0)) return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function timestampOrderKey(timestamp: string): string | null {
+  const match =
+    /^(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d)(?:\.(\d{1,9}))?Z$/.exec(
+      timestamp,
+    );
+  if (match === null || !Number.isFinite(Date.parse(timestamp))) return null;
+  const seconds = match[1];
+  if (seconds === undefined) return null;
+  return `${seconds}.${(match[2] ?? "").padEnd(9, "0")}`;
+}
+
+function latestTimestamp(left: string, right: string): string {
+  const leftKey = timestampOrderKey(left);
+  const rightKey = timestampOrderKey(right);
+  if (leftKey === null || rightKey === null) {
+    throw new Error("Phase measurement checkpoint state is invalid");
+  }
+  return rightKey > leftKey ? right : left;
+}
+
 function hasValidMeasurementSemantics(record: PhaseMeasurement): boolean {
-  if (!hasValidContributorOwnership(record)) return false;
+  if (
+    !hasValidContributorOwnership(record) ||
+    !hasValidCheckpointState(record)
+  ) {
+    return false;
+  }
   if (record.status === "running") return true;
   try {
     return (
@@ -358,6 +656,12 @@ export function parsePhaseMeasurementLog(
     if (keys.has(key)) throw new Error("Phase measurement log is invalid");
     keys.add(key);
   }
+  if (!hasValidCheckpointChronology(records)) {
+    throw new Error("Phase measurement log is invalid");
+  }
+  if (!hasValidCheckpointResiduals(records)) {
+    throw new Error("Phase measurement log is invalid");
+  }
   return records;
 }
 
@@ -367,6 +671,7 @@ function normalizePhaseMeasurement(
   return {
     ...record,
     contributingSessionIds: record.contributingSessionIds ?? [record.sessionId],
+    contributorCheckpoints: record.contributorCheckpoints ?? [],
   };
 }
 
@@ -375,6 +680,15 @@ export function renderPhaseMeasurementLog(
 ): string {
   if (records.some((record) => !hasValidContributorOwnership(record))) {
     throw new Error("Phase measurement contributor ownership is invalid");
+  }
+  if (records.some((record) => !hasValidCheckpointState(record))) {
+    throw new Error("Phase measurement checkpoint state is invalid");
+  }
+  if (!hasValidCheckpointChronology(records)) {
+    throw new Error("Phase measurement checkpoint chronology is invalid");
+  }
+  if (!hasValidCheckpointResiduals(records)) {
+    throw new Error("Phase measurement checkpoint residual is invalid");
   }
   return records.length === 0
     ? ""

@@ -8,6 +8,7 @@ import {
   samplePhaseMeasurement,
   startPhaseMeasurement,
   upsertPhaseMeasurement,
+  type PhaseMeasurement,
 } from "@kratos/runtime/domain/measurements";
 import { describe, expect, it } from "vitest";
 
@@ -60,8 +61,11 @@ const legacyMeasurement = {
 } as const;
 
 describe("phase measurement domain", () => {
-  it("starts with the launcher as the sole contributing session", () => {
-    expect(running.contributingSessionIds).toEqual(["session-144"]);
+  it("starts with launcher ownership and no invented usage checkpoints", () => {
+    expect(running).toMatchObject({
+      contributingSessionIds: ["session-144"],
+      contributorCheckpoints: [],
+    });
   });
 
   it("replaces the same run and phase instead of appending a duplicate", () => {
@@ -242,20 +246,149 @@ describe("phase measurement domain", () => {
     expect(parsed).toEqual([record]);
   });
 
-  it("normalizes the exact legacy v1 record and renders canonical ownership", () => {
+  it("normalizes the exact legacy v1 record and renders canonical checkpoint state", () => {
     const parsed = parsePhaseMeasurementLog(
       `${JSON.stringify(legacyMeasurement)}\n`,
       ajvSchemaRegistry(),
     );
 
     expect(parsed).toEqual([
-      { ...legacyMeasurement, contributingSessionIds: ["session-144"] },
+      {
+        ...legacyMeasurement,
+        contributingSessionIds: ["session-144"],
+        contributorCheckpoints: [],
+      },
     ]);
     expect(renderPhaseMeasurementLog(parsed)).toBe(
       `${JSON.stringify({
         ...legacyMeasurement,
         contributingSessionIds: ["session-144"],
+        contributorCheckpoints: [],
       })}\n`,
+    );
+  });
+
+  it.each([
+    {
+      label: "unsorted",
+      contributingSessionIds: ["session-144", "session-worker"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-worker",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 10,
+          occurredAt: "2026-08-30T12:00:30.000Z",
+        },
+      ],
+    },
+    {
+      label: "duplicate-session",
+      contributingSessionIds: ["session-144"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 10,
+          occurredAt: "2026-08-30T12:00:30.000Z",
+        },
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    },
+    {
+      label: "non-contributor",
+      contributingSessionIds: ["session-144"],
+      contributorCheckpoints: [
+        {
+          sessionId: "session-worker",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    },
+  ])(
+    "refuses $label checkpoint semantics in parsed and rendered state",
+    ({ contributingSessionIds, contributorCheckpoints }) => {
+      const invalid = {
+        ...running,
+        contributingSessionIds: contributingSessionIds as [string, ...string[]],
+        contributorCheckpoints,
+      } satisfies PhaseMeasurement;
+
+      expect(() =>
+        parsePhaseMeasurementLog(
+          `${JSON.stringify(invalid)}\n`,
+          ajvSchemaRegistry(),
+        ),
+      ).toThrow("Phase measurement log is invalid");
+      expect(() => renderPhaseMeasurementLog([invalid])).toThrow(
+        "Phase measurement checkpoint state is invalid",
+      );
+    },
+  );
+
+  it("refuses contributor checkpoints that decrease across phase chronology", () => {
+    const first = {
+      ...completePhaseMeasurement({
+        record: running,
+        totalGrossTokens: 180,
+        now: "2026-08-30T12:03:00.000Z",
+        observedIdentity: { model: null, effort: null },
+      }),
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 80,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    };
+    const second = {
+      ...running,
+      phase: "review" as const,
+      startedAt: "2026-08-30T12:04:00.000Z",
+      baselineGrossTokens: 180,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 75,
+          occurredAt: "2026-08-30T12:05:00.000Z",
+        },
+      ],
+    };
+
+    expect(() => renderPhaseMeasurementLog([first, second])).toThrow(
+      "Phase measurement checkpoint chronology is invalid",
+    );
+  });
+
+  it("refuses a checkpoint allocation larger than the phase gross-token total", () => {
+    const invalid = {
+      ...running,
+      grossTokens: 10,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 20,
+          occurredAt: "2026-08-30T12:01:00.000Z",
+        },
+      ],
+    } satisfies PhaseMeasurement;
+
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify(invalid)}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+    expect(() => renderPhaseMeasurementLog([invalid])).toThrow(
+      "Phase measurement checkpoint residual is invalid",
     );
   });
 

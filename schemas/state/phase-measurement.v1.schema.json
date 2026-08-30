@@ -41,6 +41,21 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/id" }
     },
+    "contributorCheckpoints": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sessionId", "cumulativeGrossTokens", "occurredAt"],
+        "properties": {
+          "sessionId": { "$ref": "#/$defs/id" },
+          "cumulativeGrossTokens": { "$ref": "#/$defs/count" },
+          "occurredAt": { "$ref": "#/$defs/timestamp" }
+        }
+      }
+    },
     "correlationId": { "$ref": "#/$defs/id" },
     "status": { "enum": ["running", "completed", "interrupted"] },
     "startedAt": { "$ref": "#/$defs/timestamp" },
