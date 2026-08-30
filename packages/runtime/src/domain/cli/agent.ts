@@ -82,7 +82,7 @@ function decideRecord(observation: Observation): Decision {
   if (
     (phase === "code" || phase === "review") &&
     observed.kind === "invalid" &&
-    missingMemoryAcknowledgement(observed.value)
+    observed.missingMemoryAcknowledgement === true
   ) {
     return phaseContextStale(observed.ref);
   }
@@ -546,22 +546,6 @@ function sameMemory(
     left.lessonIds.every(
       (lessonId, index) => lessonId === right.lessonIds[index],
     )
-  );
-}
-
-/**
- * Classify only the dedicated acknowledgement omission before schema refusal.
- * Other malformed blocks stay ordinary contract failures, so an agent cannot
- * hide an unrelated invalid document behind this more specific policy result.
- */
-function missingMemoryAcknowledgement(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const descriptor = Object.getOwnPropertyDescriptor(value, "memory");
-  return (
-    descriptor === undefined ||
-    ("value" in descriptor && descriptor.value === null)
   );
 }
 

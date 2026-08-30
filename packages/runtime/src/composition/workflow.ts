@@ -394,6 +394,12 @@ export async function observeWorkflow(
     anchored,
     registry,
   );
+  const classifiedAgentOutput = classifyMissingMemoryAcknowledgement(
+    agentOutput,
+    phase,
+    phaseAssignment,
+    registry,
+  );
   const preparedPhaseExecution = phaseExecutionFor(
     phaseResultRequest,
     phaseAssignment,
@@ -482,7 +488,7 @@ export async function observeWorkflow(
       gaps: gaps.values,
       gapsReadable: gaps.readable,
       gapProposal,
-      agentOutput,
+      agentOutput: classifiedAgentOutput,
       agentOutputs: agentOutputs.values,
       agentOutputsReadable: agentOutputs.readable,
       acceptanceCriteria,
@@ -884,6 +890,52 @@ async function observeAgentReply(
         diagnostics: validated.diagnostics,
         value: extracted.value,
       };
+}
+
+/**
+ * Preserve structural refusal unless the memory field is the only relevant
+ * defect. The assigned binding is substituted into a copy and passed through
+ * the same v1.2 validator; a wrong version, agent, payload, or extra field
+ * therefore stays `trail.output_invalido` rather than masquerading as stale
+ * phase context.
+ */
+function classifyMissingMemoryAcknowledgement(
+  observation: AgentOutputObservation,
+  phase: string,
+  assignment: PhaseAssignmentObservation,
+  registry: SchemaRegistry,
+): AgentOutputObservation {
+  if (
+    observation.kind !== "invalid" ||
+    (phase !== "code" && phase !== "review") ||
+    assignment.kind !== "resolved" ||
+    assignment.value.memory === null ||
+    typeof observation.value !== "object" ||
+    observation.value === null ||
+    Array.isArray(observation.value)
+  ) {
+    return observation;
+  }
+  const candidate = observation.value as Record<string, unknown>;
+  const agent = Object.getOwnPropertyDescriptor(candidate, "agent");
+  const memory = Object.getOwnPropertyDescriptor(candidate, "memory");
+  if (
+    agent === undefined ||
+    !("value" in agent) ||
+    agent.value !== phase ||
+    (memory !== undefined && (!("value" in memory) || memory.value !== null))
+  ) {
+    return observation;
+  }
+  const validated = registry.validate({
+    id: "host.agent-output",
+    version: "1.2.0",
+    value: { ...candidate, memory: assignment.value.memory },
+    structuralReasonCode: "trail.output_invalido",
+  });
+  return validated.kind === "valid"
+    ? { ...observation, missingMemoryAcknowledgement: true }
+    : observation;
 }
 
 /**

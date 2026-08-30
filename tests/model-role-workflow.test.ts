@@ -355,7 +355,10 @@ async function advanceToReview(run: WorkflowSubject): Promise<void> {
   await advanceToPhase(run, 4);
 }
 
-function codeReply(memory: unknown): string {
+function codeReply(
+  memory: unknown,
+  overrides: Readonly<Record<string, unknown>> = {},
+): string {
   return `===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
       contractVersion: "1.2.0",
@@ -371,6 +374,7 @@ function codeReply(memory: unknown): string {
       changedFiles: [],
       payload: { stepId: "implementation", testsAdded: 1, testsPassed: true },
       memory,
+      ...overrides,
     },
     null,
     2,
@@ -382,9 +386,10 @@ async function recordCode(
   handoff: PhaseHandoffV1_2,
   memory: unknown,
   assignmentDigest = handoff.assignmentDigest,
+  overrides: Readonly<Record<string, unknown>> = {},
 ): Promise<OperationResultV1> {
   const ref = ".brain/agent-replies/code.md";
-  const reply = codeReply(memory);
+  const reply = codeReply(memory, overrides);
   await run.ports.fileSystem.write(ref, reply);
   const message = phaseResultRequest(run, handoff, ref, reply, {
     assignmentDigest,
@@ -1046,16 +1051,8 @@ describe("phase execution trust boundary", () => {
   it.each([
     ["missing", undefined],
     ["null", null],
-    [
-      "mismatched",
-      {
-        ref: ".brain/03-memory/gotchas.md",
-        sha256: "f".repeat(64),
-        lessonIds: [],
-      },
-    ],
   ] as const)(
-    "returns phase-context stale for a %s code acknowledgement",
+    "returns phase-context stale for an otherwise-valid %s code acknowledgement",
     async (_label, acknowledgement) => {
       const run = await started({
         configuration: {
@@ -1073,6 +1070,89 @@ describe("phase execution trust boundary", () => {
         reasonCode: "memory.phase_context_stale",
         stateChanged: false,
       });
+    },
+  );
+
+  it.each([
+    [
+      "mismatched",
+      {
+        ref: ".brain/03-memory/gotchas.md",
+        sha256: "f".repeat(64),
+        lessonIds: [],
+      },
+    ],
+  ] as const)(
+    "returns phase-context stale for a valid but %s code acknowledgement",
+    async (_label, acknowledgement) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            planner: "planner-alias",
+            implementer: "impl-alias",
+            judge: "judge-alias",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, 3);
+      const handoff = await currentHandoff(run);
+      expect(await recordCode(run, handoff, acknowledgement)).toMatchObject({
+        reasonCode: "memory.phase_context_stale",
+        stateChanged: false,
+      });
+    },
+  );
+
+  it.each([
+    [
+      "wrong contract version",
+      { contractVersion: "1.0.0", hostContract: "1.0.0" },
+    ],
+    [
+      "wrong agent",
+      { agent: "review", payload: { verdict: "pass", findings: [] } },
+    ],
+    [
+      "malformed payload",
+      {
+        payload: {
+          stepId: "implementation",
+          testsAdded: "one",
+          testsPassed: true,
+        },
+      },
+    ],
+    ["additional property", { unexpected: true }],
+  ] as const)(
+    "keeps %s with a missing or null acknowledgement schema-invalid",
+    async (_label, overrides) => {
+      for (const acknowledgement of [undefined, null]) {
+        const run = await started({
+          configuration: {
+            ...roleConfig("codex", {
+              planner: "planner-alias",
+              implementer: "impl-alias",
+              judge: "judge-alias",
+            }),
+            policyMode: "standard",
+          },
+        });
+        await advanceToPhase(run, 3);
+        const handoff = await currentHandoff(run);
+        expect(
+          await recordCode(
+            run,
+            handoff,
+            acknowledgement,
+            handoff.assignmentDigest,
+            overrides,
+          ),
+        ).toMatchObject({
+          reasonCode: "trail.output_invalido",
+          stateChanged: false,
+        });
+      }
     },
   );
 

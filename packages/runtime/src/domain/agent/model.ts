@@ -148,6 +148,8 @@ export type AgentOutputObservation =
       readonly diagnostics: readonly ValidationDiagnostic[];
       /** Parsed, still untrusted bytes for policy classification only. */
       readonly value?: unknown;
+      /** Only a valid v1.2 code/review envelope omitted or nulled memory. */
+      readonly missingMemoryAcknowledgement?: true;
     }
   | {
       readonly kind: "valid";
