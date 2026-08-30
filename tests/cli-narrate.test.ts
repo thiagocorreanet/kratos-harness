@@ -143,6 +143,15 @@ function createSampleObservation(
     repairPlan: null,
     evidenceBundle: null,
     dashboardHtml: null,
+    stackProfile: {
+      authoritativeState: { kind: "valid" },
+      exists: true,
+      regularFile: true,
+      readable: true,
+      expectedBytes: null,
+      actualBytes: null,
+      unresolvedKeys: [],
+    },
   };
 }
 
