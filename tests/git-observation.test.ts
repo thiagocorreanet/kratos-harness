@@ -20,7 +20,7 @@ const ok = (stdout: string): RawCommandResult => ({
   bufferExceeded: false,
 });
 
-const REFS_OK = "true\n/p/.git\n/p/.git\n";
+const REFS_OK = "true\n/p/.git\n/p/.git\n\n";
 const STATUS_OK = "# branch.oid " + "a".repeat(40) + "\0# branch.head main\0";
 
 /** Drive the sequence by position: first call is rev-parse, second is status. */
@@ -58,6 +58,7 @@ describe("successful observation", () => {
           upstream: null,
         },
         worktree: "principal",
+        worktreePrefix: "",
         operation: "none",
         changes: [],
       },
@@ -69,6 +70,7 @@ describe("successful observation", () => {
             "--is-inside-work-tree",
             "--git-dir",
             "--git-common-dir",
+            "--show-prefix",
           ],
           exitCode: 0,
           stdoutSha256: digests.sha256Bytes(utf8(REFS_OK)),
@@ -99,7 +101,7 @@ describe("successful observation", () => {
 
   it("reports a linked worktree when the git dirs differ", async () => {
     const result = await observe([
-      ok("true\n/p/.git/worktrees/f\n/p/.git\n"),
+      ok("true\n/p/.git/worktrees/f\n/p/.git\n\n"),
       ok(STATUS_OK),
     ]);
 
@@ -175,7 +177,7 @@ describe("failure classification", () => {
 
   it("reports not_a_repository for a bare repository", async () => {
     // Exit 0 with a false work-tree report: bare repo, or inside .git.
-    const result = await observe([ok("false\n/p.git\n/p.git\n")]);
+    const result = await observe([ok("false\n/p.git\n/p.git\n\n")]);
 
     expect(result.kind).toBe("not_a_repository");
   });

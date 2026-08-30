@@ -17,6 +17,7 @@ const REV_PARSE = [
   "--is-inside-work-tree",
   "--git-dir",
   "--git-common-dir",
+  "--show-prefix",
 ] as const;
 
 const STATUS = [
@@ -93,6 +94,7 @@ export function composeGit(runner: GitRunner, digests: Digests): Git {
           repository: {
             head: parsed.head,
             worktree: classifyWorktree(facts),
+            worktreePrefix: facts.worktreePrefix,
             operation: classifyOperation(markers),
             changes: parsed.changes,
           },

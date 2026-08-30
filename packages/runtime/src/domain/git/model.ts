@@ -53,6 +53,7 @@ export type GitOperation =
 export interface GitRepository {
   readonly head: GitHead;
   readonly worktree: "principal" | "linked";
+  readonly worktreePrefix: string;
   readonly operation: GitOperation;
   readonly changes: readonly GitChange[];
 }

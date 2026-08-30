@@ -12,6 +12,7 @@ const CLEAN_PRINCIPAL: GitObservation = {
       upstream: null,
     },
     worktree: "principal",
+    worktreePrefix: "",
     operation: "none",
     changes: [],
   },
