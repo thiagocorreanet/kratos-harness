@@ -108,6 +108,14 @@ export interface Decision {
   readonly revalidateRepairDigest?: string;
   /** Re-resolve this phase assignment immediately before appending its event. */
   readonly revalidatePhaseAssignmentDigest?: string;
+  /** Local candidates are best-effort cleanup only after a durable commit. */
+  readonly cleanupCandidates?: readonly {
+    readonly path: string;
+    readonly expected: Extract<
+      WriteFilePrecondition,
+      { readonly kind: "file" }
+    >;
+  }[];
 }
 
 export interface Globals {

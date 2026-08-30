@@ -71,6 +71,39 @@ export function validateCuratedMemoryProjection(
     : { kind: "projection_drift" };
 }
 
+/** Semantic checks schemas cannot express (derived identities and cross-links). */
+export function validatesCuratedMemorySemantics(
+  ledger: CuratedMemoryV1,
+  sha256: (value: string) => string,
+): boolean {
+  const active = new Set<string>();
+  for (const lesson of ledger.confirmed) {
+    const expected = sha256(
+      canonicalizeJson({
+        title: lesson.title,
+        why: sortedUnique(lesson.why),
+        apply: sortedUnique(lesson.apply),
+        candidateIds: sortedUnique(lesson.candidateIds),
+      }),
+    );
+    if (lesson.lessonId !== expected || active.has(lesson.lessonId))
+      return false;
+    active.add(lesson.lessonId);
+  }
+  const archived = new Set<string>();
+  for (const tombstone of ledger.archive) {
+    if (active.has(tombstone.lessonId) || archived.has(tombstone.lessonId))
+      return false;
+    if (
+      tombstone.replacementLessonId !== null &&
+      !active.has(tombstone.replacementLessonId)
+    )
+      return false;
+    archived.add(tombstone.lessonId);
+  }
+  return true;
+}
+
 /**
  * Reduce a closed curation proposal into its next authoritative ledger.
  * Candidate availability is observed by composition; this reducer retains no
@@ -149,6 +182,9 @@ function merge(
   const candidateIds = sortedUnique(
     source.flatMap((lesson) => lesson.candidateIds),
   );
+  if (why.length > 8 || apply.length > 8 || candidateIds.length > 256) {
+    return { kind: "curation_required" };
+  }
   const replacement = lessonFor(
     proposal.title,
     why,
@@ -314,14 +350,21 @@ function nonempty(values: readonly string[]): boolean {
 }
 
 function sortedUnique(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) =>
-    left.localeCompare(right, "en-US"),
-  );
+  return [...new Set(values)].sort(compareText);
 }
 
 function byLessonId(
   left: { readonly lessonId: string },
   right: { readonly lessonId: string },
 ): number {
-  return left.lessonId.localeCompare(right.lessonId, "en-US");
+  return compareText(left.lessonId, right.lessonId);
+}
+
+function compareText(left: string, right: string): number {
+  const a = new TextEncoder().encode(left);
+  const b = new TextEncoder().encode(right);
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+    if (a[index] !== b[index]) return (a[index] ?? 0) - (b[index] ?? 0);
+  }
+  return a.length - b.length;
 }

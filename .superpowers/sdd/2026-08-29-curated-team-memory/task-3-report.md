@@ -40,3 +40,28 @@
   its sanitized internal failure result (exit 2); the fault test verifies the
   stronger required invariant: neither projection artifact nor candidate is
   partially published or deleted.
+
+## Fix Round 1
+
+- Apply now uses the caller-carried `--plan-time` as the deterministic reducer
+  instant while independently re-observing current persisted bytes. This keeps
+  a reviewed preview applicable across a changing wall clock.
+- Persisted ledger reads now reject semantic corruption: derived lesson IDs,
+  duplicate active/archive identities, and dangling replacement links are
+  fail-closed as `runtime.state_corrupt`.
+- Merge unions are checked against the schema's 8/8/256 limits before a ledger
+  is produced; an oversized union is `memory.curation_required`.
+- Promotion candidates are no longer delete effects in the authority
+  transaction. Their observed file fingerprints are included in authorization;
+  after a successful ledger/projection commit, cleanup rechecks the exact
+  fingerprint and removes best-effort only. A failed or raced cleanup retains
+  the candidate safely.
+- Memory refusal results now include stable public causes and required artifact
+  evidence. Ordering is UTF-8-byte lexical, avoiding locale-dependent output.
+- Preview apply commands preserve `--root` and use deterministic POSIX quoting
+  for caller-controlled paths.
+
+### Fix Round 1 verification
+
+- `npm run typecheck` — passed.
+- `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/cli-commands.test.ts` — 20 tests passed.

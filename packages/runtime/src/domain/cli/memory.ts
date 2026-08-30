@@ -216,11 +216,17 @@ function memoryChangeCommand(
           expected: observation.projectionExpected,
         },
       ];
+      const cleanupCandidates: {
+        path: string;
+        expected: Extract<WriteFilePrecondition, { kind: "file" }>;
+      }[] = [];
       for (const candidateId of reduction.consumedCandidateIds) {
         const candidatePath = `.brain/03-memory/candidates/${candidateId}.json`;
-        if (!observation.candidateExpected.has(candidatePath))
+        const expected = observation.candidateExpected.get(candidatePath);
+        if (expected === undefined) return result("memory.confirmation_stale");
+        if (expected.kind !== "file")
           return result("memory.confirmation_stale");
-        effects.push({ kind: "delete_file", path: candidatePath });
+        cleanupCandidates.push({ path: candidatePath, expected });
       }
       return {
         result: resultFor("trail.ok", {
@@ -234,6 +240,7 @@ function memoryChangeCommand(
         plan: planOf(...effects),
         humanStdout: null,
         payload: null,
+        cleanupCandidates,
       };
     },
   );
@@ -247,7 +254,13 @@ function result(
     | "memory.lesson_incomplete",
 ): Decision {
   return {
-    result: resultFor(code),
+    result: resultFor(code, {
+      why: ["The current curated-memory facts do not authorize this change."],
+      evidence:
+        code === "memory.lesson_incomplete"
+          ? []
+          : [{ kind: "artifact", ref: ".brain/03-memory/curated-memory.json" }],
+    }),
     plan: planOf(),
     humanStdout: null,
     payload: null,
@@ -268,7 +281,7 @@ function changePlanDigest(
       ledger: observation.ledger,
       projection: observation.projection,
       candidateFingerprints: [...observation.candidateExpected].sort(
-        ([left], [right]) => left.localeCompare(right, "en-US"),
+        ([left], [right]) => (left < right ? -1 : left > right ? 1 : 0),
       ),
       next: reduction.ledger,
     }),
@@ -281,10 +294,17 @@ function applyCommand(
   planDigest: string,
   planTime: string,
 ): string {
+  const quote = (value: string): string =>
+    /^[A-Za-z0-9_./:@=-]+$/u.test(value)
+      ? value
+      : `'${value.replaceAll("'", `"'"'`)}'`;
+  const root = invocation.flags.get("--root");
   return [
     "kratos",
     ...invocation.command.path,
-    invocation.positionals[0] ?? "<proposal>",
+    typeof root === "string" ? "--root" : null,
+    typeof root === "string" ? quote(root) : null,
+    quote(invocation.positionals[0] ?? "<proposal>"),
     "--yes",
     "--proposal-digest",
     proposalDigest,
@@ -292,7 +312,9 @@ function applyCommand(
     planDigest,
     "--plan-time",
     planTime,
-  ].join(" ");
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" ");
 }
 
 function write(

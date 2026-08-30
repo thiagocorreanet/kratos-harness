@@ -7,7 +7,10 @@ import type {
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { FailureObservation } from "../domain/hooks/index.js";
 import { captureCandidate, sanitizeDiagnostic } from "../domain/hooks/index.js";
-import { validateCuratedMemoryProjection } from "../domain/memory/index.js";
+import {
+  validateCuratedMemoryProjection,
+  validatesCuratedMemorySemantics,
+} from "../domain/memory/index.js";
 import { canonicalizeJson } from "../domain/schema/index.js";
 import type { WriteFilePrecondition } from "../domain/effects.js";
 import {
@@ -73,7 +76,12 @@ export async function observeMemory(
         proposalDigest: anchored.digests.sha256(
           canonicalizeJson(proposal.value),
         ),
-        now: anchored.clock.now().toISOString(),
+        // Apply replays the reviewed instant, while all bytes are observed now.
+        now:
+          invocation.flags.get("--yes") === true &&
+          typeof invocation.flags.get("--plan-time") === "string"
+            ? (invocation.flags.get("--plan-time") as string)
+            : anchored.clock.now().toISOString(),
         digest: (value) => anchored.digests.sha256(value),
       },
       ports: anchored,
@@ -140,7 +148,13 @@ async function readCuratedState(
       value: JSON.parse(await ports.durableFileSystem.readText(ledgerPath)),
       structuralReasonCode: "runtime.state_corrupt",
     });
-    if (prepared.kind !== "valid") return corrupt(ledgerPath);
+    if (
+      prepared.kind !== "valid" ||
+      !validatesCuratedMemorySemantics(prepared.value, (value) =>
+        ports.digests.sha256(value),
+      )
+    )
+      return corrupt(ledgerPath);
     const projection = await ports.durableFileSystem.readText(projectionPath);
     if (
       validateCuratedMemoryProjection(prepared.value, projection, (value) =>
@@ -225,7 +239,11 @@ export async function readCandidates(
   return {
     kind: "value",
     value: candidates.sort((left, right) =>
-      left.candidateId.localeCompare(right.candidateId),
+      left.candidateId < right.candidateId
+        ? -1
+        : left.candidateId > right.candidateId
+          ? 1
+          : 0,
     ),
   };
 }

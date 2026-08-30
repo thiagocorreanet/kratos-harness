@@ -273,6 +273,26 @@ export async function runCommandLine(
             eventReducers: decision.eventReducers,
           },
     );
+    if (
+      outcome.kind === "committed" &&
+      decision.cleanupCandidates !== undefined
+    ) {
+      for (const candidate of decision.cleanupCandidates) {
+        try {
+          const current = await applyPorts.durableFileSystem.inspect(
+            candidate.path,
+          );
+          if (
+            current.kind === "file" &&
+            current.size === candidate.expected.size &&
+            current.sha256 === candidate.expected.sha256
+          )
+            await applyPorts.durableFileSystem.removeFile(candidate.path);
+        } catch {
+          // Candidate cleanup is deliberately best effort after authority commits.
+        }
+      }
+    }
     const result =
       outcome.kind === "noop" && decision.result.stateChanged
         ? { ...decision.result, stateChanged: false }
