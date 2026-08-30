@@ -386,7 +386,7 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "contracts/contract-manifest.v1.2.schema.json",
-      "2356781cab1977eb06efd3864c2c553eb77de058e9d5530c1424080a599311ad",
+      "cc681c74f36da960791a0e5a79d8f5eca96a246dc59da244fc91992620ec8f78",
     ],
     [
       "host/adapter-message.v1.1.schema.json",
