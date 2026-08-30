@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -303,6 +303,104 @@ describe("the init command", () => {
     });
   });
 
+  it("refuses a concurrent profile update without publishing partial initialization writes", async () => {
+    const initialAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "resolved", value: "npm run lint:old" },
+        },
+      },
+    });
+    const first = subject(initialAnswers);
+    expect(await runCommandLine(["init"], first.ports)).toBe(0);
+    const settled = first.storage.snapshot();
+    const reinitAnswers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude", "codex"],
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm run test:unit" },
+        },
+      },
+    });
+    const run = subject(
+      reinitAnswers,
+      settled.files,
+      {},
+      [],
+      settled.directories,
+    );
+    const projectFileSystem = run.ports.fileSystem;
+    let raced = false;
+    const ports: RuntimePorts = {
+      ...run.ports,
+      fileSystem: {
+        ...projectFileSystem,
+        list: async (path) => {
+          const entries = await projectFileSystem.list(path);
+          if (!raced && path === ".") {
+            raced = true;
+            const concurrent = JSON.parse(
+              run.storage.snapshot().files[".brain/config.json"] ?? "null",
+            ) as {
+              projectProfile: {
+                commands: {
+                  lint: { status: "resolved"; value: string };
+                };
+              };
+            };
+            concurrent.projectProfile.commands.lint.value =
+              "npm run lint:concurrent";
+            await run.storage.fileSystem.write(
+              ".brain/config.json",
+              `${JSON.stringify(concurrent, null, 2)}\n`,
+            );
+          }
+          return entries;
+        },
+      },
+    };
+
+    expect(
+      await runCommandLine(["--json", "init"], ports),
+      run.output.structured_.join("") + run.output.human_.join(""),
+    ).toBe(5);
+
+    const result = JSON.parse(run.output.structured_.join("")) as {
+      readonly reasonCode: string;
+      readonly evidence: readonly { readonly ref: string }[];
+    };
+    expect(result).toMatchObject({
+      reasonCode: "runtime.revision_conflict",
+      evidence: [{ ref: ".brain/config.json" }],
+    });
+    const after = run.storage.snapshot().files;
+    expect(JSON.parse(after[".brain/config.json"] ?? "null")).toMatchObject({
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "resolved", value: "npm run lint:concurrent" },
+        },
+      },
+    });
+    expect(
+      Object.fromEntries(
+        Object.entries(after).filter(([path]) => path !== ".brain/config.json"),
+      ),
+    ).toEqual(
+      Object.fromEntries(
+        Object.entries(settled.files).filter(
+          ([path]) => path !== ".brain/config.json",
+        ),
+      ),
+    );
+  });
+
   it("refuses initialization over project configuration 1.2 until explicit migration", async () => {
     const run = subject(ANSWERS, {
       ".brain/config.json": `${JSON.stringify(projectConfigV1_2, null, 2)}\n`,
@@ -571,6 +669,32 @@ describe("the init command", () => {
       expect(await readFile(join(target, "CLAUDE.md"), "utf8")).toContain(
         "BEGIN KRATOS MANAGED SECTION",
       );
+    } finally {
+      await rm(target, { force: true, recursive: true });
+    }
+  });
+
+  it("renders a hostile suffix-marker filename from the real filesystem as one inert table cell", async () => {
+    const target = await mkdtemp(join(tmpdir(), "kratos-init-hostile-stack-"));
+    const hostile = "Runtime\n| injected | row |.csproj";
+    try {
+      await writeFile(join(target, hostile), "", "utf8");
+      const output = recordingOutput();
+      const ports = createRuntime({
+        output,
+        standardInput: pipedInput(ANSWERS),
+      });
+
+      expect(await runCommandLine(["init", "--root", target], ports)).toBe(0);
+
+      const profile = await readFile(
+        join(target, ".brain/01-architecture/stack-profile.md"),
+        "utf8",
+      );
+      expect(profile).toContain(
+        "| dotnet | `Runtime\\n&#124; injected &#124; row &#124;.csproj` |",
+      );
+      expect(profile).not.toContain(hostile);
     } finally {
       await rm(target, { force: true, recursive: true });
     }

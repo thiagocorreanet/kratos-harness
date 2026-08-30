@@ -28,9 +28,14 @@ conversation, and agent output are observations, not migration authority.
 
 The preview is read-only. It renders every resolved `planner`, `implementer`,
 and `judge` assignment, including adapter-default markers, along with source,
-destination, answer, catalog, and write-set digests. Bare model names normalize
-to effort `medium`. Profile leaves come only from typed answers or preserved
-current state; missing new leaves become explicit unresolved state. Unknown
+destination, answer, catalog, and write-set digests. It also renders all ten
+profile leaves in stable order; terminal controls are shown visibly and other
+terminal-unsafe values use labeled UTF-16 hexadecimal chunks. Bare model names
+normalize to effort `medium`. Profile leaves come only from typed answers or
+preserved current state; missing new leaves become explicit unresolved state.
+For `1.1.0` and `1.2.0` sources, omitted role fields preserve both configured
+host maps, while an explicit host role map canonically replaces only that host.
+Unknown
 aliases, unsupported efforts, missing roles, and canonical
 implementer/judge equality fail closed with no fallback and no write.
 

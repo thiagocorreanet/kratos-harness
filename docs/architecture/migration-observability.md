@@ -25,11 +25,16 @@ record enabled hosts, so an answers document must confirm them; `.claude`,
 authority. Role maps use the same resolution as initialization: explicit
 assignments override adapter defaults, and every persisted planner,
 implementer, and judge assignment is canonical, complete, and independent.
+For `1.1.0` and `1.2.0` sources, omitted role fields preserve both persisted
+host maps; only an explicit host role map replaces that host after canonical
+resolution, and confirmed hosts are derived from the final merged map.
 Profile answers fill only caller-supplied leaves; omitted new leaves become
 explicit unresolved state. Preview prints the source and destination digests,
 confirmed hosts, all assignments and profile values, a stable plan instant,
 and the exact six-file write list with one SHA-256 per final content byte
-sequence, without mutating the project. It also prints the complete apply
+sequence, without mutating the project. Control-bearing profile values are
+visibly encoded, and values rejected by the public terminal-text policy use a
+chunked UTF-16 hexadecimal representation. It also prints the complete apply
 command.
 
 Apply requires `--yes`, the caller-carried `--plan-digest`, and the preview's

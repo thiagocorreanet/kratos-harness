@@ -323,16 +323,20 @@ async function observeConfig(
       ) {
         return resultFailure("trail.output_invalido");
       }
+      const modelRoles = mergeExplicitModelRoles(
+        document.value,
+        legacy.modelRoles,
+        answers.answers.modelRoles,
+      );
       destination = upgradeProjectConfigurationV1_3(
-        upgradeProjectConfigurationV1_2({
-          ...legacy,
-          modelRoles: answers.answers.modelRoles,
-        }),
+        upgradeProjectConfigurationV1_2({ ...legacy, modelRoles }),
         answers.answers.projectProfile,
       );
-      hosts = answers.answers.hosts;
+      hosts = configuredHosts(modelRoles);
       answersAuthority = document.authority;
-      defaulted = answers.defaulted;
+      defaulted = answers.defaulted.filter(
+        (path) => !path.startsWith("modelRoles."),
+      );
     } else {
       if (
         document.result.why[0] !==

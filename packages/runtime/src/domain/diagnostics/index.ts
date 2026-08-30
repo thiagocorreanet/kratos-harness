@@ -131,17 +131,18 @@ export function diagnose(
 export function deriveStackProfileCheck(
   observation: StackProfileReadinessObservation,
 ): DoctorObservation {
-  const base = {
-    name: "stack-profile",
-    evidenceRef: ".brain/01-architecture/stack-profile.md",
-  } as const;
   if (observation.authoritativeState.kind === "invalid") {
     return {
-      ...base,
+      name: "stack-profile",
+      evidenceRef: ".brain/config.json",
       status: "fail",
       details: ["The authoritative project configuration is invalid."],
     };
   }
+  const base = {
+    name: "stack-profile",
+    evidenceRef: ".brain/01-architecture/stack-profile.md",
+  } as const;
   if (observation.authoritativeState.kind === "migration-required") {
     return {
       ...base,

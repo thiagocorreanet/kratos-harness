@@ -128,7 +128,7 @@ function code(value: string): string {
 
 /** Escape every character that could alter a Markdown table or inline span. */
 function escape(value: string): string {
-  return value
+  return visiblyEscapeControls(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -150,7 +150,13 @@ function visiblyEscapeControls(value: string): string {
   let escaped = "";
   for (const character of value) {
     const codePoint = character.codePointAt(0);
-    if (codePoint === undefined || (codePoint > 31 && codePoint !== 127)) {
+    if (
+      codePoint === undefined ||
+      (codePoint > 31 &&
+        codePoint !== 127 &&
+        codePoint !== 0x2028 &&
+        codePoint !== 0x2029)
+    ) {
       escaped += character;
     } else if (character === "\n") {
       escaped += "\\n";

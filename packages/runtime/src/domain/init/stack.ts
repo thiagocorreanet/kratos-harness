@@ -61,9 +61,7 @@ const SUFFIX_MARKERS: readonly (readonly [string, StackId])[] = [
  */
 export function profileStack(evidence: RepositoryEvidence): StackProfile {
   const found = new Map<StackId, string>();
-  for (const entry of [...evidence.rootEntries].sort((left, right) =>
-    left.localeCompare(right, "en-US"),
-  )) {
+  for (const entry of [...evidence.rootEntries].sort(compareText)) {
     const id = markerFor(entry);
     if (id !== null && !found.has(id)) found.set(id, entry);
   }
@@ -74,6 +72,11 @@ export function profileStack(evidence: RepositoryEvidence): StackProfile {
     stacks: Object.freeze(stacks),
     unrecognized: stacks.length === 0,
   });
+}
+
+/** A locale-neutral total order whose result cannot depend on input order. */
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function markerFor(entry: string): StackId | null {

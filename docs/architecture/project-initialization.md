@@ -269,12 +269,20 @@ runtime-owned policy boundary.
 
 The runtime renders `.brain/01-architecture/stack-profile.md` from the typed
 profile, offline root-entry stack evidence, and configured language policy.
-The document is a deterministic projection, not an answer source. `kratos doctor`
+Control-bearing root filenames visibly encode C0, DEL, and Unicode line
+separators before Markdown escaping. The document is a deterministic
+projection, not an answer source. `kratos doctor`
 compares its exact bytes with a fresh rendering and reports each
 unresolved typed key. Missing or drifted bytes warn; an unreadable or non-file
 destination and invalid authoritative configuration fail. A `not-applicable`
 leaf counts as complete. Neither `init` nor `doctor` executes configured
 commands.
+
+Reinitialization reads the authoritative configuration as one stable,
+fingerprinted byte snapshot. The exact fingerprint becomes the configuration
+write precondition, so a concurrent profile update returns
+`runtime.revision_conflict` before any initialization write instead of being
+replaced by the stale decision.
 
 With no pipe and no `--answers`, `init` waits on standard input the way any
 filter does. In a terminal it does not: reading a TTY would hang the process

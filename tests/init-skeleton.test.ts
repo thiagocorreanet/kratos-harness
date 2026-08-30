@@ -358,6 +358,19 @@ describe("the generated skeleton", () => {
     expect(profile).toContain("| node | `package.json` |");
   });
 
+  it("visibly encodes control-bearing stack evidence before Markdown escaping", () => {
+    const hostile = "Runtime\u0000\t\r\n\u007f\u2028\u2029|`injected.csproj";
+    const profile = contentAt(
+      skeletonEffects(answers(), profileStack({ rootEntries: [hostile] })),
+      ".brain/01-architecture/stack-profile.md",
+    );
+
+    expect(profile).toContain(
+      "| dotnet | `Runtime\\u0000\\t\\r\\n\\u007f\\u2028\\u2029&#124;&#96;injected.csproj` |",
+    );
+    expect(profile).not.toContain(hostile);
+  });
+
   it("renders a recognized root byte for byte without inventing profile values", () => {
     const profile = contentAt(
       skeletonEffects(answers(), nodeProject),

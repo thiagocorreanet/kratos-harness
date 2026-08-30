@@ -95,6 +95,7 @@ describe("commands that observe before deciding", () => {
     const decision = dispatch(
       invocationWith({
         kind: "initialization",
+        configExpected: { kind: "missing" },
         rootEntries: ["package.json", "README.md"],
         answers: {
           kind: "invalid",

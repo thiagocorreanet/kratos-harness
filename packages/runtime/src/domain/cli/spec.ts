@@ -137,6 +137,8 @@ export type CommandObservation =
        * that must stay pure.
        */
       readonly answers: ResolvedInitAnswers;
+      /** Exact authoritative configuration identity used to resolve profile leaves. */
+      readonly configExpected: WriteFilePrecondition;
       /** Entry names at the project root, for stack profiling. */
       readonly rootEntries: readonly string[];
       /**

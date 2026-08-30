@@ -1,4 +1,5 @@
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
+import type { WriteFilePrecondition } from "../domain/effects.js";
 import {
   destinationsOf,
   profileStack,
@@ -20,6 +21,8 @@ import type { RuntimePorts } from "../ports/index.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { createSchemaRegistry } from "./schema.js";
+
+const encoder = new TextEncoder();
 
 export type Observed =
   | { readonly kind: "failure"; readonly result: Result }
@@ -84,6 +87,7 @@ export async function observeInitialization(
       kind: "initialization",
       resolution: root.resolution,
       answers,
+      configExpected: persisted.expected,
       rootEntries,
       destinations: await observeDestinations(answers, rootEntries, anchored),
     },
@@ -95,20 +99,41 @@ async function observePersistedProfile(
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<
-  | { readonly kind: "profile"; readonly profile?: ResolvedProjectProfile }
+  | {
+      readonly kind: "profile";
+      readonly profile?: ResolvedProjectProfile;
+      readonly expected: WriteFilePrecondition;
+    }
   | Extract<Observed, { readonly kind: "failure" }>
 > {
   const path = ".brain/config.json";
-  const entry = await ports.durableFileSystem.inspect(path);
-  if (entry.kind === "missing") return { kind: "profile" };
-  if (entry.kind !== "file")
+  const before = await ports.durableFileSystem.inspect(path);
+  if (before.kind === "missing") {
+    return { kind: "profile", expected: { kind: "missing" } };
+  }
+  if (before.kind !== "file")
     return configurationFailure("guard.config_corrupt");
+
+  let content: string;
+  try {
+    content = await ports.durableFileSystem.readText(path);
+  } catch {
+    return configurationFailure("runtime.revision_conflict");
+  }
+  const after = await ports.durableFileSystem.inspect(path);
+  if (
+    after.kind !== "file" ||
+    after.size !== before.size ||
+    after.sha256 !== before.sha256 ||
+    encoder.encode(content).byteLength !== before.size ||
+    ports.digests.sha256(content) !== before.sha256
+  ) {
+    return configurationFailure("runtime.revision_conflict");
+  }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(
-      await ports.durableFileSystem.readText(path),
-    ) as unknown;
+    parsed = JSON.parse(content) as unknown;
   } catch {
     return configurationFailure("guard.config_corrupt");
   }
@@ -129,7 +154,11 @@ async function observePersistedProfile(
         : "guard.config_corrupt",
     );
   }
-  return { kind: "profile", profile: validated.value.projectProfile };
+  return {
+    kind: "profile",
+    profile: validated.value.projectProfile,
+    expected: { kind: "file", size: before.size, sha256: before.sha256 },
+  };
 }
 
 function stateContract(value: unknown): unknown {

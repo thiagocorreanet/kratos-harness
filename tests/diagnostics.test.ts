@@ -218,7 +218,10 @@ describe("read-only diagnostics", () => {
       expect(deriveStackProfileCheck(observation)).toEqual({
         name: "stack-profile",
         status,
-        evidenceRef: ".brain/01-architecture/stack-profile.md",
+        evidenceRef:
+          observation.authoritativeState.kind === "invalid"
+            ? ".brain/config.json"
+            : ".brain/01-architecture/stack-profile.md",
         details,
       });
     },
