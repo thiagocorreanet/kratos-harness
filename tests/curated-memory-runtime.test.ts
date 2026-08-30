@@ -371,6 +371,25 @@ describe("curated memory promotion", () => {
     }
   });
 
+  it("returns a validated projection-drift public result with cause and evidence", async () => {
+    const run = subject();
+    await overwrite(run, ".brain/03-memory/gotchas.md", "changed\n");
+    expect(
+      await runCommandLine(
+        ["--json", "memory", "promote", "proposal.json"],
+        run.ports,
+      ),
+    ).toBe(4);
+    const result = JSON.parse(run.output.structured_.at(-1) ?? "") as {
+      reasonCode: string;
+      why: string[];
+      evidence: unknown[];
+    };
+    expect(result.reasonCode).toBe("memory.projection_drift");
+    expect(result.why).not.toEqual([]);
+    expect(result.evidence).toHaveLength(2);
+  });
+
   it("retains a candidate when post-commit cleanup fails", async () => {
     const run = subject();
     await runCommandLine(["memory", "promote", "proposal.json"], run.ports);

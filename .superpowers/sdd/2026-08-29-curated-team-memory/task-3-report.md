@@ -83,3 +83,17 @@
   failpoint proves recovery after the first canonical swap: recovery restores a
   ledger/projection-valid pair and retains the unconsumed candidate.
 - GREEN: `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts` — 18 tests passed.
+
+## Fix Round 2
+
+- `memory.projection_drift` now supplies a stable nonempty public cause and
+  both required artifact references. Its runtime JSON regression asserts the
+  exact reason, cause, and evidence count.
+- Semantic curation links now resolve replacement identities in either active
+  or retained archived state. Chained `A+B→R`, `R+S→T`, and archival validation
+  are covered without allowing duplicate identities or dangling links.
+- Apply-command rendering now emits canonical POSIX single-quote escapes
+  (`'a'\''b'`) and preserves `--root`; apostrophe, whitespace, dollar, and
+  semicolon values are asserted as exact safe output.
+- GREEN: focused domain/runtime/CLI/schema/transaction command passed 5 files,
+  151 tests; typecheck and lint passed.

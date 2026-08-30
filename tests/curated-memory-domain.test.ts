@@ -401,4 +401,81 @@ describe("curated memory domain", () => {
       ),
     ).toEqual({ kind: "curation_required" });
   });
+
+  it("keeps chained replacement links valid through merge and archive", () => {
+    const digest = (value: string) => value;
+    const promote = (
+      ledger: CuratedMemoryV1,
+      title: string,
+      candidate: string,
+    ) => {
+      const outcome = reduceMemoryChange(
+        ledger,
+        {
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
+          operation: "promote",
+          reviewer: "reviewer",
+          candidateIds: [candidate.repeat(64)],
+          title,
+          why: [title],
+          apply: [title],
+        },
+        "2026-08-29T00:00:00Z",
+        digest,
+      );
+      if (outcome.kind !== "ready") throw new Error("expected promotion");
+      return outcome.ledger;
+    };
+    const a = promote(EMPTY, "A", "a");
+    const b = promote(a, "B", "b");
+    const merge = (
+      ledger: CuratedMemoryV1,
+      lessonIds: string[],
+      title: string,
+    ) => {
+      const outcome = reduceMemoryChange(
+        ledger,
+        {
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
+          operation: "merge",
+          reviewer: "reviewer",
+          lessonIds,
+          title,
+        },
+        "2026-08-29T00:00:00Z",
+        digest,
+      );
+      if (outcome.kind !== "ready") throw new Error("expected merge");
+      return outcome.ledger;
+    };
+    const r = merge(
+      b,
+      b.confirmed.map(({ lessonId }) => lessonId),
+      "R",
+    );
+    const s = promote(r, "S", "s");
+    const t = merge(
+      s,
+      s.confirmed.map(({ lessonId }) => lessonId),
+      "T",
+    );
+    expect(validatesCuratedMemorySemantics(t, digest)).toBe(true);
+    const archived = reduceMemoryChange(
+      t,
+      {
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        operation: "archive",
+        reviewer: "reviewer",
+        lessonId: t.confirmed[0]!.lessonId,
+        reason: "obsolete",
+      },
+      "2026-08-29T00:00:00Z",
+      digest,
+    );
+    if (archived.kind !== "ready") throw new Error("expected archive");
+    expect(validatesCuratedMemorySemantics(archived.ledger, digest)).toBe(true);
+  });
 });

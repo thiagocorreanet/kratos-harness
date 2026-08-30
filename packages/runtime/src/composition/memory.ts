@@ -164,6 +164,9 @@ async function readCuratedState(
       return {
         kind: "failure",
         result: resultFor("memory.projection_drift", {
+          why: [
+            "The rendered curated-memory projection does not match its ledger.",
+          ],
           evidence: [
             { kind: "artifact", ref: ledgerPath },
             { kind: "artifact", ref: projectionPath },

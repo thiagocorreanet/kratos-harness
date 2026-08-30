@@ -297,7 +297,7 @@ export function renderMemoryApplyCommand(
   const quote = (value: string): string =>
     /^[A-Za-z0-9_./:@=-]+$/u.test(value)
       ? value
-      : `'${value.replaceAll("'", `"'"'`)}'`;
+      : `'${value.replaceAll("'", "'\\''")}'`;
   const root = invocation.flags.get("--root");
   return [
     "kratos",

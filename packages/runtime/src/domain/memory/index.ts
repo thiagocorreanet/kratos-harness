@@ -94,12 +94,15 @@ export function validatesCuratedMemorySemantics(
   for (const tombstone of ledger.archive) {
     if (active.has(tombstone.lessonId) || archived.has(tombstone.lessonId))
       return false;
+    archived.add(tombstone.lessonId);
+  }
+  const identities = new Set([...active, ...archived]);
+  for (const tombstone of ledger.archive) {
     if (
       tombstone.replacementLessonId !== null &&
-      !active.has(tombstone.replacementLessonId)
+      !identities.has(tombstone.replacementLessonId)
     )
       return false;
-    archived.add(tombstone.lessonId);
   }
   return true;
 }

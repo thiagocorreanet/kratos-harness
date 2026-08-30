@@ -19,7 +19,13 @@ function invoke(argv: readonly string[]) {
 describe("implemented commands", () => {
   it("quotes memory apply paths and preserves an explicit root", () => {
     const parsed = parseInvocation(
-      ["memory", "promote", "proposal; $(bad).json", "--root", "a root;$(bad)"],
+      [
+        "memory",
+        "promote",
+        "proposal 'x'; $(bad).json",
+        "--root",
+        "a root'$;$(bad)",
+      ],
       DEFAULT_REGISTRY,
     );
     if (parsed.kind !== "invocation") throw new Error("expected invocation");
@@ -31,7 +37,7 @@ describe("implemented commands", () => {
         "2026-08-29T00:00:00Z",
       ),
     ).toBe(
-      "kratos memory promote --root 'a root;$(bad)' 'proposal; $(bad).json' --yes --proposal-digest aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --plan-digest bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --plan-time 2026-08-29T00:00:00Z",
+      String.raw`kratos memory promote --root 'a root'\''$;$(bad)' 'proposal '\''x'\''; $(bad).json' --yes --proposal-digest aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --plan-digest bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --plan-time 2026-08-29T00:00:00Z`,
     );
   });
   it("registers exactly the commands that work today", () => {
