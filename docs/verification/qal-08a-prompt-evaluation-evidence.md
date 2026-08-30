@@ -30,7 +30,7 @@ This document records verification evidence for the prompt evaluation harness im
 
 ### 3.1 Prompt Evaluation Replay Execution (`npm run eval:prompts -- --replay`)
 
-```
+```text
 > kratos-harness@0.0.0-development eval:prompts
 > node scripts/evaluate-prompts.mjs --replay
 
@@ -67,7 +67,7 @@ it does not constitute mathematical proof of prompt correctness on arbitrary inp
 
 ### 3.2 Unit and Acceptance Test Suite Execution (`npx vitest run tests/prompt-eval*.test.ts`)
 
-```
+```text
  ✓ tests/prompt-eval-model.test.ts (3 tests)
  ✓ tests/prompt-eval-mechanical.test.ts (5 tests)
  ✓ tests/prompt-eval-analysis.test.ts (3 tests)
@@ -82,7 +82,8 @@ Tests       20 passed (20)
 ### 3.3 Fast-Fail on Missing Credentials
 
 Running `node scripts/evaluate-prompts.mjs` without environment credentials:
-```
+
+```text
 Error: Prompt evaluation requires model credentials in environment (e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY) or run with --replay for deterministic fixtures.
 (Process exit code: 1)
 ```

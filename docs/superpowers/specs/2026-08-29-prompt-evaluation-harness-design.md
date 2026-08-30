@@ -8,7 +8,7 @@ The subsystem emphasizes deterministic mechanical assertions over machine blocks
 
 ## 2. Architecture & Core Boundaries
 
-```
+```text
 +-------------------------------------------------------------------------------+
 |                             Evaluation Engine                                 |
 |                                                                               |
@@ -159,6 +159,7 @@ export interface CaseComparisonReport {
 ### 4.1 Mechanical Assertion Evaluation
 
 Mechanical assertions operate deterministically on the model's reply text by extracting the machine block using `extractAgentBlock` and checking schema & coherence contracts:
+
 - `schema_valid`: Validates against `AgentOutputV1` schema via Ajv compiler.
 - `coherence_valid`: Executes `checkAgentOutput` to confirm no internal contradictions.
 - `scope_bounded`: Checks all `changedFiles` against permissible paths or bounds.

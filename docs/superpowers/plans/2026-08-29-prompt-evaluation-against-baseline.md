@@ -24,12 +24,14 @@
 ### Task 1: Prompt Evaluation Domain Contracts and Types
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-eval/model.ts`
 - Create: `packages/runtime/src/domain/prompt-eval/index.ts`
 - Modify: `packages/runtime/src/domain/index.ts`
 - Test: `tests/prompt-eval-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `@kratos/contracts` (`AgentOutputV1`), `@kratos/runtime/domain/phase-agents` (`PhaseAgentId`)
 - Produces: `PromptEvaluationCase`, `PromptAssertion`, `MechanicalRule`, `TrialObservation`, `VariantMetrics`, `CaseComparisonReport`, `AssertionDiscrimination`
 
@@ -212,11 +214,13 @@ git commit -m "feat(runtime): define prompt evaluation domain models and types"
 ### Task 2: Pure Mechanical Assertion Evaluator
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-eval/mechanical.ts`
 - Modify: `packages/runtime/src/domain/prompt-eval/index.ts`
 - Test: `tests/prompt-eval-mechanical.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MechanicalRule`, `extractAgentBlock`, `checkAgentOutput`, `@kratos/runtime/domain/schema`
 - Produces: `evaluateMechanicalRule(rawReply: string, rule: MechanicalRule): { passed: boolean; reason?: string }`
 
@@ -399,11 +403,13 @@ git commit -m "feat(runtime): implement deterministic mechanical assertion evalu
 ### Task 3: Discrimination, Spread, and Comparison Analysis Engine
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-eval/analysis.ts`
 - Modify: `packages/runtime/src/domain/prompt-eval/index.ts`
 - Test: `tests/prompt-eval-analysis.test.ts`
 
 **Interfaces:**
+
 - Consumes: `VariantMetrics`, `PromptAssertion`, `TrialObservation`
 - Produces: `calculateVariantMetrics`, `classifyDiscrimination`, `generateComparisonReport`
 
@@ -718,12 +724,14 @@ git commit -m "feat(runtime): implement discrimination classification and spread
 ### Task 4: Evaluation Provider Interface and Dual-Run Runner
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-eval/provider.ts`
 - Create: `packages/runtime/src/domain/prompt-eval/runner.ts`
 - Modify: `packages/runtime/src/domain/prompt-eval/index.ts`
 - Test: `tests/prompt-eval-runner.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PromptEvaluationCase`, `PHASE_AGENT_PROMPTS`
 - Produces: `EvaluationModelProvider`, `DeterministicReplayProvider`, `runPromptEvaluationCase`
 
@@ -1010,6 +1018,7 @@ git commit -m "feat(runtime): implement prompt evaluation dual-run trial runner"
 ### Task 5: Evaluation Fixtures (Cases, Non-Discriminating Fixture, and Baselines)
 
 **Files:**
+
 - Create: `quality/evaluations/prompts/cases/code-implementer.v1.json`
 - Create: `quality/evaluations/prompts/cases/spec-reviewer.v1.json`
 - Create: `quality/evaluations/prompts/cases/non-discriminating-sample.v1.json`
@@ -1018,6 +1027,7 @@ git commit -m "feat(runtime): implement prompt evaluation dual-run trial runner"
 - Test: `tests/prompt-eval-fixtures.test.ts`
 
 **Interfaces:**
+
 - Fixtures satisfy `PromptEvaluationCase`
 - Test verifies non-discriminating sample identifies baseline assertions
 
@@ -1071,6 +1081,7 @@ Expected: FAIL with file not found.
 - [ ] **Step 3: Create fixture files and README in `quality/evaluations/prompts/`**
 
 Create `quality/evaluations/prompts/cases/code-implementer.v1.json`:
+
 ```json
 {
   "id": "code-implementer-single-step",
@@ -1120,6 +1131,7 @@ Create `quality/evaluations/prompts/cases/code-implementer.v1.json`:
 ```
 
 Create `quality/evaluations/prompts/cases/spec-reviewer.v1.json`:
+
 ```json
 {
   "id": "spec-reviewer-audit",
@@ -1164,6 +1176,7 @@ Create `quality/evaluations/prompts/cases/spec-reviewer.v1.json`:
 ```
 
 Create `quality/evaluations/prompts/cases/non-discriminating-sample.v1.json`:
+
 ```json
 {
   "id": "non-discriminating-sample",
@@ -1185,6 +1198,7 @@ Create `quality/evaluations/prompts/cases/non-discriminating-sample.v1.json`:
 ```
 
 Create `quality/evaluations/prompts/baselines/current-baseline.v1.json`:
+
 ```json
 {
   "recordedAt": "2026-08-29T18:00:00.000Z",
@@ -1209,6 +1223,7 @@ Create `quality/evaluations/prompts/baselines/current-baseline.v1.json`:
 ```
 
 Create `quality/evaluations/prompts/README.md`:
+
 ```markdown
 # Prompt Evaluation Against Baseline
 
@@ -1245,9 +1260,11 @@ git commit -m "feat(quality): add prompt evaluation fixtures, non-discriminating
 ### Task 6: Comprehensive Prompt Evaluation Suite Tests
 
 **Files:**
+
 - Create: `tests/prompt-evaluations.test.ts`
 
 **Interfaces:**
+
 - Tests all acceptance criteria:
   1. Dual-run with neither side skipped when the other fails.
   2. Identical resolutions reported as non-discriminating.
@@ -1403,10 +1420,12 @@ git commit -m "test: add comprehensive prompt evaluation acceptance criteria sui
 ### Task 7: Standalone CLI Script, Missing Credential Handling, and Package Entry Point
 
 **Files:**
+
 - Create: `scripts/evaluate-prompts.mjs`
 - Modify: `package.json:20-21`
 
 **Interfaces:**
+
 - Entry point `npm run eval:prompts`
 - Fails with exit code 1 and descriptive error when no credentials are provided without `--replay`
 
@@ -1521,6 +1540,7 @@ git commit -m "feat(scripts): add eval:prompts entry point and failure on missin
 ### Task 8: Verification & Evidence Ledger
 
 **Files:**
+
 - Create: `docs/verification/qal-08a-prompt-evaluation-evidence.md`
 
 - [ ] **Step 1: Run complete repository verification**
