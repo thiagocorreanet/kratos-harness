@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 
@@ -367,6 +367,14 @@ describe("packaged phase-agent relay", () => {
         occurredAt: "2026-08-30T12:00:00.000Z",
         assignmentDigest: "a".repeat(64),
       });
+      expect(
+        ajvSchemaRegistry().validate({
+          id: "host.phase-lifecycle",
+          version: "1.0.0",
+          value: JSON.parse(lifecycleContent) as unknown,
+          structuralReasonCode: "trail.output_invalido",
+        }).kind,
+      ).toBe("valid");
       expect(runtimeCalls[2]?.args.slice(1)).toEqual([
         "--json",
         "agent",
@@ -544,6 +552,69 @@ describe("packaged phase-agent relay", () => {
     expect(captures[0]?.lifecycle).toBe(captures[1]?.lifecycle);
     expect(captures[0]?.message).toEqual(captures[1]?.message);
   });
+
+  it.each([
+    ["traversal session", { sessionId: "../outside" }, null],
+    ["space in session", { sessionId: "session a" }, null],
+    ["bad correlation", { correlationId: "phase start" }, null],
+    ["bad timestamp", { occurredAt: "2026-08-30 12:00:00" }, null],
+    ["bad digest", {}, "bad-digest"],
+    ["oversize session", { sessionId: "a".repeat(129) }, null],
+  ] as const)(
+    "refuses %s before staging or launching",
+    async (_label, invalidInput, invalidDigest) => {
+      const relay = await packagedRelay("codex");
+      const temporary = await mkdtemp(join(tmpdir(), "kratos-phase-invalid-"));
+      const project = join(temporary, "project");
+      await mkdir(join(project, ".brain"), { recursive: true });
+      let runtimeCalls = 0;
+      let launches = 0;
+      try {
+        await expect(
+          relay.relaySelectedPhase({
+            root: project,
+            modelRouting: codexCatalog(),
+            messageId: "phase-result-invalid",
+            correlationId: "phase-start-invalid",
+            sessionId: "trusted-session-invalid",
+            occurredAt: "2026-08-30T12:00:00.000Z",
+            ...invalidInput,
+            spawnRuntime: (_executable, args) => {
+              runtimeCalls += 1;
+              return args.includes("handoff")
+                ? {
+                    status: 0,
+                    stdout: `${JSON.stringify({
+                      ...handoff("codex"),
+                      ...(invalidDigest === null
+                        ? {}
+                        : { assignmentDigest: invalidDigest }),
+                    })}\n`,
+                    stderr: "",
+                  }
+                : {
+                    status: 0,
+                    stdout: '{"reasonCode":"trail.ok"}\n',
+                    stderr: "",
+                  };
+            },
+            launcher: {
+              exactSelection: { model: true, effort: true },
+              launch: () => {
+                launches += 1;
+                throw new Error("phase work must not begin");
+              },
+            },
+          }),
+        ).rejects.toThrow("Trusted phase lifecycle input is unavailable");
+        expect(runtimeCalls).toBe(1);
+        expect(launches).toBe(0);
+        expect(await readdir(join(project, ".brain"))).toEqual([]);
+      } finally {
+        await rm(temporary, { recursive: true, force: true });
+      }
+    },
+  );
 
   it.each([
     ["codex", "model", "codex", codexCatalog(), false, true],

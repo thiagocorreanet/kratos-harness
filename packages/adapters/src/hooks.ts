@@ -7,6 +7,11 @@ import type { NormalizedPreToolUse } from "./pre-tool-use.js";
 export type HookKind = HookObservationV1["kind"] | PhaseLifecycleV1["kind"];
 type NormalizedHook = HookObservationV1 | PhaseLifecycleV1;
 
+const HOST_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const HOST_TIMESTAMP =
+  /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?Z$/u;
+const SHA256 = /^[a-f0-9]{64}$/u;
+
 function record(value: unknown): Readonly<Record<string, unknown>> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Readonly<Record<string, unknown>>)
@@ -28,8 +33,11 @@ function requiredStringField(
   value: Readonly<Record<string, unknown>>,
   ...names: readonly string[]
 ): string | null {
-  const candidate = stringField(value, ...names);
-  return candidate === "unknown" ? null : candidate;
+  for (const name of names) {
+    const candidate = value[name];
+    if (typeof candidate === "string" && candidate.length > 0) return candidate;
+  }
+  return null;
 }
 
 function usage(
@@ -90,7 +98,11 @@ function normalize(kind: HookKind, input: unknown): NormalizedHook | null {
       sessionId === null ||
       correlationId === null ||
       occurredAt === null ||
-      assignmentDigest === null
+      assignmentDigest === null ||
+      !HOST_ID.test(sessionId) ||
+      !HOST_ID.test(correlationId) ||
+      !HOST_TIMESTAMP.test(occurredAt) ||
+      !SHA256.test(assignmentDigest)
     ) {
       return null;
     }
