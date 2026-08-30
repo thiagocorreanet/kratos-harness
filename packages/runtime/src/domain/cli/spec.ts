@@ -16,6 +16,8 @@ import type {
   HostOperationMessageV1,
   HookObservationV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryChangeV1_2,
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
@@ -133,6 +135,20 @@ export type CommandObservation =
       readonly operation: "capture";
       readonly candidates: readonly FailureCandidateV1[];
       readonly capture: CandidateCaptureDecision;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "change";
+      readonly candidates: readonly FailureCandidateV1[];
+      readonly ledger: CuratedMemoryV1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projection: string;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
+      readonly proposal: MemoryChangeV1_2;
+      readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
     }
   | { readonly kind: "write-guard"; readonly outcome: GuardWriteOutcome }
   | { readonly kind: "scope-record"; readonly outcome: ScopeRecordOutcome }

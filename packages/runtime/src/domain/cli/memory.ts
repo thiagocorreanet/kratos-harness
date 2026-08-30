@@ -1,8 +1,19 @@
 import { planOf, type Effect, type WriteFilePrecondition } from "../effects.js";
+import {
+  projectCuratedMemory,
+  reduceMemoryChange,
+  type MemoryChangeReduction,
+} from "../memory/index.js";
 import { resultFor } from "../result/index.js";
+import { canonicalizeJson } from "../schema/index.js";
 
 import { observingCommand } from "./observed.js";
-import type { CommandSpec, Decision } from "./spec.js";
+import type {
+  CommandObservation,
+  CommandSpec,
+  Decision,
+  Invocation,
+} from "./spec.js";
 
 const ROOT_FLAG: CommandSpec["flags"] = [
   {
@@ -83,6 +94,207 @@ export const memoryCaptureCommand: CommandSpec = observingCommand(
   },
 );
 
+const CHANGE_FLAGS: CommandSpec["flags"] = [
+  ...ROOT_FLAG,
+  {
+    name: "--yes",
+    kind: "boolean",
+    summary: "Apply the exact reviewed memory change.",
+  },
+  {
+    name: "--proposal-digest",
+    kind: "value",
+    valueLabel: "<sha256>",
+    summary: "Bind apply to the reviewed proposal.",
+  },
+  {
+    name: "--plan-digest",
+    kind: "value",
+    valueLabel: "<sha256>",
+    summary: "Bind apply to the reviewed memory plan.",
+  },
+  {
+    name: "--plan-time",
+    kind: "value",
+    valueLabel: "<instant>",
+    summary: "Bind apply to the reviewed plan time.",
+  },
+];
+
+export const memoryPromoteCommand = memoryChangeCommand(
+  ["memory", "promote"],
+  "Preview or explicitly promote local candidates into a reviewed lesson.",
+);
+export const memoryMergeCommand = memoryChangeCommand(
+  ["memory", "merge"],
+  "Preview or explicitly merge confirmed reviewed lessons.",
+);
+export const memoryArchiveCommand = memoryChangeCommand(
+  ["memory", "archive"],
+  "Preview or explicitly archive one obsolete confirmed lesson.",
+);
+
+function memoryChangeCommand(
+  path: readonly string[],
+  summary: string,
+): CommandSpec {
+  return observingCommand(
+    "memory",
+    {
+      path,
+      summary,
+      flags: CHANGE_FLAGS,
+      positionals: { min: 1, max: 1 },
+      jsonContract: "result@1.0.0",
+    },
+    (invocation, observation) => {
+      if (observation.operation !== "change") return internal();
+      if (observation.proposal.operation !== path[1]) return usage();
+      const reduction = reduceMemoryChange(
+        observation.ledger,
+        observation.proposal,
+        observation.now,
+        observation.digest,
+      );
+      if (reduction.kind !== "ready") {
+        return result(
+          reduction.kind === "candidate_missing"
+            ? "memory.candidate_missing"
+            : reduction.kind === "curation_required"
+              ? "memory.curation_required"
+              : "memory.lesson_incomplete",
+        );
+      }
+      if (observation.proposal.operation === "promote") {
+        const missing = observation.proposal.candidateIds.some(
+          (id) =>
+            !observation.candidates.some(
+              (candidate) => candidate.candidateId === id,
+            ),
+        );
+        if (missing) return result("memory.candidate_missing");
+      }
+      const planDigest = changePlanDigest(observation, reduction);
+      if (invocation.flags.get("--yes") !== true) {
+        return {
+          result: resultFor("runtime.orientation_ok", {
+            summary: `Memory ${observation.proposal.operation} plan ${planDigest} is ready.`,
+          }),
+          plan: planOf(),
+          humanStdout:
+            [
+              "Curated memory preview",
+              `Proposal digest: ${observation.proposalDigest}`,
+              `Plan digest: ${planDigest}`,
+              `Plan time: ${observation.now}`,
+              `Apply command: ${applyCommand(invocation, observation.proposalDigest, planDigest, observation.now)}`,
+            ].join("\n") + "\n",
+          payload: null,
+        };
+      }
+      if (
+        invocation.flags.get("--proposal-digest") !==
+          observation.proposalDigest ||
+        invocation.flags.get("--plan-digest") !== planDigest ||
+        invocation.flags.get("--plan-time") !== observation.now
+      )
+        return result("memory.confirmation_stale");
+      const projection = projectCuratedMemory(
+        reduction.ledger,
+        observation.digest,
+      );
+      const effects: Effect[] = [
+        write(
+          ".brain/03-memory/curated-memory.json",
+          reduction.ledger,
+          observation.ledgerExpected,
+        ),
+        {
+          kind: "write_file",
+          path: ".brain/03-memory/gotchas.md",
+          content: projection.content,
+          expected: observation.projectionExpected,
+        },
+      ];
+      for (const candidateId of reduction.consumedCandidateIds) {
+        const candidatePath = `.brain/03-memory/candidates/${candidateId}.json`;
+        if (!observation.candidateExpected.has(candidatePath))
+          return result("memory.confirmation_stale");
+        effects.push({ kind: "delete_file", path: candidatePath });
+      }
+      return {
+        result: resultFor("trail.ok", {
+          summary: `Committed curated memory ${observation.proposal.operation}.`,
+          stateChanged: true,
+          evidence: [
+            { kind: "artifact", ref: ".brain/03-memory/curated-memory.json" },
+            { kind: "artifact", ref: ".brain/03-memory/gotchas.md" },
+          ],
+        }),
+        plan: planOf(...effects),
+        humanStdout: null,
+        payload: null,
+      };
+    },
+  );
+}
+
+function result(
+  code:
+    | "memory.candidate_missing"
+    | "memory.confirmation_stale"
+    | "memory.curation_required"
+    | "memory.lesson_incomplete",
+): Decision {
+  return {
+    result: resultFor(code),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function changePlanDigest(
+  observation: Extract<
+    CommandObservation,
+    { readonly kind: "memory"; readonly operation: "change" }
+  >,
+  reduction: Extract<MemoryChangeReduction, { readonly kind: "ready" }>,
+): string {
+  return observation.digest(
+    canonicalizeJson({
+      proposalDigest: observation.proposalDigest,
+      now: observation.now,
+      ledger: observation.ledger,
+      projection: observation.projection,
+      candidateFingerprints: [...observation.candidateExpected].sort(
+        ([left], [right]) => left.localeCompare(right, "en-US"),
+      ),
+      next: reduction.ledger,
+    }),
+  );
+}
+
+function applyCommand(
+  invocation: Invocation,
+  proposalDigest: string,
+  planDigest: string,
+  planTime: string,
+): string {
+  return [
+    "kratos",
+    ...invocation.command.path,
+    invocation.positionals[0] ?? "<proposal>",
+    "--yes",
+    "--proposal-digest",
+    proposalDigest,
+    "--plan-digest",
+    planDigest,
+    "--plan-time",
+    planTime,
+  ].join(" ");
+}
+
 function write(
   path: string,
   value: unknown,
@@ -99,6 +311,15 @@ function write(
 function internal(): Decision {
   return {
     result: resultFor("runtime.internal_failure"),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function usage(): Decision {
+  return {
+    result: resultFor("trail.uso"),
     plan: planOf(),
     humanStdout: null,
     payload: null,

@@ -1,0 +1,190 @@
+import { runCommandLine } from "@kratos/runtime/composition/cli";
+import {
+  fixedClock,
+  fixedEnvironment,
+  fixedModelRouting,
+  memoryFileSystem,
+  memoryTransactionStorage,
+  memoryWorkspace,
+  pipedInput,
+  recordingOutput,
+  sequentialIds,
+  stubGit,
+} from "@kratos/runtime/infra/fake";
+import type { RuntimePorts } from "@kratos/runtime/ports";
+import { describe, expect, it } from "vitest";
+
+import { claudeCatalog } from "./support/model-routing.js";
+
+const NOW = "2026-08-29T12:00:00.000Z";
+const CANDIDATE = "a".repeat(64);
+const LEDGER = {
+  contractVersion: "1.0.0",
+  stateContract: "1.0.0",
+  revision: 0,
+  projectionDigest:
+    "09b049b364f55134c3b4942b653a7b677f7775fb67de8321064e6237da852e83",
+  updatedAt: "1970-01-01T00:00:00Z",
+  confirmed: [],
+  archive: [],
+};
+const GOTCHAS =
+  "# Gotchas\n\n## Confirmed lessons\n\nNo confirmed lessons.\n\n## Archived lessons\n\nNo archived lessons.\n";
+const PROPOSAL = {
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
+  operation: "promote",
+  reviewer: "reviewer",
+  candidateIds: [CANDIDATE],
+  title: "Avoid flaky build",
+  why: ["The build needs its generated input."],
+  apply: ["Generate inputs before build."],
+};
+
+function subject() {
+  const storage = memoryTransactionStorage({
+    directories: [
+      ".brain",
+      ".brain/transactions",
+      ".brain/03-memory",
+      ".brain/03-memory/candidates",
+    ],
+    files: {
+      ".brain/03-memory/curated-memory.json": `${JSON.stringify(LEDGER, null, 2)}\n`,
+      ".brain/03-memory/gotchas.md": GOTCHAS,
+      [`.brain/03-memory/candidates/${CANDIDATE}.json`]: `${JSON.stringify(
+        {
+          contractVersion: "1.0.0",
+          stateContract: "1.0.0",
+          candidateId: CANDIDATE,
+          toolFamily: "shell",
+          failureClass: "nonzero_exit",
+          exitCode: 1,
+          diagnostic: "build input missing",
+          firstObservedAt: NOW,
+        },
+        null,
+        2,
+      )}\n`,
+    },
+  });
+  const output = recordingOutput();
+  return {
+    storage,
+    output,
+    ports: {
+      clock: fixedClock(NOW),
+      ids: sequentialIds("id"),
+      digests: storage.digests,
+      durableFileSystem: storage.durableFileSystem,
+      fileSystem: memoryFileSystem({
+        "proposal.json": `${JSON.stringify(PROPOSAL)}\n`,
+      }),
+      environment: fixedEnvironment({}, "/project"),
+      git: stubGit(),
+      modelRouting: fixedModelRouting([claudeCatalog()]),
+      output,
+      standardInput: pipedInput(null),
+      workspace: memoryWorkspace({ directories: ["/project"] }),
+    } as unknown as RuntimePorts,
+  };
+}
+
+function previewAuthorization(text: string): {
+  readonly proposalDigest: string;
+  readonly planDigest: string;
+  readonly planTime: string;
+} {
+  const values = new Map<string, string>();
+  for (const match of text.matchAll(
+    /^(Proposal digest|Plan digest|Plan time): (.+)$/gmu,
+  )) {
+    const key = match[1];
+    const value = match[2];
+    if (key !== undefined && value !== undefined) values.set(key, value);
+  }
+  return {
+    proposalDigest: values.get("Proposal digest") ?? "",
+    planDigest: values.get("Plan digest") ?? "",
+    planTime: values.get("Plan time") ?? "",
+  };
+}
+
+describe("curated memory promotion", () => {
+  it("keeps preview read-only then commits the ledger/projection pair before consuming candidates", async () => {
+    const run = subject();
+    expect(
+      await runCommandLine(["memory", "promote", "proposal.json"], run.ports),
+    ).toBe(0);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    expect(authorization.planDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(
+      run.storage.snapshot().files[
+        `.brain/03-memory/candidates/${CANDIDATE}.json`
+      ],
+    ).toBeDefined();
+
+    expect(
+      await runCommandLine(
+        [
+          "memory",
+          "promote",
+          "proposal.json",
+          "--yes",
+          "--proposal-digest",
+          authorization.proposalDigest,
+          "--plan-digest",
+          authorization.planDigest,
+          "--plan-time",
+          authorization.planTime,
+        ],
+        run.ports,
+      ),
+    ).toBe(0);
+    const files = run.storage.snapshot().files;
+    expect(
+      files[`.brain/03-memory/candidates/${CANDIDATE}.json`],
+    ).toBeUndefined();
+    const ledger = JSON.parse(
+      files[".brain/03-memory/curated-memory.json"] ?? "",
+    ) as { readonly confirmed: readonly unknown[] };
+    expect(ledger.confirmed).toHaveLength(1);
+    expect(files[".brain/03-memory/gotchas.md"]).toContain("Avoid flaky build");
+  });
+
+  it("does not consume candidates when the managed publication faults", async () => {
+    const run = subject();
+    await runCommandLine(["memory", "promote", "proposal.json"], run.ports);
+    const authorization = previewAuthorization(run.output.structured_.join(""));
+    run.storage.fail({
+      operation: "replace_file",
+      timing: "before",
+      occurrence: 1,
+    });
+    expect(
+      await runCommandLine(
+        [
+          "memory",
+          "promote",
+          "proposal.json",
+          "--yes",
+          "--proposal-digest",
+          authorization.proposalDigest,
+          "--plan-digest",
+          authorization.planDigest,
+          "--plan-time",
+          authorization.planTime,
+        ],
+        run.ports,
+      ),
+    ).toBe(2);
+    const files = run.storage.snapshot().files;
+    expect(
+      files[`.brain/03-memory/candidates/${CANDIDATE}.json`],
+    ).toBeDefined();
+    expect(files[".brain/03-memory/curated-memory.json"]).toBe(
+      `${JSON.stringify(LEDGER, null, 2)}\n`,
+    );
+    expect(files[".brain/03-memory/gotchas.md"]).toBe(GOTCHAS);
+  });
+});
