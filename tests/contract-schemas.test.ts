@@ -46,6 +46,7 @@ const artifacts = [
   ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
+  ["host/phase-lifecycle.v1.schema.json", "phase-lifecycle.json", "host"],
   ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
@@ -56,6 +57,7 @@ const artifacts = [
     "state",
   ],
   ["state/run-usage.v1.schema.json", "run-usage.json", "state"],
+  ["state/phase-measurement.v1.schema.json", "phase-measurement.json", "state"],
   ["state/session-telemetry.v1.schema.json", "session-telemetry.json", "state"],
 ] as const;
 

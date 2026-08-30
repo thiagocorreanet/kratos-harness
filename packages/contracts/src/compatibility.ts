@@ -26,6 +26,7 @@ export const CONTRACT_VERSIONS = {
   "host.gap-proposal": "1.0.0",
   "host.hook-observation": "1.0.0",
   "host.operation-message": "1.0.0",
+  "host.phase-lifecycle": "1.0.0",
   "host.pre-tool-use": "1.0.0",
   "state.acceptance-criteria-snapshot": "1.0.0",
   "state.acceptance-verdict": "1.0.0",

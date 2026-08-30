@@ -1,6 +1,11 @@
 import { planOf, type Effect } from "../effects.js";
 import { decideDone } from "../acceptance/index.js";
 import { compareCriteriaSnapshot } from "../acceptance-criteria/index.js";
+import {
+  completePhaseMeasurement,
+  renderPhaseMeasurementLog,
+  upsertPhaseMeasurement,
+} from "../measurements/index.js";
 import { resultFor } from "../result/index.js";
 import {
   decideContinueWorkflow,
@@ -498,8 +503,25 @@ function workflowDecision(
       payload: null,
     };
   }
+  const measurementEffect = completionMeasurementEffect(workflow, observation);
+  if (measurementEffect.kind === "refused") {
+    return {
+      result: resultFor(measurementEffect.reasonCode, {
+        why: [measurementEffect.why],
+        evidence: [
+          { kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" },
+        ],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   const runRoot = `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}`;
-  const effects: Effect[] = [...authorizedEffects];
+  const effects: Effect[] = [
+    ...authorizedEffects,
+    ...(measurementEffect.effect === null ? [] : [measurementEffect.effect]),
+  ];
   let lineageRef: string | null = null;
   if (workflow.transition === "started") {
     effects.push({
@@ -585,6 +607,84 @@ function workflowDecision(
           revalidatePhaseAssignmentDigest:
             observation.phaseAssignment.value.assignmentDigest,
         }),
+  };
+}
+
+function completionMeasurementEffect(
+  workflow: Extract<WorkflowDecision, { readonly kind: "recorded" }>,
+  observation: Observation,
+):
+  | {
+      readonly kind: "accepted";
+      readonly effect: Extract<Effect, { readonly kind: "write_file" }> | null;
+    }
+  | {
+      readonly kind: "refused";
+      readonly reasonCode:
+        "metrics.phase_not_started" | "metrics.phase_assignment_conflict";
+      readonly why: string;
+    } {
+  if (
+    workflow.transition !== "accepted" &&
+    workflow.transition !== "completed"
+  ) {
+    return { kind: "accepted", effect: null };
+  }
+  const phase =
+    observation.workflow.kind === "present"
+      ? observation.workflow.state.currentStep
+      : null;
+  const record = observation.measurements.records.find(
+    (candidate) =>
+      candidate.runId === observation.configuration.runId &&
+      candidate.phase === phase &&
+      candidate.status === "running",
+  );
+  if (record === undefined) {
+    return {
+      kind: "refused",
+      reasonCode: "metrics.phase_not_started",
+      why: "The accepted transition has no matching running phase measurement.",
+    };
+  }
+  if (
+    observation.phaseAssignment.kind !== "resolved" ||
+    record.assignmentDigest !==
+      observation.phaseAssignment.value.assignmentDigest
+  ) {
+    return {
+      kind: "refused",
+      reasonCode: "metrics.phase_assignment_conflict",
+      why: "The running phase measurement belongs to another assignment.",
+    };
+  }
+  const eventIdentity = workflow.event.observedIdentity;
+  const completed = completePhaseMeasurement({
+    record,
+    totalGrossTokens: observation.usage.totalGrossTokens,
+    now: workflow.event.occurredAt,
+    observedIdentity: {
+      model: eventIdentity.model ?? record.observedIdentity.model,
+      effort:
+        "effort" in eventIdentity
+          ? (eventIdentity.effort ?? record.observedIdentity.effort)
+          : record.observedIdentity.effort,
+    },
+  });
+  const content = renderPhaseMeasurementLog(
+    upsertPhaseMeasurement(observation.measurements.records, completed),
+  );
+  return {
+    kind: "accepted",
+    effect:
+      content === observation.measurements.content
+        ? null
+        : {
+            kind: "write_file",
+            path: ".brain/03-memory/task_log.jsonl",
+            content,
+            expected: observation.measurements.expected,
+          },
   };
 }
 

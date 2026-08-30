@@ -2,6 +2,7 @@ import type {
   GateFactsV1,
   HostOperationMessageV1,
   HookObservationV1,
+  PhaseLifecycleV1,
   RunUsageV1,
 } from "@kratos/contracts";
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -12,7 +13,11 @@ import {
   initialRunUsage,
   sanitizeDiagnostic,
 } from "../domain/hooks/index.js";
-import { usageFailure, type Result } from "../domain/result/index.js";
+import {
+  resultFor,
+  usageFailure,
+  type Result,
+} from "../domain/result/index.js";
 import {
   prepareContract,
   type SchemaRegistry,
@@ -20,7 +25,12 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
+import {
+  observePhaseMeasurementLog,
+  type PhaseMeasurementLogObservation,
+} from "./measurements.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeWorkflow } from "./workflow.js";
 
 export async function observeHostOperation(
   invocation: Invocation,
@@ -52,15 +62,69 @@ export async function observeHostOperation(
     return failure("The host operation message does not satisfy its schema.");
   }
 
+  const artifact =
+    prepared.value.kind === "hook"
+      ? await observeMatchingHookArtifact(prepared.value, anchored, registry)
+      : { hook: null, lifecycle: null };
   const observation: CommandObservation = {
     kind: "host-operation",
     message: prepared.value,
-    hook:
-      prepared.value.kind === "hook"
-        ? await observeMatchingHookArtifact(prepared.value, anchored, registry)
-        : null,
+    hook: artifact.hook,
+    lifecycle: artifact.lifecycle,
     context: null,
+    phaseStart: null,
   };
+  if (observation.hook === null && observation.lifecycle === null) {
+    return { kind: "observed", observation, ports: anchored };
+  }
+  const measurements = await observePhaseMeasurementLog(anchored, registry);
+  if (measurements === null) return invalidMeasurementLog();
+  if (observation.lifecycle !== null) {
+    const trustedFlags = new Map(invocation.flags);
+    if (prepared.value.kind === "hook") {
+      trustedFlags.set("--host", prepared.value.payload.host);
+    }
+    const workflow = await observeWorkflow(
+      { ...invocation, flags: trustedFlags },
+      anchored,
+      registry,
+    );
+    if (workflow.kind === "failure") return workflow;
+    if (
+      workflow.observation.kind !== "workflow" ||
+      workflow.observation.workflow.kind !== "present" ||
+      workflow.observation.workflow.state.currentStep === null
+    ) {
+      return failure("The phase lifecycle has no active workflow phase.");
+    }
+    if (workflow.observation.phaseAssignment.kind === "refused") {
+      return {
+        kind: "failure",
+        result: resultFor(workflow.observation.phaseAssignment.reasonCode, {
+          why: ["The phase lifecycle assignment could not be resolved."],
+          evidence: [
+            { kind: "observation", ref: "model-routing/phase-lifecycle" },
+          ],
+        }),
+      };
+    }
+    return {
+      kind: "observed",
+      observation: {
+        ...observation,
+        phaseStart: {
+          feature: workflow.observation.configuration.feature,
+          runId: workflow.observation.configuration.runId,
+          phase: workflow.observation.workflow.state.currentStep,
+          assignment: workflow.observation.phaseAssignment.value,
+          usage: workflow.observation.usage,
+          events: workflow.observation.events,
+          measurements: workflow.observation.measurements,
+        },
+      },
+      ports: anchored,
+    };
+  }
   if (observation.hook === null) {
     return { kind: "observed", observation, ports: anchored };
   }
@@ -68,6 +132,7 @@ export async function observeHostOperation(
     observation.hook,
     anchored,
     registry,
+    measurements,
   );
   return {
     kind: "observed",
@@ -80,11 +145,59 @@ async function observeMatchingHookArtifact(
   message: Extract<HostOperationMessageV1, { readonly kind: "hook" }>,
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<HookObservationV1 | null> {
+): Promise<{
+  readonly hook: HookObservationV1 | null;
+  readonly lifecycle: PhaseLifecycleV1 | null;
+}> {
+  if (message.payload.hook === "phase.start") {
+    const lifecycle = await observePhaseLifecycleArtifact(
+      message,
+      ports,
+      registry,
+    );
+    return {
+      hook: null,
+      lifecycle:
+        message.payload.phase === "before" &&
+        lifecycle?.correlationId === message.correlationId &&
+        lifecycle.occurredAt === message.occurredAt
+          ? lifecycle
+          : null,
+    };
+  }
   const hook = await observeHookArtifact(message, ports, registry);
-  if (hook?.kind !== message.payload.hook) return null;
+  if (hook?.kind !== message.payload.hook) {
+    return { hook: null, lifecycle: null };
+  }
   const expectedPhase = hook.kind === "tool.before" ? "before" : "after";
-  return message.payload.phase === expectedPhase ? hook : null;
+  return {
+    hook: message.payload.phase === expectedPhase ? hook : null,
+    lifecycle: null,
+  };
+}
+
+async function observePhaseLifecycleArtifact(
+  message: Extract<HostOperationMessageV1, { readonly kind: "hook" }>,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<PhaseLifecycleV1 | null> {
+  const { ref, sha256 } = message.payload.artifact;
+  const entry = await ports.durableFileSystem.inspect(ref);
+  if (entry.kind !== "file" || entry.sha256 !== sha256) return null;
+  try {
+    const value = JSON.parse(
+      await ports.durableFileSystem.readText(ref),
+    ) as unknown;
+    const prepared = registry.validate({
+      id: "host.phase-lifecycle",
+      version: "1.0.0",
+      value,
+      structuralReasonCode: "trail.output_invalido",
+    });
+    return prepared.kind === "valid" ? prepared.value : null;
+  } catch {
+    return null;
+  }
 }
 
 async function observeHookArtifact(
@@ -115,6 +228,7 @@ async function observeHookContext(
   hook: HookObservationV1,
   ports: RuntimePorts,
   registry: SchemaRegistry,
+  measurements: PhaseMeasurementLogObservation,
 ): Promise<
   NonNullable<CommandObservation & { kind: "host-operation" }>["context"]
 > {
@@ -185,6 +299,7 @@ async function observeHookContext(
     telemetryExists:
       (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",
     transientFiles,
+    measurements,
   };
 }
 
@@ -338,4 +453,14 @@ function failure(why: string): {
   readonly result: Result;
 } {
   return { kind: "failure", result: usageFailure(why) };
+}
+
+function invalidMeasurementLog(): Extract<Observed, { kind: "failure" }> {
+  return {
+    kind: "failure",
+    result: resultFor("metrics.log_invalid", {
+      why: ["The local phase measurement log could not be validated."],
+      evidence: [{ kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" }],
+    }),
+  };
 }

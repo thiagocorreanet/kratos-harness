@@ -71,7 +71,8 @@ follow `CONTRACT_VERSIONS`:
   `projectProfile` answers. `host.adapter-message` and `host.phase-handoff`
   continue to write their registered `1.1.0` revisions.
 - Unchanged host payloads `host.agent-output`, `host.gap-proposal`,
-  `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
+  `host.hook-observation`, `host.operation-message`, `host.phase-lifecycle`, and
+  `host.pre-tool-use`
   continue to write their registered `1.0.0` revision.
 
 Model routing, handoff, execution observation, and initialization therefore
@@ -216,6 +217,9 @@ The embedded record is host neutral and carries no new I/O or trust authority.
 `state.phase-measurement@1.0.0` is likewise additive. It records only bounded
 phase identity, runtime-resolved assignment metadata, timestamps, and gross
 token counts; existing state remains readable and no migration is required.
+`host.phase-lifecycle@1.0.0` is a separate closed phase-start ingress carried
+inside `host.operation-message@1.0.0`; the published hook-observation v1 schema
+and its bytes remain unchanged.
 
 The schemas constrain wire shape; runtime services own the corresponding
 behavior. Event replay and chain verification are implemented by the

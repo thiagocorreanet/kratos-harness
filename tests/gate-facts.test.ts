@@ -1,4 +1,8 @@
-import type { GapRecordV1, GateFactsV1 } from "@kratos/contracts";
+import type {
+  GapRecordV1,
+  GateFactsV1,
+  PhaseHandoffV1_1,
+} from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
 import {
@@ -57,6 +61,11 @@ interface Subject {
   readonly ports: RuntimePorts;
   readonly storage: ReturnType<typeof memoryTransactionStorage>;
   readonly output: ReturnType<typeof recordingOutput>;
+}
+
+function clearOutput(run: Subject): void {
+  (run.output.structured_ as string[]).splice(0);
+  (run.output.human_ as string[]).splice(0);
 }
 
 function subject(
@@ -235,11 +244,59 @@ async function recordEvidence(
   return next(run);
 }
 
-function completePhase(
+async function startCurrentPhase(
+  run: Subject,
+  correlationId: string,
+): Promise<void> {
+  clearOutput(run);
+  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
+  const handoff = JSON.parse(
+    run.output.structured_.join(""),
+  ) as PhaseHandoffV1_1;
+  const sessionId = `session-${correlationId}`;
+  const lifecycle = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    kind: "phase.start",
+    sessionId,
+    correlationId: `phase-${correlationId}`,
+    occurredAt: NOW,
+    assignmentDigest: handoff.assignmentDigest,
+  };
+  const ref = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+  const content = `${JSON.stringify(lifecycle, null, 2)}\n`;
+  await run.storage.fileSystem.write(ref, content);
+  const message = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    messageId: `message-${correlationId}`,
+    correlationId: lifecycle.correlationId,
+    operationId: `operation-${correlationId}`,
+    sequence: 0,
+    occurredAt: NOW,
+    kind: "hook",
+    payload: {
+      host: "claude-code",
+      hook: "phase.start",
+      phase: "before",
+      artifact: { ref, sha256: run.ports.digests.sha256(content) },
+    },
+  };
+  expect(
+    await runCommandLine(["hook", "--host", "claude-code"], {
+      ...run.ports,
+      standardInput: pipedInput(JSON.stringify(message)),
+    }),
+  ).toBe(0);
+  clearOutput(run);
+}
+
+async function completePhase(
   run: Subject,
   ref: string,
   correlationId: string,
 ): Promise<number> {
+  await startCurrentPhase(run, correlationId);
   return runCommandLine(
     [
       "continue",

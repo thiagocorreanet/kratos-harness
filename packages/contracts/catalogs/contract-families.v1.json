@@ -94,6 +94,14 @@
       "typeName": "HostOperationMessageV1"
     },
     {
+      "id": "host.phase-lifecycle",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/phase-lifecycle.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PhaseLifecycleV1"
+    },
+    {
       "id": "host.phase-handoff",
       "family": "host",
       "version": "1.1.0",

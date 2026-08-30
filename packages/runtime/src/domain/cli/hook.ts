@@ -1,6 +1,15 @@
 import type { Effect } from "../effects.js";
 import { planOf } from "../effects.js";
 import { recordUsageSample } from "../hooks/index.js";
+import {
+  interruptPhaseMeasurement,
+  recoverPhaseMeasurement,
+  renderPhaseMeasurementLog,
+  samplePhaseMeasurement,
+  startPhaseMeasurement,
+  upsertPhaseMeasurement,
+  type PhaseMeasurement,
+} from "../measurements/index.js";
 import { resultFor, usageFailure } from "../result/index.js";
 
 import { observingCommand } from "./observed.js";
@@ -10,6 +19,7 @@ type Observation = Extract<
   CommandObservation,
   { readonly kind: "host-operation" }
 >;
+type Measurements = NonNullable<Observation["context"]>["measurements"];
 
 export const hookCommand: CommandSpec = observingCommand(
   "host-operation",
@@ -50,6 +60,9 @@ function decide(
   if (observation.message.payload.host !== requestedHost) {
     return refusal("The supplied host differs from the hook payload host.");
   }
+  if (observation.lifecycle !== null) {
+    return decidePhaseStart(observation);
+  }
   if (observation.hook === null) {
     return refusal("The normalized hook artifact is absent or invalid.");
   }
@@ -83,6 +96,36 @@ function decide(
   }
   if (JSON.stringify(gates) !== JSON.stringify(context.gates)) {
     effects.push(write(gatesPath, gates, context.gatesExpected));
+  }
+
+  const measured = measurementForSession(
+    context.measurements.records,
+    hook.sessionId,
+  );
+  if (measured !== null) {
+    const sampledMeasurement = samplePhaseMeasurement({
+      record: measured,
+      totalGrossTokens: sampled.usage.totalGrossTokens,
+      now: hook.occurredAt,
+    });
+    const nextMeasurement =
+      hook.kind === "session.end" && sampledMeasurement.status === "running"
+        ? interruptPhaseMeasurement({
+            record: sampledMeasurement,
+            totalGrossTokens: sampled.usage.totalGrossTokens,
+            now: hook.occurredAt,
+            closeReason: "session_interrupted",
+          })
+        : sampledMeasurement;
+    const nextRecords = upsertPhaseMeasurement(
+      context.measurements.records,
+      nextMeasurement,
+    );
+    const measurementEffect = writeMeasurements(
+      context.measurements,
+      nextRecords,
+    );
+    if (measurementEffect !== null) effects.push(measurementEffect);
   }
 
   const cachePath = `.brain/03-memory/.cache/hooks/${hook.sessionId}/telemetry.json`;
@@ -148,6 +191,156 @@ function decide(
       ],
     }),
     plan: planOf(...effects),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function decidePhaseStart(observation: Observation): Decision {
+  const lifecycle = observation.lifecycle;
+  const context = observation.phaseStart;
+  if (lifecycle === null || context === null) {
+    return refusal("The normalized phase lifecycle context is unavailable.");
+  }
+  if (observation.message.kind !== "hook") {
+    return refusal("The phase lifecycle requires a hook envelope.");
+  }
+  if (lifecycle.assignmentDigest !== context.assignment.assignmentDigest) {
+    return refusedMetric(
+      "metrics.phase_assignment_conflict",
+      "The phase start does not match the runtime-resolved assignment.",
+    );
+  }
+  const retried = context.measurements.records.find(
+    (record) =>
+      record.feature === context.feature &&
+      record.runId === context.runId &&
+      record.phase === context.phase &&
+      record.sessionId === lifecycle.sessionId &&
+      record.correlationId === lifecycle.correlationId &&
+      record.assignmentDigest === lifecycle.assignmentDigest &&
+      record.status === "running",
+  );
+  const recovered = context.measurements.records.map((record) => {
+    if (record.status !== "running" || record === retried) return record;
+    const sameRun =
+      record.feature === context.feature && record.runId === context.runId;
+    const accepted = sameRun
+      ? context.events.find(
+          (event) =>
+            (event.reasonCode === "run.transition.accepted" ||
+              event.reasonCode === "run.completed") &&
+            "resolvedAssignment" in event &&
+            event.resolvedAssignment.phase === record.phase &&
+            Date.parse(event.occurredAt) >= Date.parse(record.startedAt),
+        )
+      : undefined;
+    return recoverPhaseMeasurement({
+      record,
+      totalGrossTokens: sameRun
+        ? context.usage.totalGrossTokens
+        : record.baselineGrossTokens + record.grossTokens,
+      now: lifecycle.occurredAt,
+      accepted:
+        accepted === undefined
+          ? null
+          : {
+              occurredAt: accepted.occurredAt,
+              observedIdentity: {
+                model: accepted.observedIdentity.model,
+                effort:
+                  "effort" in accepted.observedIdentity
+                    ? accepted.observedIdentity.effort
+                    : null,
+              },
+            },
+    });
+  });
+  const started =
+    retried ??
+    startPhaseMeasurement({
+      feature: context.feature,
+      runId: context.runId,
+      phase: context.phase,
+      sessionId: lifecycle.sessionId,
+      correlationId: lifecycle.correlationId,
+      now: lifecycle.occurredAt,
+      totalGrossTokens: context.usage.totalGrossTokens,
+      assignmentDigest: lifecycle.assignmentDigest,
+      resolvedAssignment: {
+        host: context.assignment.host,
+        role: context.assignment.assignment.role,
+        model: context.assignment.assignment.model,
+        effort: context.assignment.assignment.effort,
+      },
+    });
+  let nextRecords: readonly PhaseMeasurement[];
+  try {
+    nextRecords = upsertPhaseMeasurement(recovered, started);
+  } catch {
+    return refusedMetric(
+      "metrics.phase_assignment_conflict",
+      "The open phase measurement belongs to another assignment.",
+    );
+  }
+  const effect = writeMeasurements(context.measurements, nextRecords);
+  if (effect === null) {
+    return unchanged("The phase start was already reflected in state.");
+  }
+  return {
+    result: resultFor("trail.ok", {
+      summary: "The phase measurement was started.",
+      stateChanged: true,
+      evidence: [
+        {
+          kind: "artifact",
+          ref: observation.message.payload.artifact.ref,
+          sha256: observation.message.payload.artifact.sha256,
+        },
+      ],
+    }),
+    plan: planOf(effect),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+function measurementForSession(
+  records: readonly PhaseMeasurement[],
+  sessionId: string,
+): PhaseMeasurement | null {
+  return (
+    [...records]
+      .filter((record) => record.sessionId === sessionId)
+      .sort(
+        (left, right) =>
+          Date.parse(right.startedAt) - Date.parse(left.startedAt),
+      )[0] ?? null
+  );
+}
+
+function writeMeasurements(
+  observation: Measurements,
+  records: readonly PhaseMeasurement[],
+): Extract<Effect, { kind: "write_file" }> | null {
+  const content = renderPhaseMeasurementLog(records);
+  return content === observation.content
+    ? null
+    : {
+        kind: "write_file",
+        path: ".brain/03-memory/task_log.jsonl",
+        content,
+        expected: observation.expected,
+      };
+}
+
+function refusedMetric(code: string, why: string): Decision {
+  return {
+    result: resultFor(code, {
+      why: [why],
+      evidence: [{ kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" }],
+    }),
+    plan: planOf(),
     humanStdout: null,
     payload: null,
   };

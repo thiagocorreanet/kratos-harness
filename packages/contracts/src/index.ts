@@ -63,6 +63,7 @@ export type {
   MigrationV1,
   MigrationV1_1,
   PhaseMeasurementV1,
+  PhaseLifecycleV1,
   PhaseHandoffV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,

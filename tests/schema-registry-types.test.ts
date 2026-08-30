@@ -13,6 +13,7 @@ import type {
   InitAnswersV1_3,
   MigrationV1,
   MigrationV1_1,
+  PhaseLifecycleV1,
   PreToolUseV1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -41,6 +42,7 @@ describe("schema registry vocabulary", () => {
       "host.gap-proposal",
       "host.init-answers",
       "host.operation-message",
+      "host.phase-lifecycle",
       "host.phase-handoff",
       "host.pre-tool-use",
       "state.approval",
@@ -61,7 +63,10 @@ describe("schema registry vocabulary", () => {
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(24);
+    expect(ids).toHaveLength(25);
+    expectTypeOf<
+      ContractValue<"host.phase-lifecycle">
+    >().toEqualTypeOf<PhaseLifecycleV1>();
     expectTypeOf<
       ContractValue<"state.acceptance-criteria-snapshot">
     >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();

@@ -85,6 +85,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
+import { observePhaseMeasurementLog, observeRunUsage } from "./measurements.js";
 import { configurationValidator } from "./schema.js";
 
 const EMPTY_DIGEST =
@@ -230,6 +231,25 @@ export async function observeWorkflow(
   const host = invocation.flags.get("--host");
   const model = invocation.flags.get("--model");
   const occurredAt = anchored.clock.now().toISOString();
+  const measurements = await observePhaseMeasurementLog(anchored, registry);
+  if (measurements === null) {
+    return {
+      kind: "failure",
+      result: resultFor("metrics.log_invalid", {
+        why: ["The local phase measurement log could not be validated."],
+        evidence: [
+          { kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" },
+        ],
+      }),
+    };
+  }
+  const usage = await observeRunUsage(
+    configuration.feature,
+    runId,
+    occurredAt,
+    anchored,
+    registry,
+  );
   const eventId = anchored.ids.next();
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
@@ -453,6 +473,8 @@ export async function observeWorkflow(
       observedLineage,
       phaseAssignment,
       phaseExecution: preparedPhaseExecution.value,
+      usage,
+      measurements,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId,

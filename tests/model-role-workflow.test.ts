@@ -303,6 +303,7 @@ async function started(options: SubjectOptions = {}): Promise<WorkflowSubject> {
 async function advanceToPhase(
   run: WorkflowSubject,
   completed: number,
+  withMeasurements = false,
 ): Promise<void> {
   const phases = [
     [".brain/02-features/ship-handoff/00-prd.md", "# PRD\n"],
@@ -312,6 +313,54 @@ async function advanceToPhase(
     [".brain/02-features/ship-handoff/review-summary.md", "Review complete.\n"],
   ] as const;
   for (const [index, [ref, content]] of phases.slice(0, completed).entries()) {
+    if (withMeasurements) {
+      const phaseHandoff = await currentHandoff(run);
+      const sessionId = `phase-session-${String(index)}`;
+      const lifecycle = {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        kind: "phase.start",
+        sessionId,
+        correlationId: `phase-start-${String(index)}`,
+        occurredAt: "2026-08-28T12:00:00.000Z",
+        assignmentDigest: phaseHandoff.assignmentDigest,
+      };
+      const lifecycleRef = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+      const lifecycleContent = `${JSON.stringify(lifecycle, null, 2)}\n`;
+      await run.ports.fileSystem.write(lifecycleRef, lifecycleContent);
+      const relayHost =
+        phaseHandoff.host === "claude" ? "claude-code" : "codex";
+      const message = {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        messageId: `phase-start-message-${String(index)}`,
+        correlationId: lifecycle.correlationId,
+        operationId: `phase-start-operation-${String(index)}`,
+        sequence: index,
+        occurredAt: lifecycle.occurredAt,
+        kind: "hook",
+        payload: {
+          host: relayHost,
+          hook: "phase.start",
+          phase: "before",
+          artifact: {
+            ref: lifecycleRef,
+            sha256: run.ports.digests.sha256(lifecycleContent),
+          },
+        },
+      };
+      const lifecycleExit = await runCommandLine(
+        ["hook", "--host", relayHost],
+        {
+          ...run.ports,
+          standardInput: pipedInput(JSON.stringify(message)),
+        },
+      );
+      expect(
+        lifecycleExit,
+        `${run.output.human_.join("")} ${run.output.structured_.join("")}`,
+      ).toBe(0);
+    }
     await run.ports.fileSystem.write(ref, content);
     expect(
       await runCommandLine(
@@ -345,7 +394,7 @@ async function advanceToPhase(
 }
 
 async function advanceToReview(run: WorkflowSubject): Promise<void> {
-  await advanceToPhase(run, 4);
+  await advanceToPhase(run, 4, true);
 }
 
 describe("read-only model-role handoffs", () => {

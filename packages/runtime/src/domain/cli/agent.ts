@@ -15,6 +15,11 @@ import {
 } from "../acceptance-criteria/index.js";
 import { resultFor, type Result } from "../result/index.js";
 import {
+  observePhaseMeasurementIdentity,
+  renderPhaseMeasurementLog,
+  upsertPhaseMeasurement,
+} from "../measurements/index.js";
+import {
   decideRecordFact,
   workflowReducerRegistry,
   type WorkflowDecision,
@@ -436,6 +441,17 @@ function commit(
       artifactRefs,
     );
   }
+  const measurement = identityMeasurementEffect(observation, workflow.event);
+  if (measurement.kind === "refused") {
+    return decisionOf(
+      resultFor("metrics.phase_assignment_conflict", {
+        why: ["The open phase measurement belongs to another assignment."],
+        evidence: [
+          { kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" },
+        ],
+      }),
+    );
+  }
   return {
     result: resultFor("trail.ok", {
       summary,
@@ -445,12 +461,16 @@ function commit(
         { kind: "event" as const, ref: `${runRoot(observation)}/events.jsonl` },
       ],
     }),
-    plan: planOf(...effects, {
-      kind: "append_event",
-      feature: observation.configuration.feature,
-      runId: observation.configuration.runId,
-      event: workflow.event,
-    }),
+    plan: planOf(
+      ...effects,
+      ...(measurement.effect === null ? [] : [measurement.effect]),
+      {
+        kind: "append_event",
+        feature: observation.configuration.feature,
+        runId: observation.configuration.runId,
+        event: workflow.event,
+      },
+    ),
     humanStdout: null,
     payload: null,
     eventReducers: workflowReducerRegistry(observation.configuration),
@@ -460,6 +480,61 @@ function commit(
           revalidatePhaseAssignmentDigest:
             phaseExecution.execution.assignmentDigest,
         }),
+  };
+}
+
+function identityMeasurementEffect(
+  observation: Observation,
+  event: Extract<WorkflowDecision, { readonly kind: "recorded" }>["event"],
+):
+  | {
+      readonly kind: "accepted";
+      readonly effect: Extract<Effect, { readonly kind: "write_file" }> | null;
+    }
+  | { readonly kind: "refused" } {
+  const phase =
+    observation.workflow.kind === "present"
+      ? observation.workflow.state.currentStep
+      : null;
+  const record = observation.measurements.records.find(
+    (candidate) =>
+      candidate.runId === observation.configuration.runId &&
+      candidate.phase === phase &&
+      candidate.status === "running",
+  );
+  if (record === undefined) return { kind: "accepted", effect: null };
+  if (
+    observation.phaseAssignment.kind !== "resolved" ||
+    record.assignmentDigest !==
+      observation.phaseAssignment.value.assignmentDigest
+  ) {
+    return { kind: "refused" };
+  }
+  const observed = observePhaseMeasurementIdentity({
+    record,
+    observedIdentity: {
+      model: event.observedIdentity.model ?? record.observedIdentity.model,
+      effort:
+        "effort" in event.observedIdentity
+          ? (event.observedIdentity.effort ?? record.observedIdentity.effort)
+          : record.observedIdentity.effort,
+    },
+    now: event.occurredAt,
+  });
+  const content = renderPhaseMeasurementLog(
+    upsertPhaseMeasurement(observation.measurements.records, observed),
+  );
+  return {
+    kind: "accepted",
+    effect:
+      content === observation.measurements.content
+        ? null
+        : {
+            kind: "write_file",
+            path: ".brain/03-memory/task_log.jsonl",
+            content,
+            expected: observation.measurements.expected,
+          },
   };
 }
 

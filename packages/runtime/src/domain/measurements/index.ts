@@ -31,6 +31,19 @@ export interface InterruptPhaseMeasurementInput extends SamplePhaseMeasurementIn
   readonly closeReason: "session_interrupted" | "recovered_interrupted";
 }
 
+export interface RecoverPhaseMeasurementInput extends SamplePhaseMeasurementInput {
+  readonly accepted: {
+    readonly occurredAt: string;
+    readonly observedIdentity: PhaseMeasurement["observedIdentity"];
+  } | null;
+}
+
+export interface ObservePhaseMeasurementIdentityInput {
+  readonly record: PhaseMeasurement;
+  readonly observedIdentity: PhaseMeasurement["observedIdentity"];
+  readonly now: string;
+}
+
 function grossTokens(baseline: number, total: number): number {
   return Math.max(0, total - baseline);
 }
@@ -134,6 +147,47 @@ export function interruptPhaseMeasurement(
   };
 }
 
+/** Close one record left open across a process boundary. */
+export function recoverPhaseMeasurement(
+  input: RecoverPhaseMeasurementInput,
+): PhaseMeasurement {
+  if (input.record.status !== "running") return input.record;
+  if (input.accepted === null) {
+    return interruptPhaseMeasurement({
+      record: input.record,
+      totalGrossTokens: input.totalGrossTokens,
+      now: input.now,
+      closeReason: "recovered_interrupted",
+    });
+  }
+  const completed = completePhaseMeasurement({
+    record: input.record,
+    totalGrossTokens: input.totalGrossTokens,
+    now: input.accepted.occurredAt,
+    observedIdentity: input.accepted.observedIdentity,
+  });
+  if (completed.status !== "completed") {
+    throw new Error("Phase measurement recovery did not close the record");
+  }
+  return {
+    ...completed,
+    closeReason: "recovered_completed",
+    updatedAt: input.now,
+  };
+}
+
+/** Attach only host-observed execution identity while a phase is open. */
+export function observePhaseMeasurementIdentity(
+  input: ObservePhaseMeasurementIdentityInput,
+): PhaseMeasurement {
+  if (input.record.status !== "running") return input.record;
+  return {
+    ...input.record,
+    observedIdentity: input.observedIdentity,
+    updatedAt: input.now,
+  };
+}
+
 function phaseOrder(phase: RunPhase): number {
   return RUN_PHASES.indexOf(phase);
 }
@@ -225,4 +279,12 @@ export function parsePhaseMeasurementLog(
     keys.add(key);
   }
   return records;
+}
+
+export function renderPhaseMeasurementLog(
+  records: readonly PhaseMeasurement[],
+): string {
+  return records.length === 0
+    ? ""
+    : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
 }

@@ -24,6 +24,7 @@ import type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  PhaseLifecycleV1,
   PhaseMeasurementV1,
   NarrationV1,
   PhaseHandoffV1_1,
@@ -49,6 +50,7 @@ export interface ContractValues {
   readonly "host.init-answers":
     InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3;
   readonly "host.operation-message": HostOperationMessageV1;
+  readonly "host.phase-lifecycle": PhaseLifecycleV1;
   readonly "host.phase-handoff": PhaseHandoffV1_1;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;

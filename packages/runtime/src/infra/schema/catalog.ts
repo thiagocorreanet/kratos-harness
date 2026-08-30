@@ -9,6 +9,7 @@ import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1
 import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2.schema.json" with { type: "json" };
 import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
+import phaseLifecycleSchema from "../../../../../schemas/host/phase-lifecycle.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
@@ -128,6 +129,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/operation-message.v1.schema.json",
       schema: operationMessageSchema,
+    },
+    {
+      id: "host.phase-lifecycle",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/phase-lifecycle.v1.schema.json",
+      schema: phaseLifecycleSchema,
     },
     {
       id: "host.phase-handoff",

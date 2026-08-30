@@ -80,6 +80,9 @@ current [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json)
 with partial project-profile answers, plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
+[`phase-lifecycle.v1.schema.json`](host/phase-lifecycle.v1.schema.json), the
+closed host-neutral phase-start ingress carried by a host operation envelope,
+and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
 block one phase agent appends to its reply, plus
 [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized

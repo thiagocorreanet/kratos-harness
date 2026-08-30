@@ -11,6 +11,7 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
 // source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
@@ -860,6 +861,22 @@ export namespace HostOperationMessageV1Contract {
 }
 export type HostOperationMessageV1 =
   HostOperationMessageV1Contract.HostOperationMessageV1;
+export namespace PhaseLifecycleV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Sha256 = string;
+
+  export interface PhaseLifecycleV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    kind: "phase.start";
+    sessionId: Id;
+    correlationId: Id;
+    occurredAt: Timestamp;
+    assignmentDigest: Sha256;
+  }
+}
+export type PhaseLifecycleV1 = PhaseLifecycleV1Contract.PhaseLifecycleV1;
 export namespace PhaseHandoffV1_1Contract {
   export type Id = string;
   export type Sha256 = string;

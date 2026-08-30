@@ -15,6 +15,8 @@ import type {
   GapRecordV1,
   HostOperationMessageV1,
   HookObservationV1,
+  PhaseLifecycleV1,
+  PhaseMeasurementV1,
   FailureCandidateV1,
   GateFactsV1,
   MigrationV1,
@@ -166,6 +168,7 @@ export type CommandObservation =
       readonly kind: "host-operation";
       readonly message: HostOperationMessageV1;
       readonly hook: HookObservationV1 | null;
+      readonly lifecycle: PhaseLifecycleV1 | null;
       readonly context: {
         readonly feature: string;
         readonly runId: string;
@@ -183,6 +186,24 @@ export type CommandObservation =
         } | null;
         readonly telemetryExists: boolean;
         readonly transientFiles: readonly string[];
+        readonly measurements: {
+          readonly content: string;
+          readonly records: readonly PhaseMeasurementV1[];
+          readonly expected: WriteFilePrecondition;
+        };
+      } | null;
+      readonly phaseStart: {
+        readonly feature: string;
+        readonly runId: string;
+        readonly phase: PhaseHandoffV1_1["phase"];
+        readonly assignment: PhaseHandoffV1_1;
+        readonly usage: RunUsageV1;
+        readonly events: readonly ReadableEvent[];
+        readonly measurements: {
+          readonly content: string;
+          readonly records: readonly PhaseMeasurementV1[];
+          readonly expected: WriteFilePrecondition;
+        };
       } | null;
     }
   | {
@@ -227,6 +248,12 @@ export type CommandObservation =
           };
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
+      readonly usage: RunUsageV1;
+      readonly measurements: {
+        readonly content: string;
+        readonly records: readonly PhaseMeasurementV1[];
+        readonly expected: WriteFilePrecondition;
+      };
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;
