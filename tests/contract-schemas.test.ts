@@ -221,6 +221,121 @@ describe("versioned state and host schemas", () => {
     ).toBe(false);
   });
 
+  it("accepts antigravity host identifier across host and state schemas", async () => {
+    const [
+      adapterMessageSchema,
+      phaseHandoffSchema,
+      initAnswers12Schema,
+      initAnswers13Schema,
+      projectConfig12Schema,
+      projectConfig13Schema,
+    ] = await Promise.all([
+      readJson(join(schemaRoot, "host/adapter-message.v1.1.schema.json")),
+      readJson(join(schemaRoot, "host/phase-handoff.v1.1.schema.json")),
+      readJson(join(schemaRoot, "host/init-answers.v1.2.schema.json")),
+      readJson(join(schemaRoot, "host/init-answers.v1.3.schema.json")),
+      readJson(join(schemaRoot, "state/project-config.v1.2.schema.json")),
+      readJson(join(schemaRoot, "state/project-config.v1.3.schema.json")),
+    ]);
+    const ajv = contractAjv();
+
+    const adapterMessageValidate = ajv.compile(adapterMessageSchema);
+    const phaseHandoffValidate = ajv.compile(phaseHandoffSchema);
+    const init12Validate = ajv.compile(initAnswers12Schema);
+    const init13Validate = ajv.compile(initAnswers13Schema);
+    const project12Validate = ajv.compile(projectConfig12Schema);
+    const project13Validate = ajv.compile(projectConfig13Schema);
+
+    const adapterFixture = await readJson(
+      join(currentFixtureRoot, "adapter-message.json"),
+    );
+    expect(
+      adapterMessageValidate({ ...adapterFixture, host: "antigravity" }),
+    ).toBe(true);
+
+    const handoffFixture = await readJson(
+      join(currentFixtureRoot, "phase-handoff.json"),
+    );
+    expect(
+      phaseHandoffValidate({ ...handoffFixture, host: "antigravity" }),
+    ).toBe(true);
+
+    const roleMap = {
+      planner: "gemini-2.5-pro",
+      implementer: "gemini-2.5-flash",
+      judge: "gemini-2.5-pro",
+    };
+
+    expect(
+      init12Validate({
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        hosts: ["antigravity"],
+        modelRoles: { antigravity: roleMap },
+      }),
+    ).toBe(true);
+
+    expect(
+      init13Validate({
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
+        hosts: ["antigravity"],
+        modelRoles: { antigravity: roleMap },
+      }),
+    ).toBe(true);
+
+    const baseProject12 = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.2.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { antigravity: roleMap },
+    };
+    expect(project12Validate(baseProject12)).toBe(true);
+
+    expect(
+      project13Validate({
+        ...baseProject12,
+        contractVersion: "1.3.0",
+        stateContract: "1.3.0",
+        hostContract: "1.3.0",
+        projectProfile: {
+          commands: {
+            test: { status: "unresolved" },
+            lint: { status: "unresolved" },
+            build: { status: "unresolved" },
+            run: { status: "unresolved" },
+          },
+          paths: {
+            source: { status: "unresolved" },
+            tests: { status: "unresolved" },
+            configuration: { status: "unresolved" },
+          },
+          conventions: {
+            directoryLayout: { status: "unresolved" },
+            naming: { status: "unresolved" },
+            implementationLanguages: { status: "unresolved" },
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
   it("refuses unsafe project-relative paths in v1.3 profiles", async () => {
     const schema = await readJson(
       join(schemaRoot, "host/init-answers.v1.3.schema.json"),
@@ -391,7 +506,7 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "host/adapter-message.v1.1.schema.json",
-      "f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8",
+      "5618d8b287ffcd797772334da37ceee406ca26330f9d1055872ecf7ab0fd02c7",
     ],
     [
       "host/init-answers.v1.1.schema.json",
@@ -399,15 +514,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "host/init-answers.v1.2.schema.json",
-      "4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e",
+      "81afcd81cd829a8c66c6e2d2cf704e76ed6a818ab873b5534f5265ad2c099112",
     ],
     [
       "host/init-answers.v1.3.schema.json",
-      "9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329",
+      "ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7",
     ],
     [
       "host/phase-handoff.v1.1.schema.json",
-      "b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557",
+      "1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae",
     ],
     [
       "state/event.v1.1.schema.json",
@@ -423,11 +538,11 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "state/project-config.v1.2.schema.json",
-      "bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48",
+      "27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495",
     ],
     [
       "state/project-config.v1.3.schema.json",
-      "9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d",
+      "7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));
