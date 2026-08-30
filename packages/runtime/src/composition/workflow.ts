@@ -266,6 +266,7 @@ export async function observeWorkflow(
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(
     configuration,
+    configuration.lineage,
     observedLineage,
     anchored,
   );
@@ -555,6 +556,7 @@ type ArtifactLineageCandidate = Omit<
 
 async function observeArtifactLineage(
   configuration: RunReference,
+  recordedLineage: RunLineage,
   observedLineage: RunLineage,
   ports: RuntimePorts,
 ): Promise<{
@@ -603,11 +605,35 @@ async function observeArtifactLineage(
       }
       values.push(parsed as ArtifactLineage);
     }
-    // Lineage files record the digests observed when their artifact was
-    // produced, so the roots they may descend from are the ones on disk.
+    // Older writers included both the artifact itself and a missing document
+    // as parents. Ignore that exact legacy shape while retaining cycle and
+    // missing-parent detection for every other edge.
+    const validationValues = values.map((value) => {
+      const hasLegacySelfReference = value.parentDigests.includes(
+        value.artifactDigest,
+      );
+      return {
+        ...value,
+        parentDigests: value.parentDigests.filter(
+          (parent) =>
+            parent !== value.artifactDigest &&
+            !(hasLegacySelfReference && parent === EMPTY_DIGEST),
+        ),
+      };
+    });
+    // A run validates history against both the roots it sealed and the live
+    // documents. A missing document is not a parent, so its placeholder is
+    // never admitted as a root for newly forged or corrupted records.
     const validation = validateLineageDag(
-      values,
-      new Set([observedLineage.prdDigest, observedLineage.specDigest]),
+      validationValues,
+      new Set(
+        [
+          recordedLineage.prdDigest,
+          recordedLineage.specDigest,
+          observedLineage.prdDigest,
+          observedLineage.specDigest,
+        ].filter((digest) => digest !== EMPTY_DIGEST),
+      ),
     );
     return validation.kind === "valid"
       ? { readable: true, values }
