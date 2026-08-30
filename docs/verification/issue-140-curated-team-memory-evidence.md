@@ -109,14 +109,15 @@ another worktree built concurrently: `scripts/build.mjs --output
 `.runtime-template/source/packages/runtime/src/domain/cli/migration.js`.
 
 The test-only `tests/support/built-plugin.ts` helper now derives
-`/tmp/kratos-plugin-vitest-build-<pid>`. It removes only that validated exact
-path before each build and from a normal Node `exit` handler, so repeat calls
-are safe and normal child exit retains no new build directory. The regression
-in `tests/built-plugin-isolation.test.ts` starts two real builds concurrently,
+`<OS-temp-root>/kratos-plugin-vitest-build-<pid>` with Node's native temporary
+and path APIs. It removes only that validated exact path before each build and
+from a normal Node `exit` handler, so repeat calls are safe and normal child
+exit retains no new build directory. The regression in
+`tests/built-plugin-isolation.test.ts` starts two real builds concurrently,
 proves that their roots are distinct, and checks that neither root exists after
 the child exits. SIGKILL or machine loss cannot run an exit handler; a residual
 is confined to that PID-named temporary root and a later owner of the same PID
-removes it before building. The helper never sweeps a broad `/tmp` target.
+removes it before building. The helper never sweeps its OS temporary parent.
 
 ## Verification commands and observed results
 
@@ -131,10 +132,11 @@ corepack npm run parity:check
 corepack npm test -- tests/built-plugin-isolation.test.ts tests/contract-compatibility.test.ts tests/contract-manifest.test.ts tests/contract-reason-catalog.test.ts tests/contract-schemas.test.ts tests/contract-type-generation.test.ts tests/schema-registry-fixtures.test.ts tests/schema-registry-types.test.ts tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/curated-memory-reasons.test.ts tests/memory-migration-domain.test.ts tests/memory-migration-runtime.test.ts tests/memory-phase-binding.test.ts tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/memory-capture-distribution.test.ts tests/phase-agent-prompts.test.ts tests/phase-agent-relay-distribution.test.ts tests/agent-output-recording.test.ts tests/cli-commands.test.ts tests/cli-composition.test.ts tests/state-ignore-rules.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/runtime-distribution.test.ts
 ```
 
-The focused result is recorded with the Fix Round 1 verification record below.
+The portable focused result passed 27 files and 548 tests in 65.26 seconds.
 The command includes the process-isolation regression, exact version-selection
 tests, the public-facing memory suites, and the stale initialization-count
-coverage repaired on this branch.
+coverage repaired on this branch. The current-HEAD full-gate result is recorded
+in the Task 6 Fix Round 2 report.
 
 The pinned repository gate is:
 

@@ -1,20 +1,25 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 export const repositoryRoot = join(import.meta.dirname, "../..");
-const buildRootParent = "/tmp";
+const buildRootParent = tmpdir();
 export const buildRoot = join(
   buildRootParent,
   `kratos-plugin-vitest-build-${String(process.pid)}`,
 );
 
-export function isOwnedBuildRoot(target: string): boolean {
-  const expectedName = `kratos-plugin-vitest-build-${String(process.pid)}`;
+export function isOwnedBuildRoot(
+  target: string,
+  parent = buildRootParent,
+  pid = process.pid,
+): boolean {
+  const expectedName = `kratos-plugin-vitest-build-${String(pid)}`;
   return (
-    dirname(target) === buildRootParent &&
+    dirname(target) === parent &&
     basename(target) === expectedName &&
-    target === join(buildRootParent, expectedName)
+    target === join(parent, expectedName)
   );
 }
 
