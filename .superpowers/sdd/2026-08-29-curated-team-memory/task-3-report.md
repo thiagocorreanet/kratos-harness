@@ -97,3 +97,8 @@
   semicolon values are asserted as exact safe output.
 - GREEN: focused domain/runtime/CLI/schema/transaction command passed 5 files,
   151 tests; typecheck and lint passed.
+- Public reason contract matrix: `tests/curated-memory-reasons.test.ts` drives
+  all five curated-memory reason codes through `resultFor`, `validateResult`,
+  and rendered JSON. It asserts exact reason/status/exit/retry policy,
+  required versus optional evidence, nonempty cause, and refusal to collapse to
+  `runtime.internal_failure` (5 tests passed).
