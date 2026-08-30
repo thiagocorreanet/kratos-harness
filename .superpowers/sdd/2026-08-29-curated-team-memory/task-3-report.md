@@ -64,4 +64,9 @@
 ### Fix Round 1 verification
 
 - `npm run typecheck` — passed.
-- `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/cli-commands.test.ts` — 20 tests passed.
+- RED: `npm test -- tests/curated-memory-domain.test.ts` — merge overflow
+  test failed because the initial fixture accidentally duplicated meanings;
+  the corrected distinct-source fixture then established the real 9-item
+  union boundary.
+- GREEN: `npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/cli-commands.test.ts` — 3 files, 24 tests passed.
+- GREEN: `npm run typecheck` and `npm run lint` — passed.

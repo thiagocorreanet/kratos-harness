@@ -5,6 +5,7 @@ import {
   projectCuratedMemory,
   reduceMemoryChange,
   renderCuratedMemory,
+  validatesCuratedMemorySemantics,
 } from "@kratos/runtime/domain/memory";
 
 const EMPTY: CuratedMemoryV1 = {
@@ -128,5 +129,170 @@ describe("curated memory domain", () => {
       text === renderCuratedMemory(EMPTY) ? "digest" : "unexpected",
     );
     expect(projected.projectionDigest).toBe("digest");
+  });
+
+  it("refuses promotion at the exact 24 active-lesson boundary", () => {
+    const confirmed = Array.from({ length: 24 }, (_, index) => ({
+      lessonId: `${String(index).padStart(64, "0")}`,
+      title: `Lesson ${String(index)}`,
+      why: ["cause"],
+      apply: ["action"],
+      candidateIds: ["a".repeat(64)],
+      reviewer: "reviewer",
+      confirmedAt: "2026-08-29T00:00:00Z",
+    }));
+    expect(
+      reduceMemoryChange(
+        { ...EMPTY, confirmed },
+        {
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
+          operation: "promote",
+          reviewer: "reviewer",
+          candidateIds: ["b".repeat(64)],
+          title: "Next",
+          why: ["cause"],
+          apply: ["action"],
+        },
+        "2026-08-29T00:00:00Z",
+        (value) => value.padEnd(64, "0").slice(0, 64),
+      ),
+    ).toEqual({ kind: "curation_required" });
+  });
+
+  it("keeps exact merge unions and refuses schema-overflow unions", () => {
+    const make = (id: string, count: number) => ({
+      lessonId: id.repeat(64),
+      title: id,
+      why: Array.from(
+        { length: count },
+        (_, index) => `${id}-why-${String(index)}`,
+      ),
+      apply: Array.from(
+        { length: count },
+        (_, index) => `${id}-apply-${String(index)}`,
+      ),
+      candidateIds: Array.from(
+        { length: count },
+        (_, index) => `${String(index).padStart(64, "0")}`,
+      ),
+      reviewer: "reviewer",
+      confirmedAt: "2026-08-29T00:00:00Z",
+    });
+    const proposal = {
+      contractVersion: "1.2.0" as const,
+      hostContract: "1.2.0" as const,
+      operation: "merge" as const,
+      reviewer: "reviewer",
+      lessonIds: ["a".repeat(64), "b".repeat(64)],
+      title: "Merged",
+    };
+    expect(
+      reduceMemoryChange(
+        { ...EMPTY, confirmed: [make("a", 4), make("b", 4)] },
+        proposal,
+        "2026-08-29T00:00:00Z",
+        (value) => value.padEnd(64, "0").slice(0, 64),
+      ).kind,
+    ).toBe("ready");
+    expect(
+      reduceMemoryChange(
+        { ...EMPTY, confirmed: [make("a", 5), make("b", 5)] },
+        proposal,
+        "2026-08-29T00:00:00Z",
+        (value) => value.padEnd(64, "0").slice(0, 64),
+      ),
+    ).toEqual({ kind: "curation_required" });
+  });
+
+  it("uses deterministic UTF-8 ordering regardless of source order", () => {
+    const proposal = {
+      contractVersion: "1.2.0" as const,
+      hostContract: "1.2.0" as const,
+      operation: "promote" as const,
+      reviewer: "reviewer",
+      candidateIds: ["b".repeat(64), "a".repeat(64)],
+      title: "é",
+      why: ["e\u0301", "é"],
+      apply: ["z", "a"],
+    };
+    const one = reduceMemoryChange(
+      EMPTY,
+      proposal,
+      "2026-08-29T00:00:00Z",
+      (value) => `x${value.length}`.padEnd(64, "0"),
+    );
+    const two = reduceMemoryChange(
+      EMPTY,
+      {
+        ...proposal,
+        candidateIds: [...proposal.candidateIds].reverse(),
+        why: [...proposal.why].reverse(),
+        apply: [...proposal.apply].reverse(),
+      },
+      "2026-08-29T00:00:00Z",
+      (value) => `x${value.length}`.padEnd(64, "0"),
+    );
+    expect(one).toEqual(two);
+  });
+
+  it("rejects arbitrary, duplicate, and dangling persisted semantic identities", () => {
+    const digest = (value: string) => `x${value.length}`.padEnd(64, "0");
+    const ready = reduceMemoryChange(
+      EMPTY,
+      {
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        operation: "promote",
+        reviewer: "reviewer",
+        candidateIds: ["a".repeat(64)],
+        title: "Title",
+        why: ["cause"],
+        apply: ["action"],
+      },
+      "2026-08-29T00:00:00Z",
+      digest,
+    );
+    if (ready.kind !== "ready") throw new Error("expected ready");
+    expect(validatesCuratedMemorySemantics(ready.ledger, digest)).toBe(true);
+    expect(
+      validatesCuratedMemorySemantics(
+        {
+          ...ready.ledger,
+          confirmed: [
+            { ...ready.ledger.confirmed[0]!, lessonId: "z".repeat(64) },
+          ],
+        },
+        digest,
+      ),
+    ).toBe(false);
+    expect(
+      validatesCuratedMemorySemantics(
+        {
+          ...ready.ledger,
+          confirmed: [...ready.ledger.confirmed, ready.ledger.confirmed[0]!],
+        },
+        digest,
+      ),
+    ).toBe(false);
+    expect(
+      validatesCuratedMemorySemantics(
+        {
+          ...ready.ledger,
+          archive: [
+            {
+              lessonId: "b".repeat(64),
+              title: "Old",
+              candidateIds: ["a".repeat(64)],
+              reviewer: "reviewer",
+              archivedAt: "2026-08-29T00:00:00Z",
+              reason: "old",
+              replacementLessonId: "c".repeat(64),
+            },
+          ],
+        },
+        digest,
+      ),
+    ).toBe(false);
   });
 });
