@@ -13,6 +13,7 @@ import {
   initialRunUsage,
   sanitizeDiagnostic,
 } from "../domain/hooks/index.js";
+import { MAX_PHASE_MEASUREMENT_CONTRIBUTORS } from "../domain/measurements/index.js";
 import {
   resultFor,
   usageFailure,
@@ -444,14 +445,7 @@ function measurementTarget(
   const owners = measurements.records.filter((record) =>
     record.contributingSessionIds.includes(hook.sessionId),
   );
-  if (owners.length > 1) {
-    return {
-      kind: "corrupt",
-      why: "The hook session contributes to multiple phase measurements.",
-    };
-  }
-  const owner = owners[0];
-  if (owner !== undefined) return { kind: "owned", record: owner };
+  if (owners.length > 0) return ownedMeasurementAt(hook.occurredAt, owners);
   const cumulativeGrossTokens =
     "usage" in hook ? (hook.usage?.cumulativeGrossTokens ?? null) : null;
   if (cumulativeGrossTokens === null) return { kind: "none" };
@@ -480,7 +474,84 @@ function measurementTarget(
       why: "The accepted hook sample has multiple running phase measurement owners.",
     };
   }
+  if (
+    eligibleOwner.contributingSessionIds.length >=
+    MAX_PHASE_MEASUREMENT_CONTRIBUTORS
+  ) {
+    return {
+      kind: "corrupt",
+      why: "The running phase measurement cannot accept another contributor.",
+    };
+  }
   return { kind: "claim", record: eligibleOwner };
+}
+
+function ownedMeasurementAt(
+  occurredAt: string,
+  candidates: readonly MeasuredRecord[],
+): MeasurementTarget {
+  const occurred = timestampOrderKey(occurredAt);
+  const intervals = candidates.map((record) => ({
+    record,
+    started: timestampOrderKey(record.startedAt),
+    ended:
+      record.status === "running"
+        ? undefined
+        : timestampOrderKey(record.endedAt),
+  }));
+  if (
+    occurred === null ||
+    intervals.some(({ started, ended }) => started === null || ended === null)
+  ) {
+    return ambiguousMeasuredSession();
+  }
+  const containing = intervals.filter(
+    ({ started, ended }) =>
+      started !== null &&
+      started <= occurred &&
+      (ended === undefined || (ended !== null && occurred <= ended)),
+  );
+  if (containing.length === 1) {
+    const selected = containing[0];
+    return selected === undefined
+      ? ambiguousMeasuredSession()
+      : { kind: "owned", record: selected.record };
+  }
+  if (containing.length > 1) return ambiguousMeasuredSession();
+
+  const applicable = intervals.filter(
+    ({ started }) => started !== null && started <= occurred,
+  );
+  const latestStarted = applicable.reduce<string | null>(
+    (latest, { started }) =>
+      started !== null && (latest === null || started > latest)
+        ? started
+        : latest,
+    null,
+  );
+  const latest = applicable.filter(({ started }) => started === latestStarted);
+  const selected = latest[0];
+  return latest.length === 1 && selected !== undefined
+    ? { kind: "owned", record: selected.record }
+    : ambiguousMeasuredSession();
+}
+
+function timestampOrderKey(timestamp: string): string | null {
+  const match =
+    /^(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d)(?:\.(\d{1,9}))?Z$/.exec(
+      timestamp,
+    );
+  if (match === null || !Number.isFinite(Date.parse(timestamp))) return null;
+  const seconds = match[1];
+  if (seconds === undefined) return null;
+  return `${seconds}.${(match[2] ?? "").padEnd(9, "0")}`;
+}
+
+function ambiguousMeasuredSession(): MeasurementTarget {
+  return {
+    kind: "corrupt",
+    why: "The hook session contributes to multiple phase measurements without a unique execution interval.",
+  };
 }
 
 async function filesIn(

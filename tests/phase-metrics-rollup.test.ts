@@ -6,6 +6,7 @@ import {
   nearestRank,
   renderPhaseMeasurementLog,
   renderTaskMetrics,
+  type PhaseMeasurement,
 } from "@kratos/runtime/domain/measurements";
 import { sealEvent } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
@@ -27,13 +28,40 @@ const LOG = ".brain/03-memory/task_log.jsonl";
 const ROLLUP = ".brain/03-memory/task_metrics.md";
 const ASSIGNMENT_DIGEST = "a".repeat(64);
 
+const LEGACY_MEASUREMENT = {
+  contractVersion: "1.0.0",
+  stateContract: "1.0.0",
+  feature: "feature-144",
+  runId: "run-144",
+  phase: "code",
+  sessionId: "session-144",
+  correlationId: "correlation-144",
+  status: "completed",
+  startedAt: "2026-08-30T12:00:00.000Z",
+  endedAt: "2026-08-30T12:03:00.000Z",
+  durationMs: 180_000,
+  baselineGrossTokens: 100,
+  finalGrossTokens: 160,
+  grossTokens: 60,
+  assignmentDigest: ASSIGNMENT_DIGEST,
+  resolvedAssignment: {
+    host: "codex",
+    role: "implementer",
+    model: "codex-implementation",
+    effort: "high",
+  },
+  observedIdentity: { model: "gpt-5", effort: "medium" },
+  closeReason: "phase_completed",
+  updatedAt: "2026-08-30T12:03:00.000Z",
+} as const;
+
 function completed(
   runId: string,
   grossTokens: number,
   durationMs: number,
   phase: PhaseMeasurementV1["phase"] = "code",
   feature = "feature-b",
-): PhaseMeasurementV1 {
+): PhaseMeasurement {
   const startedAt = "2026-08-30T12:00:00.000Z";
   const endedAt = new Date(Date.parse(startedAt) + durationMs).toISOString();
   return {
@@ -69,7 +97,7 @@ function interrupted(
   runId: string,
   grossTokens: number,
   durationMs: number,
-): PhaseMeasurementV1 {
+): PhaseMeasurement {
   const record = completed(runId, grossTokens, durationMs);
   if (record.status !== "completed") {
     throw new Error("Completed measurement fixture is invalid");
@@ -81,7 +109,7 @@ function interrupted(
   };
 }
 
-function running(runId: string): PhaseMeasurementV1 {
+function running(runId: string): PhaseMeasurement {
   return {
     ...completed(runId, 0, 0),
     status: "running",
@@ -209,6 +237,22 @@ describe("phase metric distributions", () => {
 });
 
 describe("metrics refresh", () => {
+  it("canonicalizes the exact legacy v1 record on its next raw-log rewrite", async () => {
+    const legacyRaw = `${JSON.stringify(LEGACY_MEASUREMENT)}\n`;
+    const run = subject({ [LOG]: legacyRaw });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      reasonCode: "metrics.calibration_insufficient",
+      stateChanged: true,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(
+      `${JSON.stringify({
+        ...LEGACY_MEASUREMENT,
+        contributingSessionIds: ["session-144"],
+      })}\n`,
+    );
+  });
+
   it("writes the rollup while returning the six-phase calibration advisory", async () => {
     const raw = renderPhaseMeasurementLog([
       completed("run-01", 50, 500, "code", "feature-a"),

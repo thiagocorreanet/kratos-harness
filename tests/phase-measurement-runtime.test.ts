@@ -2,10 +2,10 @@ import type {
   GateFactsV1,
   OperationResultV1,
   PhaseHandoffV1_1,
-  PhaseMeasurementV1,
   RunUsageV1,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
+import type { PhaseMeasurement } from "@kratos/runtime/domain/measurements";
 import {
   fixedClock,
   fixedEnvironment,
@@ -287,6 +287,7 @@ async function samplePhase(
   suffix: string,
   now: string,
   kind: "session.sample" | "session.end" = "session.sample",
+  deliveredAt = now,
 ): Promise<OperationResultV1> {
   return relay(
     run,
@@ -299,18 +300,18 @@ async function samplePhase(
       usage: { cumulativeGrossTokens },
     },
     suffix,
-    now,
+    deliveredAt,
   );
 }
 
-function records(run: RuntimeSubject): readonly PhaseMeasurementV1[] {
+function records(run: RuntimeSubject): readonly PhaseMeasurement[] {
   const text = run.storage.snapshot().files[LOG] ?? "";
   return text === ""
     ? []
     : text
         .trimEnd()
         .split("\n")
-        .map((line) => JSON.parse(line) as PhaseMeasurementV1);
+        .map((line) => JSON.parse(line) as PhaseMeasurement);
 }
 
 function usage(run: RuntimeSubject): RunUsageV1 {
@@ -737,6 +738,151 @@ describe("phase measurement runtime lifecycle", () => {
     );
   });
 
+  it("refuses a 257th contributor before publishing usage, gates, measurements, or telemetry", async () => {
+    const run = await started();
+    await startPhase(run, "session-principal");
+    const open = records(run)[0];
+    if (open === undefined) throw new Error("Missing running measurement");
+    const fullContributors = [
+      open.sessionId,
+      ...Array.from(
+        { length: 255 },
+        (_, index) => `session-capacity-${String(index).padStart(3, "0")}`,
+      ),
+    ].sort((left, right) => left.localeCompare(right, "en-US"));
+    const fullRaw = `${JSON.stringify({
+      ...open,
+      contributingSessionIds: fullContributors,
+    })}\n`;
+    await run.ports.fileSystem.write(LOG, fullRaw);
+    const usagePath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/usage.json";
+    const gatesPath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/gates.json";
+
+    expect(
+      await samplePhase(
+        run,
+        "session-capacity-overflow",
+        20,
+        "capacity-overflow",
+        SAMPLE,
+      ),
+    ).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+      evidence: [{ ref: LOG }],
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(fullRaw);
+    expect(run.storage.snapshot().files[usagePath]).toBeUndefined();
+    expect(run.storage.snapshot().files[gatesPath]).toBeUndefined();
+    expect(
+      run.storage.snapshot().files[
+        ".brain/03-memory/.cache/hooks/session-capacity-overflow/telemetry.json"
+      ],
+    ).toBeUndefined();
+    expect(
+      run.storage.snapshot().files[
+        ".brain/03-memory/telemetry/session-capacity-overflow.json"
+      ],
+    ).toBeUndefined();
+  });
+
+  it("routes a reused launcher by hook time across phases and an active-run switch", async () => {
+    const run = await started();
+    await setTokenBudget(run, 100);
+    await startPhase(run, "session-shared");
+    await samplePhase(run, "session-shared", 40, "shared-a", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    expect(await startPhase(run, "session-shared", LATER)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+    expect(records(run)).toHaveLength(2);
+    expect(
+      records(run).every(({ contributingSessionIds }) =>
+        contributingSessionIds.includes("session-shared"),
+      ),
+    ).toBe(true);
+    await switchToEmptyRun(run, "run-02");
+    const newUsage =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+      ];
+    const newGates =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+      ];
+
+    expect(
+      await samplePhase(
+        run,
+        "session-shared",
+        45,
+        "shared-delayed-a-end",
+        "2026-08-30T12:02:00.000Z",
+        "session.end",
+        DELAYED,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    expect(
+      await samplePhase(
+        run,
+        "session-shared",
+        75,
+        "shared-current-b",
+        AFTER,
+        "session.sample",
+        REFRESH,
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    expect(
+      await samplePhase(
+        run,
+        "session-shared",
+        75,
+        "shared-current-b-end",
+        FINAL,
+        "session.end",
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    expect(
+      await samplePhase(run, "session-shared", 80, "shared-after-b", ROLLUP),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    expect(records(run).find(({ phase }) => phase === "prd")).toMatchObject({
+      status: "completed",
+      grossTokens: 45,
+      finalGrossTokens: 45,
+      endedAt: END,
+    });
+    expect(records(run).find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "interrupted",
+      grossTokens: 35,
+      finalGrossTokens: 75,
+      endedAt: FINAL,
+    });
+    expect(usageFor(run, "run-01").totalGrossTokens).toBe(80);
+    expect(
+      records(run).reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(80);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
+      ],
+    ).toBe(newUsage);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-02/gates.json"
+      ],
+    ).toBe(newGates);
+    expect(stopLossFor(run, "run-02")).toEqual({
+      tripped: false,
+      exhausted: false,
+    });
+  });
+
   it("routes a delayed contributing subagent final to its old phase and run", async () => {
     const run = await started();
     await setTokenBudget(run, 55);
@@ -807,7 +953,7 @@ describe("phase measurement runtime lifecycle", () => {
     ).toMatchObject({ runId: "run-01", grossTokens: 25 });
   });
 
-  it("fails closed when one contributor belongs to multiple phase records", async () => {
+  it("fails closed when one contributor belongs to genuinely overlapping phase records", async () => {
     const run = await started();
     await startPhase(run, "session-a");
     await samplePhase(run, "session-subagent", 20, "subagent-first", SAMPLE);
@@ -1291,7 +1437,7 @@ describe("phase measurement runtime lifecycle", () => {
     },
   );
 
-  it("fails closed when one measured session ambiguously names multiple runs", async () => {
+  it("fails closed on an exact timestamp tie across measured runs", async () => {
     const run = await started();
     await startPhase(run, "session-shared");
     await samplePhase(run, "session-shared", 40, "shared-sample", SAMPLE);
@@ -1314,8 +1460,9 @@ describe("phase measurement runtime lifecycle", () => {
         "session-shared",
         45,
         "shared-delayed-final",
-        AFTER,
+        START,
         "session.end",
+        AFTER,
       ),
     ).toMatchObject({
       exitCode: 4,

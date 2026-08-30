@@ -3,7 +3,14 @@ import type { PhaseMeasurementV1 } from "@kratos/contracts";
 import type { SchemaRegistry } from "../schema/index.js";
 import { RUN_PHASES, type RunPhase } from "../workflow/index.js";
 
-export type PhaseMeasurement = PhaseMeasurementV1;
+type WithContributorOwnership<T> = T extends PhaseMeasurementV1
+  ? T & { contributingSessionIds: [string, ...string[]] }
+  : never;
+
+/** Normalized runtime record. The wire contract also accepts legacy omission. */
+export type PhaseMeasurement = WithContributorOwnership<PhaseMeasurementV1>;
+
+export const MAX_PHASE_MEASUREMENT_CONTRIBUTORS = 256;
 
 export interface StartPhaseMeasurementInput {
   readonly feature: string;
@@ -276,6 +283,9 @@ function contributorIds(
   if (first === undefined) {
     throw new Error("Phase measurement contributor ownership is invalid");
   }
+  if (values.length > MAX_PHASE_MEASUREMENT_CONTRIBUTORS) {
+    throw new Error("Phase measurement contributor ownership is invalid");
+  }
   return [first, ...values.slice(1)];
 }
 
@@ -285,6 +295,7 @@ function hasValidContributorOwnership(record: PhaseMeasurement): boolean {
   );
   return (
     canonical.length > 0 &&
+    canonical.length <= MAX_PHASE_MEASUREMENT_CONTRIBUTORS &&
     canonical.includes(record.sessionId) &&
     canonical.length === record.contributingSessionIds.length &&
     canonical.every(
@@ -335,10 +346,11 @@ export function parsePhaseMeasurementLog(
     if (validated.kind === "invalid") {
       throw new Error("Phase measurement log is invalid");
     }
-    if (!hasValidMeasurementSemantics(validated.value)) {
+    const normalized = normalizePhaseMeasurement(validated.value);
+    if (!hasValidMeasurementSemantics(normalized)) {
       throw new Error("Phase measurement log is invalid");
     }
-    return validated.value;
+    return normalized;
   });
   const keys = new Set<string>();
   for (const record of records) {
@@ -347,6 +359,15 @@ export function parsePhaseMeasurementLog(
     keys.add(key);
   }
   return records;
+}
+
+function normalizePhaseMeasurement(
+  record: PhaseMeasurementV1,
+): PhaseMeasurement {
+  return {
+    ...record,
+    contributingSessionIds: record.contributingSessionIds ?? [record.sessionId],
+  };
 }
 
 export function renderPhaseMeasurementLog(

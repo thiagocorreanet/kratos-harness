@@ -52,7 +52,7 @@ describe("phase measurement contract", () => {
     expect(result.kind).toBe("invalid");
   });
 
-  it("rejects a measurement without contributor ownership", () => {
+  it("accepts the exact pre-ownership v1 measurement shape", () => {
     const missingContributors: Record<string, unknown> = { ...measurement };
     delete missingContributors.contributingSessionIds;
     const result = ajvSchemaRegistry().validate({
@@ -62,7 +62,10 @@ describe("phase measurement contract", () => {
       structuralReasonCode: "runtime.state_corrupt",
     });
 
-    expect(result.kind).toBe("invalid");
+    expect(result).toEqual({
+      kind: "valid",
+      value: missingContributors,
+    });
   });
 
   it("rejects duplicate contributor ownership", () => {

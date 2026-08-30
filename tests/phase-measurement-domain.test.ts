@@ -1,5 +1,6 @@
 import { ajvSchemaRegistry } from "@kratos/runtime/infra/schema";
 import {
+  addPhaseMeasurementContributor,
   completePhaseMeasurement,
   interruptPhaseMeasurement,
   parsePhaseMeasurementLog,
@@ -30,6 +31,33 @@ const start = {
 };
 
 const running = startPhaseMeasurement(start);
+
+const legacyMeasurement = {
+  contractVersion: "1.0.0",
+  stateContract: "1.0.0",
+  feature: "feature-144",
+  runId: "run-144",
+  phase: "code",
+  sessionId: "session-144",
+  correlationId: "correlation-144",
+  status: "completed",
+  startedAt: "2026-08-30T12:00:00.000Z",
+  endedAt: "2026-08-30T12:03:00.000Z",
+  durationMs: 180_000,
+  baselineGrossTokens: 100,
+  finalGrossTokens: 160,
+  grossTokens: 60,
+  assignmentDigest,
+  resolvedAssignment: {
+    host: "codex",
+    role: "implementer",
+    model: "codex-implementation",
+    effort: "high",
+  },
+  observedIdentity: { model: "gpt-5", effort: "medium" },
+  closeReason: "phase_completed",
+  updatedAt: "2026-08-30T12:03:00.000Z",
+} as const;
 
 describe("phase measurement domain", () => {
   it("starts with the launcher as the sole contributing session", () => {
@@ -95,6 +123,34 @@ describe("phase measurement domain", () => {
       "session-001",
       "session-144",
     ]);
+  });
+
+  it("accepts 256 contributors including the launcher and rejects a 257th", () => {
+    let record = running;
+    for (let index = 0; index < 255; index += 1) {
+      record = addPhaseMeasurementContributor(
+        record,
+        `session-capacity-${String(index).padStart(3, "0")}`,
+      );
+    }
+
+    expect(record.contributingSessionIds).toHaveLength(256);
+    expect(record.contributingSessionIds).toContain(running.sessionId);
+    expect(() => renderPhaseMeasurementLog([record])).not.toThrow();
+    expect(() =>
+      addPhaseMeasurementContributor(record, "session-capacity-overflow"),
+    ).toThrow("Phase measurement contributor ownership is invalid");
+    expect(() =>
+      renderPhaseMeasurementLog([
+        {
+          ...record,
+          contributingSessionIds: [
+            ...record.contributingSessionIds,
+            "session-capacity-overflow",
+          ],
+        },
+      ]),
+    ).toThrow("Phase measurement contributor ownership is invalid");
   });
 
   it("closes a completed phase with its final usage and runtime duration", () => {
@@ -184,6 +240,23 @@ describe("phase measurement domain", () => {
     );
 
     expect(parsed).toEqual([record]);
+  });
+
+  it("normalizes the exact legacy v1 record and renders canonical ownership", () => {
+    const parsed = parsePhaseMeasurementLog(
+      `${JSON.stringify(legacyMeasurement)}\n`,
+      ajvSchemaRegistry(),
+    );
+
+    expect(parsed).toEqual([
+      { ...legacyMeasurement, contributingSessionIds: ["session-144"] },
+    ]);
+    expect(renderPhaseMeasurementLog(parsed)).toBe(
+      `${JSON.stringify({
+        ...legacyMeasurement,
+        contributingSessionIds: ["session-144"],
+      })}\n`,
+    );
   });
 
   it("refuses a log record whose gross tokens do not equal its usage delta", () => {

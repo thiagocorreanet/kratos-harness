@@ -16,7 +16,6 @@ import type {
   HostOperationMessageV1,
   HookObservationV1,
   PhaseLifecycleV1,
-  PhaseMeasurementV1,
   FailureCandidateV1,
   GateFactsV1,
   MigrationV1,
@@ -26,6 +25,7 @@ import type {
   SnapshotV1,
 } from "@kratos/contracts";
 import type { PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { PhaseMeasurement } from "../measurements/index.js";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
@@ -187,12 +187,12 @@ export type CommandObservation =
         readonly telemetryExists: boolean;
         readonly transientFiles: readonly string[];
         readonly measurementTarget: {
-          readonly phase: PhaseMeasurementV1["phase"];
+          readonly phase: PhaseMeasurement["phase"];
           readonly claimSession: boolean;
         } | null;
         readonly measurements: {
           readonly content: string;
-          readonly records: readonly PhaseMeasurementV1[];
+          readonly records: readonly PhaseMeasurement[];
           readonly expected: WriteFilePrecondition;
         };
       } | null;
@@ -205,16 +205,16 @@ export type CommandObservation =
         readonly recoveries: readonly {
           readonly feature: string;
           readonly runId: string;
-          readonly phase: PhaseMeasurementV1["phase"];
+          readonly phase: PhaseMeasurement["phase"];
           readonly totalGrossTokens: number;
           readonly accepted: {
             readonly occurredAt: string;
-            readonly observedIdentity: PhaseMeasurementV1["observedIdentity"];
+            readonly observedIdentity: PhaseMeasurement["observedIdentity"];
           } | null;
         }[];
         readonly measurements: {
           readonly content: string;
-          readonly records: readonly PhaseMeasurementV1[];
+          readonly records: readonly PhaseMeasurement[];
           readonly expected: WriteFilePrecondition;
         };
       } | null;
@@ -266,7 +266,7 @@ export type CommandObservation =
       readonly tokenUsage: number | null;
       readonly measurements: {
         readonly content: string;
-        readonly records: readonly PhaseMeasurementV1[];
+        readonly records: readonly PhaseMeasurement[];
         readonly expected: WriteFilePrecondition;
       };
       readonly correlationId: string;
@@ -374,7 +374,7 @@ export type CommandObservation =
       readonly measurements: {
         readonly previousContent: string;
         readonly content: string;
-        readonly records: readonly PhaseMeasurementV1[];
+        readonly records: readonly PhaseMeasurement[];
         readonly expected: WriteFilePrecondition;
       };
       readonly rollupExpected: WriteFilePrecondition;
