@@ -303,3 +303,13 @@ export function renderPhaseMeasurementLog(
     ? ""
     : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
 }
+
+export {
+  derivePhaseDistributions,
+  nearestRank,
+  renderTaskMetrics,
+  type IntegerDistribution,
+  type PhaseDistribution,
+  type PhaseDistributions,
+  type TaskMetricsReport,
+} from "./rollup.js";

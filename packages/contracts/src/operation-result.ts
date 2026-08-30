@@ -214,7 +214,11 @@ export function validateOperationResult(value: unknown): OperationResultV1 {
     "retryable",
     "recovery",
   ] as const) {
-    if (result[property] !== policy[property]) {
+    const expected =
+      property === "status" && policy.status === "advisory"
+        ? "success"
+        : policy[property];
+    if (result[property] !== expected) {
       failure(`result ${property} conflicts with its reason`);
     }
   }

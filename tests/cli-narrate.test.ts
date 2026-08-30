@@ -89,6 +89,7 @@ function createSampleObservation(
       measurementFaultAt: null,
       updatedAt: "2026-08-29T12:00:00.000Z",
     },
+    tokenUsage: null,
     measurements: {
       content: "",
       records: [],

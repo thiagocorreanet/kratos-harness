@@ -85,7 +85,10 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
-import { observePhaseMeasurementLog, observeRunUsage } from "./measurements.js";
+import {
+  observePhaseMeasurementLog,
+  observeValidatedRunUsage,
+} from "./measurements.js";
 import { configurationValidator } from "./schema.js";
 
 const EMPTY_DIGEST =
@@ -243,13 +246,14 @@ export async function observeWorkflow(
       }),
     };
   }
-  const usage = await observeRunUsage(
+  const observedUsage = await observeValidatedRunUsage(
     configuration.feature,
     runId,
     occurredAt,
     anchored,
     registry,
   );
+  const usage = observedUsage.usage;
   const eventId = anchored.ids.next();
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
@@ -458,7 +462,7 @@ export async function observeWorkflow(
             gates: gateDecision,
             approvals: approvals.values,
             lineage: artifactLineage.readable ? artifactLineage.values : [],
-            budget: { allocated: tokenBudget, used: null },
+            budget: { allocated: tokenBudget, used: observedUsage.tokenUsage },
           },
           anchored.digests,
         )
@@ -474,6 +478,7 @@ export async function observeWorkflow(
       phaseAssignment,
       phaseExecution: preparedPhaseExecution.value,
       usage,
+      tokenUsage: observedUsage.tokenUsage,
       measurements,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),

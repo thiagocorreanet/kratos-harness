@@ -431,6 +431,35 @@ async function enterCodePhase(run: RuntimeSubject): Promise<void> {
 }
 
 describe("phase measurement runtime lifecycle", () => {
+  it("reports validated measured usage numerically without inventing legacy zero", async () => {
+    const unmeasured = await started();
+    expect((await result(unmeasured, ["budgets"])).why).toContain(
+      "Used: unknown",
+    );
+    await unmeasured.ports.fileSystem.write(
+      ".brain/02-features/measure-phase-usage/runs/run-01/usage.json",
+      "{not-json}\n",
+    );
+    expect((await result(unmeasured, ["budgets"])).why).toContain(
+      "Used: unknown",
+    );
+
+    const run = await started();
+    await startPhase(run, "session-prd");
+    await samplePhase(run, "session-prd", 40, "numeric-usage", SAMPLE);
+    await completeCurrentPhase(run, 0);
+
+    expect((await result(run, ["budgets"])).why).toContain("Used: 40");
+    expect(await result(run, ["evidence", "bundle"])).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+    const bundle = JSON.parse(
+      run.storage.snapshot().files[".brain/evidence/run-01-bundle.json"] ?? "",
+    ) as { readonly budget: { readonly used: number | null } };
+    expect(bundle.budget.used).toBe(40);
+  });
+
   it("starts one runtime-resolved record and physically deduplicates its retry", async () => {
     const run = await started();
 

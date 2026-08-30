@@ -249,6 +249,8 @@ export type CommandObservation =
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
       readonly usage: RunUsageV1;
+      /** Validated measured total, or null for absent/corrupt legacy usage. */
+      readonly tokenUsage: number | null;
       readonly measurements: {
         readonly content: string;
         readonly records: readonly PhaseMeasurementV1[];
@@ -351,6 +353,18 @@ export type CommandObservation =
       readonly dashboardHtml: string | null;
       /** Generated profile bytes and their typed authoritative inputs. */
       readonly stackProfile: StackProfileReadinessObservation;
+    }
+  | {
+      readonly kind: "metrics-refresh";
+      readonly generatedAt: string;
+      readonly sourceLogSha256: string;
+      readonly measurements: {
+        readonly previousContent: string;
+        readonly content: string;
+        readonly records: readonly PhaseMeasurementV1[];
+        readonly expected: WriteFilePrecondition;
+      };
+      readonly rollupExpected: WriteFilePrecondition;
     }
   | {
       readonly kind: "migration";
