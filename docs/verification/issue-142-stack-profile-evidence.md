@@ -48,5 +48,22 @@ The first review-fix round recorded these outcomes with npm `11.16.0`:
 | `npx --yes npm@11.16.0 run build && npx --yes npm@11.16.0 run package:verify` | PASS: Codex and Claude Code package flows |
 | `npx --yes npm@11.16.0 run format:check`, `spellcheck`, `english:check`, `lint`, and `typecheck` | PASS |
 
-Task 4 will append the final complete `npm run verify` outcome after the full
-repository gate runs on the committed implementation.
+## Task 4 final verification
+
+The final repository gates ran with npm `11.16.0` on the committed Task 3
+implementation:
+
+| Command | Outcome |
+| --- | --- |
+| `npx --yes npm@11.16.0 run format:check && npx --yes npm@11.16.0 run spellcheck && npx --yes npm@11.16.0 run english:check && npx --yes npm@11.16.0 run lint && npx --yes npm@11.16.0 run typecheck && npx --yes npm@11.16.0 run contracts:check` | PASS, exit 0: formatting, spelling, English-only source, lint, typecheck, and all 37 schemas with 14 legacy profiles and current generated types. |
+| `npx --yes npm@11.16.0 test -- --run tests/contract-schemas.test.ts tests/project-profile.test.ts tests/init-answers.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/config-migration.test.ts tests/diagnostics.test.ts tests/doctor-command.test.ts tests/project-profile-relay-distribution.test.ts tests/package-verifier.test.ts tests/contract-documentation.test.ts --reporter=dot` | PASS, exit 0: 11 files and 228 tests. |
+| `npx --yes npm@11.16.0 run build && npx --yes npm@11.16.0 run package:verify` | PASS, exit 0: Codex and Claude Code packages. |
+| `npx --yes npm@11.16.0 run verify` | PASS, exit 0: 179 files and 4,729 tests; coverage 93.12% statements, 88.56% branches, 95.48% functions, and 93.86% lines; mutation, gap calibration, performance, oracle, parity, result contract, contracts, differential, build, package verification, and benchmark gates all passed. |
+
+The complete feature diff from `ebbced0` was audited after the focused gates.
+It contains no inferred project commands, no host-specific runtime policy, no
+unsafe path bypass, no unreviewed generated-contract drift, and no unresolved
+`TODO` or `TBD` implementation placeholders. Configured commands remain inert
+data during initialization and diagnostics. The deliberate
+`<UNRESOLVED: projectProfile.*>` markers remain visible generated-document
+answers, not implementation placeholders.
