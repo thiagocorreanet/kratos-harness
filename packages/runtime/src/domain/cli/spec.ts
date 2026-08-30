@@ -198,7 +198,16 @@ export type CommandObservation =
         readonly phase: PhaseHandoffV1_1["phase"];
         readonly assignment: PhaseHandoffV1_1;
         readonly usage: RunUsageV1;
-        readonly events: readonly ReadableEvent[];
+        readonly recoveries: readonly {
+          readonly feature: string;
+          readonly runId: string;
+          readonly phase: PhaseMeasurementV1["phase"];
+          readonly totalGrossTokens: number;
+          readonly accepted: {
+            readonly occurredAt: string;
+            readonly observedIdentity: PhaseMeasurementV1["observedIdentity"];
+          } | null;
+        }[];
         readonly measurements: {
           readonly content: string;
           readonly records: readonly PhaseMeasurementV1[];

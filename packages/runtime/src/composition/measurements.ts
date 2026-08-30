@@ -105,9 +105,59 @@ type AcceptedTransitionObservation =
   | { readonly kind: "accepted"; readonly event: ReadableEvent }
   | { readonly kind: "corrupt"; readonly evidenceRef: string };
 
+export type PhaseMeasurementRecoveryObservation =
+  | {
+      readonly kind: "observed";
+      readonly totalGrossTokens: number;
+      readonly accepted: {
+        readonly occurredAt: string;
+        readonly observedIdentity: PhaseMeasurement["observedIdentity"];
+      } | null;
+    }
+  | Extract<AcceptedTransitionObservation, { readonly kind: "corrupt" }>;
+
 type MeasurementReconciliation =
   | { readonly kind: "record"; readonly record: PhaseMeasurement }
-  | Extract<AcceptedTransitionObservation, { readonly kind: "corrupt" }>;
+  | Extract<PhaseMeasurementRecoveryObservation, { readonly kind: "corrupt" }>;
+
+/** Observe the run-local facts needed to close one stale measurement. */
+export async function observePhaseMeasurementRecovery(
+  record: PhaseMeasurement,
+  now: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<PhaseMeasurementRecoveryObservation> {
+  const accepted = await acceptedTransition(record, ports, registry);
+  if (accepted.kind === "corrupt") return accepted;
+  const usage = await observeValidatedRunUsage(
+    record.feature,
+    record.runId,
+    now,
+    ports,
+    registry,
+  );
+  const recordedTotal = record.baselineGrossTokens + record.grossTokens;
+  return {
+    kind: "observed",
+    totalGrossTokens: Math.max(
+      recordedTotal,
+      usage.tokenUsage ?? recordedTotal,
+    ),
+    accepted:
+      accepted.kind === "absent"
+        ? null
+        : {
+            occurredAt: accepted.event.occurredAt,
+            observedIdentity: {
+              model: accepted.event.observedIdentity.model,
+              effort:
+                "effort" in accepted.event.observedIdentity
+                  ? accepted.event.observedIdentity.effort
+                  : null,
+            },
+          },
+  };
+}
 
 /** Observe and reconcile the complete local measurement set without writing. */
 export async function observeMetricsRefresh(
@@ -139,38 +189,20 @@ export async function observeMetricsRefresh(
         if (record.status !== "running") {
           return { kind: "record" as const, record };
         }
-        const accepted = await acceptedTransition(record, anchored, registry);
-        if (accepted.kind === "corrupt") return accepted;
-        const usage = await observeValidatedRunUsage(
-          record.feature,
-          record.runId,
+        const recovery = await observePhaseMeasurementRecovery(
+          record,
           generatedAt,
           anchored,
           registry,
         );
-        const recordedTotal = record.baselineGrossTokens + record.grossTokens;
+        if (recovery.kind === "corrupt") return recovery;
         return {
           kind: "record" as const,
           record: recoverPhaseMeasurement({
             record,
-            totalGrossTokens: Math.max(
-              recordedTotal,
-              usage.tokenUsage ?? recordedTotal,
-            ),
+            totalGrossTokens: recovery.totalGrossTokens,
             now: generatedAt,
-            accepted:
-              accepted.kind === "absent"
-                ? null
-                : {
-                    occurredAt: accepted.event.occurredAt,
-                    observedIdentity: {
-                      model: accepted.event.observedIdentity.model,
-                      effort:
-                        "effort" in accepted.event.observedIdentity
-                          ? accepted.event.observedIdentity.effort
-                          : null,
-                    },
-                  },
+            accepted: recovery.accepted,
           }),
         };
       }),
@@ -181,7 +213,12 @@ export async function observeMetricsRefresh(
   const records: PhaseMeasurement[] = [];
   for (const reconciliation of reconciliations) {
     if (reconciliation.kind === "corrupt") {
-      return corruptEventStream(reconciliation.evidenceRef);
+      return {
+        kind: "failure",
+        result: corruptPhaseMeasurementEventStreamResult(
+          reconciliation.evidenceRef,
+        ),
+      };
     }
     records.push(reconciliation.record);
   }
@@ -241,18 +278,15 @@ async function acceptedTransition(
   }
 }
 
-function corruptEventStream(
+export function corruptPhaseMeasurementEventStreamResult(
   evidenceRef: string,
-): Extract<ObservedMetricsRefresh, { readonly kind: "failure" }> {
-  return {
-    kind: "failure",
-    result: resultFor("runtime.state_corrupt", {
-      why: [
-        "A workflow event stream required to reconcile phase measurements is corrupt.",
-      ],
-      evidence: [{ kind: "event", ref: evidenceRef }],
-    }),
-  };
+): Result {
+  return resultFor("runtime.state_corrupt", {
+    why: [
+      "A workflow event stream required to reconcile phase measurements is corrupt.",
+    ],
+    evidence: [{ kind: "event", ref: evidenceRef }],
+  });
 }
 
 function invalidMeasurementLog(): Extract<

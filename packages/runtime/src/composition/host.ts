@@ -26,7 +26,9 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
 import {
+  corruptPhaseMeasurementEventStreamResult,
   observePhaseMeasurementLog,
+  observePhaseMeasurementRecovery,
   type PhaseMeasurementLogObservation,
 } from "./measurements.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
@@ -108,17 +110,52 @@ export async function observeHostOperation(
         }),
       };
     }
+    const feature = workflow.observation.configuration.feature;
+    const runId = workflow.observation.configuration.runId;
+    const phase = workflow.observation.workflow.state.currentStep;
+    const recoveries = [];
+    for (const record of workflow.observation.measurements.records) {
+      if (
+        record.status !== "running" ||
+        (record.feature === feature &&
+          record.runId === runId &&
+          record.phase === phase)
+      ) {
+        continue;
+      }
+      const recovery = await observePhaseMeasurementRecovery(
+        record,
+        observation.lifecycle.occurredAt,
+        anchored,
+        registry,
+      );
+      if (recovery.kind === "corrupt") {
+        return {
+          kind: "failure",
+          result: corruptPhaseMeasurementEventStreamResult(
+            recovery.evidenceRef,
+          ),
+        };
+      }
+      recoveries.push({
+        feature: record.feature,
+        runId: record.runId,
+        phase: record.phase,
+        totalGrossTokens: recovery.totalGrossTokens,
+        accepted: recovery.accepted,
+      });
+    }
     return {
       kind: "observed",
       observation: {
         ...observation,
         phaseStart: {
-          feature: workflow.observation.configuration.feature,
-          runId: workflow.observation.configuration.runId,
-          phase: workflow.observation.workflow.state.currentStep,
+          feature,
+          runId,
+          phase,
           assignment: workflow.observation.phaseAssignment.value,
           usage: workflow.observation.usage,
-          events: workflow.observation.events,
+          recoveries,
           measurements: workflow.observation.measurements,
         },
       },

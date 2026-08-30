@@ -28,6 +28,8 @@ const SAMPLE = "2026-08-30T12:01:00.000Z";
 const END = "2026-08-30T12:03:00.000Z";
 const LATER = "2026-08-30T12:04:00.000Z";
 const AFTER = "2026-08-30T12:05:00.000Z";
+const DELAYED = "2026-08-30T12:06:00.000Z";
+const REFRESH = "2026-08-30T12:07:00.000Z";
 const LOG = ".brain/03-memory/task_log.jsonl";
 const COMPLETE_PRD = `# Requirements
 
@@ -681,6 +683,61 @@ describe("phase measurement runtime lifecycle", () => {
     });
   });
 
+  it("attributes a delayed final session contribution only to its completed phase", async () => {
+    const run = await started();
+    await setTokenBudget(run, 75);
+    await startPhase(run, "session-a");
+    await samplePhase(run, "session-a", 40, "session-a-sample", SAMPLE);
+    await completeCurrentPhase(run, 0);
+    await startPhase(run, "session-b", LATER);
+    await samplePhase(run, "session-b", 30, "session-b-sample", AFTER);
+
+    expect(
+      await samplePhase(
+        run,
+        "session-a",
+        45,
+        "session-a-delayed-final",
+        DELAYED,
+        "session.end",
+      ),
+    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+
+    const prd = records(run).find(({ phase }) => phase === "prd");
+    const spec = records(run).find(({ phase }) => phase === "spec");
+    expect(prd).toMatchObject({
+      status: "completed",
+      baselineGrossTokens: 0,
+      finalGrossTokens: 45,
+      grossTokens: 45,
+      endedAt: END,
+      updatedAt: DELAYED,
+    });
+    expect(spec).toMatchObject({
+      status: "running",
+      baselineGrossTokens: 40,
+      finalGrossTokens: null,
+      grossTokens: 30,
+    });
+    expect(
+      records(run).reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(75);
+    expect(usage(run)).toMatchObject({
+      totalGrossTokens: 75,
+      sessions: [
+        { sessionId: "session-a", cumulativeGrossTokens: 45 },
+        { sessionId: "session-b", cumulativeGrossTokens: 30 },
+      ],
+      epoch: { exhaustedAt: DELAYED },
+    });
+    const gates = JSON.parse(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-01/gates.json"
+      ] ?? "",
+    ) as GateFactsV1;
+    expect(gates.stopLoss).toEqual({ tripped: false, exhausted: true });
+  });
+
   it("recovers an accepted stale running phase before starting the next phase", async () => {
     const run = await started();
     await startPhase(run, "session-prd");
@@ -732,6 +789,114 @@ describe("phase measurement runtime lifecycle", () => {
       status: "interrupted",
       endedAt: LATER,
       closeReason: "recovered_interrupted",
+    });
+  });
+
+  it("recovers another run from its own accepted transition and retains it through refresh", async () => {
+    const run = await started();
+    await startPhase(run, "previous-session");
+    await samplePhase(run, "previous-session", 35, "previous-sample", SAMPLE);
+    const stale = records(run)[0];
+    if (stale === undefined) throw new Error("Missing stale measurement");
+    await completeCurrentPhase(run, 0);
+    const currentEventsPath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/events.jsonl";
+    const acceptedEvents =
+      run.storage.snapshot().files[currentEventsPath] ?? "";
+    const previousEventsPath =
+      ".brain/02-features/previous-feature/runs/run-previous/events.jsonl";
+    const previousUsagePath =
+      ".brain/02-features/previous-feature/runs/run-previous/usage.json";
+    const previousUsage: RunUsageV1 = {
+      ...usage(run),
+      runId: "run-previous",
+      totalGrossTokens: 45,
+      sessions: [{ sessionId: "previous-session", cumulativeGrossTokens: 45 }],
+      updatedAt: END,
+    };
+    await run.ports.fileSystem.write(
+      LOG,
+      `${JSON.stringify({
+        ...stale,
+        feature: "previous-feature",
+        runId: "run-previous",
+      })}\n`,
+    );
+    await run.ports.fileSystem.write(previousEventsPath, acceptedEvents);
+    await run.ports.fileSystem.write(
+      previousUsagePath,
+      `${JSON.stringify(previousUsage, null, 2)}\n`,
+    );
+
+    expect(await startPhase(run, "session-spec", LATER)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+    expect(
+      records(run).find(({ runId }) => runId === "run-previous"),
+    ).toMatchObject({
+      status: "completed",
+      endedAt: END,
+      finalGrossTokens: 45,
+      grossTokens: 45,
+      closeReason: "recovered_completed",
+    });
+
+    expect(
+      await result(run, ["metrics", "refresh"], portsAt(run, REFRESH)),
+    ).toMatchObject({ reasonCode: "metrics.calibration_insufficient" });
+    expect(
+      records(run).find(({ runId }) => runId === "run-previous"),
+    ).toMatchObject({
+      status: "completed",
+      endedAt: END,
+      finalGrossTokens: 45,
+      grossTokens: 45,
+      closeReason: "recovered_completed",
+    });
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/task_metrics.md"],
+    ).toContain("| prd | 1 | 0 | previous-feature/run-previous |");
+  });
+
+  it("refuses a new phase when another running record has corrupt events", async () => {
+    const run = await started();
+    await startPhase(run, "previous-session");
+    await samplePhase(run, "previous-session", 10, "previous-sample", SAMPLE);
+    const stale = records(run)[0];
+    if (stale === undefined) throw new Error("Missing stale measurement");
+    const previousEventsPath =
+      ".brain/02-features/previous-feature/runs/run-previous/events.jsonl";
+    const priorRaw = `${JSON.stringify({
+      ...stale,
+      feature: "previous-feature",
+      runId: "run-previous",
+      phase: "code",
+    })}\n`;
+    await run.ports.fileSystem.write(LOG, priorRaw);
+    await run.ports.fileSystem.write(previousEventsPath, "{not-json}\n");
+    const currentEventsPath =
+      ".brain/02-features/measure-phase-usage/runs/run-01/events.jsonl";
+    const priorCurrentEvents =
+      run.storage.snapshot().files[currentEventsPath] ?? "";
+    const priorUsage = JSON.stringify(usage(run));
+
+    expect(await startPhase(run, "session-prd", LATER)).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+      evidence: [{ ref: previousEventsPath }],
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[currentEventsPath]).toBe(
+      priorCurrentEvents,
+    );
+    expect(JSON.stringify(usage(run))).toBe(priorUsage);
+    expect(records(run)).toHaveLength(1);
+    expect(records(run)[0]).toMatchObject({
+      feature: "previous-feature",
+      runId: "run-previous",
+      status: "running",
     });
   });
 

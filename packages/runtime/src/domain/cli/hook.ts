@@ -104,16 +104,25 @@ function decide(
     hook.sessionId,
   );
   if (measured !== null) {
-    const sampledMeasurement = samplePhaseMeasurement({
-      record: measured,
-      totalGrossTokens: sampled.usage.totalGrossTokens,
-      now: hook.occurredAt,
-    });
+    const measuredTotalGrossTokens =
+      measured.status === "running"
+        ? measured.baselineGrossTokens + measured.grossTokens
+        : measured.finalGrossTokens;
+    const attributedTotalGrossTokens =
+      measuredTotalGrossTokens + sampled.newlyObservedGrossTokens;
+    const sampledMeasurement =
+      sampled.newlyObservedGrossTokens === 0
+        ? measured
+        : samplePhaseMeasurement({
+            record: measured,
+            totalGrossTokens: attributedTotalGrossTokens,
+            now: hook.occurredAt,
+          });
     const nextMeasurement =
       hook.kind === "session.end" && sampledMeasurement.status === "running"
         ? interruptPhaseMeasurement({
             record: sampledMeasurement,
-            totalGrossTokens: sampled.usage.totalGrossTokens,
+            totalGrossTokens: attributedTotalGrossTokens,
             now: hook.occurredAt,
             closeReason: "session_interrupted",
           })
@@ -250,41 +259,33 @@ function decidePhaseStart(observation: Observation): Decision {
           assignmentDigest: lifecycle.assignmentDigest,
           updatedAt: lifecycle.occurredAt,
         };
-  const recovered = context.measurements.records.map((record) => {
-    if (record.status !== "running" || record === openPhase) return record;
-    const sameRun =
-      record.feature === context.feature && record.runId === context.runId;
-    const accepted = sameRun
-      ? context.events.find(
-          (event) =>
-            (event.reasonCode === "run.transition.accepted" ||
-              event.reasonCode === "run.completed") &&
-            "resolvedAssignment" in event &&
-            event.resolvedAssignment.phase === record.phase &&
-            Date.parse(event.occurredAt) >= Date.parse(record.startedAt),
-        )
-      : undefined;
-    return recoverPhaseMeasurement({
-      record,
-      totalGrossTokens: sameRun
-        ? context.usage.totalGrossTokens
-        : record.baselineGrossTokens + record.grossTokens,
-      now: lifecycle.occurredAt,
-      accepted:
-        accepted === undefined
-          ? null
-          : {
-              occurredAt: accepted.occurredAt,
-              observedIdentity: {
-                model: accepted.observedIdentity.model,
-                effort:
-                  "effort" in accepted.observedIdentity
-                    ? accepted.observedIdentity.effort
-                    : null,
-              },
-            },
-    });
-  });
+  const recovered: PhaseMeasurement[] = [];
+  for (const record of context.measurements.records) {
+    if (record.status !== "running" || record === openPhase) {
+      recovered.push(record);
+      continue;
+    }
+    const recovery = context.recoveries.find(
+      (candidate) =>
+        candidate.feature === record.feature &&
+        candidate.runId === record.runId &&
+        candidate.phase === record.phase,
+    );
+    if (recovery === undefined) {
+      return refusedMetric(
+        "runtime.state_corrupt",
+        "A stale phase measurement has no verified recovery observation.",
+      );
+    }
+    recovered.push(
+      recoverPhaseMeasurement({
+        record,
+        totalGrossTokens: recovery.totalGrossTokens,
+        now: lifecycle.occurredAt,
+        accepted: recovery.accepted,
+      }),
+    );
+  }
   const started =
     continued ??
     startPhaseMeasurement({
