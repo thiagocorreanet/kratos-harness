@@ -18,6 +18,10 @@ const acceptanceCriterionIdSchemaPath = join(
   repositoryRoot,
   "schemas/contracts/acceptance-criterion-id.v1.schema.json",
 );
+const agentOutputV1SchemaPath = join(
+  repositoryRoot,
+  "schemas/host/agent-output.v1.schema.json",
+);
 export const generatedContractsPath = join(
   repositoryRoot,
   "packages/contracts/src/generated/contracts.ts",
@@ -150,17 +154,46 @@ function transactionProgressTypeSchema(schema) {
 function agentOutputTypeSchema(schema) {
   const variants = schema.allOf.map((rule) => {
     const agent = rule.if?.properties?.agent;
-    const payload = rule.then?.properties?.payload;
-    if (agent === undefined || payload === undefined) {
+    const branch = rule.then?.properties;
+    if (agent === undefined || branch === undefined) {
       throw new Error("agent output conditional branch is incomplete");
     }
-    return closedObjectVariant(schema, { agent, payload });
+    return closedObjectVariant(schema, { agent, ...branch });
   });
   return {
     $schema: schema.$schema,
     $id: schema.$id,
     title: schema.title,
     oneOf: variants,
+    $defs: schema.$defs,
+  };
+}
+
+/**
+ * A handoff is closed at runtime but its memory acknowledgement is conditional
+ * on the selected phase. Rebuild that conditional as a TypeScript union so
+ * consumers cannot construct a code/review handoff with `memory: null` (or
+ * accidentally receive the compiler's permissive allOf index signature).
+ */
+function phaseHandoffTypeSchema(schema) {
+  const memoryObservation = schema.$defs?.memoryObservation;
+  if (memoryObservation === undefined) {
+    throw new Error("phase handoff memory observation is missing");
+  }
+  const phases = ["prd", "spec", "plan", "code", "review", "acceptance"];
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: phases.map((phase) =>
+      closedObjectVariant(schema, {
+        phase: { const: phase },
+        memory:
+          phase === "code" || phase === "review"
+            ? { $ref: "#/$defs/memoryObservation" }
+            : { type: "null" },
+      }),
+    ),
     $defs: schema.$defs,
   };
 }
@@ -189,9 +222,39 @@ function adapterMessageV1_1TypeSchema(schema) {
   };
 }
 
+/**
+ * Runtime schemas enforce memory collection cardinality. Keeping every
+ * bounded array as a TypeScript tuple union turns the published memory types
+ * into an exponentially large domain, which the compiler cannot carry through
+ * the generic schema registry. Generated declarations retain their closed,
+ * discriminated shapes while representing those runtime-validated collections
+ * as ordinary arrays.
+ */
+function memoryTypeSchema(schema) {
+  function withoutArrayBounds(value) {
+    if (Array.isArray(value)) return value.map(withoutArrayBounds);
+    if (value === null || typeof value !== "object") return value;
+    const copy = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        withoutArrayBounds(child),
+      ]),
+    );
+    if (copy.type === "array") {
+      delete copy.minItems;
+      delete copy.maxItems;
+    }
+    return copy;
+  }
+  return withoutArrayBounds(schema);
+}
+
 function schemaForTypeGeneration(id, schema) {
   if (id === "host.agent-output") {
     return agentOutputTypeSchema(schema);
+  }
+  if (id === "host.phase-handoff" && schema.$id.endsWith("/v1.2")) {
+    return phaseHandoffTypeSchema(schema);
   }
   if (id === "state.transaction-manifest") {
     return transactionManifestTypeSchema(schema);
@@ -205,18 +268,30 @@ function schemaForTypeGeneration(id, schema) {
   ) {
     return adapterMessageV1_1TypeSchema(schema);
   }
+  if (
+    id === "host.memory-change" ||
+    id === "host.memory-migration" ||
+    id === "state.curated-memory"
+  ) {
+    return memoryTypeSchema(schema);
+  }
   return schema;
 }
 
 export async function generateContractTypes({
   outputPath = generatedContractsPath,
 } = {}) {
-  const [manifest, resultSchemaText, acceptanceCriterionIdSchemaText] =
-    await Promise.all([
-      readJson(manifestPath),
-      readFile(resultSchemaPath, "utf8"),
-      readFile(acceptanceCriterionIdSchemaPath, "utf8"),
-    ]);
+  const [
+    manifest,
+    resultSchemaText,
+    acceptanceCriterionIdSchemaText,
+    agentOutputV1SchemaText,
+  ] = await Promise.all([
+    readJson(manifestPath),
+    readFile(resultSchemaPath, "utf8"),
+    readFile(acceptanceCriterionIdSchemaPath, "utf8"),
+    readFile(agentOutputV1SchemaPath, "utf8"),
+  ]);
   const headers = [];
   const declarations = [];
   const resultSchema = JSON.parse(resultSchemaText);
@@ -258,6 +333,12 @@ export async function generateContractTypes({
               canRead:
                 /^https:\/\/kratos\.dev\/schemas\/contracts\/acceptance-criterion-id\/v1$/u,
               read: acceptanceCriterionIdSchemaText,
+            },
+            agentOutputV1: {
+              order: 3,
+              canRead:
+                /^https:\/\/kratos\.dev\/schemas\/host\/agent-output\/v1$/u,
+              read: agentOutputV1SchemaText,
             },
           },
         },

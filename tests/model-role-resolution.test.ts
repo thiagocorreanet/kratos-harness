@@ -199,6 +199,7 @@ describe("model role resolution", () => {
       revision: 7,
       host: "codex" as const,
       assignment: resolvedReview,
+      memory: null,
     };
 
     expect(digestPhaseAssignment(input, sha256)).toBe(
@@ -221,6 +222,16 @@ describe("model role resolution", () => {
     ],
     ["model", { assignment: { ...resolvedReview, model: "other-model" } }],
     ["effort", { assignment: { ...resolvedReview, effort: "high" } }],
+    [
+      "memory acknowledgement",
+      {
+        memory: {
+          ref: ".brain/03-memory/gotchas.md" as const,
+          sha256: "a".repeat(64),
+          lessonIds: [],
+        },
+      },
+    ],
   ] as const)("changes the digest when %s changes", (_field, changed) => {
     const input = {
       configDigest: "config-digest",
@@ -228,6 +239,7 @@ describe("model role resolution", () => {
       revision: 7,
       host: "codex" as const,
       assignment: resolvedReview,
+      memory: null,
     };
 
     expect(digestPhaseAssignment({ ...input, ...changed }, sha256)).not.toBe(

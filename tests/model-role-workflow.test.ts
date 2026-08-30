@@ -2,13 +2,18 @@ import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with 
 import type {
   EventV1_1,
   OperationResultV1,
-  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   digestPhaseAssignment,
   type HostModelCatalog,
 } from "@kratos/runtime/domain/model-roles";
+import {
+  projectCuratedMemory,
+  STOCK_GOTCHAS_TEMPLATE,
+} from "@kratos/runtime/domain/memory";
+import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import {
   fixedClock,
   fixedEnvironment,
@@ -90,8 +95,8 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
     .join("\n");
   return `${prose}\n\n===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "prd",
       outcome: {
         status: "completed",
@@ -101,6 +106,7 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
       },
       artifacts: [".brain/02-features/ship-handoff/00-prd.md"],
       changedFiles: [],
+      memory: null,
       payload: {
         objective: "Ship one digest-bound phase result.",
         requirementIds: ["phase-execution-boundary"],
@@ -130,19 +136,19 @@ function lastEvent(subject: WorkflowSubject): EventV1_1 {
 
 async function currentHandoff(
   subject: WorkflowSubject,
-): Promise<PhaseHandoffV1_1> {
+): Promise<PhaseHandoffV1_2> {
   clearOutput(subject.output);
   expect(await runCommandLine(["--json", "handoff"], subject.ports)).toBe(0);
   const handoff = JSON.parse(
     subject.output.structured_.join(""),
-  ) as PhaseHandoffV1_1;
+  ) as PhaseHandoffV1_2;
   clearOutput(subject.output);
   return handoff;
 }
 
 function phaseResultRequest(
   subject: WorkflowSubject,
-  handoff: PhaseHandoffV1_1,
+  handoff: PhaseHandoffV1_2,
   ref: string,
   reply: string,
   execution: PhaseExecutionObservation,
@@ -162,7 +168,7 @@ function phaseResultRequest(
       model: execution.model,
       effort: execution.effort,
     },
-    payloadContract: "host.agent-output@1.0.0",
+    payloadContract: "host.agent-output@1.2.0",
     payload: { ref, sha256: subject.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: execution.assignmentDigest,
@@ -217,6 +223,7 @@ function subject(
     options.launcherHost === undefined ? "codex" : options.launcherHost;
   const storage = memoryTransactionStorage({
     files: {
+      ".brain/03-memory/gotchas.md": STOCK_GOTCHAS_TEMPLATE,
       ".brain/config.json": JSON.stringify(
         options.configuration ??
           roleConfig("codex", {
@@ -348,7 +355,145 @@ async function advanceToReview(run: WorkflowSubject): Promise<void> {
   await advanceToPhase(run, 4);
 }
 
+function codeReply(
+  memory: unknown,
+  overrides: Readonly<Record<string, unknown>> = {},
+): string {
+  return `===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
+    {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
+      agent: "code",
+      outcome: {
+        status: "completed",
+        next: "proceed",
+        questions: [],
+        blockers: [],
+      },
+      artifacts: [],
+      changedFiles: [],
+      payload: { stepId: "implementation", testsAdded: 1, testsPassed: true },
+      memory,
+      ...overrides,
+    },
+    null,
+    2,
+  )}\n===END-KRATOS-AGENT-OUTPUT-V1===\n`;
+}
+
+async function recordCode(
+  run: WorkflowSubject,
+  handoff: PhaseHandoffV1_2,
+  memory: unknown,
+  assignmentDigest = handoff.assignmentDigest,
+  overrides: Readonly<Record<string, unknown>> = {},
+): Promise<OperationResultV1> {
+  const ref = ".brain/agent-replies/code.md";
+  const reply = codeReply(memory, overrides);
+  await run.ports.fileSystem.write(ref, reply);
+  const message = phaseResultRequest(run, handoff, ref, reply, {
+    assignmentDigest,
+    model: null,
+    effort: null,
+    provenance: "host-reported",
+  });
+  clearOutput(run.output);
+  await runCommandLine(
+    ["--json", "agent", "record", ref, "--correlation-id", "agent-record-01"],
+    { ...run.ports, standardInput: pipedInput(`${JSON.stringify(message)}\n`) },
+  );
+  return JSON.parse(run.output.structured_.join("")) as OperationResultV1;
+}
+
+function populatedProjection(run: WorkflowSubject): {
+  readonly ledger: string;
+  readonly projection: string;
+} {
+  const lesson = {
+    title: "Bind the current phase context",
+    why: ["A handoff digest must include curated memory."],
+    apply: ["Return the exact memory acknowledgement."],
+    candidateIds: ["a".repeat(64)],
+    reviewer: "reviewer",
+    confirmedAt: "2026-08-29T00:00:00Z",
+  };
+  const lessonId = run.ports.digests.sha256(
+    canonicalizeJson({
+      title: lesson.title,
+      why: lesson.why,
+      apply: lesson.apply,
+      candidateIds: lesson.candidateIds,
+    }),
+  );
+  const draft = {
+    contractVersion: "1.0.0" as const,
+    stateContract: "1.0.0" as const,
+    revision: 1,
+    projectionDigest: "",
+    updatedAt: "2026-08-29T00:00:00Z",
+    confirmed: [{ ...lesson, lessonId }],
+    archive: [],
+  };
+  const projected = projectCuratedMemory(draft, (content) =>
+    run.ports.digests.sha256(content),
+  );
+  return {
+    ledger: JSON.stringify({
+      ...draft,
+      projectionDigest: projected.projectionDigest,
+    }),
+    projection: projected.content,
+  };
+}
+
 describe("read-only model-role handoffs", () => {
+  it.each([
+    ["prd", 0, false],
+    ["spec", 1, false],
+    ["plan", 2, false],
+    ["code", 3, true],
+    ["review", 4, true],
+    ["acceptance", 5, false],
+  ] as const)(
+    "applies the legacy-memory guard only to the %s phase",
+    async (phase, completed, guarded) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            planner: "planner-alias",
+            implementer: "impl-alias",
+            judge: "judge-alias",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, completed);
+      await run.ports.fileSystem.write(
+        ".brain/03-memory/gotchas.md",
+        "# Local legacy notes\n\nDo not lose this custom note.\n",
+      );
+      const before = run.storage.snapshot();
+
+      const exit = await runCommandLine(["--json", "handoff"], run.ports);
+      const result = JSON.parse(run.output.structured_.join("")) as {
+        readonly reasonCode?: string;
+        readonly phase?: string;
+      };
+      if (guarded) {
+        expect(exit).not.toBe(0);
+        expect(result).toMatchObject({
+          reasonCode: "memory.migration_required",
+          evidence: [{ kind: "artifact", ref: ".brain/03-memory/gotchas.md" }],
+        });
+      } else {
+        expect(result.reasonCode).not.toBe("memory.migration_required");
+        expect(exit).toBe(0);
+        expect(result.phase).toBe(phase);
+      }
+      expect(run.storage.snapshot()).toEqual(before);
+    },
+  );
+
   it("returns the runtime-selected judge assignment for the review phase", async () => {
     const configuration = {
       ...roleConfig("codex", {
@@ -611,6 +756,7 @@ describe("read-only model-role handoffs", () => {
             model: "planner-canonical",
             effort: "medium",
           },
+          memory: null,
         },
         (canonical) => run.ports.digests.sha256(canonical),
       ),
@@ -856,6 +1002,160 @@ describe("read-only model-role handoffs", () => {
 });
 
 describe("phase execution trust boundary", () => {
+  it("binds code acknowledgement to both the original and freshly read memory", async () => {
+    const run = await started({
+      configuration: {
+        ...roleConfig("codex", {
+          planner: "planner-alias",
+          implementer: "impl-alias",
+          judge: "judge-alias",
+        }),
+        policyMode: "standard",
+      },
+    });
+    await advanceToPhase(run, 3);
+    const handoffA = await currentHandoff(run);
+    const matching = await recordCode(run, handoffA, handoffA.memory);
+    expect(matching).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    const replacement = populatedProjection(run);
+    await run.ports.fileSystem.write(
+      ".brain/03-memory/curated-memory.json",
+      replacement.ledger,
+    );
+    await run.ports.fileSystem.write(
+      ".brain/03-memory/gotchas.md",
+      replacement.projection,
+    );
+    const handoffB = await currentHandoff(run);
+    expect(
+      await recordCode(
+        run,
+        handoffB,
+        handoffB.memory,
+        handoffA.assignmentDigest,
+      ),
+    ).toMatchObject({
+      reasonCode: "model.assignment_stale",
+      stateChanged: false,
+    });
+    expect(await recordCode(run, handoffB, handoffA.memory)).toMatchObject({
+      reasonCode: "memory.phase_context_stale",
+      stateChanged: false,
+    });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+  ] as const)(
+    "returns phase-context stale for an otherwise-valid %s code acknowledgement",
+    async (_label, acknowledgement) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            planner: "planner-alias",
+            implementer: "impl-alias",
+            judge: "judge-alias",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, 3);
+      const handoff = await currentHandoff(run);
+      expect(await recordCode(run, handoff, acknowledgement)).toMatchObject({
+        reasonCode: "memory.phase_context_stale",
+        stateChanged: false,
+      });
+    },
+  );
+
+  it.each([
+    [
+      "mismatched",
+      {
+        ref: ".brain/03-memory/gotchas.md",
+        sha256: "f".repeat(64),
+        lessonIds: [],
+      },
+    ],
+  ] as const)(
+    "returns phase-context stale for a valid but %s code acknowledgement",
+    async (_label, acknowledgement) => {
+      const run = await started({
+        configuration: {
+          ...roleConfig("codex", {
+            planner: "planner-alias",
+            implementer: "impl-alias",
+            judge: "judge-alias",
+          }),
+          policyMode: "standard",
+        },
+      });
+      await advanceToPhase(run, 3);
+      const handoff = await currentHandoff(run);
+      expect(await recordCode(run, handoff, acknowledgement)).toMatchObject({
+        reasonCode: "memory.phase_context_stale",
+        stateChanged: false,
+      });
+    },
+  );
+
+  it.each([
+    [
+      "wrong contract version",
+      { contractVersion: "1.0.0", hostContract: "1.0.0" },
+    ],
+    [
+      "wrong agent",
+      { agent: "review", payload: { verdict: "pass", findings: [] } },
+    ],
+    [
+      "malformed payload",
+      {
+        payload: {
+          stepId: "implementation",
+          testsAdded: "one",
+          testsPassed: true,
+        },
+      },
+    ],
+    ["additional property", { unexpected: true }],
+  ] as const)(
+    "keeps %s with a missing or null acknowledgement schema-invalid",
+    async (_label, overrides) => {
+      for (const acknowledgement of [undefined, null]) {
+        const run = await started({
+          configuration: {
+            ...roleConfig("codex", {
+              planner: "planner-alias",
+              implementer: "impl-alias",
+              judge: "judge-alias",
+            }),
+            policyMode: "standard",
+          },
+        });
+        await advanceToPhase(run, 3);
+        const handoff = await currentHandoff(run);
+        expect(
+          await recordCode(
+            run,
+            handoff,
+            acknowledgement,
+            handoff.assignmentDigest,
+            overrides,
+          ),
+        ).toMatchObject({
+          reasonCode: "trail.output_invalido",
+          stateChanged: false,
+        });
+      }
+    },
+  );
+
   it("writes runtime resolution and excludes forged agent prose", async () => {
     const run = await started();
     const reply = agentReplyWithExtraClaims({

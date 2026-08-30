@@ -21,6 +21,7 @@ const schemaPaths = new Map([
   ["result@1.0.0", "schemas/result.v1.schema.json"],
   ["adapter-message@1.0.0", "schemas/host/adapter-message.v1.schema.json"],
   ["phase-handoff@1.1.0", "schemas/host/phase-handoff.v1.1.schema.json"],
+  ["phase-handoff@1.2.0", "schemas/host/phase-handoff.v1.2.schema.json"],
 ]);
 const validators = new Map<string, (value: unknown) => boolean>();
 

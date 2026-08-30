@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/phase-handoff/v1.2",
+  "title": "Kratos phase handoff v1.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "feature",
+    "runId",
+    "revision",
+    "phase",
+    "host",
+    "assignment",
+    "assignmentDigest",
+    "objectiveDigest",
+    "status",
+    "gateOutcome",
+    "blockers",
+    "openGaps",
+    "nextAction",
+    "memory"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.2.0" },
+    "hostContract": { "const": "1.2.0" },
+    "feature": { "$ref": "#/$defs/id" },
+    "runId": { "$ref": "#/$defs/id" },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "phase": {
+      "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+    },
+    "host": { "enum": ["claude", "codex"] },
+    "assignment": { "$ref": "#/$defs/assignment" },
+    "assignmentDigest": { "$ref": "#/$defs/sha256" },
+    "objectiveDigest": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["idle", "active", "blocked", "completed"] },
+    "gateOutcome": { "enum": ["pass", "warn", "block"] },
+    "blockers": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+    "openGaps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nextAction": { "type": "string", "minLength": 1 },
+    "memory": { "$ref": "#/$defs/memory" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "phase": { "enum": ["code", "review"] } },
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": { "memory": { "$ref": "#/$defs/memoryObservation" } }
+      },
+      "else": { "properties": { "memory": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "role", "model", "effort"],
+      "properties": {
+        "phase": {
+          "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+        },
+        "role": { "enum": ["planner", "implementer", "judge"] },
+        "model": { "$ref": "#/$defs/id" },
+        "effort": { "$ref": "#/$defs/id" }
+      }
+    },
+    "memory": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/memoryObservation" }]
+    },
+    "memoryObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "lessonIds"],
+      "properties": {
+        "ref": { "const": ".brain/03-memory/gotchas.md" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "lessonIds": {
+          "type": "array",
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    }
+  }
+}

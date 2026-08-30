@@ -28,6 +28,7 @@ const artifacts = [
   ],
   ["state/evidence.v1.schema.json", "evidence.json", "state"],
   ["state/failure-candidate.v1.schema.json", "failure-candidate.json", "state"],
+  ["state/curated-memory.v1.schema.json", "curated-memory.json", "state"],
   ["state/feature.v1.schema.json", "feature.json", "state"],
   ["state/feature-scope.v1.schema.json", "feature-scope.json", "state"],
   ["state/lock.v1.schema.json", "lock.json", "state"],
@@ -782,6 +783,58 @@ describe("versioned state and host schemas", () => {
       });
       expect(validate("2026-99-99T99:99:99Z"), fixtureName).toBe(false);
     }
+  });
+
+  it("rejects an impossible calendar date in every curated memory timestamp", () => {
+    const curatedMemory = loaded.find(
+      ({ fixtureName }) => fixtureName === "curated-memory.json",
+    );
+    if (curatedMemory === undefined)
+      throw new Error("missing curated memory fixture");
+    const candidate = structuredClone(curatedMemory.fixture);
+    const sha256 = "a".repeat(64);
+    const confirmedLesson = {
+      lessonId: sha256,
+      title: "A valid title",
+      why: ["A valid causal explanation."],
+      apply: ["A valid application rule."],
+      candidateIds: ["b".repeat(64)],
+      reviewer: "memory-reviewer",
+      confirmedAt: "2026-02-28T00:00:00Z",
+    };
+    const archiveTombstone = {
+      lessonId: sha256,
+      title: "A valid title",
+      candidateIds: ["b".repeat(64)],
+      reviewer: "memory-reviewer",
+      archivedAt: "2026-02-28T00:00:00Z",
+      reason: "A valid archive reason.",
+      replacementLessonId: null,
+    };
+    const invalidDate = "2026-02-31T00:00:00Z";
+    const validate = contractAjv().compile(curatedMemory.schema);
+
+    expect(validate({ ...candidate, updatedAt: invalidDate })).toBe(false);
+    expect(
+      validate({
+        ...candidate,
+        confirmed: [{ ...confirmedLesson, confirmedAt: invalidDate }],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        ...candidate,
+        archive: [{ ...archiveTombstone, archivedAt: invalidDate }],
+      }),
+    ).toBe(false);
+
+    const timestampAjv = contractAjv();
+    timestampAjv.addSchema(curatedMemory.schema);
+    const validateTimestamp = timestampAjv.compile({
+      $ref: `${String(curatedMemory.schema.$id)}#/$defs/timestamp`,
+    });
+    expect(validateTimestamp("2024-02-29T00:00:00Z")).toBe(true);
+    expect(validateTimestamp("2100-02-29T00:00:00Z")).toBe(false);
   });
 
   it("bounds persisted cursors and revisions to safe integers", () => {

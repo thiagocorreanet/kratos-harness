@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/memory-migration/v1.2",
+  "title": "Kratos memory migration proposal v1.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "sourceDigest",
+    "reviewer",
+    "lessons"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.2.0" },
+    "hostContract": { "const": "1.2.0" },
+    "sourceDigest": { "$ref": "#/$defs/sha256" },
+    "reviewer": { "$ref": "#/$defs/id" },
+    "lessons": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/lesson" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startLine", "endLine"],
+      "properties": {
+        "startLine": { "$ref": "#/$defs/positiveInteger" },
+        "endLine": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "why", "apply", "sourceRanges"],
+      "properties": {
+        "title": { "$ref": "#/$defs/title" },
+        "why": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "apply": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "sourceRanges": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/sourceRange" }
+        }
+      }
+    }
+  }
+}

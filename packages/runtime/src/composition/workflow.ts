@@ -1,6 +1,7 @@
 import type {
   AdapterMessageV1_1,
   AgentOutputV1,
+  AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -10,7 +11,7 @@ import type {
   ProjectConfigV1_3,
   SnapshotV1,
 } from "@kratos/contracts";
-import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type PhaseHandoffV1_2 } from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -86,6 +87,8 @@ import type { RuntimePorts } from "../ports/index.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
+import { observePhaseMemoryBinding } from "./memory.js";
+import { declaredContractVersion } from "./contract-version.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -393,6 +396,17 @@ export async function observeWorkflow(
     ports: anchored,
     registry,
   });
+  const currentPhaseMemory = await observePhaseMemoryBinding(
+    phase,
+    anchored,
+    registry,
+  );
+  const classifiedAgentOutput = classifyMissingMemoryAcknowledgement(
+    agentOutput,
+    phase,
+    phaseAssignment,
+    registry,
+  );
   const preparedPhaseExecution = phaseExecutionFor(
     phaseResultRequest,
     phaseAssignment,
@@ -453,6 +467,10 @@ export async function observeWorkflow(
       configuration,
       observedLineage,
       phaseAssignment,
+      currentPhaseMemory:
+        currentPhaseMemory.kind === "value"
+          ? currentPhaseMemory.value
+          : { kind: "unreadable" },
       phaseExecution: preparedPhaseExecution.value,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
@@ -478,7 +496,7 @@ export async function observeWorkflow(
       gaps: gaps.values,
       gapsReadable: gaps.readable,
       gapProposal,
-      agentOutput,
+      agentOutput: classifiedAgentOutput,
       agentOutputs: agentOutputs.values,
       agentOutputsReadable: agentOutputs.readable,
       acceptanceCriteria,
@@ -818,7 +836,7 @@ async function observePhaseResultRequest(
   if (
     message.messageType !== "request" ||
     message.phaseExecution === undefined ||
-    message.payloadContract !== "host.agent-output@1.0.0" ||
+    message.payloadContract !== "host.agent-output@1.2.0" ||
     ref === undefined ||
     message.payload.ref !== ref ||
     typeof correlationId !== "string" ||
@@ -894,13 +912,64 @@ async function observeAgentReply(
   }
   const validated = registry.validate({
     id: "host.agent-output",
-    version: "1.0.0",
+    version: "1.2.0",
     value: extracted.value,
     structuralReasonCode: "trail.output_invalido",
   });
   return validated.kind === "valid"
     ? { kind: "valid", ref, value: validated.value }
-    : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+    : {
+        kind: "invalid",
+        ref,
+        diagnostics: validated.diagnostics,
+        value: extracted.value,
+      };
+}
+
+/**
+ * Preserve structural refusal unless the memory field is the only relevant
+ * defect. The assigned binding is substituted into a copy and passed through
+ * the same v1.2 validator; a wrong version, agent, payload, or extra field
+ * therefore stays `trail.output_invalido` rather than masquerading as stale
+ * phase context.
+ */
+function classifyMissingMemoryAcknowledgement(
+  observation: AgentOutputObservation,
+  phase: string,
+  assignment: PhaseAssignmentObservation,
+  registry: SchemaRegistry,
+): AgentOutputObservation {
+  if (
+    observation.kind !== "invalid" ||
+    (phase !== "code" && phase !== "review") ||
+    assignment.kind !== "resolved" ||
+    assignment.value.memory === null ||
+    typeof observation.value !== "object" ||
+    observation.value === null ||
+    Array.isArray(observation.value)
+  ) {
+    return observation;
+  }
+  const candidate = observation.value as Record<string, unknown>;
+  const agent = Object.getOwnPropertyDescriptor(candidate, "agent");
+  const memory = Object.getOwnPropertyDescriptor(candidate, "memory");
+  if (
+    agent === undefined ||
+    !("value" in agent) ||
+    agent.value !== phase ||
+    (memory !== undefined && (!("value" in memory) || memory.value !== null))
+  ) {
+    return observation;
+  }
+  const validated = registry.validate({
+    id: "host.agent-output",
+    version: "1.2.0",
+    value: { ...candidate, memory: assignment.value.memory },
+    structuralReasonCode: "trail.output_invalido",
+  });
+  return validated.kind === "valid"
+    ? { ...observation, missingMemoryAcknowledgement: true }
+    : observation;
 }
 
 /**
@@ -916,25 +985,34 @@ async function observeAgentOutputs(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly AgentOutputV1[];
+  readonly values: readonly (AgentOutputV1 | AgentOutputV1_2)[];
 }> {
   const root = `${runRoot(configuration)}/agent-output`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: AgentOutputV1[] = [];
+    const values: (AgentOutputV1 | AgentOutputV1_2)[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
       const file = await ports.durableFileSystem.inspect(path);
       if (file.kind !== "file") return { readable: false, values: [] };
+      const document = JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown;
+      const version = declaredContractVersion(
+        document,
+        "contractVersion",
+        "1.0.0",
+      );
+      if (version !== "1.0.0" && version !== "1.2.0") {
+        return { readable: false, values: [] };
+      }
       const validated = registry.validate({
         id: "host.agent-output",
-        version: "1.0.0",
-        value: JSON.parse(
-          await ports.durableFileSystem.readText(path),
-        ) as unknown,
+        version,
+        value: document,
         structuralReasonCode: "trail.output_invalido",
       });
       if (
@@ -1400,12 +1478,15 @@ type PhaseAssignmentReason =
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
   | "contract.state_version_unsupported"
-  | "model.assignment_stale";
+  | "model.assignment_stale"
+  | "memory.migration_required"
+  | "memory.projection_drift"
+  | "runtime.state_corrupt";
 
 type PhaseAssignmentSubject = string;
 
 type PhaseAssignmentObservation =
-  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
   | PhaseAssignmentRefusal;
 
 interface PhaseAssignmentRefusal {
@@ -1489,7 +1570,7 @@ async function observePhaseAssignment(input: {
   readonly runId: string;
   readonly revision: number;
   readonly feature: string;
-  readonly status: PhaseHandoffV1_1["status"];
+  readonly status: PhaseHandoffV1_2["status"];
   readonly objectiveDigest: string;
   readonly gateDecision: GateDecision;
   readonly openGaps: number;
@@ -1587,7 +1668,16 @@ async function observePhaseAssignment(input: {
     return refusedAssignment("model.assignment_stale", "configuration");
   }
 
-  const value: PhaseHandoffV1_1 = {
+  const memory = await observePhaseMemoryBinding(
+    input.phase,
+    input.ports,
+    input.registry,
+  );
+  if (memory.kind === "refused") {
+    return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
+  }
+
+  const value = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -1602,6 +1692,7 @@ async function observePhaseAssignment(input: {
         revision: input.revision,
         host,
         assignment: currentResolution.assignment,
+        memory: memory.value,
       },
       (canonical) => input.ports.digests.sha256(canonical),
     ),
@@ -1617,7 +1708,8 @@ async function observePhaseAssignment(input: {
         : input.phase === "acceptance"
           ? "Review the evidence bundle, record final approval, and run kratos done."
           : `Complete the ${input.phase} phase and run kratos continue.`,
-  };
+    memory: memory.value,
+  } as PhaseHandoffV1_2;
   return { kind: "resolved", value };
 }
 

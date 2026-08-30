@@ -13,6 +13,11 @@ import type { ProjectProfileLeaf } from "../init/index.js";
 import { resultFor, validatePublicText } from "../result/index.js";
 
 import { observingCommand } from "./observed.js";
+import {
+  renderApplyInstructions,
+  renderPosixCommand,
+  shellArgument,
+} from "./shell-argument.js";
 import type {
   CommandObservation,
   CommandSpec,
@@ -95,6 +100,43 @@ export const migrateConfigCommand: CommandSpec = observingCommand(
     jsonContract: "result@1.0.0",
   },
   (invocation, observation) => migrateConfig(invocation, observation),
+);
+
+export const migrateMemoryCommand: CommandSpec = observingCommand(
+  "migration",
+  {
+    path: ["migrate", "memory"],
+    summary: "Preview or losslessly adopt legacy gotchas into curated memory.",
+    flags: [
+      ...ROOT_FLAG,
+      {
+        name: "--yes",
+        kind: "boolean",
+        summary: "Authorize the exact reviewed memory migration.",
+      },
+      {
+        name: "--proposal-digest",
+        kind: "value",
+        valueLabel: "<sha256>",
+        summary: "Bind apply to the reviewed mapping.",
+      },
+      {
+        name: "--plan-digest",
+        kind: "value",
+        valueLabel: "<sha256>",
+        summary: "Bind apply to the reviewed write set.",
+      },
+      {
+        name: "--plan-time",
+        kind: "value",
+        valueLabel: "<instant>",
+        summary: "Reuse the reviewed plan instant.",
+      },
+    ],
+    positionals: { min: 1, max: 1 },
+    jsonContract: "result@1.0.0",
+  },
+  (invocation, observation) => migrateMemory(invocation, observation),
 );
 
 export const migrateRollbackCommand: CommandSpec = observingCommand(
@@ -299,6 +341,125 @@ function migrateConfig(
   };
 }
 
+function migrateMemory(
+  invocation: Invocation,
+  observation: Observation,
+): Decision {
+  const operation = observation.operation;
+  if (operation.kind === "memory-current")
+    return orientation("Curated memory is already adopted.");
+  if (operation.kind !== "memory") return corrupt();
+  if (invocation.flags.get("--yes") !== true) {
+    return {
+      result: resultFor("runtime.orientation_ok", {
+        summary: `Memory migration plan ${operation.planDigest} is ready.`,
+      }),
+      plan: planOf(),
+      humanStdout:
+        [
+          "Curated memory migration preview",
+          `Proposal digest: ${operation.proposalDigest}`,
+          `Source SHA-256: ${operation.source.sha256}`,
+          `Plan digest: ${operation.planDigest}`,
+          `Plan time: ${operation.now}`,
+          ...renderApplyInstructions(
+            memoryMigrationApplyArgv(
+              invocation,
+              operation.proposalDigest,
+              operation.planDigest,
+              operation.now,
+            ),
+          ),
+        ].join("\n") + "\n",
+      payload: null,
+    };
+  }
+  if (
+    invocation.flags.get("--proposal-digest") !== operation.proposalDigest ||
+    invocation.flags.get("--plan-digest") !== operation.planDigest ||
+    invocation.flags.get("--plan-time") !== operation.now
+  )
+    return memoryConfirmationStale();
+  const effects = operation.writes.map(({ path, content }) => ({
+    kind: "write_file" as const,
+    path,
+    content,
+    expected:
+      path === ".brain/03-memory/curated-memory.json"
+        ? ({ kind: "missing" } as const)
+        : path === ".brain/03-memory/gotchas.md"
+          ? operation.gotchasExpected
+          : ({ kind: "missing" } as const),
+  }));
+  return {
+    result: resultFor("trail.ok", {
+      summary: `Completed memory migration plan ${operation.planDigest}.`,
+      stateChanged: true,
+      evidence: operation.writes
+        .filter(
+          ({ path }) =>
+            path.endsWith("curated-memory.json") ||
+            path.endsWith("gotchas.md") ||
+            path.endsWith("receipt.json"),
+        )
+        .map(({ path }) => ({ kind: "artifact" as const, ref: path })),
+    }),
+    plan: planOf(...effects),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
+export function renderMemoryMigrationApply(
+  invocation: Invocation,
+  proposalDigest: string,
+  planDigest: string,
+  planTime: string,
+): string {
+  return renderPosixCommand(
+    memoryMigrationApplyArgv(invocation, proposalDigest, planDigest, planTime),
+  );
+}
+
+export function memoryMigrationApplyArgv(
+  invocation: Invocation,
+  proposalDigest: string,
+  planDigest: string,
+  planTime: string,
+): string[] {
+  const root = invocation.flags.get("--root");
+  const mapping = invocation.positionals[0] ?? "<mapping>";
+  return [
+    "kratos",
+    "migrate",
+    "memory",
+    typeof root === "string" ? "--root" : null,
+    typeof root === "string" ? root : null,
+    mapping,
+    "--yes",
+    "--proposal-digest",
+    proposalDigest,
+    "--plan-digest",
+    planDigest,
+    "--plan-time",
+    planTime,
+  ].filter((value): value is string => value !== null);
+}
+
+function memoryConfirmationStale(): Decision {
+  return {
+    result: resultFor("memory.confirmation_stale", {
+      why: [
+        "The memory migration preview no longer matches the current mapping or source bytes.",
+      ],
+      evidence: [{ kind: "artifact", ref: ".brain/03-memory/gotchas.md" }],
+    }),
+    plan: planOf(),
+    humanStdout: null,
+    payload: null,
+  };
+}
+
 function configPlanDetails(operation: ConfigOperation): string[] {
   const details = [
     `Source SHA-256: ${operation.source.sha256}`,
@@ -456,12 +617,6 @@ function configApplyCommand(
   return arguments_.join(" ");
 }
 
-function shellArgument(value: string): string {
-  return /^[a-zA-Z0-9._/@:-]+$/u.test(value)
-    ? value
-    : `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
 function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -514,6 +669,12 @@ function migrateRollback(observation: Observation): Decision {
           content: json(rolledBack),
           expected: replacement.receiptExpected,
         },
+        ...(replacement.removeTargets ?? []).flatMap((path) => {
+          const expected = replacement.removeExpected?.get(path);
+          return expected?.kind !== "file"
+            ? []
+            : [{ kind: "delete_file" as const, path, expected }];
+        }),
       ),
       humanStdout: null,
       payload: null,

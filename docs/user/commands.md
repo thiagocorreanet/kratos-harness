@@ -24,8 +24,14 @@ also accept `--root PATH` where shown by `kratos help`.
 | `doctor`, `explain CODE` | Diagnose state and explain recovery | No |
 | `handoff` | Derive a phase handoff | No |
 | `hook` | Accept one versioned host operation from standard input | Conditional |
+| `memory list` | List machine-local failure candidates | No |
+| `memory capture PROPOSAL` | Add one validated manual failure candidate | Conditional |
+| `memory promote PROPOSAL` | Preview or apply promotion into confirmed memory | Conditional |
+| `memory merge PROPOSAL` | Preview or apply a lossless lesson merge | Conditional |
+| `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
 | `migrate config` | Preview or authorize replacement of pre-`1.3.0` configuration with current state | Conditional |
+| `migrate memory MAPPING` | Preview or losslessly adopt legacy Gotchas | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
 | `repair` | Preview or explicitly authorize a safe repair | Conditional |
@@ -73,6 +79,70 @@ referenced output bytes. A known mismatch returns
 `model.execution_mismatch`. With no host execution report, direct CLI recording
 persists `model: null` and `effort: null`; `--model` remains diagnostic input and
 does not manufacture an observation.
+
+## Curated-memory commands
+
+Candidates are diagnostics, not shared lessons. `memory list` is read-only and
+`memory capture PROPOSAL` accepts a closed `host.memory-capture@1.2.0` JSON
+file. Its only user field is a 1–2,048-character `observation`; the runtime
+records it as tool family `other`, failure class `unknown`, and no exit code.
+The same sanitized, conservative identity reducer used by failed-tool hooks
+deduplicates local candidates. A capture never writes the ledger, Markdown
+projection, or a promotion.
+
+Volatile normalization is platform-aware. It recognizes supported POSIX temp
+roots and Windows `AppData\Local\Temp` or `Windows\Temp` roots, their native
+separators, and source-file line/column suffixes. Drive letter, path spelling,
+case, and substantive numbers remain part of identity outside those exact
+volatile positions.
+
+```bash
+kratos memory list --root PATH
+kratos memory capture --root PATH capture.json
+```
+
+Promotion, merge, and archive take exactly one closed
+`host.memory-change@1.2.0` proposal file. A promotion names 1–16 candidate
+SHA-256 identifiers and supplies `reviewer`, `title`, nonempty `why`, and
+nonempty `apply`. A merge names 2–16 confirmed lesson identifiers plus a
+reviewer and title; it retains every distinct source `why`, `apply`, and
+candidate identifier. An archive names one lesson, reviewer, and obsolescence
+reason. The command verb and proposal `operation` must agree.
+
+```bash
+kratos memory promote --root PATH promote.json
+kratos memory merge --root PATH merge.json
+kratos memory archive --root PATH archive.json
+```
+
+These three invocations are previews: they make no write and print the
+proposal digest, plan digest, plan time, and `Apply argv`, a JSON string array
+that is the shell-neutral apply authority. POSIX and PowerShell commands are
+derived displays; the legacy `Apply command` line remains the POSIX rendering
+for compatibility. Use the argv array directly when a launcher accepts an
+executable plus arguments. Its general grammar is:
+
+```bash
+kratos memory <promote|merge|archive> --root PATH proposal.json \
+  --yes --proposal-digest SHA256 --plan-digest SHA256 --plan-time INSTANT
+```
+
+`--yes` alone is refused as `memory.confirmation_stale`. Proposal, candidate,
+ledger, projection, or authorization drift also invalidates the reviewed plan.
+An identity already active or retained in the archive, or an invalid merge
+replacement link, is `memory.curation_required`; no ledger bytes change.
+The managed transaction publishes `curated-memory.json` and `gotchas.md`
+together while asserting every promoted candidate fingerprint at execution.
+Only after durable authority publication does a separate fingerprinted managed
+delete attempt candidate cleanup. A changed or failed cleanup retains the
+candidate safely.
+
+Confirmed memory permits at most 24 active lessons and 48 KiB of rendered
+UTF-8 Markdown. The archive retains at most 48 rolling tombstones; prior
+tombstones remain in Git history. `memory.curation_required` blocks a change
+that would exceed an active-surface limit. `memory list`, capture, and all
+preview calls are read-only except that a non-duplicate capture writes its
+local candidate.
 
 ## Configuration migration commands
 

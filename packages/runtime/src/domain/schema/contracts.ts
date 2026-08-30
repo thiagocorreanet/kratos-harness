@@ -4,6 +4,7 @@ import type {
   AdapterMessageV1,
   AdapterMessageV1_1,
   AgentOutputV1,
+  AgentOutputV1_2,
   ApprovalV1,
   BeatV1,
   HostOperationMessageV1,
@@ -26,6 +27,7 @@ import type {
   MigrationV1_1,
   NarrationV1,
   PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
@@ -38,19 +40,27 @@ import type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryCaptureV1_2,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
 } from "@kratos/contracts";
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1 | AdapterMessageV1_1;
-  readonly "host.agent-output": AgentOutputV1;
+  readonly "host.agent-output": AgentOutputV1 | AgentOutputV1_2;
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers":
     InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3;
+  readonly "host.memory-capture": MemoryCaptureV1_2;
+  readonly "host.memory-change": MemoryChangeV1_2;
+  readonly "host.memory-migration": MemoryMigrationV1_2;
   readonly "host.operation-message": HostOperationMessageV1;
-  readonly "host.phase-handoff": PhaseHandoffV1_1;
+  readonly "host.phase-handoff": PhaseHandoffV1_1 | PhaseHandoffV1_2;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
+  readonly "state.curated-memory": CuratedMemoryV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.beat": BeatV1;

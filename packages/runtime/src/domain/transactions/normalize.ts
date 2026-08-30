@@ -82,6 +82,9 @@ function selectManagedEffects(effectPlan: EffectPlan): ManagedEffect[] {
   const effects: ManagedEffect[] = [];
   for (const effect of effectPlan.effects) {
     switch (effect.kind) {
+      case "assert_file":
+        assertManagedPath(effect.path);
+        break;
       case "emit":
         break;
       case "append_event":

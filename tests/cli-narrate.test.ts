@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type {
   NarrationV1,
-  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
   ReadableEvent,
 } from "@kratos/contracts";
 import {
@@ -14,9 +14,9 @@ import {
 import type { GateDecision } from "@kratos/runtime/domain/gates";
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
-const sampleHandoff: PhaseHandoffV1_1 = {
-  contractVersion: "1.1.0",
-  hostContract: "1.1.0",
+const sampleHandoff: PhaseHandoffV1_2 = {
+  contractVersion: "1.2.0",
+  hostContract: "1.2.0",
   feature: "narration-feature",
   runId: "run-sample",
   revision: 2,
@@ -35,6 +35,11 @@ const sampleHandoff: PhaseHandoffV1_1 = {
   blockers: [],
   openGaps: 0,
   nextAction: "continue",
+  memory: {
+    ref: ".brain/03-memory/gotchas.md",
+    sha256: "0".repeat(64),
+    lessonIds: [],
+  },
 };
 
 const sampleGateDecision: GateDecision = {
@@ -78,6 +83,7 @@ function createSampleObservation(
       kind: "resolved",
       value: sampleHandoff,
     },
+    currentPhaseMemory: sampleHandoff.memory,
     phaseExecution: null,
     correlationId: "corr-1",
     eventId: "evt-1",

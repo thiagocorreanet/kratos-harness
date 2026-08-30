@@ -1,10 +1,11 @@
-import type { AgentOutputV1, EventV1 } from "@kratos/contracts";
+import type { AgentOutputV1_2, EventV1 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   AGENT_BLOCK_CLOSE,
   AGENT_BLOCK_OPEN,
 } from "@kratos/runtime/domain/agent";
 import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
+import { STOCK_GOTCHAS_TEMPLATE } from "@kratos/runtime/domain/memory";
 import {
   fixedClock,
   fixedEnvironment,
@@ -218,7 +219,7 @@ function snapshotOf(run: Subject): {
   >;
 }
 
-function agentReply(output: AgentOutputV1): string {
+function agentReply(output: AgentOutputV1_2): string {
   return `${AGENT_BLOCK_OPEN}\n${JSON.stringify(output, null, 2)}\n${AGENT_BLOCK_CLOSE}\n`;
 }
 
@@ -563,9 +564,9 @@ describe("a run whose phases write the lineage files", () => {
       ACCEPTANCE_EVIDENCE,
       "evidence-acceptance",
     );
-    const output: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const output: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -575,6 +576,7 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: null,
       payload: {
         verdict: "rejected",
         criteria: [
@@ -765,9 +767,9 @@ describe("a run whose phases write the lineage files", () => {
     }));
     const firstCriterionReport = criterionReports[0];
     if (firstCriterionReport === undefined) throw new Error("no criteria");
-    const output: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const output: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -777,6 +779,7 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: null,
       payload: {
         verdict: "accepted",
         criteria: [firstCriterionReport, ...criterionReports.slice(1)],
@@ -838,9 +841,9 @@ describe("a run whose phases write the lineage files", () => {
       await completePhase(changed, CODE_SUMMARY, "complete-code-with-flip"),
     ).toBe(3);
     expect(snapshotOf(changed).currentStep).toBe("code");
-    const codeOutput: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const codeOutput: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "code",
       outcome: {
         status: "completed",
@@ -850,6 +853,11 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: {
+        ref: ".brain/03-memory/gotchas.md",
+        sha256: changed.ports.digests.sha256(STOCK_GOTCHAS_TEMPLATE),
+        lessonIds: [],
+      },
       payload: { stepId: "step-1", testsAdded: 1, testsPassed: true },
     };
     const recording = next(changed, {

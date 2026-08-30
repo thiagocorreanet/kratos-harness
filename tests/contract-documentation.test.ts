@@ -269,12 +269,14 @@ describe("contract versioning documentation", () => {
       "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.3.schema.json",
       "contract-manifest.v1.4.schema.json",
+      "contract-manifest.v1.5.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",
       "reason-codes.v1.7.json",
       "reason-codes.v1.8.json",
       "reason-codes.v1.9.json",
+      "reason-codes.v1.10.json",
     ]) {
       expect(schemaIndex).toContain(token);
     }

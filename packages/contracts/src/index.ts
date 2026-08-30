@@ -43,6 +43,7 @@ export type {
   AdapterMessageV1,
   AdapterMessageV1_1,
   AgentOutputV1,
+  AgentOutputV1_2,
   ApprovalV1,
   InitAnswersV1,
   InitAnswersV1_1,
@@ -63,6 +64,7 @@ export type {
   MigrationV1,
   MigrationV1_1,
   PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
@@ -75,6 +77,10 @@ export type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  CuratedMemoryV1,
+  MemoryCaptureV1_2,
+  MemoryChangeV1_2,
+  MemoryMigrationV1_2,
 } from "./generated/contracts.js";
 
 export type LanguagePolicyV1 = ProjectConfigV1_3Contract.LanguagePolicy;

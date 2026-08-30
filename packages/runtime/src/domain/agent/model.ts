@@ -1,4 +1,4 @@
-import type { AgentOutputV1 } from "@kratos/contracts";
+import type { AgentOutputV1_2 } from "@kratos/contracts";
 
 import type { ValidationDiagnostic } from "../schema/index.js";
 
@@ -146,11 +146,15 @@ export type AgentOutputObservation =
       readonly kind: "invalid";
       readonly ref: string;
       readonly diagnostics: readonly ValidationDiagnostic[];
+      /** Parsed, still untrusted bytes for policy classification only. */
+      readonly value?: unknown;
+      /** Only a valid v1.2 code/review envelope omitted or nulled memory. */
+      readonly missingMemoryAcknowledgement?: true;
     }
   | {
       readonly kind: "valid";
       readonly ref: string;
-      readonly value: AgentOutputV1;
+      readonly value: AgentOutputV1_2;
     };
 
 /** Name the first thing the block got wrong, without quoting its content. */

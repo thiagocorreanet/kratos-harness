@@ -1,4 +1,8 @@
-import { KRATOS_VERSION, type ProjectConfigV1_3 } from "@kratos/contracts";
+import {
+  KRATOS_VERSION,
+  type CuratedMemoryV1,
+  type ProjectConfigV1_3,
+} from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
 import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
@@ -111,6 +115,7 @@ function stateFiles(
     [".brain/03-memory/.cache/feature-create.json", json({})],
     // Append-only records start empty: a seeded entry would be a decision
     // nobody made and a metric nobody measured.
+    [".brain/03-memory/curated-memory.json", curatedMemory()],
     [".brain/03-memory/decisions.log", ""],
     [".brain/03-memory/gotchas.md", gotchasDocument()],
     [".brain/03-memory/task_log.jsonl", ""],
@@ -210,6 +215,7 @@ function brainGitignore(): string {
     "# Volatile telemetry and run event streams are not tracked.",
     "03-memory/task_log.jsonl",
     "03-memory/.cache/",
+    "03-memory/candidates/",
     "02-features/*/runs/*/events.jsonl",
     "events.jsonl",
     "*.trace",
@@ -262,10 +268,28 @@ function gotchasDocument(): string {
   return lines(
     "# Gotchas",
     "",
-    "The traps this project sets for the next person: the surprising default,",
-    "the dependency that lies about its version, the test that only fails on",
-    "a cold cache. One entry per trap, with what it cost to find.",
+    "## Confirmed lessons",
+    "",
+    "No confirmed lessons.",
+    "",
+    "## Archived lessons",
+    "",
+    "No archived lessons.",
   );
+}
+
+function curatedMemory(): string {
+  const ledger: CuratedMemoryV1 = {
+    contractVersion: "1.0.0",
+    stateContract: "1.0.0",
+    revision: 0,
+    projectionDigest:
+      "09b049b364f55134c3b4942b653a7b677f7775fb67de8321064e6237da852e83",
+    updatedAt: "1970-01-01T00:00:00Z",
+    confirmed: [],
+    archive: [],
+  };
+  return json(ledger);
 }
 
 function taskMetricsDocument(): string {

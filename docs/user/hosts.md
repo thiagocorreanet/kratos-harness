@@ -60,6 +60,18 @@ do not duplicate it. `session.end` publishes the final session telemetry and
 clears its transient files in one managed transaction. Candidate promotion is
 not performed by hooks.
 
+The same runtime curation contract runs for Claude Code and Codex. Each host
+can relay capture and the exact `memory` field in a v1.2 phase handoff, but
+neither host selects a lesson, changes a digest, or promotes a candidate.
+For `code` and `review`, the handoff and returned agent output must carry the
+same `{ ref: ".brain/03-memory/gotchas.md", sha256, lessonIds }` observation.
+For `prd`, `spec`, `plan`, and `acceptance`, the field is exactly `null`.
+`agent record` rejects missing, mismatched, or stale code/review acknowledgement
+with `memory.phase_context_stale` only when the v1.2 envelope is otherwise
+valid and the acknowledgement is the sole relevant defect. A malformed wire
+envelope remains `trail.output_invalido`; legacy free-form memory blocks those
+phases with `memory.migration_required`.
+
 Every hook exits zero outside initialized Kratos projects and creates nothing.
 Observation hooks are fail-open for the host action; the synchronous structured
 write guard remains fail-closed. Hook code calls neither a model nor the

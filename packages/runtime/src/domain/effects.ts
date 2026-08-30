@@ -31,13 +31,30 @@ export type WriteFilePrecondition =
 
 export type Effect =
   | {
+      readonly kind: "assert_file";
+      readonly path: string;
+      /** Bind a separate authority mutation to this exact observed file. */
+      readonly expected: Extract<
+        WriteFilePrecondition,
+        { readonly kind: "file" }
+      >;
+    }
+  | {
       readonly kind: "write_file";
       readonly path: string;
       readonly content: string;
       /** Refuse if the destination no longer has this exact identity. */
       readonly expected?: WriteFilePrecondition;
     }
-  | { readonly kind: "delete_file"; readonly path: string }
+  | {
+      readonly kind: "delete_file";
+      readonly path: string;
+      /** Refuse deletion if authority state changed after observation. */
+      readonly expected?: Extract<
+        WriteFilePrecondition,
+        { readonly kind: "file" }
+      >;
+    }
   | { readonly kind: "create_directory"; readonly path: string }
   | AppendEventEffect
   | {
