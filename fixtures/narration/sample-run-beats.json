@@ -1,0 +1,73 @@
+{
+  "contractVersion": "1.0.0",
+  "runId": "sample-run-001",
+  "generatedAt": "2026-08-29T10:20:00.000Z",
+  "beats": [
+    {
+      "contractVersion": "1.0.0",
+      "beatId": "beat-evt-001",
+      "kind": "work",
+      "subject": "phase:prd",
+      "sentence": "Encountered reason workflow.phase_started.",
+      "reasonCode": "workflow.phase_started",
+      "occurredAt": "2026-08-29T10:00:00.000Z",
+      "eventId": "evt-001",
+      "revision": 1,
+      "facts": {},
+      "evidenceRefs": []
+    },
+    {
+      "contractVersion": "1.0.0",
+      "beatId": "beat-evt-002",
+      "kind": "milestone",
+      "subject": "phase:prd",
+      "sentence": "Encountered reason workflow.phase_completed.",
+      "reasonCode": "workflow.phase_completed",
+      "occurredAt": "2026-08-29T10:05:00.000Z",
+      "eventId": "evt-002",
+      "revision": 2,
+      "facts": {},
+      "evidenceRefs": ["evidence/prd-validation.json"]
+    },
+    {
+      "contractVersion": "1.0.0",
+      "beatId": "beat-evt-003",
+      "kind": "waiting",
+      "subject": "phase:spec",
+      "sentence": "The run is waiting for explicit approval of the current specification lineage.",
+      "reasonCode": "gate.aprovacao_spec",
+      "occurredAt": "2026-08-29T10:10:00.000Z",
+      "eventId": "evt-003",
+      "revision": 2,
+      "facts": {},
+      "evidenceRefs": ["evidence/spec-approval-request.json"]
+    },
+    {
+      "contractVersion": "1.0.0",
+      "beatId": "beat-evt-004",
+      "kind": "resumption",
+      "subject": "phase:code",
+      "sentence": "The decision engine selected the already in-progress step for resumption.",
+      "reasonCode": "run.resuming",
+      "occurredAt": "2026-08-29T10:15:00.000Z",
+      "eventId": "evt-004",
+      "revision": 3,
+      "facts": {},
+      "evidenceRefs": []
+    },
+    {
+      "contractVersion": "1.0.0",
+      "beatId": "beat-evt-005",
+      "kind": "milestone",
+      "subject": "phase:acceptance",
+      "sentence": "The decision engine observed that every plan step is complete.",
+      "reasonCode": "done.all_steps",
+      "occurredAt": "2026-08-29T10:20:00.000Z",
+      "eventId": "evt-005",
+      "revision": 4,
+      "facts": {},
+      "evidenceRefs": ["evidence/acceptance-verdict.json"]
+    }
+  ],
+  "pendingProgress": null
+}

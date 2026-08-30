@@ -16,6 +16,7 @@ import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/accept
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
 import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-verdict.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
+import beatSchema from "../../../../../schemas/state/beat.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
@@ -28,6 +29,7 @@ import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import migrationV1_1Schema from "../../../../../schemas/state/migration.v1.1.schema.json" with { type: "json" };
+import narrationSchema from "../../../../../schemas/state/narration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
@@ -162,6 +164,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: approvalSchema,
     },
     {
+      id: "state.beat",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/beat.v1.schema.json",
+      schema: beatSchema,
+    },
+    {
       id: "state.event",
       family: "state",
       version: "1.0.0",
@@ -244,6 +253,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.1.0",
       path: "schemas/state/migration.v1.1.schema.json",
       schema: migrationV1_1Schema,
+    },
+    {
+      id: "state.narration",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/narration.v1.schema.json",
+      schema: narrationSchema,
     },
     {
       id: "state.project-config",
@@ -370,16 +386,24 @@ function declaresVersion(entry: EmbeddedSchemaEntry): boolean {
     seen.add(node);
 
     const properties = record(node.properties);
-    if (properties !== undefined && propertyName in properties) {
-      found = true;
-      const constraint = record(properties[propertyName]);
-      if (
-        constraint === undefined ||
-        (constraint.const !== entry.version &&
-          (!Array.isArray(constraint.enum) ||
-            !constraint.enum.includes(entry.version)))
-      ) {
-        return false;
+    if (properties !== undefined) {
+      const candidateProperty =
+        propertyName in properties
+          ? propertyName
+          : "contractVersion" in properties
+            ? "contractVersion"
+            : undefined;
+      if (candidateProperty !== undefined) {
+        found = true;
+        const constraint = record(properties[candidateProperty]);
+        if (
+          constraint === undefined ||
+          (constraint.const !== entry.version &&
+            (!Array.isArray(constraint.enum) ||
+              !constraint.enum.includes(entry.version)))
+        ) {
+          return false;
+        }
       }
     }
     pending.push(...Object.values(node));

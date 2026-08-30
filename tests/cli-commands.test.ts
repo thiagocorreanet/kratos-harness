@@ -47,6 +47,7 @@ describe("implemented commands", () => {
       "migrate brain",
       "migrate config",
       "migrate rollback",
+      "narrate",
       "objective",
       "repair",
       "scope record",
