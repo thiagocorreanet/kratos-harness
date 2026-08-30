@@ -358,7 +358,10 @@ async function buildMarketplaces(output) {
 const output = outputDirectory();
 await rm(output, { force: true, recursive: true });
 await mkdir(output, { recursive: true });
-const runtimeTemplate = join(output, ".runtime-template");
+const runtimeTemplate = join(
+  tmpdir(),
+  `.kratos-runtime-template-${process.pid}-${Date.now()}`,
+);
 await mkdir(runtimeTemplate, { recursive: true });
 const runtimeMetadata = await buildRuntime(runtimeTemplate);
 const phaseAgentModule = await import(

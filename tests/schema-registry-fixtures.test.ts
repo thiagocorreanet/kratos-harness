@@ -44,10 +44,32 @@ import type {
 import { ajvSchemaRegistry } from "@kratos/runtime/infra/schema";
 import { describe, expect, it } from "vitest";
 
+const beat = {
+  contractVersion: "1.0.0" as const,
+  beatId: "beat-evt-001",
+  kind: "work" as const,
+  subject: "phase:prd",
+  sentence: "Encountered reason workflow.phase_started.",
+  reasonCode: "workflow.phase_started",
+  occurredAt: "2026-08-29T10:00:00.000Z",
+  eventId: "evt-001",
+  revision: 1,
+  facts: {},
+  evidenceRefs: [],
+};
+
+const narration = {
+  contractVersion: "1.0.0" as const,
+  runId: "sample-run-001",
+  generatedAt: "2026-08-29T10:20:00.000Z",
+  beats: [beat],
+  pendingProgress: null,
+};
+
 interface FixtureCase {
   readonly id: ContractId;
   readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0";
-  readonly versionField: "stateContract" | "hostContract";
+  readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
   readonly fixture: object;
@@ -209,6 +231,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.beat",
+    version: "1.0.0",
+    versionField: "contractVersion",
+    requiredField: "beatId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: beat,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.event",
     version: "1.0.0",
     versionField: "stateContract",
@@ -325,6 +357,16 @@ const fixtures = [
     requiredField: "migrationId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: migrationV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.narration",
+    version: "1.0.0",
+    versionField: "contractVersion",
+    requiredField: "beats",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: narration,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

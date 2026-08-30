@@ -91,13 +91,13 @@ export interface NarrationV1 {
 
 ## 4. Acceptance Criteria
 
-- [ ] Narration is a pure function of the event log. The same events produce identical beats, and rendering performs no read of the filesystem, clock, or Git beyond caller-injected elapsed time.
-- [ ] Replaying a completed run reproduces its narration byte-identically.
-- [ ] Every structured result is byte-identical with narration enabled or disabled, and the event log is unchanged.
-- [ ] Every beat traces to at least one backing event in the log.
-- [ ] An unrecognized reason code degrades to a valid beat naming the code without throwing.
-- [ ] Both Claude Code and Codex hosts render the same run into equivalent beats in the same order.
-- [ ] Every human stop produces a waiting beat, and every terminal stop produces a stop beat carrying its evidence references.
+- [x] Narration is a pure function of the event log. The same events produce identical beats, and rendering performs no read of the filesystem, clock, or Git beyond caller-injected elapsed time.
+- [x] Replaying a completed run reproduces its narration byte-identically.
+- [x] Every structured result is byte-identical with narration enabled or disabled, and the event log is unchanged.
+- [x] Every beat traces to at least one backing event in the log.
+- [x] An unrecognized reason code degrades to a valid beat naming the code without throwing.
+- [x] Both Claude Code and Codex hosts render the same run into equivalent beats in the same order.
+- [x] Every human stop produces a waiting beat, and every terminal stop produces a stop beat carrying its evidence references.
 
 ## 5. Test Strategy and Failure Modes
 

@@ -5,6 +5,7 @@ import type {
   AdapterMessageV1_1,
   AgentOutputV1,
   ApprovalV1,
+  BeatV1,
   HostOperationMessageV1,
   InitAnswersV1,
   InitAnswersV1_1,
@@ -23,6 +24,7 @@ import type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  NarrationV1,
   PhaseHandoffV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -51,6 +53,7 @@ export interface ContractValues {
   readonly "state.approval": ApprovalV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
+  readonly "state.beat": BeatV1;
   readonly "state.event": EventV1 | EventV1_1;
   readonly "state.evidence": EvidenceV1;
   readonly "state.failure-candidate": FailureCandidateV1;
@@ -61,6 +64,7 @@ export interface ContractValues {
   readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
+  readonly "state.narration": NarrationV1;
   readonly "state.project-config":
     ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;

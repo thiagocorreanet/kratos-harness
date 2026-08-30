@@ -71,6 +71,7 @@ describe("commands that observe before deciding", () => {
       "migrate brain",
       "migrate config",
       "migrate rollback",
+      "narrate",
       "objective",
       "repair",
       "start",

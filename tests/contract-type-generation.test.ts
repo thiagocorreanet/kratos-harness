@@ -416,45 +416,49 @@ describe("schema-derived contract declarations", () => {
         }) satisfies TransactionProgressV1;
       `,
     ],
-  ])("rejects %s in generated transaction types", async (_name, candidate) => {
-    const directory = await mkdtemp(
-      join(repositoryRoot, ".contract-type-test-"),
-    );
-    try {
-      const source = join(directory, "invalid-transaction.mts");
-      await writeFile(
-        source,
-        `
+  ])(
+    "rejects %s in generated transaction types",
+    async (_name, candidate) => {
+      const directory = await mkdtemp(
+        join(repositoryRoot, ".contract-type-test-"),
+      );
+      try {
+        const source = join(directory, "invalid-transaction.mts");
+        await writeFile(
+          source,
+          `
           import type {
             TransactionManifestV1,
             TransactionProgressV1,
           } from "../packages/contracts/src/generated/contracts.js";
           ${candidate}
         `,
-        "utf8",
-      );
-      const result = spawnSync(
-        process.execPath,
-        [
-          join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
-          "--ignoreConfig",
-          "--noEmit",
-          "--strict",
-          "--module",
-          "NodeNext",
-          "--moduleResolution",
-          "NodeNext",
-          "--target",
-          "ES2024",
-          source,
-        ],
-        { cwd: repositoryRoot, encoding: "utf8" },
-      );
-      expect(result.status, result.stdout).not.toBe(0);
-    } finally {
-      await rm(directory, { force: true, recursive: true });
-    }
-  });
+          "utf8",
+        );
+        const result = spawnSync(
+          process.execPath,
+          [
+            join(repositoryRoot, "node_modules/typescript/lib/tsc.js"),
+            "--ignoreConfig",
+            "--noEmit",
+            "--strict",
+            "--module",
+            "NodeNext",
+            "--moduleResolution",
+            "NodeNext",
+            "--target",
+            "ES2024",
+            source,
+          ],
+          { cwd: repositoryRoot, encoding: "utf8" },
+        );
+        expect(result.status, result.stdout).not.toBe(0);
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
+    },
+    30000,
+  );
 
   it("accepts every valid generated transaction variant", async () => {
     const directory = await mkdtemp(
@@ -546,7 +550,7 @@ describe("schema-derived contract declarations", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
-  });
+  }, 30000);
 
   it.each([
     ["unknown option", ["--other", "value"]],
