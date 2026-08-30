@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Implementation commit: `c24fa1e` (`fix(runtime): close final stack profile review gaps`)
+Implementation commit: `4f750d3` (`fix(runtime): close final stack profile review gaps`)
 
 ## Outcome
 
@@ -32,7 +32,7 @@ commands remain inert data; no implementation path executes them.
 ## Required full verification
 
 `npx --yes npm@11.16.0 run verify` completed with exit 0 on implementation
-commit `c24fa1e`.
+commit `4f750d3`.
 
 - Tests: 179/179 files and 4,736/4,736 tests passed.
 - Coverage: 93.29% statements, 88.69% branches, 95.58% functions, and 94.04%

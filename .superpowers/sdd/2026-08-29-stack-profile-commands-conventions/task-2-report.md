@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Task 2 is complete on top of Task 1 (`cb2dace`). Initialization now resolves the
+Task 2 is complete on top of Task 1 (`c1f820e`). Initialization now resolves the
 typed project profile field by field, persists project configuration 1.3.0, and
 renders a deterministic stack-profile document from root-entry stack evidence,
 the resolved project profile, and the existing language policy. A current 1.3.0

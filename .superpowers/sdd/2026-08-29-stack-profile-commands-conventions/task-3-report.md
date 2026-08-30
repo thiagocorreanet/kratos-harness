@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 Status: GREEN; ready for Task 4 full verification
-Baseline: `98fcad09942c2997abdcb108b511feda65d48762`
+Baseline: `53e7668a3282a56d45b998e1382e42f731a9ae96`
 Commit: `feat(runtime): diagnose and relay project profiles` (Task 3 commit)
 Review fix: `fix(runtime): harden profile diagnosis and relay verification`
 
