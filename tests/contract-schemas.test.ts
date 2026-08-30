@@ -100,6 +100,270 @@ function contractAjv(): Ajv2020 {
 }
 
 describe("versioned state and host schemas", () => {
+  it("validates the closed v1.3 project profile leaves and their limits", async () => {
+    const [initSchema, projectSchema] = await Promise.all([
+      readJson(join(schemaRoot, "host/init-answers.v1.3.schema.json")),
+      readJson(join(schemaRoot, "state/project-config.v1.3.schema.json")),
+    ]);
+    const ajv = contractAjv();
+    const initValidate = ajv.compile(initSchema);
+    const projectValidate = ajv.compile(projectSchema);
+    const completeProfile = {
+      commands: {
+        test: { status: "resolved", value: "npm test" },
+        lint: { status: "not-applicable", reason: "No linter is configured." },
+        build: { status: "unresolved" },
+        run: { status: "resolved", value: "npm run dev" },
+      },
+      paths: {
+        source: { status: "resolved", value: ["src"] },
+        tests: {
+          status: "not-applicable",
+          reason: "No automated tests exist.",
+        },
+        configuration: { status: "unresolved" },
+      },
+      conventions: {
+        directoryLayout: { status: "resolved", value: "Feature directories." },
+        naming: {
+          status: "not-applicable",
+          reason: "No naming convention is documented.",
+        },
+        implementationLanguages: {
+          status: "resolved",
+          value: ["TypeScript", "SQL"],
+        },
+      },
+    };
+    const init = {
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile: {
+        commands: { test: completeProfile.commands.test },
+        paths: { source: completeProfile.paths.source },
+        conventions: {
+          implementationLanguages:
+            completeProfile.conventions.implementationLanguages,
+        },
+      },
+    };
+    const project = {
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.3.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: {} },
+      projectProfile: completeProfile,
+    };
+
+    expect(initValidate(init)).toBe(true);
+    expect(projectValidate(project)).toBe(true);
+    expect(
+      initValidate({
+        ...init,
+        projectProfile: {
+          ...init.projectProfile,
+          commands: { ...init.projectProfile.commands, unexpected: {} },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          commands: {
+            ...completeProfile.commands,
+            test: { status: "unresolved", value: "npm test" },
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          commands: {
+            ...completeProfile.commands,
+            test: { status: "resolved", value: "x".repeat(2049) },
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeProfile,
+          conventions: {
+            ...completeProfile.conventions,
+            naming: { status: "not-applicable", reason: "x".repeat(257) },
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses unsafe project-relative paths in v1.3 profiles", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "host/init-answers.v1.3.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const answer = (path: string) => ({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["claude"],
+      projectProfile: {
+        paths: { source: { status: "resolved", value: [path] } },
+      },
+    });
+
+    expect(validate(answer("src/index.ts"))).toBe(true);
+    for (const path of [
+      "/absolute/path",
+      "C:/drive/path",
+      "src\\windows",
+      "../outside",
+      "src/../outside",
+      "https://example.test/source",
+      "src/\u0000hidden",
+      "x".repeat(513),
+    ]) {
+      expect(validate(answer(path)), path).toBe(false);
+    }
+  });
+
+  it("enforces project-profile text and list boundaries in v1.3", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "host/init-answers.v1.3.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const answer = (projectProfile: JsonObject) => ({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["codex"],
+      projectProfile,
+    });
+
+    expect(
+      validate(
+        answer({
+          commands: { test: { status: "resolved", value: "x".repeat(2048) } },
+          paths: { source: { status: "resolved", value: ["src"] } },
+          conventions: {
+            directoryLayout: { status: "resolved", value: "x".repeat(1024) },
+            implementationLanguages: {
+              status: "resolved",
+              value: ["x".repeat(64)],
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
+    // v1.3 is published and permits arbitrary labels up to 64 characters.
+    // Rendering owns visible control escaping without rewriting this contract.
+    expect(
+      validate(
+        answer({
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["Type\nScript", "C\u0000lang"],
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
+
+    for (const [label, projectProfile] of [
+      [
+        "an empty command",
+        { commands: { test: { status: "resolved", value: "" } } },
+      ],
+      [
+        "a multiline command",
+        { commands: { test: { status: "resolved", value: "npm\ntest" } } },
+      ],
+      [
+        "an empty reason",
+        { commands: { test: { status: "not-applicable", reason: "" } } },
+      ],
+      [
+        "a multiline reason",
+        {
+          commands: {
+            test: { status: "not-applicable", reason: "not\napplicable" },
+          },
+        },
+      ],
+      [
+        "an overlong convention",
+        {
+          conventions: {
+            naming: { status: "resolved", value: "x".repeat(1025) },
+          },
+        },
+      ],
+      [
+        "an overlong implementation language",
+        {
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["x".repeat(65)],
+            },
+          },
+        },
+      ],
+      [
+        "an empty path list",
+        { paths: { source: { status: "resolved", value: [] } } },
+      ],
+      [
+        "duplicate paths",
+        { paths: { source: { status: "resolved", value: ["src", "src"] } } },
+      ],
+      [
+        "an empty language list",
+        {
+          conventions: {
+            implementationLanguages: { status: "resolved", value: [] },
+          },
+        },
+      ],
+      [
+        "duplicate implementation languages",
+        {
+          conventions: {
+            implementationLanguages: {
+              status: "resolved",
+              value: ["TypeScript", "TypeScript"],
+            },
+          },
+        },
+      ],
+    ] as const) {
+      expect(validate(answer(projectProfile)), label).toBe(false);
+    }
+  });
+
   it.each([
     [
       "state/project-config.v1.schema.json",
@@ -116,6 +380,54 @@ describe("versioned state and host schemas", () => {
     [
       "host/adapter-message.v1.schema.json",
       "40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd",
+    ],
+    [
+      "contracts/contract-manifest.v1.1.schema.json",
+      "7693411838fa4629ca524fd0053de08372201d2d3ffd44e9e2e3c69f5d91d9bf",
+    ],
+    [
+      "contracts/contract-manifest.v1.2.schema.json",
+      "cc681c74f36da960791a0e5a79d8f5eca96a246dc59da244fc91992620ec8f78",
+    ],
+    [
+      "host/adapter-message.v1.1.schema.json",
+      "f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8",
+    ],
+    [
+      "host/init-answers.v1.1.schema.json",
+      "802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461",
+    ],
+    [
+      "host/init-answers.v1.2.schema.json",
+      "4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e",
+    ],
+    [
+      "host/init-answers.v1.3.schema.json",
+      "9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329",
+    ],
+    [
+      "host/phase-handoff.v1.1.schema.json",
+      "b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557",
+    ],
+    [
+      "state/event.v1.1.schema.json",
+      "856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f",
+    ],
+    [
+      "state/migration.v1.1.schema.json",
+      "4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38",
+    ],
+    [
+      "state/project-config.v1.1.schema.json",
+      "ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4",
+    ],
+    [
+      "state/project-config.v1.2.schema.json",
+      "bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48",
+    ],
+    [
+      "state/project-config.v1.3.schema.json",
+      "9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));

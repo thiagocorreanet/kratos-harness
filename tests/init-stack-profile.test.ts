@@ -77,4 +77,15 @@ describe("stack profiling", () => {
     expect(reversed).toEqual(forward);
     expect(forward.stacks).toHaveLength(5);
   });
+
+  it("breaks Unicode collation ties independently of root-entry order", () => {
+    const composed = "Caf\u00e9.csproj";
+    const decomposed = "Cafe\u0301.csproj";
+
+    const forward = profileStack({ rootEntries: [composed, decomposed] });
+    const reversed = profileStack({ rootEntries: [decomposed, composed] });
+
+    expect(reversed).toEqual(forward);
+    expect(forward.stacks).toEqual([{ id: "dotnet", evidence: decomposed }]);
+  });
 });

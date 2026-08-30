@@ -42,6 +42,7 @@ import {
 } from "./migration.js";
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 import { unlockStopLossCommand } from "./unlock.js";
+import { narrateCommand } from "./narrate.js";
 import {
   auditCommand,
   dashboardCommand,
@@ -141,6 +142,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   memoryPromoteCommand,
   memoryMergeCommand,
   memoryArchiveCommand,
+  narrateCommand,
   objectiveCommand,
   repairCommand,
   startCommand,

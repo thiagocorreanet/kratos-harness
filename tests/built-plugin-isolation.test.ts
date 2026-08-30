@@ -52,20 +52,41 @@ describe("built plugin test isolation", () => {
   it("accepts only the exact native temporary build root for cleanup", () => {
     const portableTempRoot = join(tmpdir(), "kratos-portable-build-root");
     const portablePid = 123_456;
-    const expectedName = `kratos-plugin-vitest-build-${String(portablePid)}`;
+    const portableWorker = "worker-7";
+    const expectedName = `kratos-plugin-vitest-build-${String(portablePid)}-${portableWorker}`;
     const expectedRoot = join(portableTempRoot, expectedName);
 
-    expect(isOwnedBuildRoot(expectedRoot, portableTempRoot, portablePid)).toBe(
-      true,
-    );
     expect(
-      isOwnedBuildRoot(portableTempRoot, portableTempRoot, portablePid),
+      isOwnedBuildRoot(
+        expectedRoot,
+        portableTempRoot,
+        portablePid,
+        portableWorker,
+      ),
+    ).toBe(true);
+    expect(
+      isOwnedBuildRoot(
+        portableTempRoot,
+        portableTempRoot,
+        portablePid,
+        portableWorker,
+      ),
     ).toBe(false);
     expect(
-      isOwnedBuildRoot(repositoryRoot, portableTempRoot, portablePid),
+      isOwnedBuildRoot(
+        repositoryRoot,
+        portableTempRoot,
+        portablePid,
+        portableWorker,
+      ),
     ).toBe(false);
     expect(
-      isOwnedBuildRoot(`${expectedRoot}-other`, portableTempRoot, portablePid),
+      isOwnedBuildRoot(
+        `${expectedRoot}-other`,
+        portableTempRoot,
+        portablePid,
+        portableWorker,
+      ),
     ).toBe(false);
     expect(
       isOwnedBuildRoot(
@@ -75,6 +96,7 @@ describe("built plugin test isolation", () => {
         ),
         portableTempRoot,
         portablePid,
+        portableWorker,
       ),
     ).toBe(false);
   });
@@ -83,10 +105,13 @@ describe("built plugin test isolation", () => {
     expect(isOwnedBuildRoot(buildRoot)).toBe(true);
     expect(dirname(buildRoot)).toBe(tmpdir());
     expect(basename(buildRoot)).toBe(
-      `kratos-plugin-vitest-build-${String(process.pid)}`,
+      `kratos-plugin-vitest-build-${String(process.pid)}-${process.env.VITEST_WORKER_ID ?? "main"}`,
     );
     expect(buildRoot).toBe(
-      join(tmpdir(), `kratos-plugin-vitest-build-${String(process.pid)}`),
+      join(
+        tmpdir(),
+        `kratos-plugin-vitest-build-${String(process.pid)}-${process.env.VITEST_WORKER_ID ?? "main"}`,
+      ),
     );
   });
 
@@ -96,7 +121,9 @@ describe("built plugin test isolation", () => {
     expect(new Set(roots).size).toBe(2);
     for (const root of roots) {
       expect(dirname(root)).toBe(tmpdir());
-      expect(basename(root)).toMatch(/^kratos-plugin-vitest-build-\d+$/u);
+      expect(basename(root)).toMatch(
+        /^kratos-plugin-vitest-build-\d+-[A-Za-z0-9_-]+$/u,
+      );
       expect(root).toBe(join(dirname(root), basename(root)));
       expect(existsSync(root)).toBe(false);
     }

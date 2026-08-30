@@ -391,11 +391,8 @@ function trustedServices<State>(
   const isPromise = tracker.call(() => services.isPromise ?? types.isPromise);
   const rawDigests = tracker.call(() => services.digests);
   const rawSchemaRegistry = tracker.call(() => services.schemaRegistry);
-  const rawValidate = rawSchemaRegistry.validate.bind(rawSchemaRegistry) as (
-    request: ContractRequest<ContractId>,
-  ) => unknown;
-  const trackedValidate = (request: ContractRequest<ContractId>): unknown =>
-    tracker.call(() => rawValidate(request));
+  const validate = (request: ContractRequest<ContractId>): unknown =>
+    rawSchemaRegistry.validate(request);
   return {
     durableFileSystem: tracker.call(() => services.durableFileSystem),
     events: {
@@ -405,7 +402,8 @@ function trustedServices<State>(
       isProxy: (value) => tracker.call(() => isProxy(value)),
       isPromise: (value) => tracker.call(() => isPromise(value)),
       schemaRegistry: {
-        validate: trackedValidate as SchemaRegistry["validate"],
+        validate: ((request: ContractRequest<ContractId>) =>
+          tracker.call(() => validate(request))) as SchemaRegistry["validate"],
       },
     },
   };

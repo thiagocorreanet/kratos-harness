@@ -77,6 +77,7 @@ describe("commands that observe before deciding", () => {
       "memory promote",
       "memory merge",
       "memory archive",
+      "narrate",
       "objective",
       "repair",
       "start",
@@ -101,6 +102,7 @@ describe("commands that observe before deciding", () => {
     const decision = dispatch(
       invocationWith({
         kind: "initialization",
+        configExpected: { kind: "missing" },
         rootEntries: ["package.json", "README.md"],
         answers: {
           kind: "invalid",

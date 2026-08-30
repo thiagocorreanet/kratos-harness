@@ -24,8 +24,8 @@ const NOW = "2026-08-14T12:00:00.000Z";
 const TEXT = "Ship the export pipeline";
 const FEATURE = "ship-the-export-pipeline";
 const ANSWERS_FOR_INIT = JSON.stringify({
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   hosts: ["claude"],
   language: {
     conversation: "en",

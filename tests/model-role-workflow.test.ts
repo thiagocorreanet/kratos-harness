@@ -598,7 +598,7 @@ describe("read-only model-role handoffs", () => {
     [
       "legacy configuration",
       { configuration: projectConfigV1 },
-      "model.config_migration_required",
+      "profile.config_migration_required",
     ],
     [
       "missing host role map",

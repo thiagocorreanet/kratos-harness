@@ -8,6 +8,7 @@ import hookObservationSchema from "../../../../../schemas/host/hook-observation.
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1.schema.json" with { type: "json" };
 import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2.schema.json" with { type: "json" };
+import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3.schema.json" with { type: "json" };
 import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
@@ -20,6 +21,7 @@ import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/accept
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
 import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-verdict.v1.schema.json" with { type: "json" };
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
+import beatSchema from "../../../../../schemas/state/beat.v1.schema.json" with { type: "json" };
 import curatedMemorySchema from "../../../../../schemas/state/curated-memory.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
@@ -33,9 +35,11 @@ import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.
 import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with { type: "json" };
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import migrationV1_1Schema from "../../../../../schemas/state/migration.v1.1.schema.json" with { type: "json" };
+import narrationSchema from "../../../../../schemas/state/narration.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
+import projectConfigV1_3Schema from "../../../../../schemas/state/project-config.v1.3.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
 import runUsageSchema from "../../../../../schemas/state/run-usage.v1.schema.json" with { type: "json" };
 import sessionTelemetrySchema from "../../../../../schemas/state/session-telemetry.v1.schema.json" with { type: "json" };
@@ -124,6 +128,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: initAnswersV1_2Schema,
     },
     {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.3.0",
+      path: "schemas/host/init-answers.v1.3.schema.json",
+      schema: initAnswersV1_3Schema,
+    },
+    {
       id: "host.memory-capture",
       family: "host",
       version: "1.2.0",
@@ -192,6 +203,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/approval.v1.schema.json",
       schema: approvalSchema,
+    },
+    {
+      id: "state.beat",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/beat.v1.schema.json",
+      schema: beatSchema,
     },
     {
       id: "state.curated-memory",
@@ -285,6 +303,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: migrationV1_1Schema,
     },
     {
+      id: "state.narration",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/narration.v1.schema.json",
+      schema: narrationSchema,
+    },
+    {
       id: "state.project-config",
       family: "state",
       version: "1.0.0",
@@ -304,6 +329,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.2.0",
       path: "schemas/state/project-config.v1.2.schema.json",
       schema: projectConfigV1_2Schema,
+    },
+    {
+      id: "state.project-config",
+      family: "state",
+      version: "1.3.0",
+      path: "schemas/state/project-config.v1.3.schema.json",
+      schema: projectConfigV1_3Schema,
     },
     {
       id: "state.requirement-discovery",
@@ -358,7 +390,13 @@ function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
   const [family, name] = entry.id.split(".");
   if (family === undefined || name === undefined) failCatalogIntegrity();
   const revision =
-    entry.version === "1.0.0" ? "1" : entry.version === "1.1.0" ? "1.1" : "1.2";
+    entry.version === "1.0.0"
+      ? "1"
+      : entry.version === "1.1.0"
+        ? "1.1"
+        : entry.version === "1.2.0"
+          ? "1.2"
+          : "1.3";
   return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
 }
 
@@ -396,16 +434,24 @@ function declaresVersion(entry: EmbeddedSchemaEntry): boolean {
     seen.add(node);
 
     const properties = record(node.properties);
-    if (properties !== undefined && propertyName in properties) {
-      found = true;
-      const constraint = record(properties[propertyName]);
-      if (
-        constraint === undefined ||
-        (constraint.const !== entry.version &&
-          (!Array.isArray(constraint.enum) ||
-            !constraint.enum.includes(entry.version)))
-      ) {
-        return false;
+    if (properties !== undefined) {
+      const candidateProperty =
+        propertyName in properties
+          ? propertyName
+          : "contractVersion" in properties
+            ? "contractVersion"
+            : undefined;
+      if (candidateProperty !== undefined) {
+        found = true;
+        const constraint = record(properties[candidateProperty]);
+        if (
+          constraint === undefined ||
+          (constraint.const !== entry.version &&
+            (!Array.isArray(constraint.enum) ||
+              !constraint.enum.includes(entry.version)))
+        ) {
+          return false;
+        }
       }
     }
     pending.push(...Object.values(node));

@@ -11,6 +11,7 @@ import type {
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
+  InitAnswersV1_3,
   MigrationV1,
   MigrationV1_1,
   MemoryCaptureV1_2,
@@ -20,6 +21,7 @@ import type {
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
   RequirementDiscoveryV1,
   TransactionManifestV1,
   TransactionProgressV1,
@@ -87,7 +89,10 @@ describe("schema registry vocabulary", () => {
       ContractValue<"host.pre-tool-use">
     >().toEqualTypeOf<PreToolUseV1>();
     expectTypeOf<ContractValue<"state.project-config">>().toEqualTypeOf<
-      ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2
+      | ProjectConfigV1
+      | ProjectConfigV1_1
+      | ProjectConfigV1_2
+      | ProjectConfigV1_3
     >();
     expectTypeOf<ContractValue<"state.event">>().toEqualTypeOf<
       EventV1 | EventV1_1
@@ -96,7 +101,7 @@ describe("schema registry vocabulary", () => {
       MigrationV1 | MigrationV1_1
     >();
     expectTypeOf<ContractValue<"host.init-answers">>().toEqualTypeOf<
-      InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2
+      InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3
     >();
     expectTypeOf<ContractValue<"host.adapter-message">>().toEqualTypeOf<
       AdapterMessageV1 | AdapterMessageV1_1

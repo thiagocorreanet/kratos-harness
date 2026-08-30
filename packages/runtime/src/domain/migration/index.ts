@@ -24,6 +24,7 @@ export {
   migrateLegacyLanguage,
   upgradeProjectConfiguration,
   upgradeProjectConfigurationV1_2,
+  upgradeProjectConfigurationV1_3,
   upgradeState,
   type StateUpgrade,
   type UpgradeResult,

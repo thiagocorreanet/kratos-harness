@@ -1092,74 +1092,14 @@
       "recovery": "Review the artifact language against the declared project language policy."
     },
     {
-      "code": "memory.lesson_incomplete",
-      "description": "A proposed memory lesson is missing required causal reasoning or application guidance.",
-      "status": "failure",
-      "exitCode": 2,
-      "evidence": "optional",
-      "stateChanged": false,
-      "retryable": false,
-      "recovery": "Provide at least one concise why and apply item for the proposed lesson."
-    },
-    {
-      "code": "memory.curation_required",
-      "description": "Confirmed memory exceeds a readability limit and requires curation before publication.",
-      "status": "blocked",
-      "exitCode": 3,
-      "evidence": "required",
-      "stateChanged": false,
-      "retryable": true,
-      "recovery": "Merge or archive confirmed lessons until the active memory fits every readability limit."
-    },
-    {
-      "code": "memory.candidate_missing",
-      "description": "A requested memory candidate is absent from the local candidate inbox.",
-      "status": "failure",
-      "exitCode": 2,
-      "evidence": "required",
-      "stateChanged": false,
-      "retryable": true,
-      "recovery": "Refresh the candidate list, choose an existing candidate identifier, and retry the proposal."
-    },
-    {
-      "code": "memory.projection_drift",
-      "description": "The curated ledger and its Markdown projection no longer describe the same memory revision.",
+      "code": "profile.config_migration_required",
+      "description": "The project configuration predates the typed project profile.",
       "status": "blocked",
       "exitCode": 4,
       "evidence": "required",
       "stateChanged": false,
       "retryable": true,
-      "recovery": "Restore the matching ledger and projection pair or complete the recoverable memory transaction before retrying."
-    },
-    {
-      "code": "memory.confirmation_stale",
-      "description": "The reviewed memory proposal no longer matches the current candidate or curated-memory state.",
-      "status": "blocked",
-      "exitCode": 3,
-      "evidence": "required",
-      "stateChanged": false,
-      "retryable": true,
-      "recovery": "Request a fresh preview, review its exact digest, and apply that current proposal."
-    },
-    {
-      "code": "memory.phase_context_stale",
-      "description": "The phase acknowledgement does not match the current curated-memory observation.",
-      "status": "blocked",
-      "exitCode": 3,
-      "evidence": "required",
-      "stateChanged": false,
-      "retryable": true,
-      "recovery": "Request a fresh phase handoff, read its confirmed memory, and return the supplied observation unchanged."
-    },
-    {
-      "code": "memory.migration_required",
-      "description": "Existing free-form memory requires an explicit lossless migration before curated memory can be used.",
-      "status": "blocked",
-      "exitCode": 4,
-      "evidence": "required",
-      "stateChanged": false,
-      "retryable": true,
-      "recovery": "Preview and authorize the memory migration with complete source-line coverage before retrying."
+      "recovery": "Preview and authorize the project configuration migration before initializing or executing a phase."
     }
   ]
 }

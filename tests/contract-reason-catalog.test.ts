@@ -47,6 +47,10 @@ const catalogV19Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.9.json",
 );
+const catalogV110Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.10.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -86,6 +90,7 @@ let catalogV16: Catalog;
 let catalogV17: Catalog;
 let catalogV18: Catalog;
 let catalogV19: Catalog;
+let catalogV110: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -96,6 +101,7 @@ let catalogV16Text: string;
 let catalogV17Text: string;
 let catalogV18Text: string;
 let catalogV19Text: string;
+let catalogV110Text: string;
 
 beforeAll(async () => {
   [
@@ -109,6 +115,7 @@ beforeAll(async () => {
     catalogV17Text,
     catalogV18Text,
     catalogV19Text,
+    catalogV110Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -120,6 +127,7 @@ beforeAll(async () => {
     readFile(catalogV17Path, "utf8"),
     readFile(catalogV18Path, "utf8"),
     readFile(catalogV19Path, "utf8"),
+    readFile(catalogV110Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -131,6 +139,7 @@ beforeAll(async () => {
   catalogV17 = JSON.parse(catalogV17Text) as Catalog;
   catalogV18 = JSON.parse(catalogV18Text) as Catalog;
   catalogV19 = JSON.parse(catalogV19Text) as Catalog;
+  catalogV110 = JSON.parse(catalogV110Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -373,7 +382,35 @@ describe("contract reason catalog revision", () => {
     expect(advisory?.recovery).not.toBeNull();
   });
 
-  it("preserves revision 1.8 and appends the curated-memory reason policies", () => {
+  it("preserves revision 1.8 and appends the profile migration reason", () => {
+    expect(createHash("sha256").update(catalogV18Text).digest("hex")).toBe(
+      "c23aa8566cfa0b16c33c575bca85225097552e5f9964a5e0d20fed274ab9a940",
+    );
+    expect(catalogV19.contractVersion).toBe("1.0.0");
+    expect(catalogV19.reasons.slice(0, catalogV18.reasons.length)).toEqual(
+      catalogV18.reasons,
+    );
+    expect(
+      catalogV19.reasons
+        .slice(catalogV18.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["profile.config_migration_required"]);
+    expect(
+      catalogV19.reasons.find(
+        ({ code }) => code === "profile.config_migration_required",
+      ),
+    ).toMatchObject({
+      status: "blocked",
+      exitCode: 4,
+      evidence: "required",
+      stateChanged: false,
+      retryable: true,
+      recovery:
+        "Preview and authorize the project configuration migration before initializing or executing a phase.",
+    });
+  });
+
+  it("preserves revision 1.9 and appends the curated-memory reason policies", () => {
     const policies = new Map([
       ["memory.lesson_incomplete", ["failure", 2, "optional", false]],
       ["memory.curation_required", ["blocked", 3, "required", true]],
@@ -383,18 +420,18 @@ describe("contract reason catalog revision", () => {
       ["memory.phase_context_stale", ["blocked", 3, "required", true]],
       ["memory.migration_required", ["blocked", 4, "required", true]],
     ] as const);
-    expect(catalogV19.contractVersion).toBe("1.0.0");
-    expect(catalogV19.reasons.slice(0, catalogV18.reasons.length)).toEqual(
-      catalogV18.reasons,
+    expect(catalogV110.contractVersion).toBe("1.0.0");
+    expect(catalogV110.reasons.slice(0, catalogV19.reasons.length)).toEqual(
+      catalogV19.reasons,
     );
     expect(
-      catalogV19.reasons
-        .slice(catalogV18.reasons.length)
+      catalogV110.reasons
+        .slice(catalogV19.reasons.length)
         .map(({ code }) => code),
     ).toEqual([...policies.keys()]);
     for (const [code, [status, exitCode, evidence, retryable]] of policies) {
       expect(
-        catalogV19.reasons.find((reason) => reason.code === code),
+        catalogV110.reasons.find((reason) => reason.code === code),
       ).toMatchObject({
         status,
         exitCode,

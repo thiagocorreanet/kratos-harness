@@ -6,10 +6,12 @@ import type {
   AgentOutputV1,
   AgentOutputV1_2,
   ApprovalV1,
+  BeatV1,
   HostOperationMessageV1,
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
+  InitAnswersV1_3,
   EventV1,
   EventV1_1,
   EvidenceV1,
@@ -23,11 +25,13 @@ import type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  NarrationV1,
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
+  ProjectConfigV1_3,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -48,7 +52,7 @@ export interface ContractValues {
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers":
-    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2;
+    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3;
   readonly "host.memory-capture": MemoryCaptureV1_2;
   readonly "host.memory-change": MemoryChangeV1_2;
   readonly "host.memory-migration": MemoryMigrationV1_2;
@@ -59,6 +63,7 @@ export interface ContractValues {
   readonly "state.curated-memory": CuratedMemoryV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
+  readonly "state.beat": BeatV1;
   readonly "state.event": EventV1 | EventV1_1;
   readonly "state.evidence": EvidenceV1;
   readonly "state.failure-candidate": FailureCandidateV1;
@@ -69,8 +74,9 @@ export interface ContractValues {
   readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
+  readonly "state.narration": NarrationV1;
   readonly "state.project-config":
-    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2;
+    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.run-usage": RunUsageV1;
   readonly "state.session-telemetry": SessionTelemetryV1;
@@ -80,7 +86,9 @@ export interface ContractValues {
 }
 
 export type ContractId = keyof ContractValues;
-export type ContractValue<I extends ContractId, V = unknown> = V extends string
+export type ContractValue<I extends ContractId, V = unknown> = [V] extends [
+  string,
+]
   ? Extract<ContractValues[I], { readonly contractVersion: V }> extends never
     ? ContractValues[I]
     : Extract<ContractValues[I], { readonly contractVersion: V }>

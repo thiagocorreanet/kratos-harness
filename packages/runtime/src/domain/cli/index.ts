@@ -32,6 +32,7 @@ export {
   statsCommand,
   statusCommand,
 } from "./diagnostics.js";
+export { narrateCommand } from "./narrate.js";
 export { observingCommand } from "./observed.js";
 export {
   RETIRED_COMMANDS,

@@ -1,0 +1,17 @@
+{
+  "id": "non-discriminating-sample",
+  "description": "A deliberately non-discriminating fixture where the assertion passes identically on both sides",
+  "promptId": "prd-researcher",
+  "input": {
+    "context": "Trivial baseline check"
+  },
+  "assertions": [
+    {
+      "id": "trivially-true-schema",
+      "description": "Machine block is valid on both sides",
+      "kind": "mechanical",
+      "mechanicalRule": { "type": "schema_valid" }
+    }
+  ],
+  "trials": 2
+}

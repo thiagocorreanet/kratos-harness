@@ -208,22 +208,46 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
-Current `host.init-answers@1.1.0` also accepts `modelRoles`, keyed by enabled
+Current `host.init-answers@1.3.0` accepts `modelRoles`, keyed by enabled
 configuration host. Every supplied host map is closed to `planner`,
 `implementer`, and `judge`. Each assignment is either a bare model name or
 `{ "model": NAME, "effort": EFFORT }`; a bare name normalizes exactly to the
 object form with `effort: "medium"`.
 
+It also accepts a partial `projectProfile` whose `commands`, `paths`, and
+`conventions` leaves are independently `resolved`, `not-applicable` with a
+reason, or `unresolved`. Reinitialization preserves omitted current leaves;
+explicit `unresolved` clears one. Detection never invents a command, path, or
+convention from a stack marker.
+
 ```json
 {
-  "contractVersion": "1.1.0",
-  "hostContract": "1.1.0",
+  "contractVersion": "1.3.0",
+  "hostContract": "1.3.0",
   "hosts": ["codex"],
   "modelRoles": {
     "codex": {
       "planner": "gpt-5.6-terra",
       "implementer": { "model": "gpt-5.6-sol", "effort": "high" },
       "judge": { "model": "gpt-5.6-terra", "effort": "medium" }
+    }
+  },
+  "projectProfile": {
+    "commands": {
+      "test": { "status": "resolved", "value": "npm test" },
+      "build": {
+        "status": "not-applicable",
+        "reason": "The project runs directly from source."
+      }
+    },
+    "paths": {
+      "source": { "status": "resolved", "value": ["packages"] }
+    },
+    "conventions": {
+      "implementationLanguages": {
+        "status": "resolved",
+        "value": ["TypeScript"]
+      }
     }
   }
 }
@@ -242,6 +266,23 @@ assignments in `.brain/config.json`. Later commands therefore use project state,
 not whatever defaults a newer adapter happens to ship. Prompt text does not
 choose roles or enforce independence; prompts only report phase output to the
 runtime-owned policy boundary.
+
+The runtime renders `.brain/01-architecture/stack-profile.md` from the typed
+profile, offline root-entry stack evidence, and configured language policy.
+Control-bearing root filenames visibly encode C0, DEL, and Unicode line
+separators before Markdown escaping. The document is a deterministic
+projection, not an answer source. `kratos doctor`
+compares its exact bytes with a fresh rendering and reports each
+unresolved typed key. Missing or drifted bytes warn; an unreadable or non-file
+destination and invalid authoritative configuration fail. A `not-applicable`
+leaf counts as complete. Neither `init` nor `doctor` executes configured
+commands.
+
+Reinitialization reads the authoritative configuration as one stable,
+fingerprinted byte snapshot. The exact fingerprint becomes the configuration
+write precondition, so a concurrent profile update returns
+`runtime.revision_conflict` before any initialization write instead of being
+replaced by the stale decision.
 
 With no pipe and no `--answers`, `init` waits on standard input the way any
 filter does. In a terminal it does not: reading a TTY would hang the process

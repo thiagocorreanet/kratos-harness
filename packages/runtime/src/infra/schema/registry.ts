@@ -133,7 +133,12 @@ export function compileSchemaRegistry(
     throw registryIntegrityError();
   }
 
-  const validate = (request: ContractRequest<ContractId>) => {
+  const validate = (request: {
+    readonly id: ContractId;
+    readonly version: unknown;
+    readonly value: unknown;
+    readonly structuralReasonCode: ContractRequest<ContractId>["structuralReasonCode"];
+  }) => {
     const id = request.id;
     const family = families.get(id);
     if (family === undefined) throw registryIntegrityError();
@@ -181,17 +186,19 @@ export function compileSchemaRegistry(
       }
       return {
         kind: "valid" as const,
-        // AJV accepted this exact request's schema. The public registry
-        // signature reconnects this runtime-validated value to its selected
-        // contract type without forcing TypeScript to expand every contract
-        // union at this generic implementation boundary.
+        // AJV accepted this exact request's schema, so this is the sole
+        // runtime boundary that may connect its unknown input to V.
         value,
       };
     } catch {
       throw registryIntegrityError();
     }
   };
-  return Object.freeze({ validate }) as SchemaRegistry;
+  // The public interface is generic, but compiling every generated contract
+  // variant into this runtime dispatch function exceeds TypeScript's union
+  // representation limit. AJV remains the only boundary that establishes the
+  // value's contract type, immediately before this erased implementation.
+  return Object.freeze({ validate }) as unknown as SchemaRegistry;
 }
 
 export function ajvSchemaRegistry(): SchemaRegistry {

@@ -3,6 +3,7 @@ import {
   deriveBudget,
   deriveStats,
   deriveStatus,
+  deriveStackProfileCheck,
   diagnose,
   explainReason,
 } from "../diagnostics/index.js";
@@ -143,6 +144,24 @@ export function renderPhaseHandoffHuman(payload: {
 }
 
 export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
+  if (
+    observation.stackProfile.authoritativeState.kind === "migration-required"
+  ) {
+    return {
+      result: resultFor(
+        observation.stackProfile.authoritativeState.reasonCode,
+        {
+          why: [
+            "The project configuration must be migrated before doctor can derive the current stack profile.",
+          ],
+          evidence: [{ kind: "artifact", ref: ".brain/config.json" }],
+        },
+      ),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   const report = diagnose([
     {
       name: "active-run",
@@ -201,16 +220,25 @@ export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
       status: observation.worktreeClean ? "pass" : "warn",
       evidenceRef: null,
     },
+    deriveStackProfileCheck(observation.stackProfile),
   ]);
   if (report.health === "corrupt") {
     return {
       result: resultFor("runtime.state_corrupt", {
-        evidence: report.checks.flatMap(({ evidenceRef }) =>
-          evidenceRef === null
-            ? []
-            : [{ kind: "artifact" as const, ref: evidenceRef }],
-        ),
-        why: ["At least one deterministic integrity check failed."],
+        evidence: [
+          ...new Set(
+            report.checks.flatMap(({ evidenceRef }) =>
+              evidenceRef === null ? [] : [evidenceRef],
+            ),
+          ),
+        ].map((ref) => ({ kind: "artifact" as const, ref })),
+        why: [
+          "At least one deterministic integrity check failed.",
+          ...report.checks.flatMap(({ name, status, details }) => [
+            `${name}: ${status}`,
+            ...(details ?? []),
+          ]),
+        ],
       }),
       plan: planOf(),
       humanStdout: null,
@@ -219,7 +247,10 @@ export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
   }
   return orientation(
     `Doctor classified the project as ${report.health}.`,
-    report.checks.map(({ name, status }) => `${name}: ${status}`),
+    report.checks.flatMap(({ name, status, details }) => [
+      `${name}: ${status}`,
+      ...(details ?? []),
+    ]),
   );
 });
 

@@ -1,7 +1,5 @@
 import {
   canonicalizeJson,
-  type ContractId,
-  type ContractRequest,
   type SchemaRegistry,
 } from "@kratos/runtime/domain/schema";
 import {
@@ -61,14 +59,15 @@ describe("transaction schema boundary", () => {
     });
     const production = createSchemaRegistry();
     const requests: { readonly id: string; readonly version: unknown }[] = [];
-    const rawValidate = production.validate.bind(production) as (
-      request: ContractRequest<ContractId>,
-    ) => unknown;
-    const validate = (request: ContractRequest<ContractId>): unknown => {
-      requests.push({ id: request.id, version: request.version });
-      return rawValidate(request);
+    const tracking: SchemaRegistry = {
+      validate: ((request: {
+        readonly id: string;
+        readonly version: unknown;
+      }) => {
+        requests.push({ id: request.id, version: request.version });
+        return (production.validate as (request: unknown) => unknown)(request);
+      }) as SchemaRegistry["validate"],
     };
-    const tracking = { validate } as SchemaRegistry;
     const injected = services(storage, tracking);
 
     await executeManagedMutation(
@@ -346,14 +345,14 @@ describe("transaction schema boundary", () => {
       directories: [".brain/transactions"],
     });
     const production = createSchemaRegistry();
-    const rawValidate = production.validate.bind(production) as (
-      request: ContractRequest<ContractId>,
-    ) => unknown;
-    const validate = (request: ContractRequest<ContractId>): unknown =>
-      request.id === "state.transaction-manifest"
-        ? { kind: "invalid", diagnostics: [] }
-        : rawValidate(request);
-    const rejecting = { validate } as SchemaRegistry;
+    const rejecting: SchemaRegistry = {
+      validate: ((request: { readonly id: string }) =>
+        request.id === "state.transaction-manifest"
+          ? { kind: "invalid", diagnostics: [] }
+          : (production.validate as (request: unknown) => unknown)(
+              request,
+            )) as SchemaRegistry["validate"],
+    };
 
     await expect(
       executeManagedMutation(
@@ -520,16 +519,14 @@ describe("transaction schema boundary", () => {
       { rootMode: "existing" },
       services(storage, production),
     );
-    const rawValidate = production.validate.bind(production) as (
-      request: ContractRequest<ContractId>,
-    ) => unknown;
-    const validate = (request: ContractRequest<ContractId>): unknown => {
-      if (request.id === "state.transaction-manifest") {
-        throw new Error("registry detail");
-      }
-      return rawValidate(request);
+    const throwing: SchemaRegistry = {
+      validate: ((request: { readonly id: string }) => {
+        if (request.id === "state.transaction-manifest") {
+          throw new Error("registry detail");
+        }
+        return (production.validate as (request: unknown) => unknown)(request);
+      }) as SchemaRegistry["validate"],
     };
-    const throwing = { validate } as SchemaRegistry;
 
     await expect(
       inspectManagedTransactions(services(storage, throwing)),

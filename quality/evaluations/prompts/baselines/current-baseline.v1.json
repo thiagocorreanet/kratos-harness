@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-08-29T18:00:00.000Z",
+  "promptCommit": "cf51bc9",
+  "cases": [
+    {
+      "caseId": "code-implementer-single-step",
+      "withPromptPassRate": 1.0,
+      "withoutPromptPassRate": 0.0,
+      "totalTokens": 650,
+      "durationMs": 350
+    },
+    {
+      "caseId": "spec-reviewer-audit",
+      "withPromptPassRate": 1.0,
+      "withoutPromptPassRate": 0.0,
+      "totalTokens": 820,
+      "durationMs": 410
+    }
+  ]
+}

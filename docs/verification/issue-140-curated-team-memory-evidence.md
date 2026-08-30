@@ -70,17 +70,19 @@ projection drift, null non-code/review observations, and exact acknowledgement.
 `tests/schema-registry-fixtures.test.ts`, and
 `tests/schema-registry-types.test.ts` prove the closed schemas, generated
 declarations, appended reason catalogue, fixtures, and explicit version
-selection. `corepack npm run contracts:check` verifies 41 schemas, 14 legacy
+selection. `corepack npm run contracts:check` verifies 45 schemas, 14 legacy
 profiles, and generated declaration drift without rewriting the checkout.
 Predecessor schema and reason bytes are separately compared with merge base
 `ebbced0`; the audit result appears in the final verification record below.
 
 ## Compatibility, state, and security impact
 
-Compatibility is additive: state and host families advance to v1.2, and the
-reason catalogue advances to v1.9. `state.curated-memory@1.0.0` and the three
-memory proposal contracts are new; v1.2 handoff/output contracts are selected
-explicitly. Existing versioned schemas and reason catalogues are immutable.
+Compatibility is additive. After integration with current `main`, the state and
+host families remain at v1.3, the combined manifest format is v1.5, and the
+reason catalogue advances from the published v1.9 profile reason to v1.10.
+`state.curated-memory@1.0.0` and the three memory proposal contracts are new;
+v1.2 handoff/output contracts are selected explicitly. Existing versioned
+schemas and reason catalogues remain immutable.
 
 Fresh projects receive an empty ledger and deterministic projection. Existing
 custom Gotchas content is migration-required, not heuristically parsed. A
@@ -201,18 +203,35 @@ help 166.3465 ms, version 153.992556 ms, and handshake 151.778165 ms; bundle
 size was 1,495,888 bytes. The gate ran before this evidence-only commit and its
 implementation tree exactly matches `d5f14d8...`.
 
-## Pull-request-ready text
+The post-merge integration gate against `origin/main` at
+`f3bd622a82b4ee2ffa1a24bd083d8184d5ae7ced` also exited 0. The main and
+coverage runs each passed 200 files and 4,953 tests. Coverage was 92.85%
+statements (8,322/8,962), 87.79% branches (6,415/7,307), 95.18% functions
+(1,463/1,537), and 93.78% lines (7,631/8,137). Mutation passed 3/3; gap
+calibration found 10/10 planted gaps with zero false gaps; runtime size budgets
+passed; oracle, result, contracts (45 schemas / 14 legacy profiles), parity
+(0/400), differential, build, and both host packages passed. Benchmark p95
+values were help 240.057419 ms, version 182.006265 ms, and handshake 198.979679
+ms; bundle size was 1,622,227 bytes.
 
-The following is ready to copy into a pull request description; no pull request
-has been created.
+The integration preserves `reason-codes.v1.9.json` and
+`contract-manifest.v1.4.schema.json` from `main` and publishes the combined
+additive artifacts as reason catalogue v1.10 and manifest schema v1.5. The
+memory payload versions remain unchanged.
+
+## Pull-request verification summary
+
+The pull request uses the following compatibility and verification summary.
 
 ```markdown
 Closes #140
 
 ### Compatibility impact
 
-This is an additive v1.2 state/host contract release with a v1.9 reason
-catalogue. Existing schema and reason-catalogue bytes remain immutable.
+This preserves the current v1.3 state/host families and adds the memory payload
+contracts at their explicit v1.0/v1.2 versions. The combined manifest format is
+v1.5 and the append-only reason catalogue is v1.10. Published predecessor bytes
+remain immutable.
 
 ### State and migration impact
 

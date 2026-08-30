@@ -9,6 +9,7 @@ import hookObservation from "../fixtures/contracts/v1/hook-observation.json" wit
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import initAnswersV1_1 from "../fixtures/contracts/v1.1/init-answers.json" with { type: "json" };
 import initAnswersV1_2 from "../fixtures/contracts/v1.2/init-answers.json" with { type: "json" };
+import initAnswersV1_3 from "../fixtures/contracts/v1.3/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
 import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json" with { type: "json" };
@@ -36,6 +37,7 @@ import memoryMigration from "../fixtures/contracts/v1.2/memory-migration.json" w
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
+import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
@@ -50,10 +52,32 @@ import type {
 import { ajvSchemaRegistry } from "@kratos/runtime/infra/schema";
 import { describe, expect, it } from "vitest";
 
+const beat = {
+  contractVersion: "1.0.0" as const,
+  beatId: "beat-evt-001",
+  kind: "work" as const,
+  subject: "phase:prd",
+  sentence: "Encountered reason workflow.phase_started.",
+  reasonCode: "workflow.phase_started",
+  occurredAt: "2026-08-29T10:00:00.000Z",
+  eventId: "evt-001",
+  revision: 1,
+  facts: {},
+  evidenceRefs: [],
+};
+
+const narration = {
+  contractVersion: "1.0.0" as const,
+  runId: "sample-run-001",
+  generatedAt: "2026-08-29T10:20:00.000Z",
+  beats: [beat],
+  pendingProgress: null,
+};
+
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0" | "1.1.0" | "1.2.0";
-  readonly versionField: "stateContract" | "hostContract";
+  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0";
+  readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
   readonly fixture: object;
@@ -155,6 +179,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.init-answers",
+    version: "1.3.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswersV1_3,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "host.phase-handoff",
     version: "1.1.0",
     versionField: "hostContract",
@@ -221,6 +255,16 @@ const fixtures = [
     requiredField: "approvalId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: approval,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.beat",
+    version: "1.0.0",
+    versionField: "contractVersion",
+    requiredField: "beatId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: beat,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -385,6 +429,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.narration",
+    version: "1.0.0",
+    versionField: "contractVersion",
+    requiredField: "beats",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: narration,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.project-config",
     version: "1.0.0",
     versionField: "stateContract",
@@ -411,6 +465,16 @@ const fixtures = [
     requiredField: "language",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfigV1_2,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.project-config",
+    version: "1.3.0",
+    versionField: "stateContract",
+    requiredField: "projectProfile",
+    structuralReasonCode: "guard.config_corrupt",
+    fixture: projectConfigV1_3,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

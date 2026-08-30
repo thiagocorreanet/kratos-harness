@@ -7,6 +7,7 @@ import {
   DEFAULT_LANGUAGE_POLICY,
   profileStack,
   skeletonEffects,
+  unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
@@ -79,8 +80,8 @@ async function createGitRepo(): Promise<{
 async function writeSkeleton(root: string): Promise<void> {
   const effects = skeletonEffects(
     {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       hosts: ["claude", "codex"],
       language: DEFAULT_LANGUAGE_POLICY,
       policyMode: "standard",
@@ -97,6 +98,7 @@ async function writeSkeleton(root: string): Promise<void> {
           judge: { model: "codex-judge", effort: "medium" },
         },
       },
+      projectProfile: unresolvedProjectProfile(),
     },
     profileStack({ rootEntries: ["package.json"] }),
   );

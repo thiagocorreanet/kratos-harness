@@ -31,6 +31,29 @@ export interface DoctorObservation {
   readonly name: string;
   readonly status: "pass" | "warn" | "block" | "fail";
   readonly evidenceRef: string | null;
+  readonly details?: readonly string[];
+}
+
+export interface StackProfileReadinessObservation {
+  readonly authoritativeState:
+    | { readonly kind: "valid" }
+    | {
+        readonly kind: "migration-required";
+        readonly reasonCode: "profile.config_migration_required";
+      }
+    | { readonly kind: "invalid"; readonly reasonCode: string };
+  readonly exists: boolean;
+  readonly regularFile: boolean;
+  readonly readable: boolean;
+  readonly expectedBytes: {
+    readonly size: number;
+    readonly sha256: string;
+  } | null;
+  readonly actualBytes: {
+    readonly size: number;
+    readonly sha256: string;
+  } | null;
+  readonly unresolvedKeys: readonly string[];
 }
 
 export interface DoctorReport {
@@ -102,6 +125,87 @@ export function diagnose(
         ? "degraded"
         : "healthy";
   return { health, checks };
+}
+
+/** Classify the generated stack profile without interpreting its Markdown. */
+export function deriveStackProfileCheck(
+  observation: StackProfileReadinessObservation,
+): DoctorObservation {
+  if (observation.authoritativeState.kind === "invalid") {
+    return {
+      name: "stack-profile",
+      evidenceRef: ".brain/config.json",
+      status: "fail",
+      details: ["The authoritative project configuration is invalid."],
+    };
+  }
+  const base = {
+    name: "stack-profile",
+    evidenceRef: ".brain/01-architecture/stack-profile.md",
+  } as const;
+  if (observation.authoritativeState.kind === "migration-required") {
+    return {
+      ...base,
+      status: "block",
+      details: ["The project configuration requires explicit migration."],
+    };
+  }
+  const unresolvedDetails = observation.unresolvedKeys.map(
+    (key) =>
+      `Resolve ${key} in the typed initialization answers, then rerun \`kratos init\`.`,
+  );
+  if (!observation.exists) {
+    return {
+      ...base,
+      status: "warn",
+      details: [
+        "The stack profile is missing; rerun `kratos init` to regenerate it.",
+        ...unresolvedDetails,
+      ],
+    };
+  }
+  if (!observation.regularFile) {
+    return {
+      ...base,
+      status: "fail",
+      details: [
+        "The stack profile destination is not a regular file.",
+        ...unresolvedDetails,
+      ],
+    };
+  }
+  if (!observation.readable) {
+    return {
+      ...base,
+      status: "fail",
+      details: [
+        "The stack profile destination is unreadable.",
+        ...unresolvedDetails,
+      ],
+    };
+  }
+  let bytesMatch = false;
+  if (observation.actualBytes !== null) {
+    if (observation.expectedBytes !== null) {
+      bytesMatch =
+        observation.actualBytes.size === observation.expectedBytes.size &&
+        observation.actualBytes.sha256 === observation.expectedBytes.sha256;
+    }
+  }
+  if (!bytesMatch) {
+    return {
+      ...base,
+      status: "warn",
+      details: [
+        "The stack profile differs from authoritative state; rerun `kratos init` to regenerate it.",
+        ...unresolvedDetails,
+      ],
+    };
+  }
+  if (unresolvedDetails.length > 0) {
+    return { ...base, status: "warn", details: unresolvedDetails };
+  }
+  return { ...base, status: "pass", details: [] };
 }
 
 export function explainReason(code: string): {

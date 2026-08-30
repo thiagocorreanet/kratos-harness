@@ -1,6 +1,7 @@
 import type { EventV1 } from "@kratos/contracts";
 import {
   deriveBudget,
+  deriveStackProfileCheck,
   deriveStats,
   diagnose,
   explainReason,
@@ -65,6 +66,166 @@ describe("read-only diagnostics", () => {
       ]).health,
     ).toBe("blocked");
   });
+
+  it.each([
+    [
+      "matching authoritative bytes",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 10, sha256: "generated" },
+        unresolvedKeys: [],
+      },
+      "pass",
+      [],
+    ],
+    [
+      "unresolved typed answers",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 10, sha256: "generated" },
+        unresolvedKeys: [
+          "projectProfile.commands.test",
+          "projectProfile.paths.tests",
+        ],
+      },
+      "warn",
+      [
+        "Resolve projectProfile.commands.test in the typed initialization answers, then rerun `kratos init`.",
+        "Resolve projectProfile.paths.tests in the typed initialization answers, then rerun `kratos init`.",
+      ],
+    ],
+    [
+      "a missing generated document",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: false,
+        regularFile: false,
+        readable: false,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "warn",
+      ["The stack profile is missing; rerun `kratos init` to regenerate it."],
+    ],
+    [
+      "a missing document with unresolved typed answers",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: false,
+        regularFile: false,
+        readable: false,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: null,
+        unresolvedKeys: ["projectProfile.commands.test"],
+      },
+      "warn",
+      [
+        "The stack profile is missing; rerun `kratos init` to regenerate it.",
+        "Resolve projectProfile.commands.test in the typed initialization answers, then rerun `kratos init`.",
+      ],
+    ],
+    [
+      "bytes drifted from authoritative state",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: { size: 16, sha256: "manually-edited" },
+        unresolvedKeys: [],
+      },
+      "warn",
+      [
+        "The stack profile differs from authoritative state; rerun `kratos init` to regenerate it.",
+      ],
+    ],
+    [
+      "an unreadable destination",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: true,
+        readable: false,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The stack profile destination is unreadable."],
+    ],
+    [
+      "a non-file destination",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: false,
+        readable: false,
+        expectedBytes: { size: 10, sha256: "generated" },
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The stack profile destination is not a regular file."],
+    ],
+    [
+      "invalid authoritative state",
+      {
+        authoritativeState: {
+          kind: "invalid",
+          reasonCode: "guard.config_corrupt",
+        },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: null,
+        actualBytes: { size: 10, sha256: "generated" },
+        unresolvedKeys: [],
+      },
+      "fail",
+      ["The authoritative project configuration is invalid."],
+    ],
+    [
+      "authoritative state that requires profile migration",
+      {
+        authoritativeState: {
+          kind: "migration-required",
+          reasonCode: "profile.config_migration_required",
+        },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: null,
+        actualBytes: null,
+        unresolvedKeys: [],
+      },
+      "block",
+      ["The project configuration requires explicit migration."],
+    ],
+  ] as const)(
+    "classifies stack-profile readiness for %s",
+    (_case, observation, status, details) => {
+      expect(deriveStackProfileCheck).toBeTypeOf("function");
+      expect(deriveStackProfileCheck(observation)).toEqual({
+        name: "stack-profile",
+        status,
+        evidenceRef:
+          observation.authoritativeState.kind === "invalid"
+            ? ".brain/config.json"
+            : ".brain/01-architecture/stack-profile.md",
+        details,
+      });
+    },
+  );
 
   it("explains catalog reasons and refuses invented ones", () => {
     expect(explainReason("runtime.revision_conflict")).toMatchObject({

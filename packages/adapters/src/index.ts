@@ -446,3 +446,5 @@ export {
   normalizeCodexHook,
   type HookKind,
 } from "./hooks.js";
+export { renderClaudeCodeNarration } from "./claude-code/narration.js";
+export { renderCodexNarration } from "./codex/narration.js";

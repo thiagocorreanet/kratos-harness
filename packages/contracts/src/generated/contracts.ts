@@ -10,6 +10,7 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
+// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
@@ -20,6 +21,7 @@
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
+// source: https://kratos.dev/schemas/state/beat/v1 sha256:e6bf3425c5fd36c5955c7941fdf575efd3fa1f8bba0565d0d8f5ec6ab49a8c25
 // source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
@@ -33,9 +35,11 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
+// source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -851,6 +855,109 @@ export namespace InitAnswersV1_2Contract {
   }
 }
 export type InitAnswersV1_2 = InitAnswersV1_2Contract.InitAnswersV1_2;
+export namespace InitAnswersV1_3Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface InitAnswersV1_3 {
+    contractVersion: "1.3.0";
+    hostContract: "1.3.0";
+    /**
+     * @minItems 1
+     */
+    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    language?: LanguagePolicy;
+    policyMode?: "standard" | "strict";
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+    projectProfile?: PartialProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+  export interface PartialProjectProfile {
+    commands?: PartialCommands;
+    paths?: PartialPaths;
+    conventions?: PartialConventions;
+  }
+  export interface PartialCommands {
+    test?: CommandLeaf;
+    lint?: CommandLeaf;
+    build?: CommandLeaf;
+    run?: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface PartialPaths {
+    source?: PathsLeaf;
+    tests?: PathsLeaf;
+    configuration?: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface PartialConventions {
+    directoryLayout?: ConventionLeaf;
+    naming?: ConventionLeaf;
+    implementationLanguages?: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type InitAnswersV1_3 = InitAnswersV1_3Contract.InitAnswersV1_3;
 export namespace MemoryCaptureV1_2Contract {
   export interface MemoryCaptureV1_2 {
     contractVersion: "1.2.0";
@@ -1300,6 +1407,28 @@ export namespace ApprovalV1Contract {
   }
 }
 export type ApprovalV1 = ApprovalV1Contract.ApprovalV1;
+export namespace BeatV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Reference = string;
+
+  export interface BeatV1 {
+    contractVersion: "1.0.0";
+    beatId: Id;
+    kind: "work" | "milestone" | "resumption" | "warning" | "waiting" | "stop";
+    subject: string;
+    sentence: string;
+    reasonCode: string;
+    occurredAt: Timestamp;
+    eventId: Id;
+    revision: number;
+    facts: {
+      [k: string]: unknown | undefined;
+    };
+    evidenceRefs: Reference[];
+  }
+}
+export type BeatV1 = BeatV1Contract.BeatV1;
 export namespace CuratedMemoryV1Contract {
   export type NonnegativeInteger = number;
   export type Sha256 = string;
@@ -1665,6 +1794,43 @@ export namespace MigrationV1_1Contract {
   }
 }
 export type MigrationV1_1 = MigrationV1_1Contract.MigrationV1_1;
+export namespace NarrationV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Reference = string;
+
+  export interface NarrationV1 {
+    contractVersion: "1.0.0";
+    runId: Id;
+    generatedAt: Timestamp;
+    beats: Beat[];
+    pendingProgress: ClockDerivedProgress | null;
+  }
+  export interface Beat {
+    contractVersion: "1.0.0";
+    beatId: Id;
+    kind: "work" | "milestone" | "resumption" | "warning" | "waiting" | "stop";
+    subject: string;
+    sentence: string;
+    reasonCode: string;
+    occurredAt: Timestamp;
+    eventId: Id;
+    revision: number;
+    facts: {
+      [k: string]: unknown | undefined;
+    };
+    evidenceRefs: Reference[];
+  }
+  export interface ClockDerivedProgress {
+    kind: "in_progress";
+    eventId: Id;
+    operation: Id;
+    elapsedMs: number;
+    startedAt: Timestamp;
+    asOf: Timestamp;
+  }
+}
+export type NarrationV1 = NarrationV1Contract.NarrationV1;
 export namespace ProjectConfigV1Contract {
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
@@ -1759,6 +1925,111 @@ export namespace ProjectConfigV1_2Contract {
   }
 }
 export type ProjectConfigV1_2 = ProjectConfigV1_2Contract.ProjectConfigV1_2;
+export namespace ProjectConfigV1_3Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectConfigV1_3 {
+    contractVersion: "1.3.0";
+    stateContract: "1.3.0";
+    pluginVersion: "0.0.0-development";
+    hostContract: "1.3.0";
+    language: LanguagePolicy;
+    policyMode: "standard" | "strict";
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+    projectProfile: ProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+  export interface ProjectProfile {
+    commands: Commands;
+    paths: Paths;
+    conventions: Conventions;
+  }
+  export interface Commands {
+    test: CommandLeaf;
+    lint: CommandLeaf;
+    build: CommandLeaf;
+    run: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface Paths {
+    source: PathsLeaf;
+    tests: PathsLeaf;
+    configuration: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface Conventions {
+    directoryLayout: ConventionLeaf;
+    naming: ConventionLeaf;
+    implementationLanguages: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {

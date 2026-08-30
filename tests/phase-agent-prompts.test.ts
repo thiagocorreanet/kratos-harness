@@ -4,7 +4,11 @@ import {
 } from "@kratos/runtime/domain/phase-agents";
 import { REASON_CATALOG } from "@kratos/contracts";
 import type { Effect } from "@kratos/runtime/domain/effects";
-import { profileStack, skeletonEffects } from "@kratos/runtime/domain/init";
+import {
+  profileStack,
+  skeletonEffects,
+  unresolvedProjectProfile,
+} from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
 const documentPaths = [
@@ -165,8 +169,8 @@ describe("the canonical phase-agent prompts", () => {
   it("renders every Codex definition from the canonical body", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.2.0",
-        hostContract: "1.2.0",
+        contractVersion: "1.3.0",
+        hostContract: "1.3.0",
         hosts: ["codex"],
         language: {
           conversation: "en",
@@ -186,6 +190,7 @@ describe("the canonical phase-agent prompts", () => {
             judge: { model: "judge", effort: "medium" },
           },
         },
+        projectProfile: unresolvedProjectProfile(),
       },
       profileStack({ rootEntries: ["package.json"] }),
     );

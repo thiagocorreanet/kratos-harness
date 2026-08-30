@@ -15,11 +15,7 @@ import {
   type ReadableEvent,
 } from "@kratos/runtime/domain/events";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
-import type {
-  ContractId,
-  ContractRequest,
-  SchemaRegistry,
-} from "@kratos/runtime/domain/schema";
+import type { SchemaRegistry } from "@kratos/runtime/domain/schema";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
 import { describe, expect, it } from "vitest";
@@ -196,14 +192,14 @@ describe("event hash-chain verification", () => {
       services,
     );
     const versions: unknown[] = [];
-    const rawValidate = services.schemaRegistry.validate.bind(
-      services.schemaRegistry,
-    ) as (request: ContractRequest<ContractId>) => unknown;
-    const validate = (request: ContractRequest<ContractId>): unknown => {
-      versions.push(request.version);
-      return rawValidate(request);
+    const schemaRegistry: SchemaRegistry = {
+      validate: ((request: { readonly version: unknown }) => {
+        versions.push(request.version);
+        return (
+          services.schemaRegistry.validate as (request: unknown) => unknown
+        )(request);
+      }) as SchemaRegistry["validate"],
     };
-    const schemaRegistry = { validate } as SchemaRegistry;
 
     parseEventLines(
       `${canonicalizeJson(oldEvent)}\n${canonicalizeJson(currentEvent)}\n`,

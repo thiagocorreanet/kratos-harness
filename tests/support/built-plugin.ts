@@ -1,21 +1,27 @@
 import { execFileSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 export const repositoryRoot = join(import.meta.dirname, "../..");
 const buildRootParent = tmpdir();
+const rawWorkerId = process.env.VITEST_WORKER_ID ?? "main";
+const buildWorkerId = /^[A-Za-z0-9_-]+$/u.test(rawWorkerId)
+  ? rawWorkerId
+  : "main";
 export const buildRoot = join(
   buildRootParent,
-  `kratos-plugin-vitest-build-${String(process.pid)}`,
+  `kratos-plugin-vitest-build-${String(process.pid)}-${buildWorkerId}`,
 );
+const lockDir = `${buildRoot}.lock`;
 
 export function isOwnedBuildRoot(
   target: string,
   parent = buildRootParent,
   pid = process.pid,
+  workerId = buildWorkerId,
 ): boolean {
-  const expectedName = `kratos-plugin-vitest-build-${String(pid)}`;
+  const expectedName = `kratos-plugin-vitest-build-${String(pid)}-${workerId}`;
   return (
     dirname(target) === parent &&
     basename(target) === expectedName &&
@@ -51,11 +57,39 @@ process.once("exit", () => {
 });
 
 export function buildPlugin(): void {
-  cleanupBuiltPlugin();
-  execFileSync(process.execPath, ["scripts/build.mjs", "--output", buildRoot], {
-    cwd: repositoryRoot,
-    stdio: "pipe",
-  });
+  const deadline = Date.now() + 60000;
+  let acquired = false;
+  while (Date.now() < deadline) {
+    try {
+      mkdirSync(lockDir);
+      acquired = true;
+      break;
+    } catch {
+      const waitDeadline = Date.now() + 50;
+      while (Date.now() < waitDeadline) {
+        // Spin wait 50ms
+      }
+    }
+  }
+  if (!acquired) throw new Error("Timed out waiting for the build lock.");
+
+  try {
+    cleanupBuiltPlugin();
+    execFileSync(
+      process.execPath,
+      ["scripts/build.mjs", "--output", buildRoot],
+      {
+        cwd: repositoryRoot,
+        stdio: "pipe",
+      },
+    );
+  } finally {
+    try {
+      rmSync(lockDir, { recursive: true, force: true });
+    } catch {
+      // Best effort release
+    }
+  }
 }
 
 export function hostPackage(host: "codex" | "claude-code"): string {

@@ -29,6 +29,8 @@ The universal runtime-result family contains:
   which adds `policy.language_incomplete` and
   `policy.language_convention_mismatch_advisory`.
 - [`reason-codes.v1.9.json`](../packages/contracts/catalogs/reason-codes.v1.9.json),
+  which adds `profile.config_migration_required`;
+- [`reason-codes.v1.10.json`](../packages/contracts/catalogs/reason-codes.v1.10.json),
   the current revision, which adds the curated-memory refusal and recovery
   reasons.
 
@@ -39,7 +41,9 @@ The state family contains:
 - [`project-config.v1.schema.json`](state/project-config.v1.schema.json);
 - [`project-config.v1.1.schema.json`](state/project-config.v1.1.schema.json);
 - [`project-config.v1.2.schema.json`](state/project-config.v1.2.schema.json), the
-  current configuration with closed per-artifact language policy;
+  configuration with closed per-artifact language policy;
+- [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
+  current configuration with complete project-profile answers;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
@@ -72,8 +76,9 @@ current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.js
 [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
 [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
-current [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json)
-per-artifact language policy revision, plus
+[`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
+current [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json)
+with partial project-profile answers, plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
@@ -92,11 +97,12 @@ See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json).
+[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json).
 The immutable predecessors remain
-[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json)
-and
-[`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
+[`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
+[`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
+[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
+and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed
 [`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)

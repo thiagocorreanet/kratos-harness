@@ -13,8 +13,8 @@ const registry = createSchemaRegistry();
 
 function answers(overrides: Record<string, unknown> = {}) {
   return {
-    contractVersion: "1.2.0",
-    hostContract: "1.2.0",
+    contractVersion: "1.3.0",
+    hostContract: "1.3.0",
     hosts: ["claude"],
     ...overrides,
   };
@@ -99,8 +99,8 @@ describe("initialization answers", () => {
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       hosts: ["codex"],
       language: {
         conversation: "en",
@@ -114,6 +114,24 @@ describe("initialization answers", () => {
       policyMode: "standard",
       snapshots: true,
       modelRoles: { codex: codexCatalog().defaults },
+      projectProfile: {
+        commands: {
+          test: { status: "unresolved" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
     });
     // A person who supplied three fields and got six needs to see the other
     // three, or they will believe they chose them.

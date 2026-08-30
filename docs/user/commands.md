@@ -30,7 +30,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `memory merge PROPOSAL` | Preview or apply a lossless lesson merge | Conditional |
 | `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
-| `migrate config` | Preview or authorize the `1.0.0` to `1.1.0` configuration replacement | Conditional |
+| `migrate config` | Preview or authorize replacement of pre-`1.3.0` configuration with current state | Conditional |
 | `migrate memory MAPPING` | Preview or losslessly adopt legacy Gotchas | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
@@ -44,12 +44,28 @@ Never automate by scraping human output; use `--json`.
 
 ## Model-role command behavior
 
-`kratos init` consumes `host.init-answers@1.1.0` from standard input or
+`kratos init` consumes `host.init-answers@1.3.0` from standard input or
 `--answers PATH`. Explicit host role maps override adapter defaults. Omitted
 maps are filled only from the corresponding enabled host catalog, and every
 default is disclosed and persisted after canonical resolution. Initialization
 fails before writing when roles are incomplete, unresolved, unsupported, or
 non-independent.
+
+The same answers document may carry a partial typed `projectProfile` for the
+project's exact root commands; source, test, and configuration paths; directory
+and naming conventions; and implementation languages. Every leaf is explicitly
+resolved, not applicable with a reason, or unresolved. Omitted leaves preserve
+current `1.3.0` state during reinitialization; explicit unresolved leaves clear
+it. Initialization never infers these values from stack markers and never
+executes a configured command.
+
+`kratos doctor` is also read-only. Its `stack-profile` check passes only when
+the deterministic rendered bytes match and no typed leaf is unresolved. It
+warns with actionable key names for unresolved answers, a missing document, or
+byte drift, and fails for invalid authoritative configuration or an unreadable
+or non-file destination. Not-applicable leaves count as complete. Recovery is
+to change typed initialization answers and rerun `kratos init`, not edit the
+generated Markdown.
 
 `kratos handoff [--json]` is read-only. It maps the current phase to the fixed
 runtime role, resolves the canonical model and effort, and returns both that
@@ -130,7 +146,7 @@ local candidate.
 
 ## Configuration migration commands
 
-Preview a pre-role configuration with answers from a file:
+Preview a pre-`1.3.0` configuration with current answers from a file:
 
 ```bash
 kratos migrate config --answers model-roles.json --root PATH
@@ -138,7 +154,8 @@ kratos migrate config --answers model-roles.json --root PATH
 
 The preview performs no writes and prints the source, destination, answers,
 catalog, and plan digests; confirmed hosts; every canonical assignment and
-default; the plan time; six exact write paths; and the complete apply command.
+default; resolved project-profile answers; the plan time; six exact write
+paths; and the complete apply command.
 Apply requires the exact caller-carried values:
 
 ```bash

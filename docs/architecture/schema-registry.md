@@ -2,9 +2,9 @@
 
 Issue [#19](https://github.com/thiagocorreanet/kratos-harness/issues/19)
 (`RUN-04`) supplies the validation infrastructure for the deterministic runtime
-epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). It does not
-add a workflow or state command. The staged CLI still supports only `help`,
-`version`, and `handshake`.
+epic [#15](https://github.com/thiagocorreanet/kratos-harness/issues/15). The
+registry remains validation infrastructure rather than a workflow or state
+command; the current CLI consumes it at every contract boundary.
 
 The registry is the one boundary through which unknown contract data becomes a
 typed domain value. The inverse boundary validates a typed value again before
@@ -13,26 +13,27 @@ interface and are embedded in the runtime bundle.
 
 ## Closed contract catalog
 
-Callers select one of eighteen identifiers. `ContractValues` maps each identifier
-to the declaration generated from its committed schema; it is not an open
-string registry.
+Callers select one of twenty-eight identifiers. `ContractValues` maps each
+identifier to the declaration generated from its committed schema; it is not
+an open string registry. The manifest is the complete list; the table below
+shows the foundational payloads used throughout this boundary.
 
 | Contract identifier | Family | Current version | Generated TypeScript value |
 | --- | --- | --- | --- |
-| `host.adapter-message` | host | `1.0.0` | `AdapterMessageV1` |
+| `host.adapter-message` | host | `1.1.0` | `AdapterMessageV1_1` |
 | `host.agent-output` | host | `1.0.0` | `AgentOutputV1` |
 | `host.gap-proposal` | host | `1.0.0` | `GapProposalV1` |
-| `host.init-answers` | host | `1.0.0` | `InitAnswersV1` |
+| `host.init-answers` | host | `1.3.0` | `InitAnswersV1_3` |
 | `host.operation-message` | host | `1.0.0` | `HostOperationMessageV1` |
 | `state.approval` | state | `1.0.0` | `ApprovalV1` |
-| `state.event` | state | `1.0.0` | `EventV1` |
+| `state.event` | state | `1.1.0` | `EventV1_1` |
 | `state.evidence` | state | `1.0.0` | `EvidenceV1` |
 | `state.feature` | state | `1.0.0` | `FeatureStateV1` |
 | `state.gap` | state | `1.0.0` | `GapRecordV1` |
 | `state.gates` | state | `1.0.0` | `GateFactsV1` |
 | `state.lock` | state | `1.0.0` | `LockLeaseV1` |
-| `state.migration` | state | `1.0.0` | `MigrationV1` |
-| `state.project-config` | state | `1.0.0` | `ProjectConfigV1` |
+| `state.migration` | state | `1.1.0` | `MigrationV1_1` |
+| `state.project-config` | state | `1.3.0` | `ProjectConfigV1_3` |
 | `state.requirement-discovery` | state | `1.0.0` | `RequirementDiscoveryV1` |
 | `state.snapshot` | state | `1.0.0` | `SnapshotV1` |
 | `state.transaction-manifest` | state | `1.0.0` | `TransactionManifestV1` |
@@ -56,10 +57,10 @@ The registry processes a request in a fixed order:
 6. return the typed value or normalized diagnostics.
 
 Ajv never sees a payload whose version is invalid, unsupported, future, or
-migration-only. Version failures use the existing compatibility reason and a
-`version` keyword diagnostic. The state migration-only classification is not
-accepted as a current registry schema; it is reported through the existing
-unsupported-state policy.
+migration-only. Version failures use the registered compatibility reason and a
+`version` keyword diagnostic. A pre-`1.3.0` project configuration remains
+selectable only by the explicit migration path; ordinary operations report
+`profile.config_migration_required` instead of treating it as current state.
 
 Structural validation uses one caller-selected reason code from the existing
 catalog:
