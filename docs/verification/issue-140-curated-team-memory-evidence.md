@@ -21,27 +21,42 @@ and acknowledgement rules are documented in the [command reference](../user/comm
 and [host guide](../user/hosts.md). Contract evolution is recorded in the
 [compatibility guide](../compatibility/contract-versioning.md).
 
-## Acceptance matrix
+## Issue #140 deliverables — 8 of 8 checked
 
-| Issue acceptance criterion | Exact executable evidence | Artifact or outcome |
-| --- | --- | --- |
-| Identical and volatile-only near-identical failures make one candidate | `tests/workflow-hook-domain.test.ts` normalization tables; `tests/workflow-hook-runtime.test.ts` repeated hook and manual capture cases | One local candidate; ANSI/control, whitespace, timestamps, UUIDs, accepted temporary nonces, and source locations normalize conservatively. |
-| A substantive difference remains distinct | `tests/workflow-hook-domain.test.ts` case, number, relative path, command, test-name, and semantic temporary-path cases | Candidate identity retains substantive values. |
-| Manual capture uses the candidate inbox and cannot promote | `tests/workflow-hook-runtime.test.ts` — manual capture leaves curated state without confirmed lessons; `tests/cli-commands.test.ts` | `host.memory-capture@1.2.0`; only a candidate effect is planned. |
-| Confirmed memory changes only after digest-bound explicit promotion | `tests/curated-memory-runtime.test.ts` — preview then apply, reviewed-time replay, and stale observations | Apply requires `--yes`, proposal digest, plan digest, and plan time. |
-| Promotion without causal or application guidance is refused | `tests/curated-memory-reasons.test.ts`; `tests/curated-memory-runtime.test.ts` | Stable `memory.lesson_incomplete` result, exit 2. |
-| Merge retains all source causal, application, and provenance items | `tests/curated-memory-domain.test.ts` — exact merge union; `tests/curated-memory-runtime.test.ts` — real merge and tombstones | Deterministic exact set union; no source item is discarded. |
-| Archive removes an active lesson and records why | `tests/curated-memory-runtime.test.ts` — archive preview/apply; `tests/curated-memory-domain.test.ts` rendering golden | Source becomes a reviewer/reasoned archive tombstone. |
-| More than 24 lessons or 48 KiB projection requires curation | `tests/curated-memory-domain.test.ts` — 24-lesson and merge-overflow boundaries; `tests/curated-memory-runtime.test.ts` | Stable `memory.curation_required`, exit 3; ledger also bounds archive to 48 tombstones. |
-| Candidates are local while the ledger/projection are committed | `tests/state-ignore-rules.test.ts`, `tests/init-skeleton.test.ts`, and `tests/workflow-hook-runtime.test.ts` | `.brain/03-memory/candidates/*.json` is ignored; ledger and projection are initialized/managed state. |
-| Free-form Gotchas migrate without silent loss | `tests/memory-migration-domain.test.ts` and `tests/memory-migration-runtime.test.ts` | Exact one-based non-template/non-blank line coverage, backup, receipt, and rollback. |
-| Code/review outputs acknowledge the supplied digest | `tests/memory-phase-binding.test.ts`, `tests/agent-output-recording.test.ts`, and `tests/phase-agent-relay-distribution.test.ts` | v1.2 `memory` is required for code/review and null for other phases; stale acknowledgement is `memory.phase_context_stale`. |
-| Capture has no model, network, or project-command escape | `tests/memory-capture-distribution.test.ts` and `tests/workflow-hook-distribution.test.ts` | Both packaged hosts capture with `PATH` empty; shipped hook sources reject model/network imports. |
-| Claude Code and Codex relay equivalent contracts and decisions | `tests/memory-capture-distribution.test.ts`, `tests/phase-agent-relay-distribution.test.ts`, and `tests/runtime-distribution.test.ts` | Each host is built independently and exercises the same embedded runtime contracts. |
+| Status | Deliverable from issue #140 | Exact executable evidence | Artifact or outcome |
+| --- | --- | --- | --- |
+| - [x] | Separate captured candidates from confirmed lessons so capture cannot pollute the curated section | `tests/state-ignore-rules.test.ts`, `tests/init-skeleton.test.ts`, and `tests/workflow-hook-runtime.test.ts` | Ignored `.brain/03-memory/candidates/*.json`; committed `state.curated-memory@1.0.0` ledger and projection. |
+| - [x] | Capture tool failures automatically with deduplication and no model call | `tests/workflow-hook-domain.test.ts`, `tests/workflow-hook-runtime.test.ts`, and `tests/memory-capture-distribution.test.ts` | Conservative normalized identity; automatic capture stays local and model-free. |
+| - [x] | Provide human-reviewed promotion into a confirmed lesson | `tests/curated-memory-runtime.test.ts` and `tests/cli-commands.test.ts` | Read-only preview followed by digest-bound `--yes` apply. |
+| - [x] | Require a lesson to explain why and how to apply it | `tests/curated-memory-reasons.test.ts` and `tests/curated-memory-runtime.test.ts` | Missing `why` or `apply` is `memory.lesson_incomplete`, exit 2. |
+| - [x] | Provide merge and archive curation | `tests/curated-memory-domain.test.ts` and `tests/curated-memory-runtime.test.ts` | Exact-union merge, reasoned archive tombstones, and active-memory limits. |
+| - [x] | Make implementer and reviewer phases read confirmed memory | `tests/memory-phase-binding.test.ts`, `tests/agent-output-recording.test.ts`, and `tests/phase-agent-relay-distribution.test.ts` | v1.2 handoff/output carries the exact `gotchas.md` observation for code and review. |
+| - [x] | Keep shared memory committed and readable | `tests/init-skeleton.test.ts`, `tests/curated-memory-domain.test.ts`, and `tests/state-ignore-rules.test.ts` | Deterministic Markdown projection; 24 active lessons and 48 KiB rendered-byte limits. |
+| - [x] | Provide manual capture for traps without a tool failure | `tests/workflow-hook-runtime.test.ts` and `tests/cli-commands.test.ts` | `memory capture` enters the same candidate inbox and cannot promote. |
+
+## Issue #140 acceptance criteria — 6 of 6 checked
+
+| Status | Acceptance criterion from issue #140 | Exact executable evidence | Artifact or outcome |
+| --- | --- | --- | --- |
+| - [x] | The same failure occurring twice produces one candidate | `tests/workflow-hook-domain.test.ts` and `tests/workflow-hook-runtime.test.ts` | Identical and volatile-only near-identical failures deduplicate. |
+| - [x] | A candidate never reaches confirmed memory without explicit promotion | `tests/workflow-hook-runtime.test.ts` and `tests/curated-memory-runtime.test.ts` | Capture only plans a candidate; confirmation requires preview, digest, time, and `--yes`. |
+| - [x] | A confirmed entry missing its reasoning is refused | `tests/curated-memory-reasons.test.ts` and `tests/curated-memory-runtime.test.ts` | Stable `memory.lesson_incomplete` refusal. |
+| - [x] | Curation preserves the substance of merged entries | `tests/curated-memory-domain.test.ts` and `tests/curated-memory-runtime.test.ts` | Merge retains every `why`, `apply`, and candidate-provenance value. |
+| - [x] | Capture makes no model call or network access | `tests/memory-capture-distribution.test.ts` and `tests/workflow-hook-distribution.test.ts` | Both packaged hosts run with no model/network dependency; capture also executes no project command. |
+| - [x] | Implementation and review demonstrably read confirmed memory | `tests/memory-phase-binding.test.ts`, `tests/agent-output-recording.test.ts`, and `tests/phase-agent-relay-distribution.test.ts` | Matching v1.2 acknowledgement is required before recording code/review output. |
+
+## Issue #140 required tests and evidence — 3 of 3 checked
+
+| Status | Required test from issue #140 | Exact executable evidence | Artifact or outcome |
+| --- | --- | --- | --- |
+| - [x] | Deduplication across repeated identical and near-identical failures | `tests/workflow-hook-domain.test.ts` and `tests/workflow-hook-runtime.test.ts` | Normalization boundary and repeated-delivery cases. |
+| - [x] | Promotion is required and cannot be implicit | `tests/workflow-hook-runtime.test.ts` and `tests/curated-memory-runtime.test.ts` | Capture cannot promote; confirmation is explicit and digest-bound. |
+| - [x] | Merge retains both original meanings | `tests/curated-memory-domain.test.ts` and `tests/curated-memory-runtime.test.ts` | Exact union of the original causal and application guidance. |
 
 ## Required test and contract coverage
 
-The domain suite covers ordering, projection bytes/digests, bounded active
+The 17 explicit issue rows above are deliberately separate from the broader
+13-item objective-spec acceptance list. The domain suite covers ordering, projection bytes/digests, bounded active
 memory, lossless merge, and overflow. The runtime suite covers read-only
 preview, confirmed apply, stale proposal/ledger/projection/candidate state,
 transaction interruption/recovery, candidate cleanup retention, archive, and
@@ -94,15 +109,18 @@ another worktree built concurrently: `scripts/build.mjs --output
 `.runtime-template/source/packages/runtime/src/domain/cli/migration.js`.
 
 The test-only `tests/support/built-plugin.ts` helper now derives
-`/tmp/kratos-plugin-vitest-build-<pid>`. The regression test
-`tests/built-plugin-isolation.test.ts` first failed against the fixed path and
-then passed with the process-unique path. The final fresh `verify` did not
-encounter the race; its runtime-distribution suite passed as part of the full
-184-file result.
+`/tmp/kratos-plugin-vitest-build-<pid>`. It removes only that validated exact
+path before each build and from a normal Node `exit` handler, so repeat calls
+are safe and normal child exit retains no new build directory. The regression
+in `tests/built-plugin-isolation.test.ts` starts two real builds concurrently,
+proves that their roots are distinct, and checks that neither root exists after
+the child exits. SIGKILL or machine loss cannot run an exit handler; a residual
+is confined to that PID-named temporary root and a later owner of the same PID
+removes it before building. The helper never sweeps a broad `/tmp` target.
 
 ## Verification commands and observed results
 
-Focused curated-memory and integration verification:
+Focused Task 6 documentation, contract, memory, and isolation verification:
 
 ```text
 corepack npm run format:check
@@ -110,36 +128,26 @@ corepack npm run spellcheck
 corepack npm run english:check
 corepack npm run contracts:check
 corepack npm run parity:check
-corepack npm test -- tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/curated-memory-reasons.test.ts tests/memory-migration-domain.test.ts tests/memory-migration-runtime.test.ts tests/memory-phase-binding.test.ts tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/memory-capture-distribution.test.ts tests/phase-agent-prompts.test.ts tests/phase-agent-relay-distribution.test.ts tests/agent-output-recording.test.ts tests/cli-commands.test.ts tests/cli-composition.test.ts tests/state-ignore-rules.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/runtime-distribution.test.ts
+corepack npm test -- tests/built-plugin-isolation.test.ts tests/contract-compatibility.test.ts tests/contract-manifest.test.ts tests/contract-reason-catalog.test.ts tests/contract-schemas.test.ts tests/contract-type-generation.test.ts tests/schema-registry-fixtures.test.ts tests/schema-registry-types.test.ts tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/curated-memory-reasons.test.ts tests/memory-migration-domain.test.ts tests/memory-migration-runtime.test.ts tests/memory-phase-binding.test.ts tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/memory-capture-distribution.test.ts tests/phase-agent-prompts.test.ts tests/phase-agent-relay-distribution.test.ts tests/agent-output-recording.test.ts tests/cli-commands.test.ts tests/cli-composition.test.ts tests/state-ignore-rules.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/runtime-distribution.test.ts
 ```
 
-Result: 19 files and 216 tests passed in 65.48 seconds.
+The focused result is recorded with the Fix Round 1 verification record below.
+The command includes the process-isolation regression, exact version-selection
+tests, the public-facing memory suites, and the stale initialization-count
+coverage repaired on this branch.
 
-The stale initialization and contract-inventory repairs were separately
-verified with 4 files and 303 tests passing. The process-isolation regression
-and packaged distribution suite passed with 7 files and 43 tests.
-
-The final pinned gate was:
+The pinned repository gate is:
 
 ```text
 corepack npm --version
 corepack npm run verify
 ```
 
-Observed npm version: `11.16.0`. Final result: exit 0. The main test run and
-coverage run each passed 184 files and 4,796 tests. Coverage was 92.62%
-statements (7,892/8,520), 87.71% branches (6,034/6,879), 94.78% functions
-(1,364/1,439), and 93.54% lines (7,217/7,715). Mutation was 3/3 (100%).
-Gap calibration found 10/10 planted gaps with zero false gaps. Runtime source
-was 1,178,572/1,500,000 bytes; schemas were 163,854/250,000 bytes. The oracle
-verified 12 surfaces, 4 PRD anchors, and 3 binaries; parity was 0/400 gaps;
-contracts verified 41 schemas and 14 legacy profiles; differential self-tests
-were equal; build and package verification passed for both hosts. Benchmark
-p95 values were help 275.545075 ms, version 194.980751 ms, and handshake
-190.104195 ms; bundle size was 1,490,957 bytes.
-
-The acceptance matrix has 12 rows for the 12 issue checkboxes. Diff and
-predecessor-byte audit results are recorded with the Task 6 report.
+Observed npm version and the fresh committed-current-HEAD result are recorded
+in the Fix Round 1 task report. This record intentionally does not reuse an
+earlier gate as its final or current result. The issue mapping above has 17
+explicit checkbox rows: 8 deliverables, 6 acceptance criteria, and 3 required
+tests. Diff and predecessor-byte audit results are also recorded in that report.
 
 ## Pull-request-ready text
 
@@ -170,8 +178,8 @@ Both host adapters only relay the runtime's memory decision and phase digest.
 ### Deterministic verification
 
 - Acceptance evidence: `docs/verification/issue-140-curated-team-memory-evidence.md`
-- Focused command: the exact `corepack npm test -- ...` command in this record
-- Repository gate: `corepack npm run verify` — PASS, exit 0; 184 files and 4,796 tests
-- Contract parity: `corepack npm run contracts:check` and `corepack npm run parity:check`
+- Focused command: `corepack npm test -- tests/built-plugin-isolation.test.ts tests/contract-compatibility.test.ts tests/contract-manifest.test.ts tests/contract-reason-catalog.test.ts tests/contract-schemas.test.ts tests/contract-type-generation.test.ts tests/schema-registry-fixtures.test.ts tests/schema-registry-types.test.ts tests/curated-memory-domain.test.ts tests/curated-memory-runtime.test.ts tests/curated-memory-reasons.test.ts tests/memory-migration-domain.test.ts tests/memory-migration-runtime.test.ts tests/memory-phase-binding.test.ts tests/workflow-hook-domain.test.ts tests/workflow-hook-runtime.test.ts tests/memory-capture-distribution.test.ts tests/phase-agent-prompts.test.ts tests/phase-agent-relay-distribution.test.ts tests/agent-output-recording.test.ts tests/cli-commands.test.ts tests/cli-composition.test.ts tests/state-ignore-rules.test.ts tests/init-skeleton.test.ts tests/init-command.test.ts tests/init-fault-campaign.test.ts tests/runtime-distribution.test.ts`
+- Documentation and contract commands: `corepack npm run format:check`, `corepack npm run spellcheck`, `corepack npm run english:check`, `corepack npm run contracts:check`, and `corepack npm run parity:check`
+- Repository gate: `corepack npm --version && corepack npm run verify`
 - Diff hygiene: `git diff --check`
 ```

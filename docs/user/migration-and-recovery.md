@@ -56,7 +56,7 @@ the earlier audit bundle; it never overwrites prior recovery evidence.
 
 Existing free-form `.brain/03-memory/gotchas.md` is never interpreted as
 Markdown lessons. `kratos migrate memory mapping.json` accepts a closed
-`memory-migration@1.2.0` mapping with the source SHA-256, reviewer, lesson
+`host.memory-migration@1.2.0` mapping with the source SHA-256, reviewer, lesson
 title/why/apply values, and one-based source ranges. Every non-blank,
 non-template legacy line must occur in exactly one ordered range; overlaps,
 gaps, out-of-bounds ranges, and changed source bytes are refused.

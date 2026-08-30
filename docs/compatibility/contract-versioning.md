@@ -10,15 +10,14 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json);
-the published
-[`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json)
-predecessor and v1 schema remain byte-preserved.
+[`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json).
+The published v1, v1.1, and v1.2 manifest schemas remain byte-preserved.
 The manifest registers every current payload schema, its generated type, and
 the metadata-only Go v3 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
+| Contract-manifest schema | `v1.3` | Contract-family manifest format |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
 | `stateContract` | `1.2.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.2.0` | Cross-process adapter request and response messages |
@@ -38,8 +37,8 @@ contains `1.0.0`, `1.1.0`, and `1.2.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-- Role-aware state payloads `state.project-config`, `state.event`, and
-  `state.migration` write `1.1.0`.
+- `state.project-config@1.2.0` writes the current configuration shape. The earlier role-aware
+  `state.event` and `state.migration` payloads continue to write `1.1.0`.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
   `state.acceptance-verdict`, `state.approval`, `state.evidence`,
   `state.failure-candidate`, `state.feature`, `state.feature-scope`,
@@ -60,17 +59,20 @@ The host family's current global revision is also `1.2.0`, with `1.0.0`,
 `1.1.0`, and `1.2.0` accepted for their registered payloads. Exact writes again follow
 `CONTRACT_VERSIONS`:
 
-- Role-aware host payloads `host.adapter-message`, `host.init-answers`, and
-  `host.phase-handoff` write `1.1.0`.
-- Unchanged host payloads `host.agent-output`, `host.gap-proposal`,
-  `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
-  continue to write their registered `1.0.0` revision.
+- `host.init-answers@1.2.0`, `host.memory-capture@1.2.0`,
+  `host.memory-change@1.2.0`, `host.memory-migration@1.2.0`,
+  `host.phase-handoff@1.2.0`, and `host.agent-output@1.2.0` write their
+  current shapes. The earlier role-aware `host.adapter-message` continues to
+  write `1.1.0`.
+- Unchanged host payloads `host.gap-proposal`, `host.hook-observation`,
+  `host.operation-message`, and `host.pre-tool-use` continue to write their
+  registered `1.0.0` revision.
 
-Model routing, handoff, and execution observation therefore require the
-registered `1.1.0` role-aware payloads, not a forced revision change to
-unrelated contracts. Host `0.9.0`, unknown earlier versions, and future
-versions require an adapter upgrade. Host compatibility is not inferred from a
-shared major version.
+Model routing and its earlier adapter envelope therefore retain their registered
+`1.1.0` revisions, while initialization and memory-aware handoff/output select
+their registered `1.2.0` revisions. No unrelated contract is force-upgraded.
+Host `0.9.0`, unknown earlier versions, and future versions require an adapter
+upgrade. Host compatibility is not inferred from a shared major version.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -190,10 +192,14 @@ objects and exact family identities.
 
 The `1.1.0` additions are `state.project-config`, `state.event`,
 `state.migration`, `host.init-answers`, `host.adapter-message`, and
-`host.phase-handoff`. A mixed event stream is valid: each line selects its exact
-registered schema before the continuous revision and hash chain is verified.
-Migration changes only `.brain/config.json` and its audit bundle; it does not
-rewrite historical `1.0.0` events, snapshots, documents, approvals, or evidence.
+`host.phase-handoff`. Their current writer selection is not uniform:
+`state.project-config`, `host.init-answers`, `host.phase-handoff`, and
+`host.agent-output` now write v1.2, while `state.event`, `state.migration`, and
+`host.adapter-message` retain v1.1. A mixed event stream is valid: each line
+selects its exact registered schema before the continuous revision and hash
+chain is verified. Migration changes only `.brain/config.json` and its audit
+bundle; it does not rewrite historical `1.0.0` events, snapshots, documents,
+approvals, or evidence.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.
