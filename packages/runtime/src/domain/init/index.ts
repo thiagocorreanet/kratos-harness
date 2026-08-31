@@ -42,3 +42,14 @@ export type {
   StackId,
   StackProfile,
 } from "./stack.js";
+export {
+  assertPermissionProvenance,
+  deriveHostPermissions,
+} from "./permissions.js";
+export type {
+  GitEvidence,
+  HostPermissionsResult,
+  PermissionOrigin,
+  PermissionProvenance,
+} from "./permissions.js";
+export { generateHostStackRules, renderStackRuleContent } from "./rules.js";
