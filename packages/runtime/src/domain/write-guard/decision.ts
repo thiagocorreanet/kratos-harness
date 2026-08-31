@@ -1,5 +1,6 @@
 import type { FeatureScopeV1, GuardrailsV1 } from "@kratos/contracts";
 
+import { canonicalizeProjectPath } from "../paths/index.js";
 import { matchesOrderedGlobs } from "./glob-policy.js";
 import { scopesAgree } from "./scope-document.js";
 
@@ -7,7 +8,9 @@ export type WriteGuardReason =
   | "guard.write_block"
   | "guard.scope_deny"
   | "guard.outside_allow"
-  | "guard.scope_corrupt";
+  | "guard.scope_corrupt"
+  | "guard.path_escape"
+  | "guard.target_uninspectable";
 
 export type WriteTargetDecision =
   | { readonly kind: "allowed"; readonly target: string }
@@ -18,22 +21,28 @@ export type WriteTargetDecision =
     };
 
 export interface DecideWriteTargetInput {
-  /** A slash-separated, project-relative target already canonicalized by composition. */
+  /** A slash-separated target evaluated against policy (will be canonicalized). */
   readonly target: string;
   readonly scope?: FeatureScopeV1 | null;
   readonly reviewerScope?: FeatureScopeV1 | null;
   readonly guardrails?: Pick<GuardrailsV1, "writeBlocks"> | null;
 }
 
-/** Apply immutable blocks, project blocks, reviewer agreement, then feature scope. */
+/** Apply canonicalization, immutable blocks, project blocks, reviewer agreement, then feature scope. */
 export function decideWriteTarget(
   input: DecideWriteTargetInput,
 ): WriteTargetDecision {
+  const canonical = canonicalizeProjectPath(input.target);
+  if (canonical.kind === "refused") {
+    return refused(canonical.reasonCode, canonical.resolvedPath);
+  }
+  const target = canonical.path;
+
   if (
-    immutableWriteBlock(input.target) ||
-    matchesOrderedGlobs(input.guardrails?.writeBlocks ?? [], input.target)
+    immutableWriteBlock(target) ||
+    matchesOrderedGlobs(input.guardrails?.writeBlocks ?? [], target)
   ) {
-    return refused("guard.write_block", input.target);
+    return refused("guard.write_block", target);
   }
 
   if (
@@ -43,22 +52,22 @@ export function decideWriteTarget(
     input.reviewerScope !== undefined &&
     !scopesAgree(input.scope, input.reviewerScope)
   ) {
-    return refused("guard.scope_corrupt", input.target);
+    return refused("guard.scope_corrupt", target);
   }
 
   const scope = input.scope;
   if (scope !== null && scope !== undefined) {
-    if (matchesOrderedGlobs(scope.deny, input.target))
-      return refused("guard.scope_deny", input.target);
+    if (matchesOrderedGlobs(scope.deny, target))
+      return refused("guard.scope_deny", target);
     if (
-      !isBrainTarget(input.target) &&
+      !isBrainTarget(target) &&
       scope.allow.length > 0 &&
-      !matchesOrderedGlobs(scope.allow, input.target)
+      !matchesOrderedGlobs(scope.allow, target)
     ) {
-      return refused("guard.outside_allow", input.target);
+      return refused("guard.outside_allow", target);
     }
   }
-  return { kind: "allowed", target: input.target };
+  return { kind: "allowed", target };
 }
 
 function refused(

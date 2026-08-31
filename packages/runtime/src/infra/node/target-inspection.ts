@@ -1,13 +1,7 @@
 import { lstat, realpath } from "node:fs/promises";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 
+import { canonicalizeProjectPath } from "../../domain/paths/index.js";
 import type {
   TargetInspection,
   TargetInspectionSession,
@@ -40,25 +34,6 @@ const nodeOperations: TargetInspectionOperations = {
 function inside(root: string, candidate: string): boolean {
   const path = relative(root, candidate);
   return path === "" || (!path.startsWith(`..${sep}`) && path !== "..");
-}
-
-function lexicalCandidate(root: string, target: string): string | null {
-  if (
-    target.length === 0 ||
-    target.includes("\\") ||
-    hasControlCharacter(target)
-  ) {
-    return null;
-  }
-  return resolve(root, isAbsolute(target) ? target : resolve(root, target));
-}
-
-function hasControlCharacter(value: string): boolean {
-  for (const character of value) {
-    const code = character.codePointAt(0) ?? 0;
-    if (code <= 0x1f || code === 0x7f) return true;
-  }
-  return false;
 }
 
 function missingPath(error: unknown): boolean {
@@ -97,12 +72,19 @@ async function inspect(
   if (!(await rootMatches(identity, operations))) {
     return { kind: "uninspectable" };
   }
-  if (/^[A-Za-z]:[\\/]/u.test(target)) return { kind: "escape" };
-  const candidate = lexicalCandidate(canonicalRoot, target);
-  if (candidate === null) return { kind: "uninspectable" };
-  if (!inside(canonicalRoot, candidate)) return { kind: "escape" };
-  const lexicalPath = relative(canonicalRoot, candidate).split(sep).join("/");
-  if (lexicalPath === "") return { kind: "uninspectable" };
+  const canonicalResult = canonicalizeProjectPath(target, {
+    root: canonicalRoot,
+  });
+  if (canonicalResult.kind === "refused") {
+    return canonicalResult.reasonCode === "guard.path_escape"
+      ? { kind: "escape" }
+      : { kind: "uninspectable" };
+  }
+  if (canonicalResult.path === "") {
+    return { kind: "uninspectable" };
+  }
+  const lexicalPath = canonicalResult.path;
+  const candidate = resolve(canonicalRoot, lexicalPath);
 
   const suffix: string[] = [];
   let ancestor = candidate;

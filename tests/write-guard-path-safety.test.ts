@@ -35,6 +35,30 @@ afterEach(async () => {
 });
 
 describe("canonical write-target inspection", () => {
+  it("normalizes ./, doubled slashes, and parent segments lexically inside the project", async () => {
+    const root = await temporaryRoot("guard-root");
+    await mkdir(join(root, "src"));
+    await writeFile(join(root, "src/index.ts"), "content\n");
+
+    await expect(inspectTarget(root, "./src/./index.ts")).resolves.toEqual({
+      kind: "inside",
+      lexicalPath: "src/index.ts",
+      canonicalPath: "src/index.ts",
+    });
+
+    await expect(inspectTarget(root, "src//index.ts")).resolves.toEqual({
+      kind: "inside",
+      lexicalPath: "src/index.ts",
+      canonicalPath: "src/index.ts",
+    });
+
+    await expect(inspectTarget(root, "src/sub/../index.ts")).resolves.toEqual({
+      kind: "inside",
+      lexicalPath: "src/index.ts",
+      canonicalPath: "src/index.ts",
+    });
+  });
+
   it("refuses a lexically outside absolute target", async () => {
     const root = await temporaryRoot("guard-root");
     const outside = await temporaryRoot("guard-outside");
