@@ -1,3 +1,5 @@
+import { canonicalizeProjectPath } from "../paths/index.js";
+
 /**
  * The directories a plan may write inside.
  *
@@ -27,8 +29,6 @@ const MANAGED_ROOT_FILES: readonly string[] = [
 /** The transaction manager's own namespace, matched without regard to case. */
 const RESERVED_STATE_NAMESPACE = "transactions";
 
-const driveQualified = /^[A-Za-z]:/u;
-
 /**
  * Whether a path is one canonical spelling inside the managed surface.
  *
@@ -39,18 +39,11 @@ const driveQualified = /^[A-Za-z]:/u;
  * may target.
  */
 export function isManagedPathShape(path: string): boolean {
+  const canonical = canonicalizeProjectPath(path);
   if (
-    path === "" ||
-    path.includes("\\") ||
-    driveQualified.test(path) ||
-    hasControlCharacter(path)
-  ) {
-    return false;
-  }
-  if (
-    path
-      .split("/")
-      .some((segment) => segment === "" || segment === "." || segment === "..")
+    canonical.kind === "refused" ||
+    canonical.path !== path ||
+    canonical.path === ""
   ) {
     return false;
   }

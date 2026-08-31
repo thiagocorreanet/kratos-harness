@@ -554,6 +554,28 @@ describe("the repository obeys its own rules", () => {
     // of the differential harness, and it is not policy code.
     expect(importers).toEqual(["packages/runtime/src/infra/node/git.ts"]);
   });
+
+  it("requires path-matching surfaces to import the canonical path normalizer", async () => {
+    const modules = await sourceModules();
+    const matchingSurfaces = [
+      "packages/runtime/src/domain/write-guard/decision.ts",
+      "packages/runtime/src/domain/transactions/surface.ts",
+      "packages/runtime/src/infra/node/target-inspection.ts",
+    ];
+
+    for (const surface of matchingSurfaces) {
+      const found = modules.find(({ path }) => path === surface);
+      expect(found).toBeDefined();
+      expect(
+        found?.imports.some(
+          (imp) =>
+            imp.includes("paths/index.js") ||
+            imp.includes("paths/canonicalize.js") ||
+            imp.includes("domain/paths"),
+        ),
+      ).toBe(true);
+    }
+  });
 });
 
 async function sourceModules(): Promise<SourceModule[]> {
