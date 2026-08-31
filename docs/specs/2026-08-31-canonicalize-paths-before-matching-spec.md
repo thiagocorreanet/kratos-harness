@@ -19,6 +19,7 @@ through to pattern matching.
 ## 2. Published rule and single canonicalizer function
 
 The canonical path form is defined by:
+
 - A slash-separated, project-relative path.
 - No leading `./`, no duplicate slashes `//`, no `.` or `..` segments.
 - Empty string `""` represents the project root itself.
@@ -50,6 +51,7 @@ the transaction manager maintains distinct case-insensitive collision keys
 ## 5. Scope and surfaces
 
 The following surfaces strictly canonicalize paths before evaluation:
+
 1. `decideWriteTarget` in `@kratos/runtime/domain/write-guard`
 2. `isManagedPathShape` in `@kratos/runtime/domain/transactions/surface.ts`
 3. `nodeTargetInspector` in `@kratos/runtime/infra/node`
