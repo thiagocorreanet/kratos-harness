@@ -3,6 +3,7 @@ import type {
   GateFactsV1,
   HostOperationMessageV1,
   HookObservationV1,
+  PhaseLifecycleV1,
   RunUsageV1,
 } from "@kratos/contracts";
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -13,7 +14,15 @@ import {
   initialRunUsage,
   sanitizeDiagnostic,
 } from "../domain/hooks/index.js";
-import { usageFailure, type Result } from "../domain/result/index.js";
+import {
+  MAX_PHASE_MEASUREMENT_CONTRIBUTORS,
+  resolvePhaseMeasurementOwner,
+} from "../domain/measurements/index.js";
+import {
+  resultFor,
+  usageFailure,
+  type Result,
+} from "../domain/result/index.js";
 import {
   prepareContract,
   type SchemaRegistry,
@@ -21,8 +30,15 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
-import { anchorPorts, resolveCommandRoot } from "./root.js";
+import {
+  corruptPhaseMeasurementEventStreamResult,
+  observePhaseMeasurementLog,
+  observePhaseMeasurementRecovery,
+  type PhaseMeasurementLogObservation,
+} from "./measurements.js";
 import { readCandidates } from "./memory.js";
+import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeWorkflow } from "./workflow.js";
 
 export async function observeHostOperation(
   invocation: Invocation,
@@ -54,15 +70,104 @@ export async function observeHostOperation(
     return failure("The host operation message does not satisfy its schema.");
   }
 
+  const artifact =
+    prepared.value.kind === "hook"
+      ? await observeMatchingHookArtifact(prepared.value, anchored, registry)
+      : { hook: null, lifecycle: null };
   const observation: CommandObservation = {
     kind: "host-operation",
     message: prepared.value,
-    hook:
-      prepared.value.kind === "hook"
-        ? await observeMatchingHookArtifact(prepared.value, anchored, registry)
-        : null,
+    hook: artifact.hook,
+    lifecycle: artifact.lifecycle,
     context: null,
+    phaseStart: null,
   };
+  if (observation.hook === null && observation.lifecycle === null) {
+    return { kind: "observed", observation, ports: anchored };
+  }
+  const measurements = await observePhaseMeasurementLog(anchored, registry);
+  if (measurements === null) return invalidMeasurementLog();
+  if (observation.lifecycle !== null) {
+    const trustedFlags = new Map(invocation.flags);
+    if (prepared.value.kind === "hook") {
+      trustedFlags.set("--host", prepared.value.payload.host);
+    }
+    const workflow = await observeWorkflow(
+      { ...invocation, flags: trustedFlags },
+      anchored,
+      registry,
+    );
+    if (workflow.kind === "failure") return workflow;
+    if (
+      workflow.observation.kind !== "workflow" ||
+      workflow.observation.workflow.kind !== "present" ||
+      workflow.observation.workflow.state.currentStep === null
+    ) {
+      return failure("The phase lifecycle has no active workflow phase.");
+    }
+    if (workflow.observation.phaseAssignment.kind === "refused") {
+      return {
+        kind: "failure",
+        result: resultFor(workflow.observation.phaseAssignment.reasonCode, {
+          why: ["The phase lifecycle assignment could not be resolved."],
+          evidence: [
+            { kind: "observation", ref: "model-routing/phase-lifecycle" },
+          ],
+        }),
+      };
+    }
+    const feature = workflow.observation.configuration.feature;
+    const runId = workflow.observation.configuration.runId;
+    const phase = workflow.observation.workflow.state.currentStep;
+    const recoveries = [];
+    for (const record of workflow.observation.measurements.records) {
+      if (
+        record.status !== "running" ||
+        (record.feature === feature &&
+          record.runId === runId &&
+          record.phase === phase)
+      ) {
+        continue;
+      }
+      const recovery = await observePhaseMeasurementRecovery(
+        record,
+        observation.lifecycle.occurredAt,
+        anchored,
+        registry,
+      );
+      if (recovery.kind === "corrupt") {
+        return {
+          kind: "failure",
+          result: corruptPhaseMeasurementEventStreamResult(
+            recovery.evidenceRef,
+          ),
+        };
+      }
+      recoveries.push({
+        feature: record.feature,
+        runId: record.runId,
+        phase: record.phase,
+        totalGrossTokens: recovery.totalGrossTokens,
+        accepted: recovery.accepted,
+      });
+    }
+    return {
+      kind: "observed",
+      observation: {
+        ...observation,
+        phaseStart: {
+          feature,
+          runId,
+          phase,
+          assignment: workflow.observation.phaseAssignment.value,
+          usage: workflow.observation.usage,
+          recoveries,
+          measurements: workflow.observation.measurements,
+        },
+      },
+      ports: anchored,
+    };
+  }
   if (observation.hook === null) {
     return { kind: "observed", observation, ports: anchored };
   }
@@ -75,11 +180,13 @@ export async function observeHostOperation(
     observation.hook,
     anchored,
     registry,
+    measurements,
     candidates?.value ?? [],
   );
+  if (context.kind === "failure") return context;
   return {
     kind: "observed",
-    observation: { ...observation, context },
+    observation: { ...observation, context: context.value },
     ports: anchored,
   };
 }
@@ -88,11 +195,59 @@ async function observeMatchingHookArtifact(
   message: Extract<HostOperationMessageV1, { readonly kind: "hook" }>,
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<HookObservationV1 | null> {
+): Promise<{
+  readonly hook: HookObservationV1 | null;
+  readonly lifecycle: PhaseLifecycleV1 | null;
+}> {
+  if (message.payload.hook === "phase.start") {
+    const lifecycle = await observePhaseLifecycleArtifact(
+      message,
+      ports,
+      registry,
+    );
+    return {
+      hook: null,
+      lifecycle:
+        message.payload.phase === "before" &&
+        lifecycle?.correlationId === message.correlationId &&
+        lifecycle.occurredAt === message.occurredAt
+          ? lifecycle
+          : null,
+    };
+  }
   const hook = await observeHookArtifact(message, ports, registry);
-  if (hook?.kind !== message.payload.hook) return null;
+  if (hook?.kind !== message.payload.hook) {
+    return { hook: null, lifecycle: null };
+  }
   const expectedPhase = hook.kind === "tool.before" ? "before" : "after";
-  return message.payload.phase === expectedPhase ? hook : null;
+  return {
+    hook: message.payload.phase === expectedPhase ? hook : null,
+    lifecycle: null,
+  };
+}
+
+async function observePhaseLifecycleArtifact(
+  message: Extract<HostOperationMessageV1, { readonly kind: "hook" }>,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<PhaseLifecycleV1 | null> {
+  const { ref, sha256 } = message.payload.artifact;
+  const entry = await ports.durableFileSystem.inspect(ref);
+  if (entry.kind !== "file" || entry.sha256 !== sha256) return null;
+  try {
+    const value = JSON.parse(
+      await ports.durableFileSystem.readText(ref),
+    ) as unknown;
+    const prepared = registry.validate({
+      id: "host.phase-lifecycle",
+      version: "1.0.0",
+      value,
+      structuralReasonCode: "trail.output_invalido",
+    });
+    return prepared.kind === "valid" ? prepared.value : null;
+  } catch {
+    return null;
+  }
 }
 
 async function observeHookArtifact(
@@ -123,36 +278,105 @@ async function observeHookContext(
   hook: HookObservationV1,
   ports: RuntimePorts,
   registry: SchemaRegistry,
+  measurements: PhaseMeasurementLogObservation,
   existingCandidates: readonly FailureCandidateV1[],
 ): Promise<
-  NonNullable<CommandObservation & { kind: "host-operation" }>["context"]
+  | {
+      readonly kind: "context";
+      readonly value: Extract<
+        CommandObservation,
+        { readonly kind: "host-operation" }
+      >["context"];
+    }
+  | Extract<Observed, { readonly kind: "failure" }>
 > {
-  const feature = await firstLine(".brain/02-features/active", ports);
-  if (feature === null) return null;
-  const runId = await firstLine(
-    `.brain/02-features/${feature}/active-run`,
-    ports,
+  const activeFeature = await firstLine(".brain/02-features/active", ports);
+  const activeRunId =
+    activeFeature === null
+      ? null
+      : await firstLine(
+          `.brain/02-features/${activeFeature}/active-run`,
+          ports,
+        );
+  const target = measurementTarget(
+    hook,
+    measurements,
+    activeFeature,
+    activeRunId,
   );
-  if (runId === null) return null;
-  const budget = await tokenBudget(feature, ports, registry);
+  if (target.kind === "corrupt") {
+    return corruptHookState(".brain/03-memory/task_log.jsonl", target.why);
+  }
+  const feature =
+    target.kind === "owned" || target.kind === "claim"
+      ? target.record.feature
+      : activeFeature;
+  const runId =
+    target.kind === "owned" || target.kind === "claim"
+      ? target.record.runId
+      : activeRunId;
+  if (feature === null || runId === null) {
+    return { kind: "context", value: null };
+  }
+  const selectedMeasurement =
+    target.kind === "owned" || target.kind === "claim";
+  const inactiveOwner =
+    selectedMeasurement &&
+    (target.record.feature !== activeFeature ||
+      target.record.runId !== activeRunId);
+  const budgetPath = `.brain/02-features/${feature}/state.json`;
+  const budgetObservation = await tokenBudget(feature, ports, registry);
+  if (
+    selectedMeasurement &&
+    (budgetObservation.kind === "invalid" ||
+      (inactiveOwner && budgetObservation.kind === "missing"))
+  ) {
+    return corruptHookState(
+      budgetPath,
+      "The measured session owner has no valid feature state.",
+    );
+  }
   const usagePath = `.brain/02-features/${feature}/runs/${runId}/usage.json`;
   const usageEntry = await ports.durableFileSystem.inspect(usagePath);
-  const usage = await stateRecord(
+  const usageObservation = await stateRecord(
     usagePath,
     "state.run-usage",
     usageEntry,
     ports,
     registry,
   );
+  if (
+    selectedMeasurement &&
+    (usageObservation.kind === "invalid" ||
+      (usageObservation.kind === "valid" &&
+        usageObservation.value.runId !== runId) ||
+      (inactiveOwner && usageObservation.kind === "missing"))
+  ) {
+    return corruptHookState(
+      usagePath,
+      "The measured session owner has no valid run usage state.",
+    );
+  }
   const gatesPath = `.brain/02-features/${feature}/runs/${runId}/gates.json`;
   const gatesEntry = await ports.durableFileSystem.inspect(gatesPath);
-  const gates = await stateRecord(
+  const gatesObservation = await stateRecord(
     gatesPath,
     "state.gates",
     gatesEntry,
     ports,
     registry,
   );
+  if (
+    selectedMeasurement &&
+    (gatesObservation.kind === "invalid" ||
+      (gatesObservation.kind === "valid" &&
+        gatesObservation.value.runId !== runId))
+  ) {
+    return corruptHookState(
+      gatesPath,
+      "The measured session owner has no valid gate state.",
+    );
+  }
   const cachePath = hookCachePath(hook.sessionId);
   const cache = await readCache(cachePath, ports);
   const transientRoot = `.brain/03-memory/.cache/hooks/${hook.sessionId}`;
@@ -176,18 +400,115 @@ async function observeHookContext(
         )
       : null;
   return {
-    feature,
-    runId,
-    budget,
-    usage: usage ?? initialRunUsage(runId, hook.occurredAt),
-    usageExpected: precondition(usageEntry),
-    gates: gates ?? emptyGates(runId, hook.occurredAt),
-    gatesExpected: precondition(gatesEntry),
-    capture,
-    cache,
-    telemetryExists:
-      (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",
-    transientFiles,
+    kind: "context",
+    value: {
+      feature,
+      runId,
+      budget:
+        budgetObservation.kind === "valid" ? budgetObservation.value : null,
+      usage:
+        usageObservation.kind === "valid"
+          ? usageObservation.value
+          : initialRunUsage(runId, hook.occurredAt),
+      usageExpected: precondition(usageEntry),
+      gates:
+        gatesObservation.kind === "valid"
+          ? gatesObservation.value
+          : emptyGates(runId, hook.occurredAt),
+      gatesExpected: precondition(gatesEntry),
+      capture,
+      cache,
+      telemetryExists:
+        (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",
+      transientFiles,
+      measurementTarget:
+        target.kind === "owned" || target.kind === "claim"
+          ? {
+              phase: target.record.phase,
+              claimSession: target.kind === "claim",
+            }
+          : null,
+      measurements,
+    },
+  };
+}
+
+type MeasuredRecord = PhaseMeasurementLogObservation["records"][number];
+
+type MeasurementTarget =
+  | { readonly kind: "none" }
+  | { readonly kind: "owned"; readonly record: MeasuredRecord }
+  | { readonly kind: "claim"; readonly record: MeasuredRecord }
+  | { readonly kind: "corrupt"; readonly why: string };
+
+function measurementTarget(
+  hook: HookObservationV1,
+  measurements: PhaseMeasurementLogObservation,
+  activeFeature: string | null,
+  activeRunId: string | null,
+): MeasurementTarget {
+  if (hook.kind === "tool.before") return { kind: "none" };
+  const cumulativeGrossTokens =
+    "usage" in hook ? (hook.usage?.cumulativeGrossTokens ?? null) : null;
+  const eligible =
+    cumulativeGrossTokens === null ||
+    activeFeature === null ||
+    activeRunId === null
+      ? []
+      : measurements.records.filter(
+          (record) =>
+            record.feature === activeFeature &&
+            record.runId === activeRunId &&
+            record.status === "running",
+        );
+  if (eligible.length > 1) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has multiple running phase measurement owners.",
+    };
+  }
+  const eligibleOwner = eligible[0];
+  const selected = resolvePhaseMeasurementOwner(
+    measurements.records,
+    hook.sessionId,
+    hook.occurredAt,
+    eligibleOwner,
+  );
+  if (selected.kind === "owned") {
+    const claim = selected.claimContributor;
+    if (
+      claim &&
+      selected.record.contributingSessionIds.length >=
+        MAX_PHASE_MEASUREMENT_CONTRIBUTORS
+    ) {
+      return {
+        kind: "corrupt",
+        why: "The running phase measurement cannot accept another contributor.",
+      };
+    }
+    return claim ? { kind: "claim", record: selected.record } : selected;
+  }
+  if (selected.kind === "ambiguous") return ambiguousMeasuredSession();
+  if (cumulativeGrossTokens === null) return { kind: "none" };
+  if (activeFeature === null || activeRunId === null) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has no active phase measurement owner.",
+    };
+  }
+  if (eligibleOwner === undefined) {
+    return {
+      kind: "corrupt",
+      why: "The accepted hook sample has no running phase measurement owner.",
+    };
+  }
+  return ambiguousMeasuredSession();
+}
+
+function ambiguousMeasuredSession(): MeasurementTarget {
+  return {
+    kind: "corrupt",
+    why: "The hook session contributes to multiple phase measurements without a unique execution interval.",
   };
 }
 
@@ -231,10 +552,10 @@ async function tokenBudget(
   feature: string,
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<number | null> {
+): Promise<StateObservation<number | null>> {
   const path = `.brain/02-features/${feature}/state.json`;
   const entry = await ports.durableFileSystem.inspect(path);
-  if (entry.kind !== "file") return null;
+  if (entry.kind !== "file") return { kind: "missing" };
   try {
     const prepared = registry.validate({
       id: "state.feature",
@@ -245,15 +566,23 @@ async function tokenBudget(
       structuralReasonCode: "runtime.state_corrupt",
     });
     return prepared.kind === "valid"
-      ? (prepared.value.objective.budget?.tokens ?? null)
-      : null;
+      ? {
+          kind: "valid",
+          value: prepared.value.objective.budget?.tokens ?? null,
+        }
+      : { kind: "invalid" };
   } catch {
-    return null;
+    return { kind: "invalid" };
   }
 }
 
 type StateRecord<I extends "state.run-usage" | "state.gates"> =
   I extends "state.run-usage" ? RunUsageV1 : GateFactsV1;
+
+type StateObservation<T> =
+  | { readonly kind: "valid"; readonly value: T }
+  | { readonly kind: "missing" }
+  | { readonly kind: "invalid" };
 
 async function stateRecord<I extends "state.run-usage" | "state.gates">(
   path: string,
@@ -261,8 +590,8 @@ async function stateRecord<I extends "state.run-usage" | "state.gates">(
   entry: Awaited<ReturnType<RuntimePorts["durableFileSystem"]["inspect"]>>,
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<StateRecord<I> | null> {
-  if (entry.kind !== "file") return null;
+): Promise<StateObservation<StateRecord<I>>> {
+  if (entry.kind !== "file") return { kind: "missing" };
   try {
     const prepared = registry.validate({
       id,
@@ -272,11 +601,11 @@ async function stateRecord<I extends "state.run-usage" | "state.gates">(
       ) as unknown,
       structuralReasonCode: "runtime.state_corrupt",
     });
-    return (
-      prepared.kind === "valid" ? prepared.value : null
-    ) as StateRecord<I> | null;
+    return prepared.kind === "valid"
+      ? { kind: "valid", value: prepared.value as StateRecord<I> }
+      : { kind: "invalid" };
   } catch {
-    return null;
+    return { kind: "invalid" };
   }
 }
 
@@ -341,4 +670,27 @@ function failure(why: string): {
   readonly result: Result;
 } {
   return { kind: "failure", result: usageFailure(why) };
+}
+
+function invalidMeasurementLog(): Extract<Observed, { kind: "failure" }> {
+  return {
+    kind: "failure",
+    result: resultFor("metrics.log_invalid", {
+      why: ["The local phase measurement log could not be validated."],
+      evidence: [{ kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" }],
+    }),
+  };
+}
+
+function corruptHookState(
+  ref: string,
+  why: string,
+): Extract<Observed, { kind: "failure" }> {
+  return {
+    kind: "failure",
+    result: resultFor("runtime.state_corrupt", {
+      why: [why],
+      evidence: [{ kind: "artifact", ref }],
+    }),
+  };
 }

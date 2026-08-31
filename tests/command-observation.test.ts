@@ -72,6 +72,7 @@ describe("commands that observe before deciding", () => {
       "migrate config",
       "migrate memory",
       "migrate rollback",
+      "metrics refresh",
       "memory capture",
       "memory list",
       "memory promote",

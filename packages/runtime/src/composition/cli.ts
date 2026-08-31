@@ -30,6 +30,7 @@ import { observeStopLossUnlock } from "./unlock.js";
 import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
+import { observeMetricsRefresh } from "./measurements.js";
 import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
 import { planOf } from "../domain/effects.js";
 import { createSchemaRegistry } from "./schema.js";
@@ -156,17 +157,23 @@ export async function runCommandLine(
                           ports,
                           schemaRegistry,
                         )
-                      : invocation.command.prerequisite === "migration"
-                        ? await observeMigration(
+                      : invocation.command.prerequisite === "metrics-refresh"
+                        ? await observeMetricsRefresh(
                             invocation,
                             ports,
                             schemaRegistry,
                           )
-                        : await observeWorkflow(
-                            invocation,
-                            ports,
-                            schemaRegistry,
-                          );
+                        : invocation.command.prerequisite === "migration"
+                          ? await observeMigration(
+                              invocation,
+                              ports,
+                              schemaRegistry,
+                            )
+                          : await observeWorkflow(
+                              invocation,
+                              ports,
+                              schemaRegistry,
+                            );
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }

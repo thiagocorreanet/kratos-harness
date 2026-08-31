@@ -21,6 +21,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `unlock stop-loss --run ID` | Confirm `UNLOCK ID` on standard input and start a new budget epoch | Conditional |
 | `done` | Request accepted final completion | Conditional |
 | `status`, `stats`, `budgets` | Derive active-run views | No |
+| `metrics refresh` | Refresh the tracked phase-distribution rollup from validated local measurements | Yes |
 | `doctor`, `explain CODE` | Diagnose state and explain recovery | No |
 | `handoff` | Derive a phase handoff | No |
 | `hook` | Accept one versioned host operation from standard input | Conditional |
@@ -59,6 +60,13 @@ current `1.4.0` project configuration state during reinitialization; explicit
 unresolved leaves clear it. Initialization never infers these values from stack
 markers and never executes a configured command.
 
+`kratos init` creates the raw phase log and tracked phase report only when each
+path is absent. Reinitialization preserves the exact existing bytes of both
+measurement artifacts while it can still refresh managed instruction sections.
+If either measurement path appears after observation but before the managed
+transaction commits, initialization returns `runtime.revision_conflict` and
+publishes none of its other planned writes.
+
 `kratos doctor` is also read-only. Its `stack-profile` check passes only when
 the deterministic rendered bytes match and no typed leaf is unresolved. It
 warns with actionable key names for unresolved answers, a missing document, or
@@ -79,6 +87,68 @@ referenced output bytes. A known mismatch returns
 `model.execution_mismatch`. With no host execution report, direct CLI recording
 persists `model: null` and `effort: null`; `--model` remains diagnostic input and
 does not manufacture an observation.
+
+## Phase measurements, budgets, and reports
+
+The runtime measures gross tokens and elapsed duration once for each of the six
+canonical phases, in order: `prd`, `spec`, `plan`, `code`, `review`, and
+`acceptance`. A completed phase has one physical record keyed by run and phase.
+Retries update that record or leave its bytes unchanged; they do not append a
+second copy.
+
+Usage attribution follows the session that produced each newly observed token
+delta. The first accepted sample from an unowned host or subagent session is
+claimed atomically by the sole eligible running phase and stored in that
+record's sorted contributor list, which accepts at most 256 identifiers.
+For each contributor, the record also keeps its latest cumulative-token and
+observation-time checkpoint. Repeated or regressing totals add no tokens. If a
+completed phase's contributing session reports a delayed final increase after
+the next phase has started, the runtime recomputes that contributor's
+chronological allocation across the affected phases. The increase raises only
+the phase interval where it occurred and does not disturb other contributors,
+while the sum of phase consumption remains aligned with run-wide numeric usage
+and stop-loss facts.
+
+Contributor ownership remains durable if another phase or run becomes active:
+a later sample still updates only the owning phase and run's measurement,
+usage, and stop-loss state. If a session identifier is reused by sequential
+phases, the observation time and stored checkpoints select and, when necessary,
+reallocate only that contributor among phase intervals. The runtime refuses the
+sample without mutation when one contributor appears in overlapping phase
+records, checkpoint chronology or allocation contradicts cumulative usage, an
+unowned sample has zero or multiple eligible running phases, a 257th contributor
+would be added, prior usage lacks a durable owner, or the owning run's usage or
+gate state is missing or malformed.
+
+`kratos budgets --json` and `kratos evidence bundle --json` report numeric
+`used` values after the run has a validated usage sample. That number comes from
+the run-wide `totalGrossTokens` ledger that also drives the existing stop-loss
+gate. It does not come from adding recommendations, and neither measurement nor
+calibration can create, raise, or replace the explicit token allocation supplied
+with the objective.
+
+Refresh the committed distribution report explicitly:
+
+```bash
+kratos metrics refresh --root PATH --json
+```
+
+The command validates the local raw log and writes
+`.brain/03-memory/task_metrics.md`. It renders completed and interrupted counts,
+completed feature/run sources, and token and duration `min`, `p50`, `p95`, and
+`max` for every canonical phase. Percentiles use nearest rank over ascending
+integer samples: the selected zero-based position is
+`ceil(ratio * sample count) - 1`. A recommendation is the token p95 and requires
+at least five completed samples for that phase. With fewer than five, refresh
+still writes the available distribution, returns the successful advisory
+`metrics.calibration_insufficient`, and identifies the exact `n/5` shortfall.
+Interrupted records remain visible in their count but are excluded from sample
+statistics and recommendations.
+
+Only `metrics refresh` writes the tracked rollup. `stats` and `budgets` remain
+read-only and do not refresh it implicitly. Run refresh between executions: it
+is also a recovery boundary and closes stale `running` entries before rendering
+the report.
 
 ## Curated-memory commands
 

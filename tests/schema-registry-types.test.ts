@@ -15,6 +15,8 @@ import type {
   InitAnswersV1_3,
   MigrationV1,
   MigrationV1_1,
+  PhaseMeasurementV1,
+  PhaseLifecycleV1,
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
   MemoryMigrationV1_2,
@@ -50,6 +52,7 @@ describe("schema registry vocabulary", () => {
       "host.memory-change",
       "host.memory-migration",
       "host.operation-message",
+      "host.phase-lifecycle",
       "host.phase-handoff",
       "host.pre-tool-use",
       "state.approval",
@@ -65,13 +68,20 @@ describe("schema registry vocabulary", () => {
       "state.guardrails",
       "state.lock",
       "state.migration",
+      "state.phase-measurement",
       "state.project-config",
       "state.requirement-discovery",
       "state.snapshot",
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(28);
+    expect(ids).toHaveLength(30);
+    expectTypeOf<
+      ContractValue<"host.phase-lifecycle">
+    >().toEqualTypeOf<PhaseLifecycleV1>();
+    expectTypeOf<
+      ContractValue<"state.phase-measurement">
+    >().toEqualTypeOf<PhaseMeasurementV1>();
     expectTypeOf<
       ContractValue<"state.acceptance-criteria-snapshot">
     >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();

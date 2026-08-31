@@ -56,7 +56,7 @@ payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
   `state.acceptance-verdict`, `state.approval`, `state.evidence`,
   `state.failure-candidate`, `state.feature`, `state.feature-scope`,
   `state.gap`, `state.gates`, `state.guardrails`, `state.lock`,
-  `state.requirement-discovery`, `state.run-usage`,
+  `state.phase-measurement`, `state.requirement-discovery`, `state.run-usage`,
   `state.session-telemetry`, `state.snapshot`,
   `state.transaction-manifest`, and `state.transaction-progress` continue to
   write their registered `1.0.0` revision.
@@ -81,7 +81,8 @@ follow `CONTRACT_VERSIONS`:
   `host.memory-capture`, `host.memory-change`, and `host.memory-migration`
   write their registered `1.2.0` revisions.
 - Unchanged host payloads `host.gap-proposal`,
-  `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
+  `host.hook-observation`, `host.operation-message`, `host.phase-lifecycle`, and
+  `host.pre-tool-use`
   continue to write their registered `1.0.0` revision.
 
 Model routing, memory-aware handoff/output, execution observation, and
@@ -182,6 +183,18 @@ including `1.3.0`, whose adjacent migration adds `gateModes: {}`.
 `model.config_migration_required` remains published predecessor history rather
 than the current migration diagnosis.
 
+Revision `1.10.0` preserves those 110 entries and appends the phase-measurement
+outcomes in
+[`reason-codes.v1.10.json`](../../packages/contracts/catalogs/reason-codes.v1.10.json):
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `metrics.phase_not_started` | 3 | No active assignment-bound measurement exists |
+| `metrics.phase_assignment_conflict` | 3 | The open measurement has another assignment |
+| `metrics.log_invalid` | 4 | The local measurement log is invalid |
+| `metrics.refresh_ok` | 0 | The validated rollup was refreshed |
+| `metrics.calibration_insufficient` | 0 | Calibration lacks completed samples |
+
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.
 
@@ -210,9 +223,10 @@ version value.
 
 ## Current payload schemas
 
-Current state schemas include project configuration, requirement
-discovery, workflow facts, snapshots, events, approvals, evidence metadata,
-feature scope, guardrails, lock leases, migrations, and transaction records.
+Current state schemas include project configuration, requirement discovery,
+phase measurements, workflow facts, snapshots, events, approvals, evidence
+metadata, feature scope, guardrails, lock leases, migrations, and transaction
+records.
 Host schemas cover adapter messages, phase-agent output, gap proposals,
 initialization answers, operation delivery, and normalized pre-tool mutation
 requests, plus phase handoff. All are JSON Schema 2020-12 documents with closed
@@ -256,6 +270,13 @@ event history.
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.
 The embedded record is host neutral and carries no new I/O or trust authority.
+
+`state.phase-measurement@1.0.0` is likewise additive. It records only bounded
+phase identity, runtime-resolved assignment metadata, timestamps, and gross
+token counts; existing state remains readable and no migration is required.
+`host.phase-lifecycle@1.0.0` is a separate closed phase-start ingress carried
+inside `host.operation-message@1.0.0`; the published hook-observation v1 schema
+and its bytes remain unchanged.
 
 The schemas constrain wire shape; runtime services own the corresponding
 behavior. Event replay and chain verification are implemented by the

@@ -1,5 +1,10 @@
 import { planOf } from "../effects.js";
 import {
+  derivePhaseDistributions,
+  renderTaskMetrics,
+} from "../measurements/index.js";
+import { RUN_PHASES } from "../workflow/index.js";
+import {
   deriveBudget,
   deriveStats,
   deriveStatus,
@@ -71,7 +76,10 @@ export const budgetsCommand: CommandSpec = observed(
     }
     // Token usage is unknown until a host reports it. Null is preserved rather
     // than presenting an unobserved value as zero consumption.
-    const budget = deriveBudget(observation.tokenBudget, null);
+    const budget = deriveBudget(
+      observation.tokenBudget,
+      observation.tokenUsage,
+    );
     return orientation(
       budget.allocated === null
         ? `Run ${observation.workflow.state.runId} has no configured token budget.`
@@ -82,6 +90,65 @@ export const budgetsCommand: CommandSpec = observed(
         `Remaining: ${budget.remaining === null ? "unbounded" : String(budget.remaining)}`,
       ],
     );
+  },
+);
+
+export const metricsRefreshCommand: CommandSpec = observingCommand(
+  "metrics-refresh",
+  {
+    path: ["metrics", "refresh"],
+    summary:
+      "Refresh committed phase distributions from validated local measurements.",
+    flags: ROOT_FLAG,
+    positionals: { min: 0, max: 0 },
+    jsonContract: "result@1.0.0",
+  },
+  (_invocation, observation) => {
+    const distributions = derivePhaseDistributions(
+      observation.measurements.records,
+      5,
+    );
+    const content = renderTaskMetrics({
+      ...distributions,
+      generatedAt: observation.generatedAt,
+      sourceLogSha256: observation.sourceLogSha256,
+    });
+    const calibrated = RUN_PHASES.every(
+      (phase) => distributions.phases[phase].recommendedTokens !== null,
+    );
+    const effects = [
+      ...(observation.measurements.content ===
+      observation.measurements.previousContent
+        ? []
+        : [
+            {
+              kind: "write_file" as const,
+              path: ".brain/03-memory/task_log.jsonl",
+              content: observation.measurements.content,
+              expected: observation.measurements.expected,
+            },
+          ]),
+      {
+        kind: "write_file" as const,
+        path: ".brain/03-memory/task_metrics.md",
+        content,
+        expected: observation.rollupExpected,
+      },
+    ];
+    return {
+      result: resultFor(
+        calibrated ? "metrics.refresh_ok" : "metrics.calibration_insufficient",
+        {
+          evidence: [
+            { kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" },
+            { kind: "artifact", ref: ".brain/03-memory/task_metrics.md" },
+          ],
+        },
+      ),
+      plan: planOf(...effects),
+      humanStdout: null,
+      payload: null,
+    };
   },
 );
 

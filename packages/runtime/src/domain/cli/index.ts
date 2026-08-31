@@ -29,6 +29,7 @@ export {
   doctorCommand,
   explainCommand,
   handoffCommand,
+  metricsRefreshCommand,
   statsCommand,
   statusCommand,
 } from "./diagnostics.js";

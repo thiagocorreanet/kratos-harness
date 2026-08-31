@@ -2,8 +2,15 @@ import {
   CONTRACT_VERSIONS,
   KRATOS_VERSION,
   type AdapterMessageV1_1,
+  type PhaseLifecycleV1,
   type PhaseHandoffV1_2,
 } from "@kratos/contracts";
+
+import {
+  normalizeAntigravityHook,
+  normalizeClaudeCodeHook,
+  normalizeCodexHook,
+} from "./hooks.js";
 
 export interface HostModelAssignment {
   readonly model: string;
@@ -189,6 +196,7 @@ export interface HostPhaseRuntime {
     | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_2 }
     | { readonly kind: "refused"; readonly rendering: HostRendering }
   >;
+  start(lifecycle: PhaseLifecycleV1): Promise<HostRendering>;
   record(message: AdapterMessageV1_1): Promise<HostRendering>;
 }
 
@@ -219,6 +227,10 @@ export interface HostPhaseRelayInput {
   readonly modelRouting: HostModelCatalog;
   readonly messageId: string;
   readonly correlationId: string;
+  /** Trusted native session identity; adapters never derive or invent it. */
+  readonly sessionId: string;
+  /** Trusted native lifecycle timestamp; adapters never read the clock. */
+  readonly occurredAt: string;
   readonly runtime: HostPhaseRuntime;
   readonly launcher: HostPhaseLauncher;
   readonly adapterVersion?: string;
@@ -417,11 +429,31 @@ export async function relaySelectedPhase(
       ? {}
       : { capabilities: input.capabilities }),
   });
+  const normalizeLifecycle =
+    host === "claude-code"
+      ? normalizeClaudeCodeHook
+      : host === "antigravity"
+        ? normalizeAntigravityHook
+        : normalizeCodexHook;
+  const lifecycle = normalizeLifecycle("phase.start", {
+    sessionId: input.sessionId,
+    correlationId: input.correlationId,
+    occurredAt: input.occurredAt,
+    assignmentDigest: handoff.assignmentDigest,
+  });
+  if (lifecycle?.kind !== "phase.start") {
+    throw new Error("Trusted phase lifecycle input is unavailable");
+  }
   if (
     !input.launcher.exactSelection.model ||
     !input.launcher.exactSelection.effort
   ) {
     return { kind: "exact-selection-unsupported", phaseExecuted: false };
+  }
+
+  const started = await input.runtime.start(lifecycle);
+  if (started.exitCode !== 0) {
+    return { kind: "runtime-refused", rendering: started };
   }
 
   const execution = await input.launcher.launch(

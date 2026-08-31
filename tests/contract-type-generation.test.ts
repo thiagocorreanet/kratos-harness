@@ -29,7 +29,7 @@ describe("schema-derived contract declarations", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      "contract families v1.0.0: verified (47 schemas; 14 legacy profiles; generated types current)\n",
+      "contract families v1.0.0: verified (49 schemas; 14 legacy profiles; generated types current)\n",
     );
     expect(after).toBe(before);
     expect(after).toContain("Generated from registered JSON Schemas.");
@@ -41,6 +41,8 @@ describe("schema-derived contract declarations", () => {
     expect(after).toContain("export type EventV1_2");
     expect(after).toContain("export type InitAnswersV1_3");
     expect(after).toContain("export type PhaseHandoffV1_1");
+    expect(after).toContain("export type PhaseLifecycleV1");
+    expect(after).toContain("export type PhaseMeasurementV1");
     expect(after).toContain("export type HostOperationMessageV1");
     expect(after).toContain("export type CuratedMemoryV1");
     expect(after).toContain("export type MemoryChangeV1_2");

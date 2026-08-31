@@ -53,6 +53,44 @@ function settled(run: ReturnType<typeof subject>) {
   );
 }
 
+function withRunningMeasurement(
+  files: Readonly<Record<string, string>>,
+  sessionId = "session-a",
+): Record<string, string> {
+  const feature = files[".brain/02-features/active"]?.trim() ?? "";
+  const runId = files[`.brain/02-features/${feature}/active-run`]?.trim() ?? "";
+  return {
+    ...files,
+    ".brain/03-memory/task_log.jsonl": `${JSON.stringify({
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      feature,
+      runId,
+      phase: "prd",
+      sessionId,
+      contributingSessionIds: [sessionId],
+      correlationId: "correlation-a",
+      status: "running",
+      startedAt: NOW,
+      endedAt: null,
+      durationMs: null,
+      baselineGrossTokens: 0,
+      finalGrossTokens: null,
+      grossTokens: 0,
+      assignmentDigest: "a".repeat(64),
+      resolvedAssignment: {
+        host: "claude",
+        role: "planner",
+        model: "claude-planner",
+        effort: "medium",
+      },
+      observedIdentity: { model: null, effort: null },
+      closeReason: null,
+      updatedAt: NOW,
+    })}\n`,
+  };
+}
+
 async function started() {
   const initialized = subject(
     {},
@@ -128,7 +166,7 @@ function hookRun(
 describe("workflow hook runtime", () => {
   it("trips a run budget and keeps the latch on an identical retry", async () => {
     const base = await started();
-    const files = settled(base);
+    const files = withRunningMeasurement(settled(base));
     const feature = files[".brain/02-features/active"]?.trim() ?? "";
     const featurePath = `.brain/02-features/${feature}/state.json`;
     const state = JSON.parse(files[featurePath] ?? "") as {
@@ -432,7 +470,7 @@ describe("workflow hook runtime", () => {
       usage: { cumulativeGrossTokens: 42 },
     };
     const sampled = hookRun(
-      settled(base),
+      withRunningMeasurement(settled(base)),
       base.storage.snapshot().directories,
       sample,
       "sample",

@@ -31,8 +31,8 @@ The universal runtime-result family contains:
 - [`reason-codes.v1.9.json`](../packages/contracts/catalogs/reason-codes.v1.9.json),
   which adds `profile.config_migration_required`;
 - [`reason-codes.v1.10.json`](../packages/contracts/catalogs/reason-codes.v1.10.json),
-  the current revision, which adds the curated-memory refusal and recovery
-  reasons.
+  the current revision, which adds the `metrics.*` phase-measurement outcomes
+  and curated-memory refusal and recovery reasons.
 
 The state family contains:
 
@@ -71,6 +71,8 @@ The state family contains:
 - [`migration.v1.schema.json`](state/migration.v1.schema.json);
 - [`migration.v1.1.schema.json`](state/migration.v1.1.schema.json), the current
   replacement migration and rollback receipt;
+- [`phase-measurement.v1.schema.json`](state/phase-measurement.v1.schema.json),
+  the keyed runtime-owned token and duration measurement ledger;
 - [`transaction-manifest.v1.schema.json`](state/transaction-manifest.v1.schema.json);
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 - [`curated-memory.v1.schema.json`](state/curated-memory.v1.schema.json), the
@@ -87,6 +89,9 @@ current [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json)
 with partial project-profile answers, plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
+[`phase-lifecycle.v1.schema.json`](host/phase-lifecycle.v1.schema.json), the
+closed host-neutral phase-start ingress carried by a host operation envelope,
+and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
 block one phase agent appends to its reply, plus
 [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized

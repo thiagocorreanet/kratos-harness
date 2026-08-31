@@ -13,6 +13,7 @@ import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
+import phaseLifecycleSchema from "../../../../../schemas/host/phase-lifecycle.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
 import phaseHandoffV1_2Schema from "../../../../../schemas/host/phase-handoff.v1.2.schema.json" with { type: "json" };
@@ -37,6 +38,7 @@ import lockSchema from "../../../../../schemas/state/lock.v1.schema.json" with {
 import migrationSchema from "../../../../../schemas/state/migration.v1.schema.json" with { type: "json" };
 import migrationV1_1Schema from "../../../../../schemas/state/migration.v1.1.schema.json" with { type: "json" };
 import narrationSchema from "../../../../../schemas/state/narration.v1.schema.json" with { type: "json" };
+import phaseMeasurementSchema from "../../../../../schemas/state/phase-measurement.v1.schema.json" with { type: "json" };
 import projectConfigSchema from "../../../../../schemas/state/project-config.v1.schema.json" with { type: "json" };
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
@@ -163,6 +165,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/host/operation-message.v1.schema.json",
       schema: operationMessageSchema,
+    },
+    {
+      id: "host.phase-lifecycle",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/phase-lifecycle.v1.schema.json",
+      schema: phaseLifecycleSchema,
     },
     {
       id: "host.phase-handoff",
@@ -310,6 +319,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.1.0",
       path: "schemas/state/migration.v1.1.schema.json",
       schema: migrationV1_1Schema,
+    },
+    {
+      id: "state.phase-measurement",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/phase-measurement.v1.schema.json",
+      schema: phaseMeasurementSchema,
     },
     {
       id: "state.narration",

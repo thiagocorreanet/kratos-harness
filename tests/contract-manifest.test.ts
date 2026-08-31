@@ -126,7 +126,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(47);
+    expect(manifest.schemas).toHaveLength(49);
     const keys = manifest.schemas.map(({ id, version }) => `${id}@${version}`);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(new Set(keys).size).toBe(keys.length);

@@ -13,6 +13,7 @@ export async function relaySelectedPhase(input) {
     input.modelRouting ?? (await defaultModelRouting().observe("antigravity"));
   const runtime = createPhaseRuntimeTransport({
     root: input.root,
+    host,
     runtimeEntry: fileURLToPath(
       new URL("../../../runtime/kratos.mjs", import.meta.url),
     ),

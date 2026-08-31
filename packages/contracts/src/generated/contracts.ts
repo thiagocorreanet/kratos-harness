@@ -14,7 +14,8 @@
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
-// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
+// source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
@@ -36,6 +37,7 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
+// source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:c783ccba225a9cd283460d11f9f1b590195c70ddcc8af28bf2bd891014888548
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
@@ -1089,7 +1091,7 @@ export namespace HostOperationMessageV1Contract {
     occurredAt: string;
     kind: "hook";
     payload: {
-      host: "claude-code" | "codex";
+      host: "claude-code" | "codex" | "antigravity";
       hook: Id;
       phase: "before" | "after";
       artifact: Artifact;
@@ -1144,6 +1146,22 @@ export namespace HostOperationMessageV1Contract {
 }
 export type HostOperationMessageV1 =
   HostOperationMessageV1Contract.HostOperationMessageV1;
+export namespace PhaseLifecycleV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Sha256 = string;
+
+  export interface PhaseLifecycleV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    kind: "phase.start";
+    sessionId: Id;
+    correlationId: Id;
+    occurredAt: Timestamp;
+    assignmentDigest: Sha256;
+  }
+}
+export type PhaseLifecycleV1 = PhaseLifecycleV1Contract.PhaseLifecycleV1;
 export namespace PhaseHandoffV1_1Contract {
   export type Id = string;
   export type Sha256 = string;
@@ -2053,6 +2071,127 @@ export namespace MigrationV1_1Contract {
   }
 }
 export type MigrationV1_1 = MigrationV1_1Contract.MigrationV1_1;
+export namespace PhaseMeasurementV1Contract {
+  export type PhaseMeasurementV1 =
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "running";
+        startedAt: Timestamp;
+        endedAt: null;
+        durationMs: null;
+        baselineGrossTokens: Count;
+        finalGrossTokens: null;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: null;
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "completed";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: "phase_completed" | "recovered_completed";
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "interrupted";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: "session_interrupted" | "recovered_interrupted";
+        updatedAt: Timestamp;
+      };
+  export type Id = string;
+  export type Count = number;
+  export type Timestamp = string;
+  export type Sha256 = string;
+
+  export interface ResolvedAssignment {
+    host: "claude" | "codex" | "antigravity";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface ObservedIdentity {
+    model: Id | null;
+    effort: Id | null;
+  }
+}
+export type PhaseMeasurementV1 = PhaseMeasurementV1Contract.PhaseMeasurementV1;
 export namespace NarrationV1Contract {
   export type Id = string;
   export type Timestamp = string;

@@ -16,6 +16,7 @@ import type {
   GapRecordV1,
   HostOperationMessageV1,
   HookObservationV1,
+  PhaseLifecycleV1,
   FailureCandidateV1,
   CuratedMemoryV1,
   MemoryChangeV1_2,
@@ -28,6 +29,7 @@ import type {
   SnapshotV1,
 } from "@kratos/contracts";
 import type { PhaseHandoffV1_2 } from "@kratos/contracts";
+import type { PhaseMeasurement } from "../measurements/index.js";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
@@ -204,6 +206,7 @@ export type CommandObservation =
       readonly kind: "host-operation";
       readonly message: HostOperationMessageV1;
       readonly hook: HookObservationV1 | null;
+      readonly lifecycle: PhaseLifecycleV1 | null;
       readonly context: {
         readonly feature: string;
         readonly runId: string;
@@ -220,6 +223,37 @@ export type CommandObservation =
         } | null;
         readonly telemetryExists: boolean;
         readonly transientFiles: readonly string[];
+        readonly measurementTarget: {
+          readonly phase: PhaseMeasurement["phase"];
+          readonly claimSession: boolean;
+        } | null;
+        readonly measurements: {
+          readonly content: string;
+          readonly records: readonly PhaseMeasurement[];
+          readonly expected: WriteFilePrecondition;
+        };
+      } | null;
+      readonly phaseStart: {
+        readonly feature: string;
+        readonly runId: string;
+        readonly phase: PhaseHandoffV1_2["phase"];
+        readonly assignment: PhaseHandoffV1_2;
+        readonly usage: RunUsageV1;
+        readonly recoveries: readonly {
+          readonly feature: string;
+          readonly runId: string;
+          readonly phase: PhaseMeasurement["phase"];
+          readonly totalGrossTokens: number | null;
+          readonly accepted: {
+            readonly occurredAt: string;
+            readonly observedIdentity: PhaseMeasurement["observedIdentity"];
+          } | null;
+        }[];
+        readonly measurements: {
+          readonly content: string;
+          readonly records: readonly PhaseMeasurement[];
+          readonly expected: WriteFilePrecondition;
+        };
       } | null;
     }
   | {
@@ -276,6 +310,14 @@ export type CommandObservation =
         | { readonly kind: "unreadable" };
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
+      readonly usage: RunUsageV1;
+      /** Validated measured total, or null for absent/corrupt legacy usage. */
+      readonly tokenUsage: number | null;
+      readonly measurements: {
+        readonly content: string;
+        readonly records: readonly PhaseMeasurement[];
+        readonly expected: WriteFilePrecondition;
+      };
       readonly correlationId: string;
       readonly eventId: string;
       readonly occurredAt: string;
@@ -373,6 +415,18 @@ export type CommandObservation =
       readonly dashboardHtml: string | null;
       /** Generated profile bytes and their typed authoritative inputs. */
       readonly stackProfile: StackProfileReadinessObservation;
+    }
+  | {
+      readonly kind: "metrics-refresh";
+      readonly generatedAt: string;
+      readonly sourceLogSha256: string;
+      readonly measurements: {
+        readonly previousContent: string;
+        readonly content: string;
+        readonly records: readonly PhaseMeasurement[];
+        readonly expected: WriteFilePrecondition;
+      };
+      readonly rollupExpected: WriteFilePrecondition;
     }
   | {
       readonly kind: "migration";
