@@ -8,6 +8,7 @@ import type {
   AdapterMessageV1_1,
   EventV1_1,
   EventV1,
+  EventV1_2,
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
@@ -22,6 +23,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
   RequirementDiscoveryV1,
   TransactionManifestV1,
   TransactionProgressV1,
@@ -93,9 +95,10 @@ describe("schema registry vocabulary", () => {
       | ProjectConfigV1_1
       | ProjectConfigV1_2
       | ProjectConfigV1_3
+      | ProjectConfigV1_4
     >();
     expectTypeOf<ContractValue<"state.event">>().toEqualTypeOf<
-      EventV1 | EventV1_1
+      EventV1 | EventV1_1 | EventV1_2
     >();
     expectTypeOf<ContractValue<"state.migration">>().toEqualTypeOf<
       MigrationV1 | MigrationV1_1

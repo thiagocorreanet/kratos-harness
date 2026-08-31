@@ -1,11 +1,13 @@
 import type {
   EventV1,
   EventV1_1,
+  EventV1_2,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
-  ProjectConfigV1_3Contract,
+  ProjectConfigV1_4,
+  ProjectConfigV1_4Contract,
 } from "./generated/contracts.js";
 
 export { KRATOS_VERSION } from "./version.js";
@@ -52,6 +54,7 @@ export type {
   HostOperationMessageV1,
   EventV1,
   EventV1_1,
+  EventV1_2,
   EvidenceV1,
   FeatureStateV1,
   FeatureScopeV1,
@@ -69,6 +72,7 @@ export type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -83,15 +87,19 @@ export type {
   MemoryMigrationV1_2,
 } from "./generated/contracts.js";
 
-export type LanguagePolicyV1 = ProjectConfigV1_3Contract.LanguagePolicy;
+export type LanguagePolicyV1 = ProjectConfigV1_4Contract.LanguagePolicy;
 export type ModelRole = "planner" | "implementer" | "judge";
 export type ModelAssignmentV1_1 =
   string | { readonly model: string; readonly effort: string };
-export type CurrentEvent = EventV1_1;
-export type ReadableEvent = EventV1 | EventV1_1;
-export type CurrentProjectConfig = ProjectConfigV1_3;
+export type CurrentEvent = EventV1_2;
+export type ReadableEvent = EventV1 | EventV1_1 | EventV1_2;
+export type CurrentProjectConfig = ProjectConfigV1_4;
 export type ReadableProjectConfig =
-  ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
+  | ProjectConfigV1
+  | ProjectConfigV1_1
+  | ProjectConfigV1_2
+  | ProjectConfigV1_3
+  | ProjectConfigV1_4;
 export type {
   BeatKind,
   BeatV1,

@@ -124,7 +124,7 @@ export function decideDone(candidate: DoneCandidate): DoneDecision {
       evidenceRefs,
     };
   }
-  if (candidate.gates.failures.length > 0) {
+  if (candidate.gates.outcome === "block") {
     return {
       kind: "refused",
       reasonCode: "trail.gate_divergente",

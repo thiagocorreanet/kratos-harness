@@ -23,7 +23,7 @@ import type {
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
@@ -362,7 +362,7 @@ export type CommandObservation =
         readonly sha256: string;
       }[];
       readonly gateDecision: GateDecision;
-      readonly policyMode: GateMode;
+      readonly defaultGateMode: GateMode;
       readonly tokenBudget: number | null;
       readonly events: readonly ReadableEvent[];
       readonly persistedSnapshot: SnapshotV1 | null;
@@ -397,7 +397,7 @@ export type CommandObservation =
               readonly content: string;
               readonly sha256: string;
             };
-            readonly destination: ProjectConfigV1_3;
+            readonly destination: ProjectConfigV1_4;
             readonly destinationDigest: string;
             /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;

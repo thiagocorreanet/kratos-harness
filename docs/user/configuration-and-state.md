@@ -6,13 +6,51 @@ Kratos resolves explicit command flags first, then project configuration, then
 documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
-The current `state.project-config@1.3.0` records plugin and host contracts,
-granular language policy, policy mode, host-specific model roles, managed state
-paths, and the typed project profile. Secrets, tokens, prompts, and private
-keys are prohibited. Historical configuration `1.0.0`, `1.1.0`, or `1.2.0` is
-readable only for explicit migration and returns
+The current `state.project-config@1.4.0` records plugin and host contracts,
+granular language policy, inherited policy mode, per-gate overrides,
+host-specific model roles, managed state paths, and the typed project profile.
+Secrets, tokens, prompts, and private keys are prohibited. Historical
+configuration `1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` is readable only for
+explicit migration and returns
 `profile.config_migration_required` before an ordinary operation can treat it
 as current state.
+
+## Gate policy modes
+
+`policyMode` remains required and supplies the mode inherited by every gate
+without an override:
+
+| `policyMode` | Inherited gate mode |
+| --- | --- |
+| `standard` | `warn` |
+| `strict` | `enforce` |
+
+`gateModes` is also required. It is a closed partial map: keys may only be
+published gate IDs and values may only be `shadow`, `warn`, or `enforce`. An
+empty object preserves the inherited behavior for every gate.
+
+```json
+{
+  "policyMode": "strict",
+  "gateModes": {
+    "gaps-closed": "shadow"
+  }
+}
+```
+
+In this example, `gaps-closed` records an open-gap finding but allows the
+operation to continue; every other gate inherits `enforce` and can block.
+`warn` findings also remain recorded while allowing continuation. If several
+gates fail, the runtime selects outcome severity in the order block, warn,
+pass, then preserves the established priority and gate-ID ordering within an
+outcome. `primary` is the first ordered failure from the outcome that decided
+the result.
+
+The runtime resolves the complete mode table before pure gate evaluation.
+Unreadable policy fails closed with an all-`enforce` table and unreadable
+context. Prompts, agent responses, command hosts, Claude Code, and Codex do not
+decide or override modes; they only convey configuration input or render the
+runtime-owned result.
 
 ## Project profile
 

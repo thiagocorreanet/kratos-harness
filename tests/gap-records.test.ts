@@ -14,7 +14,7 @@ import {
   type ApprovalBoundary,
   type GapCategory,
 } from "@kratos/runtime/domain/gaps";
-import { evaluateGates } from "@kratos/runtime/domain/gates";
+import { evaluateGates, resolveGateModes } from "@kratos/runtime/domain/gates";
 import { describe, expect, it } from "vitest";
 
 const PRD = "a".repeat(64);
@@ -479,11 +479,17 @@ describe("deriving the facts the gates read", () => {
       finalAcceptance: false,
     };
 
-    const enforce = evaluateGates({ ...context, mode: "enforce" });
+    const enforce = evaluateGates({
+      ...context,
+      gateModes: resolveGateModes("strict", {}),
+    });
     expect(enforce.outcome).toBe("block");
     expect(enforce.primary?.reasonCode).toBe("gate.gaps_abertos");
     for (const mode of ["shadow", "warn"] as const) {
-      const decision = evaluateGates({ ...context, mode });
+      const decision = evaluateGates({
+        ...context,
+        gateModes: resolveGateModes("standard", { "gaps-closed": mode }),
+      });
       expect(decision.outcome).not.toBe("block");
       expect(decision.failures.map(({ gateId }) => gateId)).toContain(
         "gaps-closed",

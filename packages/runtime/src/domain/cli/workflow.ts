@@ -260,12 +260,7 @@ export const continueCommand: CommandSpec = observingCommand(
           ? ({
               kind: "complete-phase",
               ...refs,
-              gateFailures: [
-                ...(observation.gateDecision.outcome === "block"
-                  ? observation.gateDecision.failures.map(
-                      ({ gateId }) => gateId,
-                    )
-                  : []),
+              rejectionReasons: [
                 ...(typeof gate === "string" ? [gate] : []),
                 ...(typeof artifact === "string" && !artifactReadable
                   ? ["artifact-unreadable"]
@@ -299,6 +294,7 @@ export const continueCommand: CommandSpec = observingCommand(
               resolvedAssignment: phaseExecution.assignment,
               phaseExecution: phaseExecution.execution,
             }),
+        gateDecision: observation.gateDecision,
         action,
       }),
       observation,
@@ -388,9 +384,7 @@ export const doneCommand: CommandSpec = observingCommand(
       !observation.invalidEvidenceIds.includes(selectedEvidence.evidenceId);
     const accepted =
       finalApproval !== undefined &&
-      observation.gateDecision.failures.every(
-        ({ gateId }) => gateId === "final-acceptance",
-      ) &&
+      observation.gateDecision.outcome !== "block" &&
       observation.approvalChallenge !== null;
     const artifactObservation = observation.referencedFiles.find(
       ({ ref }) => ref === artifact,
@@ -410,7 +404,7 @@ export const doneCommand: CommandSpec = observingCommand(
               ),
               runId: observation.configuration.runId,
               phase: "acceptance",
-              policyMode: observation.policyMode,
+              policyMode: observation.defaultGateMode,
               policyVersion: "workflow-v1",
               producerCommand: `sdd.continue:${observation.correlationId}`,
               commit: observation.gitCommit,
@@ -452,18 +446,19 @@ export const doneCommand: CommandSpec = observingCommand(
               resolvedAssignment: phaseExecution.assignment,
               phaseExecution: phaseExecution.execution,
             }),
+        gateDecision: observation.gateDecision,
         action: {
           kind: "complete-phase",
           artifactRefs:
             artifactReadable && typeof artifact === "string" ? [artifact] : [],
           evidenceRefs:
             evidenceReadable && typeof evidence === "string" ? [evidence] : [],
-          gateFailures:
+          rejectionReasons:
             readiness.kind === "accepted" &&
             artifactReadable &&
             evidenceReadable
               ? []
-              : ["gate.aceitacao_final"],
+              : [readiness.reasonCode],
           allowFinalCompletion: true,
         },
       }),
@@ -556,7 +551,7 @@ function workflowDecision(
             observation.workflow.kind === "present"
               ? (observation.workflow.state.currentStep ?? "acceptance")
               : "acceptance",
-          policyMode: observation.policyMode,
+          policyMode: observation.defaultGateMode,
           policyVersion: workflow.event.policyVersion,
           producerCommand: workflow.event.operation,
           commit: observation.gitCommit,

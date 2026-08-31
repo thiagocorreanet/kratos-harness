@@ -7,6 +7,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
 } from "@kratos/contracts";
 import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -17,7 +18,9 @@ import {
   completeMigration,
   plannedMigration,
   upgradeProjectConfigurationV1_2,
+  upgradeProjectConfigurationV1_4,
 } from "@kratos/runtime/domain/migration";
+import { evaluateGates, resolveGateModes } from "@kratos/runtime/domain/gates";
 import {
   DEFAULT_REGISTRY,
   dispatch,
@@ -39,6 +42,7 @@ import type { RuntimePorts, StandardInput } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
 import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
 
 const ROOT = "/project";
 const CONFIG_REF = ".brain/config.json";
@@ -273,7 +277,69 @@ async function observedConfigMigrationId(run: Subject): Promise<string> {
 }
 
 describe("configuration migration", () => {
-  it("migrates project configuration 1.2 to 1.3 without requiring answers", async () => {
+  it("upgrades a 1.3 configuration to empty per-gate overrides without changing decisions", () => {
+    const legacyV1_3 = structuredClone(projectConfigV1_3) as ProjectConfigV1_3;
+    const upgraded = upgradeProjectConfigurationV1_4(legacyV1_3);
+    const facts = {
+      phase: "acceptance" as const,
+      contextReadable: false,
+      stopLoss: { tripped: false, exhausted: false },
+      prdDigest: null,
+      prdDocument: { kind: "missing" as const },
+      specDigest: null,
+      approvals: [],
+      openGaps: 1,
+      partitionRequired: true,
+      partitionApproved: false,
+      finalAcceptance: false,
+      acceptanceCriteria: [],
+    };
+
+    expect(upgraded).toEqual({
+      ...legacyV1_3,
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      hostContract: "1.3.0",
+      gateModes: {},
+    });
+    expect(upgraded.hostContract).toBe("1.3.0");
+
+    const legacyModes = resolveGateModes(legacyV1_3.policyMode, {});
+    const migratedModes = resolveGateModes(
+      upgraded.policyMode,
+      upgraded.gateModes,
+    );
+    expect(
+      canonicalizeJson(evaluateGates({ ...facts, gateModes: migratedModes })),
+    ).toBe(
+      canonicalizeJson(evaluateGates({ ...facts, gateModes: legacyModes })),
+    );
+  });
+
+  it("migrates a 1.3 configuration by changing only the configuration bytes", async () => {
+    const legacyV1_3 = structuredClone(projectConfigV1_3) as ProjectConfigV1_3;
+    const sourceBytes = `${JSON.stringify(legacyV1_3, null, 4)}\n\n`;
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: sourceBytes,
+    });
+    const before = run.storage.snapshot().files;
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const after = run.storage.snapshot().files;
+    expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
+      ...legacyV1_3,
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      hostContract: "1.3.0",
+      gateModes: {},
+    } satisfies ProjectConfigV1_4);
+    for (const [path, content] of Object.entries(before)) {
+      if (path !== CONFIG_REF) expect(after[path], path).toBe(content);
+    }
+  });
+
+  it("migrates project configuration 1.2 to 1.4 without requiring answers", async () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
@@ -304,11 +370,12 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated).toMatchObject({
-      contractVersion: "1.3.0",
-      stateContract: "1.3.0",
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
       hostContract: "1.3.0",
+      gateModes: {},
     });
     expect(migrated.projectProfile.commands.test).toEqual({
       status: "unresolved",
@@ -364,7 +431,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.projectProfile.commands.test).toEqual({
       status: "resolved",
       value: "npm test",
@@ -432,7 +499,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.modelRoles).toEqual(customRoles);
     const preview = run.output.structured_.join("");
     expect(preview).toContain("claude.planner = claude-custom-planner@high");
@@ -500,7 +567,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.modelRoles.claude).toEqual(claudeRoles);
     expect(migrated.modelRoles.codex).toEqual({
       planner: { model: "planner-canonical", effort: "medium" },
@@ -554,7 +621,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.modelRoles).toEqual(customRoles);
     expect(run.output.structured_.join("")).toContain(
       "Confirmed hosts: claude, codex",
@@ -613,7 +680,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.modelRoles.claude).toEqual(claudeRoles);
     expect(migrated.modelRoles.codex).toEqual({
       planner: { model: "planner-canonical", effort: "medium" },
@@ -780,7 +847,8 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      stateContract: "1.3.0",
+      stateContract: "1.4.0",
+      gateModes: {},
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -828,8 +896,8 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
-      contractVersion: "1.3.0",
-      stateContract: "1.3.0",
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
       pluginVersion: "0.0.0-development",
       hostContract: "1.3.0",
       language: {
@@ -842,6 +910,7 @@ describe("configuration migration", () => {
         enforcement: "advisory",
       },
       policyMode: "standard",
+      gateModes: {},
       managedState: {
         directory: ".brain",
         eventLog: "events.jsonl",
@@ -1108,7 +1177,7 @@ describe("configuration migration", () => {
       (
         JSON.parse(
           run.storage.snapshot().files[CONFIG_REF] ?? "null",
-        ) as ProjectConfigV1_3
+        ) as ProjectConfigV1_4
       ).modelRoles,
     ).toHaveProperty("codex");
   });
@@ -1120,7 +1189,7 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_3;
+    ) as ProjectConfigV1_4;
     expect(migrated.modelRoles).toEqual({
       codex: {
         planner: { model: "planner-canonical", effort: "medium" },

@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
   ReadableProjectConfig,
 } from "@kratos/contracts";
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
+import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 import {
   classifyConfiguration,
   type ConfigurationObservation,
   type ConfigurationValidator,
 } from "@kratos/runtime/domain/project";
 
-const validConfiguration: ProjectConfigV1_3 = {
-  contractVersion: "1.3.0",
-  stateContract: "1.3.0",
+const validConfiguration: ProjectConfigV1_4 = {
+  contractVersion: "1.4.0",
+  stateContract: "1.4.0",
   pluginVersion: "0.0.0-development",
   hostContract: "1.3.0",
   language: {
@@ -29,6 +30,7 @@ const validConfiguration: ProjectConfigV1_3 = {
     enforcement: "advisory",
   },
   policyMode: "strict",
+  gateModes: {},
   managedState: {
     directory: ".brain",
     eventLog: "events.jsonl",
@@ -42,8 +44,8 @@ const validConfiguration: ProjectConfigV1_3 = {
     },
   },
   projectProfile: structuredClone(
-    projectConfigV1_3.projectProfile,
-  ) as ProjectConfigV1_3["projectProfile"],
+    projectConfigV1_4.projectProfile,
+  ) as ProjectConfigV1_4["projectProfile"],
 };
 
 function file(value: unknown): ConfigurationObservation {
@@ -92,15 +94,25 @@ describe("project configuration classification", () => {
     expect(values).toEqual([]);
   });
 
-  it("preserves a readable 1.3 configuration for later phases", () => {
-    const validator: ConfigurationValidator = () => ({
-      kind: "valid",
-      value: projectConfigV1_3 as ReadableProjectConfig,
-    });
+  it("requires migration instead of executing a readable 1.3 configuration", () => {
+    const { validator, values } = recordingValidator("valid");
 
     expect(classifyConfiguration(file(projectConfigV1_3), validator)).toEqual({
+      kind: "migration-required",
+      reasonCode: "profile.config_migration_required",
+    });
+    expect(values).toEqual([]);
+  });
+
+  it("preserves a readable 1.4 configuration for later phases", () => {
+    const validator: ConfigurationValidator = () => ({
       kind: "valid",
-      value: projectConfigV1_3,
+      value: projectConfigV1_4 as ReadableProjectConfig,
+    });
+
+    expect(classifyConfiguration(file(projectConfigV1_4), validator)).toEqual({
+      kind: "valid",
+      value: projectConfigV1_4,
     });
   });
 
@@ -153,7 +165,7 @@ describe("project configuration classification", () => {
     const secret = "/home/customer/token=private";
     const { validator } = recordingValidator("invalid");
     const result = classifyConfiguration(
-      file({ stateContract: "1.3.0", unexpected: secret }),
+      file({ stateContract: "1.4.0", unexpected: secret }),
       validator,
     );
     expect(result).toEqual({
@@ -165,7 +177,7 @@ describe("project configuration classification", () => {
 
   it("returns only the value accepted by the validator", () => {
     const parsed = {
-      stateContract: "1.3.0",
+      stateContract: "1.4.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -188,12 +200,12 @@ describe("project configuration classification", () => {
     const { validator, values } = recordingValidator("invalid");
     const input = {
       kind: "file",
-      text: '{"stateContract":"2.0.0","stateContract":"1.3.0"}',
+      text: '{"stateContract":"2.0.0","stateContract":"1.4.0"}',
     } as const;
     expect(classifyConfiguration(input, validator)).toEqual({
       kind: "failure",
       reasonCode: "guard.config_corrupt",
     });
-    expect(values).toEqual([{ stateContract: "1.3.0" }]);
+    expect(values).toEqual([{ stateContract: "1.4.0" }]);
   });
 });

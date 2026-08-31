@@ -25,6 +25,7 @@
 // source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
+// source: https://kratos.dev/schemas/state/event/v1.2 sha256:1de52b5055abd77cf1e9230201f7249714ad226a4fb62df49a08c97d2001a02c
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
@@ -40,6 +41,7 @@
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
 // source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
+// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:aed29049c0b859964aeeb470149bf08184fb7a21a5708f028ab83c41bd645bff
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -1541,6 +1543,255 @@ export namespace EventV1_1Contract {
   }
 }
 export type EventV1_1 = EventV1_1Contract.EventV1_1;
+export namespace EventV1_2Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Revision = number;
+  export type Reference = string;
+  export type SafeDetail = string;
+  export type Sha256 = string;
+
+  export interface EventV1_2 {
+    contractVersion: "1.2.0";
+    stateContract: "1.2.0";
+    eventId: Id;
+    eventType: "operation" | "decision" | "transition" | "recovery";
+    occurredAt: Timestamp;
+    operation: Id;
+    policyVersion: Id;
+    priorRevision: Revision;
+    resultingRevision: number;
+    reasonCode: string;
+    effect: "none" | "state" | "artifact" | "state-and-artifact";
+    artifactRefs: Reference[];
+    evidenceRefs: Reference[];
+    observedIdentity: ObservedIdentity;
+    resolvedAssignment?: ResolvedAssignment;
+    /**
+     * @maxItems 8
+     */
+    gateFailures:
+      | []
+      | [GateFailure]
+      | [GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ];
+    previousHash: Sha256 | null;
+    eventHash: Sha256;
+  }
+  export interface ObservedIdentity {
+    host: Id;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface ResolvedAssignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: Revision;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [Reference]
+      | [Reference, Reference]
+      | [Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference, Reference]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ];
+    detail: SafeDetail | null;
+  }
+}
+export type EventV1_2 = EventV1_2Contract.EventV1_2;
 export namespace EvidenceV1Contract {
   export type Id = string;
   export type Reference = string;
@@ -2040,6 +2291,124 @@ export namespace ProjectConfigV1_3Contract {
   }
 }
 export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
+export namespace ProjectConfigV1_4Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type GateMode = "shadow" | "warn" | "enforce";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectConfigV1_4 {
+    contractVersion: "1.4.0";
+    stateContract: "1.4.0";
+    pluginVersion: "0.0.0-development";
+    hostContract: "1.3.0";
+    language: LanguagePolicy;
+    policyMode: "standard" | "strict";
+    gateModes: GateModes;
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+    projectProfile: ProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface GateModes {
+    "context-readable"?: GateMode;
+    "stop-loss"?: GateMode;
+    "prd-present"?: GateMode;
+    "spec-approved"?: GateMode;
+    "gaps-closed"?: GateMode;
+    "partition-approved"?: GateMode;
+    "acceptance-criteria"?: GateMode;
+    "final-acceptance"?: GateMode;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+  export interface ProjectProfile {
+    commands: Commands;
+    paths: Paths;
+    conventions: Conventions;
+  }
+  export interface Commands {
+    test: CommandLeaf;
+    lint: CommandLeaf;
+    build: CommandLeaf;
+    run: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface Paths {
+    source: PathsLeaf;
+    tests: PathsLeaf;
+    configuration: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface Conventions {
+    directoryLayout: ConventionLeaf;
+    naming: ConventionLeaf;
+    implementationLanguages: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type ProjectConfigV1_4 = ProjectConfigV1_4Contract.ProjectConfigV1_4;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {

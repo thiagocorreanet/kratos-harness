@@ -1,4 +1,4 @@
-import type { EventV1_1 } from "@kratos/contracts";
+import type { EventV1_2 } from "@kratos/contracts";
 
 import { canonicalizeJson } from "../schema/index.js";
 import {
@@ -21,7 +21,7 @@ export function sealEvent(
   input: unknown,
   cursor: EventChainCursor,
   services: EventServices,
-): EventV1_1 {
+): EventV1_2 {
   const draft = snapshotEventDraft(input, services.isProxy);
   if (
     draft.priorRevision !== cursor.revision ||

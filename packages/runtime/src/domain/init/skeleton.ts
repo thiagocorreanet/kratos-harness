@@ -1,7 +1,7 @@
 import {
   KRATOS_VERSION,
   type CuratedMemoryV1,
-  type ProjectConfigV1_3,
+  type ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
@@ -188,13 +188,14 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1_3 = {
-    contractVersion: "1.3.0",
-    stateContract: "1.3.0",
+  const config: ProjectConfigV1_4 = {
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
     pluginVersion: KRATOS_VERSION,
     hostContract: "1.3.0",
     language: answers.language,
     policyMode: answers.policyMode,
+    gateModes: {},
     managedState: {
       directory: ".brain",
       eventLog: "events.jsonl",
@@ -203,7 +204,7 @@ function configuration(answers: Answers): string {
     modelRoles: answers.modelRoles,
     projectProfile: structuredClone(
       answers.projectProfile,
-    ) as ProjectConfigV1_3["projectProfile"],
+    ) as ProjectConfigV1_4["projectProfile"],
   };
   return json(config);
 }

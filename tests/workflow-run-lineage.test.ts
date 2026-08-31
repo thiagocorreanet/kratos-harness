@@ -1,4 +1,4 @@
-import type { AgentOutputV1_2, EventV1 } from "@kratos/contracts";
+import type { AgentOutputV1_2, EventV1_2 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   AGENT_BLOCK_CLOSE,
@@ -223,7 +223,7 @@ function agentReply(output: AgentOutputV1_2): string {
   return `${AGENT_BLOCK_OPEN}\n${JSON.stringify(output, null, 2)}\n${AGENT_BLOCK_CLOSE}\n`;
 }
 
-function eventValues(run: Subject): readonly EventV1[] {
+function eventValues(run: Subject): readonly EventV1_2[] {
   const log =
     Object.entries(settled(run).files).find(([path]) =>
       path.endsWith("/events.jsonl"),
@@ -231,7 +231,7 @@ function eventValues(run: Subject): readonly EventV1[] {
   return log
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as EventV1);
+    .map((line) => JSON.parse(line) as EventV1_2);
 }
 
 interface LineageValue {
@@ -322,6 +322,13 @@ describe("a run whose phases write the lineage files", () => {
       summary: "Workflow transition rejected was recorded.",
       why: ["evidence-invalid"],
     });
+    expect(eventValues(run).at(-1)?.gateFailures).toMatchObject([
+      {
+        gateId: "prd-present",
+        reasonCode: "gate.prd_section_missing",
+        mode: "warn",
+      },
+    ]);
   });
 
   it("advances to plan after the spec phase writes the design", async () => {

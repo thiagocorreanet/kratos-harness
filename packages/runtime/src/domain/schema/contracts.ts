@@ -14,6 +14,7 @@ import type {
   InitAnswersV1_3,
   EventV1,
   EventV1_1,
+  EventV1_2,
   EvidenceV1,
   FeatureStateV1,
   FeatureScopeV1,
@@ -32,6 +33,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RunUsageV1,
@@ -64,7 +66,7 @@ export interface ContractValues {
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.beat": BeatV1;
-  readonly "state.event": EventV1 | EventV1_1;
+  readonly "state.event": EventV1 | EventV1_1 | EventV1_2;
   readonly "state.evidence": EvidenceV1;
   readonly "state.failure-candidate": FailureCandidateV1;
   readonly "state.feature": FeatureStateV1;
@@ -76,7 +78,11 @@ export interface ContractValues {
   readonly "state.migration": MigrationV1 | MigrationV1_1;
   readonly "state.narration": NarrationV1;
   readonly "state.project-config":
-    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
+    | ProjectConfigV1
+    | ProjectConfigV1_1
+    | ProjectConfigV1_2
+    | ProjectConfigV1_3
+    | ProjectConfigV1_4;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.run-usage": RunUsageV1;
   readonly "state.session-telemetry": SessionTelemetryV1;

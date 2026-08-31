@@ -1,10 +1,14 @@
 import type { ApprovalV1 } from "@kratos/contracts";
-import { evaluateGates, type GateContext } from "@kratos/runtime/domain/gates";
+import {
+  evaluateGates,
+  resolveGateModes,
+  type GateContext,
+} from "@kratos/runtime/domain/gates";
 import { describe, expect, it } from "vitest";
 
 describe("gate evaluation language advisory", () => {
   const baseContext: GateContext = {
-    mode: "enforce",
+    gateModes: resolveGateModes("strict", {}),
     phase: "acceptance",
     contextReadable: true,
     stopLoss: { tripped: false, exhausted: false },

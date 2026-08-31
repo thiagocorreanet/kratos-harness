@@ -8,7 +8,7 @@ import type {
   ReadableEvent,
   EvidenceV1,
   GapRecordV1,
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
   SnapshotV1,
 } from "@kratos/contracts";
 import { CONTRACT_VERSIONS, type PhaseHandoffV1_2 } from "@kratos/contracts";
@@ -54,9 +54,12 @@ import {
 } from "../domain/agent/index.js";
 import type { GapProposalObservation } from "../domain/gaps/index.js";
 import {
+  approvalModeFor,
   evaluateGates,
+  resolveGateModes,
   type GateDecision,
   type GateMode,
+  type GateModes,
 } from "../domain/gates/index.js";
 import {
   inspectPrdDocument,
@@ -96,7 +99,7 @@ const EMPTY_GATE_DECISION: GateDecision = Object.freeze({
   outcome: "pass",
   primary: null,
   failures: Object.freeze([]),
-  mode: "enforce",
+  gateModes: resolveGateModes("strict", {}),
   criteria: Object.freeze([]),
 });
 
@@ -283,7 +286,11 @@ export async function observeWorkflow(
           prdDigest: observedLineage.prdDigest,
           specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
-          policyMode: policy.mode,
+          policyMode: approvalModeFor(
+            approval.gate,
+            policy.defaultMode,
+            policy.gateModes,
+          ),
           objectiveDigest,
           revision: approvalRevision(
             approval.gate,
@@ -348,7 +355,7 @@ export async function observeWorkflow(
     },
   );
   const gateDecision = evaluateGates({
-    mode: policy.mode,
+    gateModes: policy.gateModes,
     phase,
     contextReadable:
       policy.readable &&
@@ -505,7 +512,7 @@ export async function observeWorkflow(
       specApproved,
       referencedFiles,
       gateDecision,
-      policyMode: policy.mode,
+      defaultGateMode: policy.defaultMode,
       tokenBudget,
       approvalChallenge: approvalChallenge(
         {
@@ -514,7 +521,11 @@ export async function observeWorkflow(
           prdDigest: observedLineage.prdDigest,
           specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
-          policyMode: policy.mode,
+          policyMode: approvalModeFor(
+            invocation.positionals[0] ?? "final-acceptance",
+            policy.defaultMode,
+            policy.gateModes,
+          ),
           objectiveDigest,
           revision: approvalRevision(
             invocation.positionals[0] ?? "final-acceptance",
@@ -1742,7 +1753,7 @@ async function observeConfigurationSnapshot(
 ): Promise<
   | {
       readonly kind: "valid";
-      readonly value: ProjectConfigV1_3;
+      readonly value: ProjectConfigV1_4;
       readonly digest: string;
     }
   | PhaseAssignmentRefusal
@@ -1871,13 +1882,25 @@ function refusedAssignment(
   return { kind: "refused", reasonCode, subject };
 }
 
+interface ObservedGatePolicy {
+  readonly readable: boolean;
+  readonly defaultMode: GateMode;
+  readonly gateModes: GateModes;
+}
+
 async function observePolicy(
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<{ readonly readable: boolean; readonly mode: GateMode }> {
+): Promise<ObservedGatePolicy> {
   const path = ".brain/config.json";
   const entry = await ports.durableFileSystem.inspect(path);
-  if (entry.kind !== "file") return { readable: false, mode: "enforce" };
+  if (entry.kind !== "file") {
+    return {
+      readable: false,
+      defaultMode: "enforce",
+      gateModes: resolveGateModes("strict", {}),
+    };
+  }
   try {
     const classified = classifyConfiguration(
       {
@@ -1887,14 +1910,27 @@ async function observePolicy(
       configurationValidator(registry),
     );
     if (classified.kind !== "valid") {
-      return { readable: false, mode: "enforce" };
+      return {
+        readable: false,
+        defaultMode: "enforce",
+        gateModes: resolveGateModes("strict", {}),
+      };
     }
     return {
       readable: true,
-      mode: classified.value.policyMode === "strict" ? "enforce" : "warn",
+      defaultMode:
+        classified.value.policyMode === "strict" ? "enforce" : "warn",
+      gateModes: resolveGateModes(
+        classified.value.policyMode,
+        classified.value.gateModes,
+      ),
     };
   } catch {
-    return { readable: false, mode: "enforce" };
+    return {
+      readable: false,
+      defaultMode: "enforce",
+      gateModes: resolveGateModes("strict", {}),
+    };
   }
 }
 

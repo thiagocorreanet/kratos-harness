@@ -10,8 +10,9 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.5.schema.json`](../../schemas/contracts/contract-manifest.v1.5.schema.json);
+[`contract-manifest.v1.6.schema.json`](../../schemas/contracts/contract-manifest.v1.6.schema.json);
 the published predecessors
+[`contract-manifest.v1.5.schema.json`](../../schemas/contracts/contract-manifest.v1.5.schema.json),
 [`contract-manifest.v1.4.schema.json`](../../schemas/contracts/contract-manifest.v1.4.schema.json),
 [`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json),
 [`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json),
@@ -22,9 +23,9 @@ the metadata-only Go v3 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
-| Contract-manifest schema | `v1.5` | Contract-family manifest format |
+| Contract-manifest schema | `v1.6` | Contract-family manifest format |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
-| `stateContract` | `1.3.0` | Persisted `.brain/` configuration and history |
+| `stateContract` | `1.4.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.3.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
@@ -37,16 +38,18 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-The state family's current global revision is `1.3.0`, and its readable window
-contains `1.0.0` through `1.3.0`. This family identity is used for bundle
+The state family's current global revision is `1.4.0`, and its readable window
+contains `1.0.0` through `1.4.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-- Current `state.project-config` writes `1.3.0`, including the granular
-  language policy introduced in `1.2.0` and the typed project profile
-  introduced in `1.3.0`.
-- Role-aware `state.event` and `state.migration` payloads continue to write
-  their registered `1.1.0` revisions.
+- Current `state.project-config` writes `1.4.0`. It keeps `policyMode` as the
+  inherited default and requires the closed partial `gateModes` override map,
+  in addition to the granular language policy from `1.2.0` and typed project
+  profile from `1.3.0`.
+- Current `state.event` writes `1.2.0` with the ordered effective-mode trace in
+  `gateFailures`. Role-aware `state.migration` continues to write its registered
+  `1.1.0` revision.
 - `state.curated-memory`, `state.beat`, and `state.narration` write their
   additive registered `1.0.0` revisions.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
@@ -64,7 +67,8 @@ treat them as current state or mutate them. An explicit migration planner owns
 their inspection and recovery. A project configuration at `1.0.0`, `1.1.0`,
 or `1.2.0` is readable only to that planner and returns
 `profile.config_migration_required` before an ordinary operation can treat it
-as current state.
+as current state. A `1.3.0` project configuration now receives the same refusal
+until its adjacent `1.4.0` migration is applied.
 
 The host family's current global revision is also `1.3.0`, with `1.0.0`
 through `1.3.0` accepted for their registered payloads. Exact writes again
@@ -84,7 +88,9 @@ Model routing, memory-aware handoff/output, execution observation, and
 initialization therefore select the exact registered payload revision, not a
 forced revision change to unrelated contracts. Host `0.9.0`, unknown earlier
 versions, and future versions require an adapter upgrade. Host compatibility
-is not inferred from a shared major version.
+is not inferred from a shared major version. Per-gate state does not change the
+host family: `hostContract` and `host.init-answers` remain `1.3.0`, and hosts
+gain no policy authority.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -169,8 +175,10 @@ Revision `1.8.0` preserves those 107 entries and appends two language policy out
 Revision `1.9.0` preserves those 109 entries and appends
 [`profile.config_migration_required`](../../packages/contracts/catalogs/reason-codes.v1.9.json),
 the blocked / exit 4 refusal used when a project configuration predates the
-typed project profile and requires explicit migration. It is the stable
-ordinary-operation refusal for every pre-`1.3.0` project configuration;
+typed project profile and requires explicit migration. The reason was
+introduced for that pre-`1.3.0` profile boundary and is now the stable
+ordinary-operation refusal for every pre-`1.4.0` project configuration,
+including `1.3.0`, whose adjacent migration adds `gateModes: {}`.
 `model.config_migration_required` remains published predecessor history rather
 than the current migration diagnosis.
 
@@ -214,13 +222,36 @@ The `1.1.0` additions are role-aware revisions of `state.project-config`,
 `state.event`, `state.migration`, `host.init-answers`, `host.adapter-message`,
 and `host.phase-handoff`. The `1.2.0` project-configuration and initialization
 revisions add granular language policy. Their `1.3.0` revisions add the typed
-project profile. A mixed event stream is valid: each line selects its exact
-registered schema before the continuous revision and hash chain is verified.
-Migration changes only `.brain/config.json` and its audit bundle; it does not
-rewrite historical `1.0.0` events, snapshots, documents, approvals, or
-evidence. The memory contracts independently use their registered `1.0.0` and
-`1.2.0` payload revisions; their addition does not rewrite existing
-configuration or event history.
+project profile. `state.project-config@1.4.0` adds the required closed partial
+`gateModes` map while `state.event@1.2.0` adds a required ordered
+`gateFailures` trace containing each failure's effective mode.
+
+A mixed event stream is valid: each line selects its exact registered schema
+before the continuous revision and hash chain is verified. `state.event@1.0.0`,
+`state.event@1.1.0`, and `state.event@1.2.0` may coexist without upgrading or
+rewriting old bytes. Migration changes only `.brain/config.json` and its audit
+bundle; it does not rewrite historical events, snapshots, documents,
+approvals, or evidence.
+
+The adjacent `1.3.0` to `1.4.0` configuration migration adds
+`gateModes: {}` and advances only the configuration/state contract constants.
+It preserves `policyMode`, language policy, managed state, model roles, project
+profile, and all historical artifacts. For equal gate facts, resolving the old
+global default and resolving the migrated empty override map produce
+byte-identical canonical `GateDecision` values. `standard` remains warn,
+`strict` remains enforce, and existing approval challenge bytes remain valid
+because the authorized gate receives the same effective mode.
+
+With non-empty overrides, every failure resolves independently: enforce maps to
+block, warn to warn, and shadow to pass. Aggregation orders by outcome severity
+(`block` before `warn` before `pass`), then the established priority and gate
+ID; `primary` is the first failure and therefore comes from the deciding
+outcome. Prompts and host adapters neither resolve these modes nor override the
+runtime decision.
+
+The memory contracts independently use their registered `1.0.0` and `1.2.0`
+payload revisions; their addition does not rewrite existing configuration or
+event history.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.
