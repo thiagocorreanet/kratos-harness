@@ -33,6 +33,7 @@ interface Discovery {
  * A path that drifts from the inventory fails here instead of shipping.
  */
 let frozen: readonly string[];
+let expectedBaseSurface: readonly string[];
 let expectedSurface: readonly string[];
 
 beforeAll(async () => {
@@ -45,10 +46,15 @@ beforeAll(async () => {
     // owns that lifecycle, not to initialization.
     .filter((name) => !name.includes("<"))
     .sort();
-  expectedSurface = [
+  expectedBaseSurface = [
     ".brain/.gitignore",
     ".brain/03-memory/curated-memory.json",
     ...frozen,
+  ].sort();
+  expectedSurface = [
+    ...expectedBaseSurface,
+    ".claude/rules/node.md",
+    ".codex/rules/node.md",
   ].sort();
 });
 
@@ -185,6 +191,7 @@ describe("the generated skeleton", () => {
       ".brain/03-memory/task_metrics.md",
       ".brain/config.json",
       ".brain/guardrails.json",
+      ".claude/rules/node.md",
       ".claude/settings.json",
       ".codex/agents/code-implementer.toml",
       ".codex/agents/implementation-evaluator.toml",
@@ -192,6 +199,7 @@ describe("the generated skeleton", () => {
       ".codex/agents/spec-planner.toml",
       ".codex/agents/spec-reviewer.toml",
       ".codex/config.toml",
+      ".codex/rules/node.md",
       "AGENTS.md",
       "CLAUDE.md",
     ];
@@ -817,5 +825,41 @@ describe("the generated skeleton", () => {
       ".brain/03-memory/decisions.log",
       ".brain/03-memory/task_log.jsonl",
     ]);
+  });
+
+  it("generates base surface with zero rules for an unrecognized project", () => {
+    const unrecognized = profileStack({ rootEntries: ["README.md"] });
+    const effects = skeletonEffects(answers(), unrecognized);
+    const paths = destinationsOf(effects);
+
+    expect(paths).toEqual(expectedBaseSurface);
+    expect(paths.some((p) => p.includes("/rules/"))).toBe(false);
+  });
+
+  it("derives permission allowlist in claude settings based on detected stack and git", () => {
+    const effects = skeletonEffects(answers(), nodeProject);
+    const settingsJson = JSON.parse(
+      contentAt(effects, ".claude/settings.json"),
+    ) as { readonly permissions: { readonly allow: readonly string[] } };
+
+    expect(settingsJson.permissions.allow).toEqual([
+      "Bash(git diff)",
+      "Bash(git log)",
+      "Bash(git status)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+    ]);
+  });
+
+  it("enforces strict budget on the managed instructions block (<= 50 lines and <= 2000 chars)", () => {
+    const effects = skeletonEffects(answers(), nodeProject);
+    for (const file of ["CLAUDE.md", "AGENTS.md"]) {
+      const content = contentAt(effects, file);
+      const linesCount = content.split("\n").length;
+      expect(linesCount).toBeLessThanOrEqual(50);
+      expect(content.length).toBeLessThanOrEqual(2000);
+      expect(content).toContain("Detected stack: node");
+    }
   });
 });

@@ -533,7 +533,7 @@ describe("the init command", () => {
 
     expect(result).toMatchObject({
       reasonCode: "trail.ok",
-      summary: expect.stringContaining("Created 29") as unknown,
+      summary: expect.stringContaining("Created 31") as unknown,
       stateChanged: true,
     });
     expect(run.output.structured_.join("")).toContain("modelRoles.codex");
@@ -619,7 +619,15 @@ describe("the init command", () => {
       JSON.parse(
         run.storage.snapshot().files[".gemini/settings.json"] ?? "null",
       ),
-    ).toEqual({ permissions: { allow: [], deny: [] } });
+    ).toMatchObject({
+      permissions: {
+        allow: expect.arrayContaining([
+          "Bash(git status)",
+          "Bash(npm test)",
+        ]) as unknown,
+        deny: [],
+      },
+    });
     expect(run.storage.snapshot().files["GEMINI.md"]).toContain(
       "BEGIN KRATOS MANAGED SECTION",
     );

@@ -18,6 +18,8 @@ import {
 import type { StackProfile } from "./stack.js";
 import type { ResolvedAnswers } from "./answers.js";
 import { renderStackProfile } from "./stack-profile.js";
+import { deriveHostPermissions } from "./permissions.js";
+import { generateHostStackRules } from "./rules.js";
 
 type Answers = ResolvedAnswers;
 type Host = Answers["hosts"][number];
@@ -25,7 +27,10 @@ type Host = Answers["hosts"][number];
 interface HostSurface {
   /** The root paths this host owns, for the guardrails record. */
   readonly roots: readonly string[];
-  readonly files: (answers: Answers) => readonly FileEntry[];
+  readonly files: (
+    answers: Answers,
+    profile: StackProfile,
+  ) => readonly FileEntry[];
 }
 
 type FileEntry = readonly [path: string, content: string];
@@ -46,7 +51,7 @@ export function skeletonEffects(
   const hosts = new Set<Host>(answers.hosts);
   const files: FileEntry[] = [...stateFiles(answers, profile)];
   for (const [host, surface] of HOST_SURFACES) {
-    if (hosts.has(host)) files.push(...surface.files(answers));
+    if (hosts.has(host)) files.push(...surface.files(answers, profile));
   }
 
   return Object.freeze(
@@ -130,12 +135,14 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
     "claude",
     {
       roots: [".claude", "CLAUDE.md"],
-      files: (answers) => [
-        [".claude/settings.json", claudeSettings()],
+      files: (answers, profile) => [
+        ...generateHostStackRules("claude", profile),
+        [".claude/settings.json", claudeSettings(answers, profile)],
         [
           "CLAUDE.md",
           instructions(
             answers,
+            profile,
             "CLAUDE.md",
             "Host settings live in `.claude/settings.json`.",
           ),
@@ -147,7 +154,8 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
     "codex",
     {
       roots: [".codex", "AGENTS.md"],
-      files: (answers) => [
+      files: (answers, profile) => [
+        ...generateHostStackRules("codex", profile),
         ...PHASE_AGENT_PROMPTS.map(
           (definition) =>
             [
@@ -160,6 +168,7 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
           "AGENTS.md",
           instructions(
             answers,
+            profile,
             "AGENTS.md",
             "Agent definitions live in `.codex/agents` and host settings in " +
               "`.codex/config.toml`.",
@@ -172,12 +181,14 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
     "antigravity",
     {
       roots: [".gemini", "GEMINI.md"],
-      files: (answers) => [
-        [".gemini/settings.json", geminiSettings()],
+      files: (answers, profile) => [
+        ...generateHostStackRules("antigravity", profile),
+        [".gemini/settings.json", geminiSettings(answers, profile)],
         [
           "GEMINI.md",
           instructions(
             answers,
+            profile,
             "GEMINI.md",
             "Host settings live in `.gemini/settings.json`.",
           ),
@@ -323,18 +334,16 @@ function taskMetricsDocument(): string {
 }
 
 /**
- * Claude Code settings, granting nothing.
- *
- * Initialization establishes the file; deciding what a host may do is the
- * adapter's work in `ADP-02`, and an allowance invented here would be a
- * permission nobody granted.
+ * Claude Code settings with provenance-derived permissions.
  */
-function claudeSettings(): string {
-  return json({ permissions: { allow: [], deny: [] } });
+function claudeSettings(answers: Answers, profile: StackProfile): string {
+  const derived = deriveHostPermissions(answers, profile);
+  return json({ permissions: { allow: derived.allow, deny: derived.deny } });
 }
 
-function geminiSettings(): string {
-  return json({ permissions: { allow: [], deny: [] } });
+function geminiSettings(answers: Answers, profile: StackProfile): string {
+  const derived = deriveHostPermissions(answers, profile);
+  return json({ permissions: { allow: derived.allow, deny: derived.deny } });
 }
 
 function codexConfiguration(answers: Answers): string {
@@ -379,7 +388,17 @@ function agentDefinition(definition: PhaseAgentDefinition): string {
  * the language the host converses in, not a second copy of this document to
  * keep in step with the first.
  */
-function instructions(answers: Answers, file: string, note: string): string {
+function instructions(
+  answers: Answers,
+  profile: StackProfile,
+  file: string,
+  note: string,
+): string {
+  const stackSummary =
+    profile.stacks.length > 0
+      ? profile.stacks.map((s) => s.id).join(", ")
+      : "unrecognized";
+
   return lines(
     MANAGED_SECTION_BEGIN,
     "# Kratos",
@@ -390,6 +409,7 @@ function instructions(answers: Answers, file: string, note: string): string {
     "",
     "## This project",
     "",
+    `- Detected stack: ${stackSummary}`,
     "- Language policy:",
     `  - Conversation: ${answers.language.conversation}`,
     `  - Documentation: ${answers.language.documentation}`,
