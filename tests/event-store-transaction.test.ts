@@ -8,8 +8,8 @@ import {
 import { planOf } from "@kratos/runtime/domain/effects";
 import type {
   CurrentEventDraft,
-  EventReducerRegistry,
   ReadableEvent,
+  EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { EventIntegrityError } from "@kratos/runtime/domain/events";
 import {
@@ -192,6 +192,92 @@ describe("event-store transaction integration", () => {
         ),
         ports,
         { rootMode: "existing", eventReducers: reducers },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
+    expect(storage.calls()).toEqual([]);
+  });
+
+  it("atomically appends one event to each of two explicitly registered runs", async () => {
+    const { storage, ports } = fakeRuntime();
+    const secondReducers: typeof reducers = {
+      ...reducers,
+      materialize: (state, cursor) => ({
+        ...reducers.materialize(state, cursor),
+        runId: "run-02",
+      }),
+    };
+
+    await applyPlan(
+      planOf(
+        {
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-01",
+          event: draft(1),
+        },
+        {
+          kind: "append_event",
+          feature: "sample-feature",
+          runId: "run-02",
+          event: draft(1),
+        },
+      ),
+      ports,
+      {
+        rootMode: "existing",
+        eventReducerRegistries: [
+          { feature: "sample-feature", runId: "run-01", reducers },
+          {
+            feature: "sample-feature",
+            runId: "run-02",
+            reducers: secondReducers,
+          },
+        ],
+      },
+    );
+
+    const files = storage.snapshot().files;
+    expect(
+      files[".brain/02-features/sample-feature/runs/run-01/events.jsonl"],
+    ).toContain('"eventId":"event-1"');
+    expect(
+      files[".brain/02-features/sample-feature/runs/run-02/events.jsonl"],
+    ).toContain('"eventId":"event-1"');
+    expect(
+      manifestPaths(storage).filter((path) => path.endsWith("events.jsonl")),
+    ).toEqual([
+      ".brain/02-features/sample-feature/runs/run-01/events.jsonl",
+      ".brain/02-features/sample-feature/runs/run-02/events.jsonl",
+    ]);
+  });
+
+  it("rejects a multi-run reducer binding that does not match every append", async () => {
+    const { storage, ports } = fakeRuntime();
+
+    await expect(
+      applyPlan(
+        planOf(
+          {
+            kind: "append_event",
+            feature: "sample-feature",
+            runId: "run-01",
+            event: draft(1),
+          },
+          {
+            kind: "append_event",
+            feature: "sample-feature",
+            runId: "run-02",
+            event: draft(1),
+          },
+        ),
+        ports,
+        {
+          rootMode: "existing",
+          eventReducerRegistries: [
+            { feature: "sample-feature", runId: "run-01", reducers },
+            { feature: "sample-feature", runId: "run-03", reducers },
+          ],
+        },
       ),
     ).rejects.toMatchObject({ reasonCode: "runtime.state_corrupt" });
     expect(storage.calls()).toEqual([]);

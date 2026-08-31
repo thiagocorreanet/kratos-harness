@@ -13,7 +13,12 @@ type ConfigurationFailureReason =
   | "contract.state_version_unsupported";
 
 export type ConfigurationOutcome =
-  | { readonly kind: "valid"; readonly value: ProjectConfigV1_4 }
+  | {
+      readonly kind: "valid";
+      readonly value: ProjectConfigV1_4 & {
+        readonly acceptanceAttemptCeiling: number;
+      };
+    }
   | {
       readonly kind: "migration-required";
       readonly reasonCode: "profile.config_migration_required";
@@ -80,6 +85,14 @@ export function classifyConfiguration(
 
   const validated = validate(parsed);
   return validated.kind === "valid"
-    ? { kind: "valid", value: validated.value as ProjectConfigV1_4 }
+    ? {
+        kind: "valid",
+        value: {
+          ...(validated.value as ProjectConfigV1_4),
+          acceptanceAttemptCeiling:
+            (validated.value as ProjectConfigV1_4).acceptanceAttemptCeiling ??
+            3,
+        },
+      }
     : failure("guard.config_corrupt");
 }

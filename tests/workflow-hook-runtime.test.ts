@@ -91,7 +91,7 @@ function withRunningMeasurement(
   };
 }
 
-async function started() {
+async function started(tokenCeiling: number | null = null) {
   const initialized = subject(
     {},
     [".brain", ".brain/transactions"],
@@ -118,7 +118,16 @@ async function started() {
     initialized.storage.snapshot().directories,
   );
   expect(
-    await runCommandLine(["objective", "Ship hooks"], objective.ports),
+    await runCommandLine(
+      [
+        "objective",
+        "Ship hooks",
+        ...(tokenCeiling === null
+          ? []
+          : ["--token-ceiling", String(tokenCeiling)]),
+      ],
+      objective.ports,
+    ),
   ).toBe(0);
   const start = subject(
     settled(objective),
@@ -164,16 +173,80 @@ function hookRun(
 }
 
 describe("workflow hook runtime", () => {
-  it("trips a run budget and keeps the latch on an identical retry", async () => {
-    const base = await started();
+  it.each([
+    {
+      name: "ignores a budget added after an unbounded run starts",
+      frozen: null,
+      current: 100,
+      sampled: 100,
+      exhausted: false,
+    },
+    {
+      name: "keeps a budget removed after a bounded run starts",
+      frozen: 100,
+      current: null,
+      sampled: 100,
+      exhausted: true,
+    },
+    {
+      name: "keeps a lower frozen budget after the objective budget increases",
+      frozen: 100,
+      current: 200,
+      sampled: 100,
+      exhausted: true,
+    },
+    {
+      name: "keeps a higher frozen budget after the objective budget decreases",
+      frozen: 100,
+      current: 50,
+      sampled: 50,
+      exhausted: false,
+    },
+  ])("$name", async ({ frozen, current, sampled, exhausted }) => {
+    const base = await started(frozen);
     const files = withRunningMeasurement(settled(base));
     const feature = files[".brain/02-features/active"]?.trim() ?? "";
     const featurePath = `.brain/02-features/${feature}/state.json`;
     const state = JSON.parse(files[featurePath] ?? "") as {
       objective: { budget?: { tokens: number } };
     };
-    state.objective.budget = { tokens: 100 };
+    if (current === null) delete state.objective.budget;
+    else state.objective.budget = { tokens: current };
     files[featurePath] = `${JSON.stringify(state, null, 2)}\n`;
+
+    const sampledRun = hookRun(
+      files,
+      base.storage.snapshot().directories,
+      {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        kind: "session.sample",
+        sessionId: "session-a",
+        occurredAt: NOW,
+        usage: { cumulativeGrossTokens: sampled },
+      },
+      `frozen-${String(frozen)}-current-${String(current)}`,
+    );
+    expect(
+      await runCommandLine(["hook", "--host", "claude-code"], sampledRun.ports),
+    ).toBe(0);
+
+    const after = settled(sampledRun);
+    const runId =
+      after[`.brain/02-features/${feature}/active-run`]?.trim() ?? "";
+    const gatesText =
+      after[`.brain/02-features/${feature}/runs/${runId}/gates.json`];
+    const observedExhaustion =
+      gatesText === undefined
+        ? false
+        : (JSON.parse(gatesText) as GateFactsV1).stopLoss.exhausted;
+    expect(observedExhaustion).toBe(exhausted);
+  });
+
+  it("trips a run budget and keeps the latch on an identical retry", async () => {
+    const base = await started(100);
+    const files = withRunningMeasurement(settled(base));
+    const feature = files[".brain/02-features/active"]?.trim() ?? "";
     const observation = {
       contractVersion: "1.0.0",
       hostContract: "1.0.0",

@@ -1,6 +1,6 @@
 import { types } from "node:util";
 
-import type { EventV1_2 } from "@kratos/contracts";
+import type { EventV1_2, EventV1_3, EventV1_4 } from "@kratos/contracts";
 
 import {
   EventIntegrityError,
@@ -10,7 +10,7 @@ import {
   snapshotEventDraft,
   snapshotEventReducerRegistry,
   verifyEventStream,
-  type CurrentEventDraft,
+  type SealableEventDraft,
   type EventReducerRegistry,
   type EventServices,
   type JsonState,
@@ -105,6 +105,11 @@ export interface EventAppendServices<State = JsonState> {
   readonly schemaRegistry: SchemaRegistry;
 }
 
+type PersistableEventDraft = Exclude<
+  SealableEventDraft,
+  { readonly stateContract: "1.1.0" }
+>;
+
 export interface PreparedEventWrite {
   readonly kind: "write_file";
   readonly path: string;
@@ -113,7 +118,7 @@ export interface PreparedEventWrite {
 
 export interface PreparedEventAppend {
   readonly paths: EventStorePaths;
-  readonly event: EventV1_2;
+  readonly event: EventV1_2 | EventV1_3 | EventV1_4;
   readonly effects: readonly [PreparedEventWrite, PreparedEventWrite];
   readonly expected: ReadonlyMap<string, PathFingerprint>;
 }
@@ -149,13 +154,13 @@ export async function prepareEventAppend<State = JsonState>(
   input: {
     readonly feature: string;
     readonly runId: string;
-    readonly event: CurrentEventDraft;
+    readonly event: SealableEventDraft;
   },
   services: EventAppendServices<State>,
 ): Promise<PreparedEventAppend> {
   let paths: EventStorePaths;
   let runId: string;
-  let draft: CurrentEventDraft;
+  let draft: PersistableEventDraft;
   let eventServices: EventServices;
   let reducers: EventReducerRegistry<State>;
   let tracker: DependencyTracker;
@@ -278,7 +283,7 @@ function snapshotRequest(
 ): {
   readonly feature: string;
   readonly runId: string;
-  readonly event: CurrentEventDraft;
+  readonly event: PersistableEventDraft;
 } {
   if (typeof input !== "object" || input === null || isProxy(input)) {
     throw new IntegrityFailure();
@@ -289,10 +294,18 @@ function snapshotRequest(
   if (typeof feature !== "string" || typeof runId !== "string") {
     throw new IntegrityFailure();
   }
+  const draft = eventDomain(tracker, () => snapshotEventDraft(event, isProxy));
+  if (
+    draft.stateContract !== "1.2.0" &&
+    draft.stateContract !== "1.3.0" &&
+    draft.stateContract !== "1.4.0"
+  ) {
+    throw new IntegrityFailure();
+  }
   return {
     feature,
     runId,
-    event: eventDomain(tracker, () => snapshotEventDraft(event, isProxy)),
+    event: draft,
   };
 }
 
@@ -308,7 +321,7 @@ function prepareFirstAppend<State>(
   paths: EventStorePaths,
   expected: ReadonlyMap<string, PathFingerprint>,
   runId: string,
-  draft: CurrentEventDraft,
+  draft: PersistableEventDraft,
   reducers: EventReducerRegistry<State>,
   eventServices: EventServices,
   tracker: DependencyTracker,
@@ -411,7 +424,7 @@ function trustedServices<State>(
 
 function prepared(
   paths: EventStorePaths,
-  event: EventV1_2,
+  event: EventV1_2 | EventV1_3 | EventV1_4,
   expected: ReadonlyMap<string, PathFingerprint>,
   priorEvents: string,
   snapshotCanonical: string,
@@ -434,13 +447,23 @@ function prepared(
   });
 }
 
-function freezeEvent(event: EventV1_2): EventV1_2 {
+function freezeEvent(
+  event: EventV1_2 | EventV1_3 | EventV1_4,
+): EventV1_2 | EventV1_3 | EventV1_4 {
   const gateFailures = event.gateFailures.map((failure) =>
     Object.freeze({
       ...failure,
       evidenceRefs: Object.freeze([...failure.evidenceRefs]),
     }),
   );
+  const resolution =
+    event.stateContract === "1.3.0" || event.stateContract === "1.4.0"
+      ? event.repairResolution
+      : undefined;
+  const restart =
+    event.stateContract === "1.3.0" || event.stateContract === "1.4.0"
+      ? event.startedFromSpec
+      : undefined;
   return Object.freeze({
     ...event,
     artifactRefs: Object.freeze([...event.artifactRefs]),
@@ -452,7 +475,40 @@ function freezeEvent(event: EventV1_2): EventV1_2 {
       : {
           resolvedAssignment: Object.freeze({ ...event.resolvedAssignment }),
         }),
-  }) as EventV1_2;
+    ...(event.runLimits === undefined
+      ? {}
+      : { runLimits: Object.freeze({ ...event.runLimits }) }),
+    ...(event.acceptanceDecision === undefined
+      ? {}
+      : {
+          acceptanceDecision: Object.freeze({
+            ...event.acceptanceDecision,
+            attempts: Object.freeze(
+              event.acceptanceDecision.attempts.map((attempt) =>
+                Object.freeze({ ...attempt }),
+              ),
+            ),
+            repairStops: Object.freeze(
+              event.acceptanceDecision.repairStops.map((stop) =>
+                Object.freeze({ ...stop }),
+              ),
+            ),
+          }),
+        }),
+    ...(resolution === undefined
+      ? {}
+      : { repairResolution: Object.freeze({ ...resolution }) }),
+    ...(restart === undefined
+      ? {}
+      : {
+          startedFromSpec: Object.freeze({
+            ...restart,
+            retiredCriterionIds: Object.freeze([
+              ...restart.retiredCriterionIds,
+            ]),
+          }),
+        }),
+  }) as EventV1_2 | EventV1_3 | EventV1_4;
 }
 
 function readonlyMap(
@@ -486,7 +542,7 @@ function readonlyMap(
   return Object.freeze(readonly);
 }
 
-function canonicalEventLine(event: EventV1_2): string {
+function canonicalEventLine(event: EventV1_2 | EventV1_3 | EventV1_4): string {
   return `${canonicalizeJson(event)}\n`;
 }
 

@@ -933,7 +933,7 @@ interface ConfigLineageContext {
     readonly host: "claude" | "codex" | "antigravity";
     readonly sha256: string;
   }[];
-  readonly modelRoles: ProjectConfigV1_3["modelRoles"];
+  readonly modelRoles: ProjectConfigV1_4["modelRoles"];
   readonly defaulted: readonly string[];
 }
 
@@ -1327,7 +1327,7 @@ function hasOwn(value: unknown, key: string): boolean {
 }
 
 function configuredHosts(
-  modelRoles: ProjectConfigV1_3["modelRoles"],
+  modelRoles: ProjectConfigV1_4["modelRoles"],
 ): readonly ("claude" | "codex" | "antigravity")[] {
   return (["claude", "codex", "antigravity"] as const).filter(
     (host) => modelRoles[host] !== undefined,
@@ -1336,9 +1336,9 @@ function configuredHosts(
 
 function mergeExplicitModelRoles(
   document: unknown,
-  persisted: ProjectConfigV1_3["modelRoles"],
-  resolved: ProjectConfigV1_3["modelRoles"],
-): ProjectConfigV1_3["modelRoles"] {
+  persisted: ProjectConfigV1_4["modelRoles"],
+  resolved: ProjectConfigV1_4["modelRoles"],
+): ProjectConfigV1_4["modelRoles"] {
   const supplied =
     isRecord(document) && isRecord(document.modelRoles)
       ? document.modelRoles

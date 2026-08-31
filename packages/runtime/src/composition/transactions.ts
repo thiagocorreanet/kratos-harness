@@ -173,34 +173,45 @@ function freezeExecuteOptions(value: unknown): ExecuteManagedMutationOptions {
       !Array.isArray(tuple) ||
       types.isProxy(tuple) ||
       Object.getPrototypeOf(tuple) !== Array.prototype ||
-      tuple.length !== 2 ||
-      Reflect.ownKeys(tuple).length !== 3
+      tuple.length === 0 ||
+      tuple.length % 2 !== 0 ||
+      Reflect.ownKeys(tuple).length !== tuple.length + 1
     )
       throw new Error();
-    const first = arrayData(tuple, 0);
-    const second = arrayData(tuple, 1);
-    const preconditions: readonly [
-      EventStorePrecondition,
-      EventStorePrecondition,
-    ] = [freezePrecondition(first), freezePrecondition(second)];
+    const preconditions: EventStorePrecondition[] = [];
+    for (let index = 0; index < tuple.length; index += 1)
+      preconditions.push(freezePrecondition(arrayData(tuple, index)));
     // A run lives under the feature that opened it, so the pair this
     // transaction may fence is identified by both names, not by the run alone.
     const match =
       /^\.brain\/02-features\/([a-z0-9][a-z0-9-]{0,63})\/runs\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/(events\.jsonl|state\.json)$/u;
-    const firstPrecondition = preconditions[0];
-    const secondPrecondition = preconditions[1];
-    const left = match.exec(firstPrecondition.path);
-    const right = match.exec(secondPrecondition.path);
-    if (
-      left?.[3] !== "events.jsonl" ||
-      right?.[3] !== "state.json" ||
-      left[1] !== right[1] ||
-      left[2] !== right[2]
-    )
-      throw new Error();
+    const destinations = new Set<string>();
+    for (let index = 0; index < preconditions.length; index += 2) {
+      const firstPrecondition = preconditions[index];
+      const secondPrecondition = preconditions[index + 1];
+      if (firstPrecondition === undefined || secondPrecondition === undefined)
+        throw new Error();
+      const left = match.exec(firstPrecondition.path);
+      const right = match.exec(secondPrecondition.path);
+      if (
+        left === null ||
+        right === null ||
+        left[3] !== "events.jsonl" ||
+        right[3] !== "state.json" ||
+        left[1] !== right[1] ||
+        left[2] !== right[2] ||
+        left[1] === undefined ||
+        left[2] === undefined
+      )
+        throw new Error();
+      const destination = `${left[1]}\u0000${left[2]}`;
+      if (destinations.has(destination)) throw new Error();
+      destinations.add(destination);
+    }
+    const frozenPreconditions = Object.freeze(preconditions);
     return {
       rootMode,
-      eventStorePreconditions: preconditions,
+      eventStorePreconditions: frozenPreconditions,
       ...(guardPreconditions === undefined ? {} : { guardPreconditions }),
       ...(leaseGuard === undefined ? {} : { leaseGuard }),
     };

@@ -20,10 +20,15 @@
     "contractVersion": { "const": "1.4.0" },
     "stateContract": { "const": "1.4.0" },
     "pluginVersion": { "const": "0.0.0-development" },
-    "hostContract": { "const": "1.3.0" },
+    "hostContract": { "const": "1.4.0" },
     "language": { "$ref": "#/$defs/languagePolicy" },
     "policyMode": { "enum": ["standard", "strict"] },
     "gateModes": { "$ref": "#/$defs/gateModes" },
+    "acceptanceAttemptCeiling": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
     "managedState": {
       "type": "object",
       "additionalProperties": false,

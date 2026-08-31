@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "resolutionId": "resolution-01",
+  "runId": "run-01",
+  "criterionId": "AC-1.1.1",
+  "classification": "specification",
+  "stopRef": ".brain/runs/run-01/stops/AC-1.1.1.json",
+  "stopDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resolvedBy": "human-01",
+  "observation": "The specification requires correction under a fresh run.",
+  "resolvedAt": "2026-08-30T00:04:00Z",
+  "nextRunId": "run-02"
+}

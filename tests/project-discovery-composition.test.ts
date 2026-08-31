@@ -18,7 +18,7 @@ const configuration: ProjectConfigV1_4 = {
   contractVersion: "1.4.0",
   stateContract: "1.4.0",
   pluginVersion: "0.0.0-development",
-  hostContract: "1.3.0",
+  hostContract: "1.4.0",
   language: {
     conversation: "en",
     documentation: "en",
@@ -45,6 +45,7 @@ const configuration: ProjectConfigV1_4 = {
   projectProfile: structuredClone(
     projectConfig.projectProfile,
   ) as ProjectConfigV1_4["projectProfile"],
+  acceptanceAttemptCeiling: 3,
 };
 
 const validator = () => ({ kind: "valid", value: configuration }) as const;

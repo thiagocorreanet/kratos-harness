@@ -20,7 +20,61 @@ function answers(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function answersV1_4(overrides: Record<string, unknown> = {}) {
+  return {
+    contractVersion: "1.4.0",
+    hostContract: "1.4.0",
+    hosts: ["claude"],
+    ...overrides,
+  };
+}
+
 describe("initialization answers", () => {
+  it("sets, clears, or preserves the acceptance attempt ceiling", async () => {
+    const routing = fixedModelRouting([claudeCatalog()]);
+    const set = await resolveInitAnswers(
+      answersV1_4({ acceptanceAttemptCeiling: 5 }),
+      registry,
+      routing,
+    );
+    const clear = await resolveInitAnswers(
+      answersV1_4({ acceptanceAttemptCeiling: null }),
+      registry,
+      routing,
+    );
+    const preserved = await resolveInitAnswers(
+      answersV1_4(),
+      registry,
+      routing,
+      { acceptanceAttemptCeiling: 7 },
+    );
+
+    expect(set).toMatchObject({
+      kind: "resolved",
+      answers: { acceptanceAttemptCeiling: 5 },
+    });
+    expect(clear.kind).toBe("resolved");
+    if (clear.kind === "resolved") {
+      expect(clear.answers).not.toHaveProperty("acceptanceAttemptCeiling");
+    }
+    expect(preserved).toMatchObject({
+      kind: "resolved",
+      answers: { acceptanceAttemptCeiling: 7 },
+    });
+  });
+
+  it("rejects an acceptance attempt ceiling beyond JavaScript's safe integer range", async () => {
+    expect(
+      await resolveInitAnswers(
+        answersV1_4({
+          acceptanceAttemptCeiling: Number.MAX_SAFE_INTEGER + 1,
+        }),
+        registry,
+        fixedModelRouting([claudeCatalog()]),
+      ),
+    ).toMatchObject({ kind: "invalid" });
+  });
+
   it("produces identical configuration bytes for inverse enabled-host order", async () => {
     const forward = await resolveInitAnswers(
       answers({ hosts: ["claude", "codex"] }),
@@ -99,8 +153,8 @@ describe("initialization answers", () => {
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.3.0",
-      hostContract: "1.3.0",
+      contractVersion: "1.4.0",
+      hostContract: "1.4.0",
       hosts: ["codex"],
       language: {
         conversation: "en",

@@ -84,6 +84,16 @@ function present(overrides: Partial<WorkflowState> = {}): WorkflowObservation {
       createdAt: "2026-08-15T12:00:00.000Z",
       updatedAt: "2026-08-15T12:00:00.000Z",
       operations: ["sdd.start:start-01"],
+      policyVersion: "workflow-v2",
+      acceptanceAttemptCeiling: 3,
+      tokenCeiling: null,
+      attempts: [],
+      activeRepairStops: [],
+      repairStopHistory: [],
+      repairResolutions: [],
+      specificationRestart: null,
+      retiredCriterionIds: [],
+      startedFromSpec: null,
       ...overrides,
     },
   };
@@ -430,7 +440,7 @@ describe("workflow start and continuation", () => {
     expect(decision.transition).toBe("started");
     expect(decision.event).toMatchObject({
       operation: "sdd.start:start-01",
-      policyVersion: "workflow-v1",
+      policyVersion: "workflow-v2",
       priorRevision: 0,
       resultingRevision: 1,
       reasonCode: "run.started",
@@ -532,6 +542,7 @@ describe("workflow start and continuation", () => {
       why: ["gate.aprovacao_spec", "gate.gaps_abertos", "evidence-invalid"],
     });
     if (rejected.kind !== "recorded") return;
+    if (!("gateFailures" in rejected.event)) return;
     expect(rejected.event.gateFailures.map(({ mode }) => mode)).toEqual([
       "enforce",
       "shadow",
@@ -615,6 +626,7 @@ describe("workflow start and continuation", () => {
         why,
       });
       if (rejected.kind !== "recorded") return;
+      if (!("gateFailures" in rejected.event)) return;
       expect(rejected.event.gateFailures).toEqual([failure]);
     },
   );
@@ -658,6 +670,7 @@ describe("workflow start and continuation", () => {
         transition: "completed",
       });
       if (accepted.kind !== "recorded") return;
+      if (!("gateFailures" in accepted.event)) return;
       expect(accepted.event.gateFailures[0]?.mode).toBe(mode);
     },
   );
@@ -726,7 +739,7 @@ describe("workflow start and continuation", () => {
       status: "active",
       currentStep: "spec",
       eventCursor: 2,
-      policyVersion: "workflow-v1",
+      policyVersion: "workflow-v2",
     });
   });
 

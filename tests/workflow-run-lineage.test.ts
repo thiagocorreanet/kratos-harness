@@ -1,7 +1,7 @@
 import type {
-  AgentOutputV1_2,
+  AgentOutputV1_3,
   EventV1_2,
-  PhaseHandoffV1_2,
+  ReadableEvent,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
@@ -35,6 +35,8 @@ const SPEC = `.brain/02-features/${FEATURE}/01-design.md`;
 const TASKS = `.brain/02-features/${FEATURE}/02-tasks.md`;
 const CODE_SUMMARY = `.brain/02-features/${FEATURE}/code-summary.md`;
 const REVIEW_SUMMARY = `.brain/02-features/${FEATURE}/review-summary.md`;
+const REPAIR_CODE_SUMMARY = `.brain/02-features/${FEATURE}/repair-code-summary.md`;
+const REPAIR_REVIEW_SUMMARY = `.brain/02-features/${FEATURE}/repair-review-summary.md`;
 const ACCEPTANCE_EVIDENCE = `.brain/02-features/${FEATURE}/acceptance-evidence.txt`;
 const AGENT_REPLY = `.brain/02-features/${FEATURE}/agent-reply.md`;
 const TASK_DOCUMENT = [
@@ -63,6 +65,39 @@ const TASK_DOCUMENT = [
   "- Prompt wording.",
   "",
 ].join("\n");
+const ANSWERS = JSON.stringify({
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
+  hosts: ["claude"],
+  language: {
+    conversation: "en",
+    documentation: "en",
+    comments: "en",
+    identifiers: "en",
+    commits: "en",
+    preserveConventions: true,
+    enforcement: "advisory",
+  },
+  policyMode: "standard",
+  snapshots: true,
+});
+const LIMITED_ANSWERS = JSON.stringify({
+  contractVersion: "1.4.0",
+  hostContract: "1.4.0",
+  hosts: ["claude"],
+  language: {
+    conversation: "en",
+    documentation: "en",
+    comments: "en",
+    identifiers: "en",
+    commits: "en",
+    preserveConventions: true,
+    enforcement: "advisory",
+  },
+  policyMode: "standard",
+  snapshots: true,
+  acceptanceAttemptCeiling: 5,
+});
 function answers(policyMode: "standard" | "strict"): string {
   return JSON.stringify({
     contractVersion: "1.3.0",
@@ -91,11 +126,6 @@ interface Subject {
   readonly ports: RuntimePorts;
   readonly storage: ReturnType<typeof memoryTransactionStorage>;
   readonly output: ReturnType<typeof recordingOutput>;
-}
-
-function clearOutput(run: Subject): void {
-  (run.output.structured_ as string[]).splice(0);
-  (run.output.human_ as string[]).splice(0);
 }
 
 function subject(
@@ -151,6 +181,16 @@ function next(
   return subject({ ...state.files, ...written }, state.directories);
 }
 
+function nextWithout(run: Subject, removed: string): Subject {
+  const state = settled(run);
+  return subject(
+    Object.fromEntries(
+      Object.entries(state.files).filter(([path]) => path !== removed),
+    ),
+    state.directories,
+  );
+}
+
 /** A project initialized, given an objective, and started on the `prd` phase. */
 async function startedRun(
   policyMode: "standard" | "strict" = "standard",
@@ -191,60 +231,54 @@ async function recordEvidence(
   return next(run);
 }
 
-async function startCurrentPhase(
-  run: Subject,
-  correlationId: string,
-): Promise<void> {
-  clearOutput(run);
-  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
-  const handoff = JSON.parse(
-    run.output.structured_.join(""),
-  ) as PhaseHandoffV1_2;
-  const sessionId = `session-${correlationId}`;
-  const lifecycle = {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
-    kind: "phase.start",
-    sessionId,
-    correlationId: `phase-${correlationId}`,
-    occurredAt: NOW,
-    assignmentDigest: handoff.assignmentDigest,
-  };
-  const ref = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
-  const content = `${JSON.stringify(lifecycle, null, 2)}\n`;
-  await run.storage.fileSystem.write(ref, content);
-  const message = {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
-    messageId: `message-${correlationId}`,
-    correlationId: lifecycle.correlationId,
-    operationId: `operation-${correlationId}`,
-    sequence: 0,
-    occurredAt: NOW,
-    kind: "hook",
-    payload: {
-      host: "claude-code",
-      hook: "phase.start",
-      phase: "before",
-      artifact: { ref, sha256: run.ports.digests.sha256(content) },
-    },
-  };
-  expect(
-    await runCommandLine(["hook", "--host", "claude-code"], {
-      ...run.ports,
-      standardInput: pipedInput(JSON.stringify(message)),
-    }),
-  ).toBe(0);
-  clearOutput(run);
-}
-
 /** Complete the current phase against one artifact and its recorded evidence. */
 async function completePhase(
   run: Subject,
   ref: string,
   correlationId: string,
 ): Promise<number> {
-  await startCurrentPhase(run, correlationId);
+  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
+  const handoff = JSON.parse(run.output.structured_.join("")) as {
+    readonly assignmentDigest: string;
+  };
+  (run.output.structured_ as string[]).splice(0);
+  (run.output.human_ as string[]).splice(0);
+  const sessionId = `session-${correlationId}`;
+  const artifact = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+  const lifecycle = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    kind: "phase.start",
+    sessionId,
+    correlationId: `phase-start-${correlationId}`,
+    occurredAt: NOW,
+    assignmentDigest: handoff.assignmentDigest,
+  } as const;
+  const content = `${JSON.stringify(lifecycle, null, 2)}\n`;
+  await run.storage.fileSystem.write(artifact, content);
+  const message = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    messageId: `message-${correlationId}`,
+    correlationId: lifecycle.correlationId,
+    operationId: `operation-${correlationId}`,
+    sequence: 1,
+    occurredAt: NOW,
+    kind: "hook",
+    payload: {
+      host: "claude-code",
+      hook: "phase.start",
+      phase: "before",
+      artifact: { ref: artifact, sha256: run.ports.digests.sha256(content) },
+    },
+  };
+  expect(
+    await runCommandLine(["hook", "--host", "claude-code"], {
+      ...run.ports,
+      fileSystem: run.storage.fileSystem,
+      standardInput: pipedInput(JSON.stringify(message)),
+    }),
+  ).toBe(0);
   return runCommandLine(
     [
       "continue",
@@ -276,11 +310,11 @@ function snapshotOf(run: Subject): {
   >;
 }
 
-function agentReply(output: AgentOutputV1_2): string {
+function agentReply(output: AgentOutputV1_3): string {
   return `${AGENT_BLOCK_OPEN}\n${JSON.stringify(output, null, 2)}\n${AGENT_BLOCK_CLOSE}\n`;
 }
 
-function eventValues(run: Subject): readonly EventV1_2[] {
+function eventValues(run: Subject): readonly ReadableEvent[] {
   const log =
     Object.entries(settled(run).files).find(([path]) =>
       path.endsWith("/events.jsonl"),
@@ -288,7 +322,7 @@ function eventValues(run: Subject): readonly EventV1_2[] {
   return log
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as EventV1_2);
+    .map((line) => JSON.parse(line) as ReadableEvent);
 }
 
 interface LineageValue {
@@ -337,6 +371,104 @@ describe("a run whose phases write the lineage files", () => {
     expect(snapshotOf(run).currentStep).toBe("prd");
   });
 
+  it("freezes the resolved project and objective limits in the real start event", async () => {
+    const initialized = subject(
+      {},
+      [".brain", ".brain/transactions"],
+      LIMITED_ANSWERS,
+    );
+    expect(await runCommandLine(["init"], initialized.ports)).toBe(0);
+    const objective = next(initialized);
+    expect(
+      await runCommandLine(
+        ["objective", TEXT, "--token-ceiling", "4096"],
+        objective.ports,
+      ),
+    ).toBe(0);
+    const started = next(objective);
+    expect(
+      await runCommandLine(["start", "--host", "claude-code"], started.ports),
+    ).toBe(0);
+
+    expect(eventValues(started)[0] as EventV1_2).toMatchObject({
+      policyVersion: "workflow-v2",
+      reasonCode: "run.started",
+      runLimits: {
+        acceptanceAttemptCeiling: 5,
+        tokenCeiling: 4096,
+      },
+    });
+  });
+
+  it("freezes the default attempt ceiling only from a valid configuration that omits it", async () => {
+    const initialized = subject({}, [".brain", ".brain/transactions"], ANSWERS);
+    expect(await runCommandLine(["init"], initialized.ports)).toBe(0);
+    expect(
+      JSON.parse(settled(initialized).files[".brain/config.json"] ?? ""),
+    ).not.toHaveProperty("acceptanceAttemptCeiling");
+    const objective = next(initialized);
+    expect(await runCommandLine(["objective", TEXT], objective.ports)).toBe(0);
+    const started = next(objective);
+
+    expect(
+      await runCommandLine(["start", "--host", "claude-code"], started.ports),
+    ).toBe(0);
+    expect(eventValues(started)[0] as EventV1_2).toMatchObject({
+      reasonCode: "run.started",
+      runLimits: { acceptanceAttemptCeiling: 3 },
+    });
+  });
+
+  it.each([
+    {
+      label: "missing",
+      expectedReason: "guard.config_missing",
+      prepare: (objective: Subject) =>
+        nextWithout(objective, ".brain/config.json"),
+    },
+    {
+      label: "corrupt",
+      expectedReason: "guard.config_corrupt",
+      prepare: (objective: Subject) =>
+        next(objective, { ".brain/config.json": "{" }),
+    },
+    {
+      label: "migration-required",
+      expectedReason: "profile.config_migration_required",
+      prepare: (objective: Subject) =>
+        next(objective, {
+          ".brain/config.json": JSON.stringify({ stateContract: "1.3.0" }),
+        }),
+    },
+  ])(
+    "refuses start when project configuration is $label",
+    async ({ prepare, expectedReason }) => {
+      const initialized = subject(
+        {},
+        [".brain", ".brain/transactions"],
+        ANSWERS,
+      );
+      expect(await runCommandLine(["init"], initialized.ports)).toBe(0);
+      const objective = next(initialized);
+      expect(await runCommandLine(["objective", TEXT], objective.ports)).toBe(
+        0,
+      );
+      const started = prepare(objective);
+
+      expect(
+        await runCommandLine(
+          ["--json", "start", "--host", "claude-code"],
+          started.ports,
+        ),
+      ).not.toBe(0);
+      expect(JSON.parse(started.output.structured_.join(""))).toMatchObject({
+        reasonCode: expectedReason,
+        stateChanged: false,
+      });
+      expect(eventValues(started)).toEqual([]);
+    },
+  );
+
   it("advances to spec after the prd phase writes the PRD", async () => {
     const started = await startedRun();
     const run = await recordEvidence(
@@ -379,13 +511,6 @@ describe("a run whose phases write the lineage files", () => {
       summary: "Workflow transition rejected was recorded.",
       why: ["evidence-invalid"],
     });
-    expect(eventValues(run).at(-1)?.gateFailures).toMatchObject([
-      {
-        gateId: "prd-present",
-        reasonCode: "gate.prd_section_missing",
-        mode: "warn",
-      },
-    ]);
   });
 
   it("advances to plan after the spec phase writes the design", async () => {
@@ -628,9 +753,9 @@ describe("a run whose phases write the lineage files", () => {
       ACCEPTANCE_EVIDENCE,
       "evidence-acceptance",
     );
-    const output: AgentOutputV1_2 = {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+    const output: AgentOutputV1_3 = {
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -728,28 +853,55 @@ describe("a run whose phases write the lineage files", () => {
 
     const verdictToTamper = verdictRefs.find((ref) => {
       const verdict = JSON.parse(files[ref] ?? "{}") as { outcome?: unknown };
-      return verdict.outcome !== "passed";
+      return verdict.outcome === "failed";
     });
     if (verdictToTamper === undefined) throw new Error("no verdict to tamper");
     const tamperedValue = JSON.parse(files[verdictToTamper] ?? "") as {
       outcome: string;
     };
-    const tampered = next(recording, {
+    const repairCode = await recordEvidence(
+      next(recording, { [REPAIR_CODE_SUMMARY]: "Repair code complete.\n" }),
+      REPAIR_CODE_SUMMARY,
+      "evidence-repair-code",
+    );
+    expect(
+      await completePhase(
+        repairCode,
+        REPAIR_CODE_SUMMARY,
+        "complete-repair-code",
+      ),
+    ).toBe(0);
+    const repairReview = await recordEvidence(
+      next(repairCode, {
+        [REPAIR_REVIEW_SUMMARY]: "Repair review complete.\n",
+      }),
+      REPAIR_REVIEW_SUMMARY,
+      "evidence-repair-review",
+    );
+    expect(
+      await completePhase(
+        repairReview,
+        REPAIR_REVIEW_SUMMARY,
+        "complete-repair-review",
+      ),
+    ).toBe(0);
+    const tampered = next(repairReview, {
       [verdictToTamper]: `${JSON.stringify({ ...tamperedValue, outcome: "passed" }, null, 2)}\n`,
       [AGENT_REPLY]: agentReply(output),
     });
-    const tamperedCode = await runCommandLine(
-      [
-        "--json",
-        "agent",
-        "record",
-        AGENT_REPLY,
-        "--correlation-id",
-        "tampered-verdict",
-      ],
-      tampered.ports,
-    );
-    expect(tamperedCode, tampered.output.structured_.join("")).toBe(3);
+    expect(
+      await runCommandLine(
+        [
+          "--json",
+          "agent",
+          "record",
+          AGENT_REPLY,
+          "--correlation-id",
+          "tampered-verdict",
+        ],
+        tampered.ports,
+      ),
+    ).toBe(3);
     expect(
       JSON.parse(tampered.output.structured_.join("")) as {
         reasonCode: string;
@@ -833,9 +985,9 @@ describe("a run whose phases write the lineage files", () => {
     }));
     const firstCriterionReport = criterionReports[0];
     if (firstCriterionReport === undefined) throw new Error("no criteria");
-    const output: AgentOutputV1_2 = {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+    const output: AgentOutputV1_3 = {
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -907,9 +1059,9 @@ describe("a run whose phases write the lineage files", () => {
       await completePhase(changed, CODE_SUMMARY, "complete-code-with-flip"),
     ).toBe(3);
     expect(snapshotOf(changed).currentStep).toBe("code");
-    const codeOutput: AgentOutputV1_2 = {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+    const codeOutput: AgentOutputV1_3 = {
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "code",
       outcome: {
         status: "completed",

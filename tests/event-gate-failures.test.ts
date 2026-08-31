@@ -82,6 +82,8 @@ describe("event gate-failure traces", () => {
     const event = sealEvent(draft(), { revision: 0, hash: null }, services);
 
     expect(event.contractVersion).toBe("1.2.0");
+    if (event.contractVersion !== "1.2.0")
+      throw new Error("wrong event version");
     expect(event.gateFailures).toEqual(gateFailures);
   });
 

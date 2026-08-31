@@ -3,17 +3,25 @@
   "stateContract": "1.2.0",
   "eventId": "event-01",
   "eventType": "transition",
-  "occurredAt": "2026-08-30T00:00:00Z",
-  "operation": "sdd.continue:gate-failures-01",
-  "policyVersion": "policy-01",
+  "occurredAt": "2026-08-30T00:01:00Z",
+  "operation": "sdd.start:run-01",
+  "policyVersion": "workflow-v2",
   "priorRevision": 0,
   "resultingRevision": 1,
-  "reasonCode": "run.transition.accepted",
+  "reasonCode": "run.started",
   "effect": "state",
   "artifactRefs": [],
   "evidenceRefs": [],
-  "observedIdentity": { "host": "codex", "model": "gpt-5", "effort": "medium" },
+  "observedIdentity": {
+    "host": "codex",
+    "model": "gpt-5.6-terra",
+    "effort": "medium"
+  },
   "gateFailures": [],
+  "runLimits": {
+    "acceptanceAttemptCeiling": 3,
+    "tokenCeiling": 100000
+  },
   "previousHash": null,
   "eventHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

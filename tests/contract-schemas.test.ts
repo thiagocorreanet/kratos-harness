@@ -59,6 +59,9 @@ const artifacts = [
   ],
   ["state/run-usage.v1.schema.json", "run-usage.json", "state"],
   ["state/phase-measurement.v1.schema.json", "phase-measurement.json", "state"],
+  ["state/repair-loop-stop.v1.schema.json", "repair-loop-stop.json", "state"],
+  ["state/repair-resolution.v1.schema.json", "repair-resolution.json", "state"],
+  ["state/repair-restart.v1.schema.json", "repair-restart.json", "state"],
   ["state/session-telemetry.v1.schema.json", "session-telemetry.json", "state"],
 ] as const;
 
@@ -111,7 +114,7 @@ describe("versioned state and host schemas", () => {
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
       pluginVersion: "0.0.0-development",
-      hostContract: "1.3.0",
+      hostContract: "1.4.0",
       language: {
         conversation: "en",
         documentation: "en",

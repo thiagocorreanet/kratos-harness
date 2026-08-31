@@ -231,10 +231,10 @@ describe("contract versioning documentation", () => {
 
   it("publishes current state and migration boundaries in every operator guide", () => {
     for (const phrase of [
-      "| `state.event` | state | `1.2.0` | `EventV1_2` |",
+      "| `state.event` | state | `1.4.0` | `EventV1_4` |",
       "| `state.project-config` | state | `1.4.0` | `ProjectConfigV1_4` |",
       "pre-`1.4.0` project configuration",
-      "| `host.init-answers` | host | `1.3.0` | `InitAnswersV1_3` |",
+      "| `host.init-answers` | host | `1.4.0` | `InitAnswersV1_4` |",
     ]) {
       expect(schemaRegistry).toContain(phrase);
     }

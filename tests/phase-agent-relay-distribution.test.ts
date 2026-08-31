@@ -323,6 +323,7 @@ describe("packaged phase-agent relay", () => {
           role: "judge",
           model: "judge-canonical",
           effort: "high",
+          handoff: handoff(configurationHost),
           memory: {
             ref: ".brain/03-memory/gotchas.md",
             sha256: "d".repeat(64),
@@ -411,7 +412,7 @@ describe("packaged phase-agent relay", () => {
         messageType: "request",
         host: configurationHost,
         operation: "sdd.agent.record:phase-result-01",
-        payloadContract: "host.agent-output@1.2.0",
+        payloadContract: "host.agent-output@1.3.0",
         payload: {
           ref: ".brain/agent-replies/review.md",
           sha256: "c".repeat(64),

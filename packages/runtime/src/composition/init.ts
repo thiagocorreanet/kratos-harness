@@ -78,7 +78,10 @@ export async function observeInitialization(
     {
       observe: (host) => observeModelCatalog(anchored.modelRouting, host),
     },
-    persisted.profile,
+    {
+      projectProfile: persisted.profile,
+      acceptanceAttemptCeiling: persisted.acceptanceAttemptCeiling,
+    },
   );
   const rootEntries = await anchored.fileSystem.list(".");
   return {
@@ -102,6 +105,7 @@ async function observePersistedProfile(
   | {
       readonly kind: "profile";
       readonly profile?: ResolvedProjectProfile;
+      readonly acceptanceAttemptCeiling?: number | undefined;
       readonly expected: WriteFilePrecondition;
     }
   | Extract<Observed, { readonly kind: "failure" }>
@@ -162,6 +166,7 @@ async function observePersistedProfile(
   return {
     kind: "profile",
     profile: validated.value.projectProfile,
+    acceptanceAttemptCeiling: validated.value.acceptanceAttemptCeiling,
     expected: { kind: "file", size: before.size, sha256: before.sha256 },
   };
 }

@@ -1,4 +1,8 @@
-import type { InitAnswersV1_3, LanguagePolicyV1 } from "@kratos/contracts";
+import type {
+  InitAnswersV1_3,
+  InitAnswersV1_4,
+  LanguagePolicyV1,
+} from "@kratos/contracts";
 
 import {
   resolveModelRoleAssignment,
@@ -17,11 +21,18 @@ import {
 
 /** Answers after every default has been made visible and every model resolved. */
 export type ResolvedAnswers = Omit<
-  Required<InitAnswersV1_3>,
-  "modelRoles" | "projectProfile"
+  Required<InitAnswersV1_4>,
+  | "contractVersion"
+  | "hostContract"
+  | "modelRoles"
+  | "projectProfile"
+  | "acceptanceAttemptCeiling"
 > & {
+  readonly contractVersion: "1.3.0" | "1.4.0";
+  readonly hostContract: "1.3.0" | "1.4.0";
   readonly modelRoles: ResolvedModelRoles;
   readonly projectProfile: ResolvedProjectProfile;
+  readonly acceptanceAttemptCeiling?: number | undefined;
 };
 
 export const DEFAULT_LANGUAGE_POLICY: LanguagePolicyV1 = {
@@ -44,8 +55,12 @@ const DEFAULTABLE = ["language", "policyMode", "snapshots"] as const;
 const HOSTS = ["claude", "codex", "antigravity"] as const;
 const ROLES = ["planner", "implementer", "judge"] as const;
 
+export interface PersistedInitSettings {
+  readonly projectProfile?: ResolvedProjectProfile | undefined;
+  readonly acceptanceAttemptCeiling?: number | undefined;
+}
 type Host = "claude" | "codex" | "antigravity";
-type ExplicitRoleMap = NonNullable<InitAnswersV1_3["modelRoles"]>[Host];
+type ExplicitRoleMap = NonNullable<InitAnswersV1_4["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */
 export type ResolvedRoleMap = Readonly<
@@ -87,7 +102,7 @@ export async function resolveInitAnswers(
   document: unknown,
   registry: SchemaRegistry,
   modelRouting: ModelRouting,
-  persistedProfile?: ResolvedProjectProfile,
+  persisted?: ResolvedProjectProfile | PersistedInitSettings,
 ): Promise<ResolvedInitAnswers> {
   const validated = registry.validate({
     id: "host.init-answers",
@@ -103,7 +118,10 @@ export async function resolveInitAnswers(
       reasonCode: first?.reasonCode ?? "trail.output_invalido",
     };
   }
-  if (validated.value.contractVersion !== "1.3.0") {
+  if (
+    validated.value.contractVersion !== "1.3.0" &&
+    validated.value.contractVersion !== "1.4.0"
+  ) {
     return { kind: "invalid", reasonCode: "trail.output_invalido" };
   }
 
@@ -142,8 +160,8 @@ export async function resolveInitAnswers(
   return {
     kind: "resolved",
     answers: {
-      contractVersion: supplied.contractVersion,
-      hostContract: supplied.hostContract,
+      contractVersion: "1.4.0",
+      hostContract: "1.4.0",
       hosts: supplied.hosts,
       language: supplied.language ?? DEFAULT_LANGUAGE_POLICY,
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
@@ -151,11 +169,43 @@ export async function resolveInitAnswers(
       modelRoles,
       projectProfile: resolveProjectProfile(
         supplied.projectProfile,
-        persistedProfile,
+        persistedProjectProfile(persisted),
       ),
+      ...(resolvedAttemptCeiling(supplied, persisted) === undefined
+        ? {}
+        : {
+            acceptanceAttemptCeiling: resolvedAttemptCeiling(
+              supplied,
+              persisted,
+            ),
+          }),
     },
     defaulted,
   };
+}
+
+function persistedProjectProfile(
+  persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
+): ResolvedProjectProfile | undefined {
+  if (persisted === undefined) return undefined;
+  if ("projectProfile" in persisted) {
+    return persisted.projectProfile;
+  }
+  return "commands" in persisted ? persisted : undefined;
+}
+
+function resolvedAttemptCeiling(
+  supplied: InitAnswersV1_3 | InitAnswersV1_4,
+  persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
+): number | undefined {
+  const requested =
+    "acceptanceAttemptCeiling" in supplied
+      ? supplied.acceptanceAttemptCeiling
+      : undefined;
+  if (requested !== undefined) return requested ?? undefined;
+  return persisted !== undefined && "acceptanceAttemptCeiling" in persisted
+    ? persisted.acceptanceAttemptCeiling
+    : undefined;
 }
 
 function resolveHostRoles(

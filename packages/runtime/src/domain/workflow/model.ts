@@ -1,11 +1,12 @@
 import type { EventV1, EventV1_1, SnapshotV1 } from "@kratos/contracts";
 
-import type { CurrentEventDraft } from "../events/index.js";
-import { FACT_EVENT_REASONS, type FactOperation } from "../events/semantics.js";
+import type { SealableEventDraft } from "../events/index.js";
 import type { GateDecision } from "../gates/index.js";
+import { FACT_EVENT_REASONS, type FactOperation } from "../events/semantics.js";
 export { FACT_EVENT_REASONS, type FactOperation };
 
-export const WORKFLOW_POLICY_VERSION = "workflow-v1";
+export const LEGACY_WORKFLOW_POLICY_VERSION = "workflow-v1";
+export const WORKFLOW_POLICY_VERSION = "workflow-v2";
 
 export const RUN_PHASES = [
   "prd",
@@ -41,6 +42,55 @@ export interface WorkflowState {
   readonly createdAt: string | null;
   readonly updatedAt: string | null;
   readonly operations: readonly string[];
+  readonly policyVersion:
+    | typeof LEGACY_WORKFLOW_POLICY_VERSION
+    | typeof WORKFLOW_POLICY_VERSION
+    | null;
+  readonly acceptanceAttemptCeiling: number | null;
+  readonly tokenCeiling: number | null;
+  readonly attempts: readonly WorkflowAcceptanceAttempt[];
+  readonly activeRepairStops: readonly WorkflowRepairStop[];
+  /** Every criterion that ever tripped stop-loss in this source run. */
+  readonly repairStopHistory: readonly WorkflowRepairStop[];
+  readonly repairResolutions: readonly WorkflowRepairResolution[];
+  readonly specificationRestart: WorkflowSpecificationRestart | null;
+  readonly retiredCriterionIds: readonly string[];
+  readonly startedFromSpec: WorkflowStartedFromSpec | null;
+}
+
+export interface WorkflowAcceptanceAttempt {
+  readonly criterionId: string;
+  readonly attempt: number;
+}
+
+export interface WorkflowRepairStop extends WorkflowAcceptanceAttempt {
+  readonly classification: "code" | "specification";
+  readonly artifactRef: string;
+  readonly artifactDigest: string;
+}
+
+export interface WorkflowSpecificationRestart {
+  readonly criterionId: string;
+  readonly nextRunId: string;
+  readonly restartTicketRef: string;
+  readonly restartTicketDigest: string;
+}
+
+export interface WorkflowRepairResolution {
+  readonly operation: string;
+  readonly criterionId: string;
+  readonly classification: "code" | "specification";
+  readonly resolutionRef: string;
+  readonly resolutionDigest: string;
+  readonly nextRunId: string | null;
+  readonly restartTicketRef: string | null;
+  readonly restartTicketDigest: string | null;
+}
+
+export interface WorkflowStartedFromSpec {
+  readonly sourceRunId: string;
+  readonly restartTicketRef: string;
+  readonly restartTicketDigest: string;
 }
 
 export type WorkflowObservation =
@@ -74,6 +124,18 @@ export interface StartWorkflowRequest {
   readonly objectiveActive: boolean;
   readonly worktreeClean: boolean;
   readonly observedIdentity: WorkflowIdentity;
+  /** Resolved once for a new run; absent callers use the executable default. */
+  readonly acceptanceAttemptCeiling?: number | undefined;
+  /** The objective's declared token ceiling, or null when it has none. */
+  readonly tokenCeiling?: number | null | undefined;
+  readonly startFromSpec?:
+    | {
+        readonly sourceRunId: string;
+        readonly restartTicketRef: string;
+        readonly restartTicketDigest: string;
+        readonly retiredCriterionIds: readonly string[];
+      }
+    | undefined;
 }
 
 export interface ContinueWorkflowRequest {
@@ -86,13 +148,14 @@ export interface ContinueWorkflowRequest {
   readonly observedIdentity: WorkflowIdentity;
   readonly resolvedAssignment?: WorkflowAssignment;
   readonly phaseExecution?: PhaseExecutionObservation;
-  readonly gateDecision: Pick<GateDecision, "outcome" | "failures">;
+  readonly gateDecision?: Pick<GateDecision, "outcome" | "failures">;
   readonly action:
     | {
         readonly kind: "complete-phase";
         readonly artifactRefs: readonly string[];
         readonly evidenceRefs: readonly string[];
-        readonly rejectionReasons: readonly string[];
+        readonly rejectionReasons?: readonly string[];
+        readonly gateFailures?: readonly string[];
         readonly allowFinalCompletion: boolean;
       }
     | { readonly kind: "resume" }
@@ -108,6 +171,7 @@ export type WorkflowRefusal =
   | "blocked.feature_mismatch"
   | "blocked.runid_mismatch"
   | "blocked.state_unreadable"
+  | "blocked.stop_loss_rejections"
   | "model.assignment_stale"
   | "model.execution_mismatch"
   | "runtime.revision_conflict"
@@ -132,8 +196,10 @@ export type WorkflowDecision =
         | "accepted"
         | "rejected"
         | "completed"
-        | "observed";
-      readonly event: CurrentEventDraft;
+        | "upgraded"
+        | "observed"
+        | "resolved";
+      readonly event: SealableEventDraft;
       /** Stable identifiers explaining why a transition was rejected. */
       readonly why?: readonly string[];
     }
@@ -158,3 +224,21 @@ export type WorkflowEvent = Pick<
   | "reasonCode"
   | "resultingRevision"
 >;
+
+export interface ResolveRepairStopRequest {
+  readonly feature: string;
+  readonly runId: string;
+  readonly criterionId: string;
+  readonly correlationId: string;
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly expectedRevision: number;
+  readonly resolvedBy: string;
+  readonly observation: string;
+  readonly observedIdentity: WorkflowIdentity;
+  readonly resolutionRef: string;
+  readonly resolutionDigest: string;
+  readonly nextRunId: string | null;
+  readonly restartTicketRef: string | null;
+  readonly restartTicketDigest: string | null;
+}

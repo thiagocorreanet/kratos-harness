@@ -10,8 +10,9 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.6.schema.json`](../../schemas/contracts/contract-manifest.v1.6.schema.json);
+[`contract-manifest.v1.7.schema.json`](../../schemas/contracts/contract-manifest.v1.7.schema.json);
 the published predecessors
+[`contract-manifest.v1.6.schema.json`](../../schemas/contracts/contract-manifest.v1.6.schema.json),
 [`contract-manifest.v1.5.schema.json`](../../schemas/contracts/contract-manifest.v1.5.schema.json),
 [`contract-manifest.v1.4.schema.json`](../../schemas/contracts/contract-manifest.v1.4.schema.json),
 [`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json),
@@ -23,7 +24,7 @@ the metadata-only Go v3 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
-| Contract-manifest schema | `v1.6` | Contract-family manifest format |
+| Contract-manifest schema | `v1.7` | Contract-family manifest format |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
 | `stateContract` | `1.4.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.3.0` | Cross-process adapter request and response messages |
@@ -215,6 +216,10 @@ version rather than widening an old contract.
 | `memory.confirmation_stale` | 3 | The preview values no longer authorize the requested apply |
 | `memory.phase_context_stale` | 3 | A code/review acknowledgement differs from its handoff |
 | `memory.migration_required` | 4 | Legacy Gotchas require explicit lossless adoption |
+
+Revision `1.11.0` preserves every `1.10.0` entry and appends
+`blocked.stop_loss_rejections`, the fail-closed outcome used when repeated
+acceptance rejection reaches the run-frozen attempt ceiling.
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,

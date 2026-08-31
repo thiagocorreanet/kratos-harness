@@ -95,8 +95,8 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
     .join("\n");
   return `${prose}\n\n===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "prd",
       outcome: {
         status: "completed",
@@ -168,7 +168,7 @@ function phaseResultRequest(
       model: execution.model,
       effort: execution.effort,
     },
-    payloadContract: "host.agent-output@1.2.0",
+    payloadContract: "host.agent-output@1.3.0",
     payload: { ref, sha256: subject.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: execution.assignmentDigest,
@@ -297,13 +297,16 @@ async function started(options: SubjectOptions = {}): Promise<WorkflowSubject> {
       (path) => !path.includes("/transactions/"),
     ),
   );
-  expect(
-    await runCommandLine(
-      ["start", "--run-id", "run-01", "--correlation-id", "start-01"],
-      run.ports,
-    ),
-  ).toBe(0);
-  clearOutput(run.output);
+  const startExit = await runCommandLine(
+    ["start", "--run-id", "run-01", "--correlation-id", "start-01"],
+    run.ports,
+  );
+  if (options.configuration === projectConfigV1) {
+    expect(startExit).not.toBe(0);
+  } else {
+    expect(startExit).toBe(0);
+    clearOutput(run.output);
+  }
   return { ...run, before: run.storage.snapshot() };
 }
 
@@ -416,8 +419,8 @@ function codeReply(
 ): string {
   return `===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "code",
       outcome: {
         status: "completed",
@@ -676,8 +679,15 @@ describe("read-only model-role handoffs", () => {
       { launcherHost: "unknown" as const },
       "model.host_missing",
     ],
-  ])("refuses %s without mutation", async (_label, options, reasonCode) => {
+  ])("refuses %s without mutation", async (label, options, reasonCode) => {
     const run = await started(options);
+
+    if (label === "legacy configuration") {
+      expect(run.output.human_.join("")).toContain(reasonCode);
+      expect(run.output.human_.join("")).toContain("State changed: false");
+      expect(run.storage.snapshot()).toEqual(run.before);
+      return;
+    }
 
     expect(await runCommandLine(["--json", "handoff"], run.ports)).not.toBe(0);
     expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({

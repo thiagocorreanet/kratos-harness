@@ -305,7 +305,7 @@ describe("the generated skeleton", () => {
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
       pluginVersion: KRATOS_VERSION,
-      hostContract: "1.3.0",
+      hostContract: "1.4.0",
       language: ptBrPolicy,
       policyMode: "strict",
       gateModes: {},

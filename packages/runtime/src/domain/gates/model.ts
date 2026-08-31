@@ -35,6 +35,7 @@ export type GateFailureReason =
   | "blocked.context_unreadable"
   | "blocked.stop_loss_budget"
   | "blocked.stop_loss_flag"
+  | "blocked.stop_loss_rejections"
   | "gate.aceitacao_final"
   | "gate.ac_incomplete"
   | "gate.aprovacao_spec"
@@ -46,7 +47,11 @@ export type GateFailureReason =
 
 export const GATE_REASON_CODES = {
   "context-readable": ["blocked.context_unreadable"],
-  "stop-loss": ["blocked.stop_loss_budget", "blocked.stop_loss_flag"],
+  "stop-loss": [
+    "blocked.stop_loss_budget",
+    "blocked.stop_loss_flag",
+    "blocked.stop_loss_rejections",
+  ],
   "prd-present": [
     "gate.prd_ausente",
     "gate.prd_section_missing",
@@ -80,7 +85,11 @@ export interface GateContext {
   readonly gateModes: GateModes;
   readonly phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
   readonly contextReadable: boolean;
-  readonly stopLoss: { readonly tripped: boolean; readonly exhausted: boolean };
+  readonly stopLoss: {
+    readonly tripped: boolean;
+    readonly exhausted: boolean;
+    readonly repeatedRejections?: readonly RepeatedRejectionGateState[];
+  };
   readonly prdDigest: string | null;
   readonly prdDocument: PrdDocumentObservation;
   readonly specDigest: string | null;
@@ -93,6 +102,13 @@ export interface GateContext {
   readonly languagePolicy?: LanguagePolicyV1 | null;
   readonly languageObservations?: readonly LanguageObservationMetadata[];
   readonly languageMismatch?: boolean;
+}
+
+export interface RepeatedRejectionGateState {
+  readonly criterionId: string;
+  readonly attempt: number;
+  readonly classification: "code" | "specification";
+  readonly artifactRef: string;
 }
 
 export interface AcceptanceCriterionGateState {

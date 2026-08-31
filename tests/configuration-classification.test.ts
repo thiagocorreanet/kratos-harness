@@ -4,7 +4,7 @@ import type { ReadableProjectConfig } from "@kratos/contracts";
 import { classifyConfiguration } from "@kratos/runtime/domain/project";
 
 describe("configuration classification version migration", () => {
-  it("classifies legacy state contracts as migration-required and 1.4.0 as valid", () => {
+  it("classifies prior state contracts as migration-required and 1.4.0 as valid", () => {
     const outcome11 = classifyConfiguration(
       { kind: "file", text: JSON.stringify({ stateContract: "1.1.0" }) },
       () => ({ kind: "valid", value: {} as ReadableProjectConfig }),

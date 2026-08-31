@@ -13,6 +13,8 @@ export interface ObjectiveRequest {
   readonly text: string;
   /** Whether the caller explicitly authorized replacing a divergent objective. */
   readonly replace: boolean;
+  /** Optional token ceiling frozen by the workflow when a run starts. */
+  readonly tokenCeiling?: number | undefined;
   /** The instant this run observed, supplied rather than read. */
   readonly now: string;
 }
@@ -70,7 +72,15 @@ export function decideObjective(
       kind: "recorded",
       transition: "created",
       feature,
-      state: stateFor(feature, text, "active", request.now, request.now, 1),
+      state: stateFor(
+        feature,
+        text,
+        "active",
+        request.now,
+        request.now,
+        1,
+        request.tokenCeiling,
+      ),
       previous: null,
     };
   }
@@ -93,6 +103,7 @@ export function decideObjective(
       request.now,
       request.now,
       current.objective.revision + 1,
+      request.tokenCeiling,
     ),
     previous: current,
   };
@@ -141,13 +152,21 @@ function stateFor(
   createdAt: string,
   updatedAt: string,
   revision: number,
+  tokenCeiling: number | undefined,
 ): FeatureStateV1 {
-  // A budget is absent unless something explicitly asks for one, and no frozen
-  // surface asks yet. Writing a default here would be a limit nobody set.
   return {
     contractVersion: "1.0.0",
     stateContract: "1.0.0",
     feature,
-    objective: { text, status, createdAt, updatedAt, revision },
+    objective: {
+      text,
+      status,
+      createdAt,
+      updatedAt,
+      revision,
+      ...(tokenCeiling === undefined
+        ? {}
+        : { budget: { tokens: tokenCeiling } }),
+    },
   };
 }

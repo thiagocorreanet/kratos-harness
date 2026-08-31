@@ -1,0 +1,30 @@
+{
+  "contractVersion": "1.1.0",
+  "hostContract": "1.1.0",
+  "agent": "acceptance",
+  "outcome": {
+    "status": "completed",
+    "next": "finish",
+    "questions": [],
+    "blockers": []
+  },
+  "artifacts": [],
+  "changedFiles": [],
+  "payload": {
+    "verdict": "rejected",
+    "criteria": [
+      {
+        "criterionId": "AC-1.1.1",
+        "outcome": "failed",
+        "evidenceRef": ".brain/02-features/example/acceptance.txt"
+      }
+    ],
+    "faults": [
+      {
+        "criterionId": "AC-1.1.1",
+        "classification": "code",
+        "diagnosis": "The implementation does not satisfy the acceptance criterion."
+      }
+    ]
+  }
+}

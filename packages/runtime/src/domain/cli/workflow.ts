@@ -90,8 +90,21 @@ export const startCommand: CommandSpec = observingCommand(
     positionals: { min: 0, max: 0 },
     jsonContract: "result@1.0.0",
   },
-  (_invocation, observation) =>
-    workflowDecision(
+  (_invocation, observation) => {
+    if (observation.acceptanceAttemptCeiling.kind === "refused") {
+      return {
+        result: resultFor(observation.acceptanceAttemptCeiling.reasonCode, {
+          why: [
+            "The project configuration did not provide an executable acceptance-attempt ceiling.",
+          ],
+          evidence: [{ kind: "observation", ref: ".brain/config.json" }],
+        }),
+        plan: planOf(),
+        humanStdout: null,
+        payload: null,
+      };
+    }
+    return workflowDecision(
       decideStartWorkflow(observation.workflow, {
         ...observation.configuration,
         correlationId: observation.correlationId,
@@ -100,9 +113,12 @@ export const startCommand: CommandSpec = observingCommand(
         objectiveActive: observation.objectiveActive,
         worktreeClean: observation.worktreeClean,
         observedIdentity: observation.observedIdentity,
+        acceptanceAttemptCeiling: observation.acceptanceAttemptCeiling.value,
+        tokenCeiling: observation.objectiveTokenBudget,
       }),
       observation,
-    ),
+    );
+  },
 );
 
 export const continueCommand: CommandSpec = observingCommand(
@@ -173,6 +189,22 @@ export const continueCommand: CommandSpec = observingCommand(
       observation.workflow.kind === "present" &&
       observation.workflow.state.currentStep === "plan";
     const criteria = observation.acceptanceCriteria;
+    const retiredCriterionIds =
+      observation.workflow.kind === "present"
+        ? observation.workflow.state.retiredCriterionIds
+        : [];
+    const retiredCriterion = completingPlan
+      ? criteria.currentDeclarations.find(({ criterionId }) =>
+          retiredCriterionIds.includes(criterionId),
+        )
+      : undefined;
+    if (retiredCriterion !== undefined) {
+      return criteriaPolicyRefusal(
+        observation,
+        "gate.ac_identifier_duplicate",
+        `Acceptance criterion ${retiredCriterion.criterionId} was retired by the specification restart and requires a new identifier.`,
+      );
+    }
     const criteriaSnapshotRef = criteria.initialSnapshotRef;
     const criteriaSnapshot =
       completingPlan &&
@@ -734,6 +766,7 @@ function criteriaPolicyRefusal(
   observation: Observation,
   reasonCode:
     | "gate.ac_baseline_unverifiable"
+    | "gate.ac_identifier_duplicate"
     | "gate.ac_declaration_changed"
     | "gate.ac_append_forbidden"
     | "gate.ac_checkbox_forbidden",

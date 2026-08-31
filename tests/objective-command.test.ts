@@ -125,6 +125,23 @@ describe("the objective command", () => {
     );
   });
 
+  it("records a positive token ceiling as the objective budget", async () => {
+    const run = subject();
+
+    expect(
+      await runCommandLine(
+        ["objective", TEXT, "--token-ceiling", "2048"],
+        run.ports,
+      ),
+    ).toBe(0);
+
+    expect(
+      JSON.parse(
+        files(run)[`.brain/02-features/${FEATURE}/state.json`] ?? "null",
+      ),
+    ).toMatchObject({ objective: { budget: { tokens: 2048 } } });
+  });
+
   it("preserves quoted Unicode text exactly", async () => {
     const text = 'Ship the "café" pipeline — 日本語 included';
     const run = subject();

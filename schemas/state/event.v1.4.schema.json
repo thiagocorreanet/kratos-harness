@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/event/v1.4",
+  "title": "Kratos append-only event v1.4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "operation",
+    "policyVersion",
+    "priorRevision",
+    "resultingRevision",
+    "reasonCode",
+    "effect",
+    "artifactRefs",
+    "evidenceRefs",
+    "observedIdentity",
+    "gateFailures",
+    "previousHash",
+    "eventHash"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.4.0" },
+    "stateContract": { "const": "1.4.0" },
+    "eventId": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/id"
+    },
+    "eventType": {
+      "enum": ["operation", "decision", "transition", "recovery"]
+    },
+    "occurredAt": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/timestamp"
+    },
+    "operation": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/id"
+    },
+    "policyVersion": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/id"
+    },
+    "priorRevision": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/nonNegativeInteger"
+    },
+    "resultingRevision": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/positiveInteger"
+    },
+    "reasonCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)*$"
+    },
+    "effect": { "enum": ["none", "state", "artifact", "state-and-artifact"] },
+    "artifactRefs": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/references"
+    },
+    "evidenceRefs": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/references"
+    },
+    "observedIdentity": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/observedIdentity"
+    },
+    "gateFailures": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailures"
+    },
+    "resolvedAssignment": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/resolvedAssignment"
+    },
+    "runLimits": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/runLimits"
+    },
+    "acceptanceDecision": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/acceptanceDecision"
+    },
+    "repairResolution": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/repairResolution"
+    },
+    "startedFromSpec": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/startedFromSpec"
+    },
+    "previousHash": {
+      "oneOf": [
+        {
+          "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/sha256"
+        },
+        { "type": "null" }
+      ]
+    },
+    "eventHash": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/sha256"
+    }
+  }
+}

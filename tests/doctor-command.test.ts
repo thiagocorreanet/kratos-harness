@@ -31,7 +31,6 @@ import { describe, expect, it } from "vitest";
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
-import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 
 import { codexCatalog } from "./support/model-routing.js";
 
@@ -105,8 +104,8 @@ const replacementCharacterProfile: ResolvedProjectProfile = {
 const baseAnswers = (
   projectProfile: ResolvedProjectProfile,
 ): ResolvedAnswers => ({
-  contractVersion: "1.3.0",
-  hostContract: "1.3.0",
+  contractVersion: "1.4.0",
+  hostContract: "1.4.0",
   hosts: ["codex"],
   language: {
     conversation: "en",
@@ -371,7 +370,7 @@ describe("stack-profile doctor readiness", () => {
     const run = subject({
       mutateFiles: (files) => ({
         ...files,
-        ".brain/config.json": `${JSON.stringify({ ...projectConfigV1_4, projectProfile: null })}\n`,
+        ".brain/config.json": '{"stateContract":"1.4.0"}\n',
       }),
     });
 

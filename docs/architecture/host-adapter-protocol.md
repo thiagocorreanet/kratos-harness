@@ -81,8 +81,9 @@ adapter protocol. For one phase it:
 1. obtains the validated handoff through the runtime transport;
 2. refuses to start phase work unless the native launcher declares exact model
    and effort selection;
-3. passes the runtime-selected phase, role, model, and effort unchanged to that
-   launcher; and
+3. passes the complete runtime handoff, including the selected phase, role,
+   model, effort, and acceptance attempt context, unchanged to that launcher;
+   and
 4. translates the launch result into an `sdd.agent.record:<correlation>`
    request carrying the original `assignmentDigest` in `phaseExecution`.
 
@@ -170,6 +171,15 @@ The response payload is a universal result. An adapter publishes it; it does
 not recompute the exit code, restate the reason, or convert a refusal into a
 success. The conformance suite drives every exit class through `relay` and
 checks the verdict survives.
+
+For acceptance, both Claude Code and Codex relay the same runtime-built
+`host.phase-handoff@1.3.0` context and return the same
+`host.agent-output@1.3.0` envelope. The handoff includes the frozen attempt
+ceiling, ordered attempts, `faultsRequiredFor`, and active typed faults. The
+runtime alone validates classifications and diagnoses, records a verdict, and
+chooses below-ceiling repair or a repeated-rejection stop. An adapter cannot
+clear a stop by issuing `start` or `continue`, choose a classification, reset
+an attempt, or turn token exhaustion into a rejection stop.
 
 ## The conformance suite
 

@@ -88,15 +88,27 @@ export function evaluateGates(context: GateContext): GateDecision {
       ]),
     );
   }
-  if (context.stopLoss.tripped) {
+  for (const stop of context.stopLoss.repeatedRejections ?? []) {
     failures.push(
-      failure("stop-loss", "blocked.stop_loss_flag", context, [
+      failure(
+        "stop-loss",
+        "blocked.stop_loss_rejections",
+        context,
+        [stop.artifactRef],
+        `Acceptance criterion ${stop.criterionId} stopped at attempt ${String(stop.attempt)} with classification ${stop.classification}.`,
+      ),
+    );
+  }
+  if (context.stopLoss.exhausted) {
+    failures.push(
+      failure("stop-loss", "blocked.stop_loss_budget", context, [
         ".brain/03-memory/task_metrics.md",
       ]),
     );
-  } else if (context.stopLoss.exhausted) {
+  }
+  if (context.stopLoss.tripped) {
     failures.push(
-      failure("stop-loss", "blocked.stop_loss_budget", context, [
+      failure("stop-loss", "blocked.stop_loss_flag", context, [
         ".brain/03-memory/task_metrics.md",
       ]),
     );

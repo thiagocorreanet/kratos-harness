@@ -208,7 +208,7 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
-Current `host.init-answers@1.3.0` accepts `modelRoles`, keyed by enabled
+Current `host.init-answers@1.4.0` accepts `modelRoles`, keyed by enabled
 configuration host. Every supplied host map is closed to `planner`,
 `implementer`, and `judge`. Each assignment is either a bare model name or
 `{ "model": NAME, "effort": EFFORT }`; a bare name normalizes exactly to the
@@ -220,10 +220,16 @@ reason, or `unresolved`. Reinitialization preserves omitted current leaves;
 explicit `unresolved` clears one. Detection never invents a command, path, or
 convention from a stack marker.
 
+Its optional `acceptanceAttemptCeiling` sets a positive safe-integer override,
+clears an existing override with `null`, or preserves the current value when
+omitted during reinitialization. The corresponding project configuration stays
+optional when no override is supplied; a new run resolves the documented
+default of `3` and freezes it in the run event.
+
 ```json
 {
-  "contractVersion": "1.3.0",
-  "hostContract": "1.3.0",
+  "contractVersion": "1.4.0",
+  "hostContract": "1.4.0",
   "hosts": ["codex"],
   "modelRoles": {
     "codex": {
@@ -232,6 +238,7 @@ convention from a stack marker.
       "judge": { "model": "gpt-5.6-terra", "effort": "medium" }
     }
   },
+  "acceptanceAttemptCeiling": 3,
   "projectProfile": {
     "commands": {
       "test": { "status": "resolved", "value": "npm test" },

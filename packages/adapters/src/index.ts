@@ -3,6 +3,7 @@ import {
   KRATOS_VERSION,
   type AdapterMessageV1_1,
   type PhaseLifecycleV1,
+  type CurrentPhaseHandoff,
   type PhaseHandoffV1_2,
 } from "@kratos/contracts";
 
@@ -193,7 +194,10 @@ export interface HostRendering {
 
 export interface HostPhaseRuntime {
   handoff(): Promise<
-    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_2 }
+    | {
+        readonly kind: "ready";
+        readonly handoff: PhaseHandoffV1_2 | CurrentPhaseHandoff;
+      }
     | { readonly kind: "refused"; readonly rendering: HostRendering }
   >;
   start(lifecycle: PhaseLifecycleV1): Promise<HostRendering>;
@@ -207,12 +211,13 @@ export interface HostPhaseLauncher {
     readonly effort: boolean;
   };
   launch(request: {
-    readonly phase: PhaseHandoffV1_2["phase"];
-    readonly role: PhaseHandoffV1_2["assignment"]["role"];
+    readonly phase: CurrentPhaseHandoff["phase"];
+    readonly role: CurrentPhaseHandoff["assignment"]["role"];
     readonly model: string;
     readonly effort: string;
     /** Exact runtime handoff acknowledgement the host gives the phase agent. */
-    readonly memory: PhaseHandoffV1_2["memory"];
+    readonly memory: CurrentPhaseHandoff["memory"];
+    readonly handoff: PhaseHandoffV1_2 | CurrentPhaseHandoff;
   }): Promise<{
     readonly payload: { readonly ref: string; readonly sha256: string };
     /** Host observation only; nullable values are never filled from selection. */
@@ -463,6 +468,7 @@ export async function relaySelectedPhase(
       model: handoff.assignment.model,
       effort: handoff.assignment.effort,
       memory: handoff.memory,
+      handoff,
     }),
   );
   const adapter = createHostAdapter(host, {
@@ -480,7 +486,7 @@ export async function relaySelectedPhase(
     messageId: input.messageId,
     correlationId: input.correlationId,
     operation: `sdd.agent.record:${input.correlationId}`,
-    payloadContract: "host.agent-output@1.2.0",
+    payloadContract: "host.agent-output@1.3.0",
     payload: { ...execution.payload },
     phaseExecution: {
       assignmentDigest: handoff.assignmentDigest,

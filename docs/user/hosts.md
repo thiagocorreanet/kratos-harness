@@ -55,18 +55,21 @@ does not clear either condition. The only release is
 `unlock stop-loss --run ID` with the exact `UNLOCK ID` confirmation on standard
 input, which preserves the total and starts a new budget epoch.
 
-Before a selected phase agent launches, both Claude Code and Codex obtain the
-runtime handoff and relay the same closed `host.phase-lifecycle@1.0.0` phase
-start. The normalized payload carries the trusted session and correlation IDs,
-occurrence time, and runtime assignment digest. A refused or invalid start
-prevents launch. Host syntax differs, but the lifecycle message and ordering do
-not.
+## Acceptance repair parity
 
-The runtime re-resolves the digest-bound assignment and is authoritative for
-phase, role, canonical model, effort, token delta, duration, deduplication, and
-recovery. Agent prose cannot set or change those values. Nullable model and
-effort observed by a host are retained only as separate provenance. Adapters do
-not map phases, select assignments, calculate counters, or repair measurements.
+Claude Code and Codex receive the same runtime-derived phase handoff and relay
+the same `host.agent-output@1.3.0` acceptance payload. For a rejected
+criterion at its frozen attempt ceiling, the payload supplies one typed
+`code` or `specification` fault classification and diagnosis for that
+criterion. Neither host counts attempts, decides whether a ceiling was reached,
+or selects a recovery route.
+
+Both hosts expose the same `repair resolve` operation. It requires the source
+run, AC identifier, human identity, and written observation. A code resolution
+selectively resets the named criterion in that run; a specification resolution
+requires a next-run identifier and starts the new run at `spec`. Plain resume
+cannot release either result. Host parity covers equivalent inputs and runtime
+results, not an assertion that proprietary host APIs share an implementation.
 
 Failed tools create immutable, digest-addressed candidate records containing a
 bounded sanitized diagnostic. Identical failures address the same record and

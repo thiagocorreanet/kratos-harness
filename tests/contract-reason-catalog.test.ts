@@ -51,6 +51,10 @@ const catalogV110Path = join(
   repositoryRoot,
   "packages/contracts/catalogs/reason-codes.v1.10.json",
 );
+const catalogV111Path = join(
+  repositoryRoot,
+  "packages/contracts/catalogs/reason-codes.v1.11.json",
+);
 const resultLibraryUrl = pathToFileURL(
   join(repositoryRoot, "scripts/lib/result-contract.mjs"),
 ).href;
@@ -91,6 +95,7 @@ let catalogV17: Catalog;
 let catalogV18: Catalog;
 let catalogV19: Catalog;
 let catalogV110: Catalog;
+let catalogV111: Catalog;
 let catalogV1Text: string;
 let catalogV11Text: string;
 let catalogV12Text: string;
@@ -102,6 +107,7 @@ let catalogV17Text: string;
 let catalogV18Text: string;
 let catalogV19Text: string;
 let catalogV110Text: string;
+let catalogV111Text: string;
 
 beforeAll(async () => {
   [
@@ -116,6 +122,7 @@ beforeAll(async () => {
     catalogV18Text,
     catalogV19Text,
     catalogV110Text,
+    catalogV111Text,
   ] = await Promise.all([
     readFile(catalogV1Path, "utf8"),
     readFile(catalogV11Path, "utf8"),
@@ -128,6 +135,7 @@ beforeAll(async () => {
     readFile(catalogV18Path, "utf8"),
     readFile(catalogV19Path, "utf8"),
     readFile(catalogV110Path, "utf8"),
+    readFile(catalogV111Path, "utf8"),
   ]);
   catalogV1 = JSON.parse(catalogV1Text) as Catalog;
   catalogV11 = JSON.parse(catalogV11Text) as Catalog;
@@ -140,6 +148,7 @@ beforeAll(async () => {
   catalogV18 = JSON.parse(catalogV18Text) as Catalog;
   catalogV19 = JSON.parse(catalogV19Text) as Catalog;
   catalogV110 = JSON.parse(catalogV110Text) as Catalog;
+  catalogV111 = JSON.parse(catalogV111Text) as Catalog;
 });
 
 // The frozen digests below were re-taken after the CLI was renamed to
@@ -459,6 +468,29 @@ describe("contract reason catalog revision", () => {
         retryable,
       });
     }
+  });
+
+  it("preserves revision 1.10 and appends the repeated-rejection gate reason", () => {
+    expect(catalogV111.contractVersion).toBe("1.0.0");
+    expect(catalogV111.reasons.slice(0, catalogV110.reasons.length)).toEqual(
+      catalogV110.reasons,
+    );
+    expect(
+      catalogV111.reasons
+        .slice(catalogV110.reasons.length)
+        .map(({ code }) => code),
+    ).toEqual(["blocked.stop_loss_rejections"]);
+    expect(
+      catalogV111.reasons.find(
+        ({ code }) => code === "blocked.stop_loss_rejections",
+      ),
+    ).toMatchObject({
+      status: "blocked",
+      exitCode: 3,
+      evidence: "required",
+      stateChanged: false,
+      retryable: false,
+    });
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

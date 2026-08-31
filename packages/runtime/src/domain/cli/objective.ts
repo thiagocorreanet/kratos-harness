@@ -36,6 +36,12 @@ export const objectiveCommand: CommandSpec = observingCommand(
         summary: "Replace a divergent active objective with this text.",
       },
       {
+        name: "--token-ceiling",
+        kind: "value",
+        valueLabel: "<positive-integer>",
+        summary: "Declare the token ceiling frozen when a run starts.",
+      },
+      {
         name: "--root",
         kind: "value",
         valueLabel: "<path>",
@@ -49,6 +55,7 @@ export const objectiveCommand: CommandSpec = observingCommand(
     decide(
       invocation.positionals[0] ?? "",
       invocation.flags.get("--replace") === true,
+      invocation.flags.get("--token-ceiling"),
       observation,
     ),
 );
@@ -56,11 +63,15 @@ export const objectiveCommand: CommandSpec = observingCommand(
 function decide(
   text: string,
   replace: boolean,
+  rawTokenCeiling: string | true | undefined,
   observation: Observation,
 ): Decision {
+  const tokenCeiling = parseTokenCeiling(rawTokenCeiling);
+  if (tokenCeiling === null) return refusal("trail.uso");
   const decision = decideObjective(observation.objective, {
     text,
     replace,
+    tokenCeiling,
     now: observation.now,
   });
 
@@ -79,6 +90,15 @@ function decide(
       ? observation.history
       : "";
   return recorded(decision, inherited);
+}
+
+function parseTokenCeiling(
+  value: string | true | undefined,
+): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/u.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 function recorded(

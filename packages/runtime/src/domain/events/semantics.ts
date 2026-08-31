@@ -48,6 +48,13 @@ export const WORKFLOW_TRANSITION_FACTS = {
   },
 } as const satisfies Readonly<Record<string, EventFactPolicy>>;
 
+export const WORKFLOW_POLICY_UPGRADE_FACT = {
+  reasonCode: "run.policy_upgraded",
+  eventType: "recovery",
+  effect: "state",
+  assignment: "forbidden",
+} as const satisfies EventFactPolicy;
+
 export const WORKFLOW_OPERATION_FACTS = {
   "agent.record": {
     reasonCode: "run.agent.recorded",
@@ -132,9 +139,19 @@ type WorkflowOperationFamily = "start" | "continue" | FactOperation;
 
 const workflowOperation =
   /^sdd\.(start|continue|agent\.record|gaps\.record|gaps\.resolve|gaps\.waive|gates\.record):[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const acceptanceOperation =
+  /^sdd\.acceptance\.record:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const repairResolutionOperation =
+  /^sdd\.repair\.resolve:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const specificationRestartOperation =
+  /^sdd\.repair\.restart:[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
 
 const policiesByOperation = {
-  start: [WORKFLOW_TRANSITION_FACTS.started, WORKFLOW_TRANSITION_FACTS.resumed],
+  start: [
+    WORKFLOW_TRANSITION_FACTS.started,
+    WORKFLOW_TRANSITION_FACTS.resumed,
+    WORKFLOW_POLICY_UPGRADE_FACT,
+  ],
   continue: [
     WORKFLOW_TRANSITION_FACTS.resumed,
     WORKFLOW_TRANSITION_FACTS.accepted,
@@ -157,6 +174,7 @@ const reservedReasons = new Set<string>([
   ...Object.values(WORKFLOW_OPERATION_FACTS).map(
     ({ reasonCode }) => reasonCode,
   ),
+  WORKFLOW_POLICY_UPGRADE_FACT.reasonCode,
   ...Object.values(LOCK_EVENT_REASONS),
 ]);
 
@@ -173,9 +191,65 @@ function matchesPolicy(
   );
 }
 
+function hasConsistentAcceptanceMetadata(
+  event: Extract<
+    ReadableEvent,
+    { readonly stateContract: "1.2.0" | "1.3.0" | "1.4.0" }
+  >,
+): boolean {
+  const decision = event.acceptanceDecision;
+  if (decision === undefined) return false;
+  const attempts = new Map<string, number>();
+  for (const attempt of decision.attempts) {
+    if (attempts.has(attempt.criterionId)) return false;
+    attempts.set(attempt.criterionId, attempt.attempt);
+  }
+  if (
+    (decision.outcome === "passed" &&
+      (decision.attempts.length !== 0 || decision.repairStops.length !== 0)) ||
+    (decision.outcome === "repair" &&
+      (decision.attempts.length === 0 || decision.repairStops.length !== 0)) ||
+    (decision.outcome === "stopped" && decision.repairStops.length === 0)
+  ) {
+    return false;
+  }
+  const stoppedCriteria = new Set<string>();
+  let priorAttemptIndex = -1;
+  for (const stop of decision.repairStops) {
+    if (
+      stoppedCriteria.has(stop.criterionId) ||
+      attempts.get(stop.criterionId) !== stop.attempt ||
+      !event.artifactRefs.includes(stop.artifactRef)
+    ) {
+      return false;
+    }
+    const attemptIndex = decision.attempts.findIndex(
+      ({ criterionId }) => criterionId === stop.criterionId,
+    );
+    if (attemptIndex <= priorAttemptIndex) return false;
+    priorAttemptIndex = attemptIndex;
+    stoppedCriteria.add(stop.criterionId);
+  }
+  return true;
+}
+
 export function assertEventSemanticPolicy(event: ReadableEvent): void {
   if (event.stateContract === "1.0.0") return;
   const hasAssignment = Object.hasOwn(event, "resolvedAssignment");
+  const workflowEvent =
+    event.stateContract === "1.2.0" ||
+    event.stateContract === "1.3.0" ||
+    event.stateContract === "1.4.0"
+      ? event
+      : null;
+  const current =
+    event.stateContract === "1.3.0" || event.stateContract === "1.4.0"
+      ? event
+      : null;
+  const hasRunLimits = workflowEvent?.runLimits !== undefined;
+  const hasAcceptanceDecision = workflowEvent?.acceptanceDecision !== undefined;
+  const hasRepairResolution = current?.repairResolution !== undefined;
+  const hasStartedFromSpec = current?.startedFromSpec !== undefined;
   if (
     event.resolvedAssignment !== undefined &&
     event.resolvedAssignment.role !==
@@ -183,7 +257,7 @@ export function assertEventSemanticPolicy(event: ReadableEvent): void {
   ) {
     throw new Error("invalid event semantics");
   }
-  if (event.stateContract === "1.2.0") {
+  if ("gateFailures" in event) {
     const ids = event.gateFailures.map(({ gateId }) => gateId);
     if (new Set(ids).size !== ids.length) {
       throw new Error("invalid event semantics");
@@ -217,6 +291,14 @@ export function assertEventSemanticPolicy(event: ReadableEvent): void {
     }
   }
   if (event.operation.startsWith("lock.")) {
+    if (
+      hasRunLimits ||
+      hasAcceptanceDecision ||
+      hasRepairResolution ||
+      hasStartedFromSpec
+    ) {
+      throw new Error("invalid event semantics");
+    }
     const lockMatch = LOCK_OPERATION_PATTERN.exec(event.operation);
     if (lockMatch === null) throw new Error("invalid event semantics");
     const action = lockMatch[1] as LockLifecycleAction;
@@ -226,10 +308,99 @@ export function assertEventSemanticPolicy(event: ReadableEvent): void {
     }
     return;
   }
+  if (acceptanceOperation.test(event.operation)) {
+    if (
+      workflowEvent === null ||
+      event.policyVersion !== "workflow-v2" ||
+      hasAssignment ||
+      hasRunLimits ||
+      hasRepairResolution ||
+      hasStartedFromSpec ||
+      workflowEvent.acceptanceDecision === undefined ||
+      !hasConsistentAcceptanceMetadata(workflowEvent) ||
+      event.eventType !== "decision" ||
+      event.effect !== "state-and-artifact"
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    const expectedReason = {
+      passed: "run.acceptance.passed",
+      repair: "run.acceptance.repair_required",
+      stopped: "run.stop_loss.repeated_rejection",
+    }[workflowEvent.acceptanceDecision.outcome];
+    if (event.reasonCode !== expectedReason) {
+      throw new Error("invalid event semantics");
+    }
+    return;
+  }
+  if (repairResolutionOperation.test(event.operation)) {
+    const resolution = current?.repairResolution;
+    if (
+      current === null ||
+      event.policyVersion !== "workflow-v2" ||
+      hasAssignment ||
+      hasRunLimits ||
+      hasAcceptanceDecision ||
+      hasStartedFromSpec ||
+      resolution === undefined ||
+      event.eventType !== "recovery" ||
+      event.effect !== "state-and-artifact" ||
+      event.reasonCode !== "run.repair_stop.resolved" ||
+      !event.artifactRefs.includes(resolution.resolutionRef)
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    const specification = resolution.classification === "specification";
+    if (
+      specification !== (resolution.nextRunId !== null) ||
+      specification !== (resolution.restartTicketRef !== null) ||
+      specification !== (resolution.restartTicketDigest !== null) ||
+      (resolution.restartTicketRef !== null &&
+        !event.artifactRefs.includes(resolution.restartTicketRef))
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    return;
+  }
+  if (specificationRestartOperation.test(event.operation)) {
+    const restart = current?.startedFromSpec;
+    if (
+      current === null ||
+      event.policyVersion !== "workflow-v2" ||
+      hasAssignment ||
+      !hasRunLimits ||
+      hasAcceptanceDecision ||
+      hasRepairResolution ||
+      restart === undefined ||
+      event.eventType !== "recovery" ||
+      event.effect !== "state-and-artifact" ||
+      event.reasonCode !== "run.started_from_spec" ||
+      !event.artifactRefs.includes(restart.restartTicketRef)
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    return;
+  }
   if (event.operation.startsWith("sdd.")) {
     const operation = workflowOperation.exec(event.operation)?.[1] as
       WorkflowOperationFamily | undefined;
     if (operation === undefined) throw new Error("invalid event semantics");
+    const isWorkflowV2LimitBoundary =
+      workflowEvent !== null &&
+      event.policyVersion === "workflow-v2" &&
+      (event.reasonCode === "run.started" ||
+        (event.stateContract === "1.4.0" &&
+          event.reasonCode === WORKFLOW_POLICY_UPGRADE_FACT.reasonCode));
+    if (
+      hasAcceptanceDecision ||
+      hasRepairResolution ||
+      hasStartedFromSpec ||
+      hasRunLimits !== isWorkflowV2LimitBoundary ||
+      (event.reasonCode === WORKFLOW_POLICY_UPGRADE_FACT.reasonCode &&
+        event.stateContract !== "1.4.0")
+    ) {
+      throw new Error("invalid event semantics");
+    }
     const matches = policiesByOperation[operation].filter((policy) =>
       matchesPolicy(event, policy, hasAssignment),
     );
@@ -240,7 +411,11 @@ export function assertEventSemanticPolicy(event: ReadableEvent): void {
     event.eventType !== "operation" ||
     event.effect !== "state" ||
     hasAssignment ||
-    reservedReasons.has(event.reasonCode)
+    reservedReasons.has(event.reasonCode) ||
+    hasRunLimits ||
+    hasAcceptanceDecision ||
+    hasRepairResolution ||
+    hasStartedFromSpec
   ) {
     throw new Error("invalid event semantics");
   }

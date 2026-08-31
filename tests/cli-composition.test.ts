@@ -196,7 +196,7 @@ describe("composed command line", () => {
     const result = await run(["start"]);
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("Reason: trail.uso");
+    expect(result.stderr).toContain("Reason: guard.config_missing");
   });
 
   it("writes a JSON failure to stdout as one envelope", async () => {
@@ -204,7 +204,7 @@ describe("composed command line", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe("");
     expect(JSON.parse(result.stdout)).toMatchObject({
-      reasonCode: "trail.uso",
+      reasonCode: "guard.config_missing",
     });
   });
 

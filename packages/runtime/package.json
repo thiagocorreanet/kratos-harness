@@ -45,6 +45,7 @@
     "./domain/phase-agents": "./src/domain/phase-agents/index.ts",
     "./domain/prompt-eval": "./src/domain/prompt-eval/index.ts",
     "./domain/requirement-discovery": "./src/domain/requirement-discovery/index.ts",
+    "./domain/repair-loop": "./src/domain/repair-loop/index.ts",
     "./domain/result": "./src/domain/result/index.ts",
     "./domain/schema": "./src/domain/schema/index.ts",
     "./domain/transactions": "./src/domain/transactions/index.ts",

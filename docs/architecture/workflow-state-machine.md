@@ -53,3 +53,55 @@ allow at version 1.0.0.
 6. `kratos done` completes only final acceptance.
 
 No command bypasses the reducer by editing `state.json`.
+
+## Acceptance repair stop-loss
+
+`workflow-v2` freezes two resolved limits in its start event: the per-criterion
+acceptance attempt ceiling and the optional objective token ceiling. An omitted
+`acceptanceAttemptCeiling` resolves to `3` for that run. The objective's current
+`objective.budget.tokens` value selects the ceiling only when an ordinary or
+specification-restart run begins. Hooks, diagnostics, gap facts, and every other
+current-run projection use the replayed `tokenCeiling`, even if objective state
+is later added, removed, raised, or lowered. Measuring tokens is outside this
+workflow decision and belongs to the existing usage pipeline.
+
+Rejected acceptance criteria advance independently in task-document order. A
+criterion below its ceiling yields the recorded `repair` decision and returns
+the same run to `code`. A criterion reaching its ceiling yields
+`run.stop_loss.repeated_rejection`, creates an immutable repair-stop artifact,
+and blocks the run. Every simultaneous stop is retained in document order. The
+agent output must provide exactly one `code` or `specification` classification
+and bounded diagnosis for each newly stopping criterion; incomplete or
+unexpected fault input is refused before an event is written.
+
+The event contains ordered attempt facts, classification, and digest-bound
+artifact references, not diagnoses. Replay reconstructs attempts and active
+stops from the event stream, then validates the immutable artifact bytes. A
+mixed `workflow-v1`/`workflow-v2` event stream is accepted only after an
+explicit `state.event@1.4.0` `run.policy_upgraded` boundary freezes both chosen
+limits. The legacy prefix contributes empty attempt and recovery state; replay
+never infers limits from mutable configuration or objective state. A v2
+continuation without the boundary fails closed. Accepted verdicts and duplicate
+operations preserve attempts. Ordinary resume, phase completion, and phase
+advance are refused whenever an active repair stop or specification restart is
+present, independently of caller-supplied gate facts; forged equivalents fail
+replay.
+
+`repair resolve` is the only repair-loop release path. A persisted `code`
+classification selectively clears its own criterion and leaves the run blocked
+until all active code stops are resolved; the run then returns to `code`. A
+`specification` stop cannot be resolved while any code stop remains, which
+prevents a source run from stranding code recovery after the active-run pointer
+moves. Once code stops are cleared, specification resolution writes a
+digest-bound restart ticket on the source run and starts a separate run at
+`spec`. The old run remains blocked, the new run needs a new specification
+approval and its own frozen limits, and all affected source AC identifiers are
+retired.
+
+Observation revalidates the stop, resolution, and restart schemas and exact
+digests; their source and target bindings; ordered retired identifiers; and the
+successor stream, snapshot, and cross-links. Missing or changed artifacts and
+missing or divergent successors make the source run corrupt. A duplicate
+correlation is unchanged only when the original criterion, classification,
+target run, human observation, and recovery bindings match exactly; a divergent
+retry is a revision conflict.

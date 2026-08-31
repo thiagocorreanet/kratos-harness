@@ -171,6 +171,12 @@ export interface ApplyPlanOptions<State = JsonState> {
   readonly rootMode: "existing" | "initialize";
   readonly eventReducers?: EventReducerRegistry<State>;
   /**
+   * Explicit reducer authority for an atomic transaction spanning distinct
+   * event stores. The feature/run binding prevents one registry from being
+   * silently reused for another run.
+   */
+  readonly eventReducerRegistries?: readonly EventReducerBinding<State>[];
+  /**
    * A preview this apply must still agree with.
    *
    * An apply re-decides from current state rather than replaying a plan, which
@@ -180,6 +186,12 @@ export interface ApplyPlanOptions<State = JsonState> {
    * into `runtime.revision_conflict`.
    */
   readonly expectPreview?: MutationPreview;
+}
+
+export interface EventReducerBinding<State = JsonState> {
+  readonly feature: string;
+  readonly runId: string;
+  readonly reducers: EventReducerRegistry<State>;
 }
 
 class MissingReducerRegistry extends Error {}
@@ -208,25 +220,22 @@ export async function applyPlan<State = JsonState>(
   } else {
     const receipt = await executeManagedMutation(
       normalized.plan,
-      prepared === undefined
+      prepared.length === 0
         ? guards.length === 0
           ? frozenOptions
           : { ...frozenOptions, guardPreconditions: guards }
         : {
             ...frozenOptions,
-            eventStorePreconditions: [
+            eventStorePreconditions: prepared.flatMap((append) => [
               {
-                path: prepared.paths.events,
-                expected: preparedFingerprint(prepared, prepared.paths.events),
+                path: append.paths.events,
+                expected: preparedFingerprint(append, append.paths.events),
               },
               {
-                path: prepared.paths.snapshot,
-                expected: preparedFingerprint(
-                  prepared,
-                  prepared.paths.snapshot,
-                ),
+                path: append.paths.snapshot,
+                expected: preparedFingerprint(append, append.paths.snapshot),
               },
-            ],
+            ]),
             ...(guards.length === 0 ? {} : { guardPreconditions: guards }),
           },
       services,
@@ -261,7 +270,7 @@ interface DecidedMutation {
     readonly expected: Extract<PathFingerprint, { readonly kind: "file" }>;
   }[];
   readonly services: TransactionServices;
-  readonly prepared: PreparedEventAppend | undefined;
+  readonly prepared: readonly PreparedEventAppend[];
   readonly normalized: ReturnType<typeof normalizeManagedMutationPlan>;
   readonly emits: readonly Extract<Effect, { readonly kind: "emit" }>[];
 }
@@ -294,39 +303,42 @@ async function decideMutation<State = JsonState>(
     durableFileSystem: ports.durableFileSystem,
     schemaRegistry: createSchemaRegistry(),
   };
-  const append = selectAppendEffect(frozenPlan);
-  if (append !== undefined)
-    assertAppendDestinationsExclusive(frozenPlan, append);
+  const appends = selectAppendEffects(frozenPlan);
+  assertAppendDestinationsExclusive(frozenPlan, appends);
 
-  let prepared: PreparedEventAppend | undefined;
-  if (append !== undefined) {
-    const eventReducers = snapshotAppendReducers(
+  const prepared: PreparedEventAppend[] = [];
+  if (appends.length !== 0) {
+    const reducerRegistries = snapshotAppendReducerRegistries(
       input.options,
-      append,
+      appends,
       services.schemaRegistry,
     );
     await preflightManagedTransactions(frozenOptions, services, reconcile);
-    prepared = await prepareEventAppend(
-      { feature: append.feature, runId: append.runId, event: append.event },
-      {
-        durableFileSystem: ports.durableFileSystem,
-        digests: ports.digests,
-        reducers: eventReducers,
-        schemaRegistry: services.schemaRegistry,
-      },
-    );
+    for (const [index, append] of appends.entries()) {
+      const reducers = reducerRegistries[index];
+      if (reducers === undefined) throw invalidApplyInput();
+      prepared.push(
+        await prepareEventAppend(
+          { feature: append.feature, runId: append.runId, event: append.event },
+          {
+            durableFileSystem: ports.durableFileSystem,
+            digests: ports.digests,
+            reducers,
+            schemaRegistry: services.schemaRegistry,
+          },
+        ),
+      );
+    }
   } else if (hasManagedEffects(frozenPlan)) {
     await preflightManagedTransactions(frozenOptions, services, reconcile);
   }
-  const expandedPlan =
-    prepared === undefined
-      ? frozenPlan
-      : expandAppendEffect(frozenPlan, prepared);
-  const observations = await observeManagedPaths(
-    expandedPlan,
-    ports,
-    prepared?.expected,
-  );
+  const expandedPlan = expandAppendEffects(frozenPlan, appends, prepared);
+  const expected = new Map<string, PathFingerprint>();
+  for (const append of prepared) {
+    for (const [path, fingerprint] of append.expected)
+      expected.set(path, fingerprint);
+  }
+  const observations = await observeManagedPaths(expandedPlan, ports, expected);
   assertWritePreconditions(expandedPlan, observations);
   const guards = expandedPlan.effects
     .filter(
@@ -353,8 +365,8 @@ async function decideMutation<State = JsonState>(
     throw new TransactionFailure("runtime.internal_failure", []);
   }
 
-  if (prepared !== undefined)
-    await assertPreparedAppendIsFresh(prepared, ports);
+  for (const append of prepared)
+    await assertPreparedAppendIsFresh(append, ports);
 
   return { frozenOptions, guards, services, prepared, normalized, emits };
 }
@@ -721,11 +733,19 @@ function snapshotAppendEffect(
     throw invalidApplyInput();
   }
   try {
+    const draft = snapshotEventDraft(event, types.isProxy);
+    if (
+      draft.stateContract !== "1.2.0" &&
+      draft.stateContract !== "1.3.0" &&
+      draft.stateContract !== "1.4.0"
+    ) {
+      throw invalidApplyInput();
+    }
     return {
       kind,
       feature,
       runId,
-      event: snapshotEventDraft(event, types.isProxy),
+      event: draft,
     };
   } catch {
     throw new TransactionFailure("runtime.state_corrupt", eventEvidence(paths));
@@ -781,31 +801,34 @@ function hasManagedEffects(plan: EffectPlan): boolean {
   );
 }
 
-function selectAppendEffect(plan: EffectPlan): AppendEventEffect | undefined {
-  let append: AppendEventEffect | undefined;
+function selectAppendEffects(plan: EffectPlan): readonly AppendEventEffect[] {
+  const appends: AppendEventEffect[] = [];
   for (const effect of plan.effects) {
     if (effect.kind !== "append_event") continue;
-    if (append !== undefined) throw invalidApplyInput();
-    append = effect;
+    appends.push(effect);
   }
-  return append;
+  return appends;
 }
 
 function assertAppendDestinationsExclusive(
   plan: EffectPlan,
-  append: AppendEventEffect,
+  appends: readonly AppendEventEffect[],
 ): void {
-  let paths: ReturnType<typeof eventStorePaths> | undefined;
+  if (appends.length === 0) return;
   try {
-    paths = eventStorePaths(append);
-    const owned = [
-      managedPathCollisionKey(paths.events),
-      managedPathCollisionKey(paths.snapshot),
-    ];
+    const owned = new Set<string>();
+    for (const append of appends) {
+      const paths = eventStorePaths(append);
+      for (const path of [paths.events, paths.snapshot]) {
+        const key = managedPathCollisionKey(path);
+        if (owned.has(key)) throw invalidApplyInput();
+        owned.add(key);
+      }
+    }
     for (const effect of plan.effects) {
       if (
         (effect.kind === "write_file" || effect.kind === "delete_file") &&
-        owned.includes(managedPathCollisionKey(effect.path))
+        owned.has(managedPathCollisionKey(effect.path))
       ) {
         throw invalidApplyInput();
       }
@@ -815,20 +838,14 @@ function assertAppendDestinationsExclusive(
   }
 }
 
-function snapshotAppendReducers<State>(
-  options: Record<string, unknown>,
+function snapshotAppendReducer<State>(
+  registry: unknown,
   append: AppendEventEffect,
   schemaRegistry: TransactionServices["schemaRegistry"],
 ): EventReducerRegistry<State> {
   const paths = eventStorePaths(append);
   const dependencyState = { proxyDetectorFailed: false };
   try {
-    let registry: unknown;
-    try {
-      registry = ownData(options, "eventReducers");
-    } catch {
-      throw new MissingReducerRegistry();
-    }
     if (registry === undefined) throw new MissingReducerRegistry();
     return snapshotEventReducerRegistry(
       registry as EventReducerRegistry<State>,
@@ -858,6 +875,88 @@ function snapshotAppendReducers<State>(
   }
 }
 
+function snapshotAppendReducerRegistries<State>(
+  options: Record<string, unknown>,
+  appends: readonly AppendEventEffect[],
+  schemaRegistry: TransactionServices["schemaRegistry"],
+): readonly EventReducerRegistry<State>[] {
+  try {
+    const singleDescriptor = Object.getOwnPropertyDescriptor(
+      options,
+      "eventReducers",
+    );
+    const multipleDescriptor = Object.getOwnPropertyDescriptor(
+      options,
+      "eventReducerRegistries",
+    );
+    if (singleDescriptor !== undefined && multipleDescriptor !== undefined)
+      throw invalidApplyInput();
+    if (appends.length === 1 && multipleDescriptor === undefined) {
+      if (singleDescriptor !== undefined && !("value" in singleDescriptor))
+        throw invalidApplyInput();
+      const append = appends[0];
+      if (append === undefined) throw invalidApplyInput();
+      return [
+        snapshotAppendReducer<State>(
+          singleDescriptor?.value,
+          append,
+          schemaRegistry,
+        ),
+      ];
+    }
+    if (multipleDescriptor === undefined || !("value" in multipleDescriptor))
+      throw invalidApplyInput();
+    const bindings: unknown = multipleDescriptor.value;
+    if (
+      !Array.isArray(bindings) ||
+      types.isProxy(bindings) ||
+      Object.getPrototypeOf(bindings) !== Array.prototype ||
+      bindings.length !== appends.length ||
+      Reflect.ownKeys(bindings).length !== bindings.length + 1
+    )
+      throw invalidApplyInput();
+    const byDestination = new Map<string, EventReducerRegistry<State>>();
+    for (let index = 0; index < bindings.length; index += 1) {
+      const binding = Object.getOwnPropertyDescriptor(bindings, String(index));
+      if (binding === undefined || !("value" in binding))
+        throw invalidApplyInput();
+      const value: unknown = binding.value;
+      if (
+        !isSafeRecord(value) ||
+        Object.getPrototypeOf(value) !== Object.prototype ||
+        Reflect.ownKeys(value).length !== 3
+      )
+        throw invalidApplyInput();
+      const feature = ownData(value, "feature");
+      const runId = ownData(value, "runId");
+      const registry = ownData(value, "reducers");
+      if (typeof feature !== "string" || typeof runId !== "string")
+        throw invalidApplyInput();
+      const key = `${feature}\u0000${runId}`;
+      if (byDestination.has(key)) throw invalidApplyInput();
+      const append = appends.find(
+        (candidate) =>
+          candidate.feature === feature && candidate.runId === runId,
+      );
+      if (append === undefined) throw invalidApplyInput();
+      byDestination.set(
+        key,
+        snapshotAppendReducer<State>(registry, append, schemaRegistry),
+      );
+    }
+    return appends.map((append) => {
+      const registry = byDestination.get(
+        `${append.feature}\u0000${append.runId}`,
+      );
+      if (registry === undefined) throw invalidApplyInput();
+      return registry;
+    });
+  } catch (error) {
+    if (error instanceof TransactionFailure) throw error;
+    throw invalidApplyInput();
+  }
+}
+
 function eventEvidence(paths: ReturnType<typeof eventStorePaths>) {
   return [
     { kind: "event" as const, ref: paths.events },
@@ -865,14 +964,28 @@ function eventEvidence(paths: ReturnType<typeof eventStorePaths>) {
   ];
 }
 
-function expandAppendEffect(
+function expandAppendEffects(
   plan: EffectPlan,
-  prepared: PreparedEventAppend,
+  appends: readonly AppendEventEffect[],
+  prepared: readonly PreparedEventAppend[],
 ): EffectPlan {
   const effects: Effect[] = [];
+  let index = 0;
   for (const effect of plan.effects) {
-    if (effect.kind === "append_event") effects.push(...prepared.effects);
-    else effects.push(effect);
+    if (effect.kind === "append_event") {
+      const append = appends[index];
+      const resolved = prepared[index];
+      const paths = append === undefined ? undefined : eventStorePaths(append);
+      if (
+        append === undefined ||
+        resolved === undefined ||
+        paths?.events !== resolved.paths.events ||
+        paths.snapshot !== resolved.paths.snapshot
+      )
+        throw invalidApplyInput();
+      effects.push(...resolved.effects);
+      index += 1;
+    } else effects.push(effect);
   }
   return { effects };
 }

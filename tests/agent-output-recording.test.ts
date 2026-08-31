@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import type {
   AgentOutputV1,
-  AgentOutputV1_2,
+  AgentOutputV1_3,
   EventV1,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -41,8 +41,8 @@ const REPLY = `.brain/02-features/${FEATURE}/agent-reply.md`;
 const registry = createSchemaRegistry();
 
 const PRD_BLOCK = {
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   agent: "prd",
   outcome: {
     status: "completed",
@@ -58,7 +58,7 @@ const PRD_BLOCK = {
     requirementIds: ["req-refund-window"],
     gapIds: [],
   },
-} as const satisfies AgentOutputV1_2;
+} as const satisfies AgentOutputV1_3;
 
 /** One agent reply: prose, an ordinary fenced example, then the machine block. */
 function reply(block: unknown = PRD_BLOCK): string {
@@ -233,7 +233,7 @@ describe("recording one agent reply", () => {
     const persisted = settled(after)[outputPath(after, "prd")] ?? "";
     const validated = registry.validate({
       id: "host.agent-output",
-      version: "1.2.0",
+      version: "1.3.0",
       value: JSON.parse(persisted) as unknown,
       structuralReasonCode: "trail.output_invalido",
     });
@@ -378,7 +378,7 @@ describe("replies the runtime refuses to route on", () => {
 
     expect(await runCommandLine(["--json", "handoff"], active.ports)).toBe(0);
     expect(JSON.parse(active.output.structured_.join(""))).toMatchObject({
-      contractVersion: "1.2.0",
+      contractVersion: "1.3.0",
       phase: "prd",
     });
   });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type {
   NarrationV1,
-  PhaseHandoffV1_2,
+  CurrentPhaseHandoff,
   ReadableEvent,
 } from "@kratos/contracts";
 import {
@@ -11,12 +11,15 @@ import {
   type CommandObservation,
   type Invocation,
 } from "@kratos/runtime/domain/cli";
-import type { GateDecision } from "@kratos/runtime/domain/gates";
+import {
+  resolveGateModes,
+  type GateDecision,
+} from "@kratos/runtime/domain/gates";
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
-const sampleHandoff: PhaseHandoffV1_2 = {
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+const sampleHandoff: CurrentPhaseHandoff = {
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   feature: "narration-feature",
   runId: "run-sample",
   revision: 2,
@@ -35,6 +38,12 @@ const sampleHandoff: PhaseHandoffV1_2 = {
   blockers: [],
   openGaps: 0,
   nextAction: "continue",
+  acceptance: {
+    attemptCeiling: 3,
+    attempts: [],
+    faultsRequiredFor: [],
+    faults: [],
+  },
   memory: {
     ref: ".brain/03-memory/gotchas.md",
     sha256: "0".repeat(64),
@@ -46,16 +55,7 @@ const sampleGateDecision: GateDecision = {
   outcome: "pass",
   primary: null,
   failures: [],
-  gateModes: {
-    "context-readable": "enforce",
-    "stop-loss": "enforce",
-    "prd-present": "enforce",
-    "spec-approved": "enforce",
-    "gaps-closed": "enforce",
-    "partition-approved": "enforce",
-    "acceptance-criteria": "enforce",
-    "final-acceptance": "enforce",
-  },
+  gateModes: resolveGateModes("strict", {}),
   criteria: [],
 };
 
@@ -70,6 +70,16 @@ const sampleWorkflowState: WorkflowState = {
   createdAt: "2026-08-29T10:00:00.000Z",
   updatedAt: "2026-08-29T10:15:00.000Z",
   operations: [],
+  policyVersion: "workflow-v2",
+  acceptanceAttemptCeiling: 3,
+  tokenCeiling: null,
+  attempts: [],
+  activeRepairStops: [],
+  repairStopHistory: [],
+  repairResolutions: [],
+  specificationRestart: null,
+  retiredCriterionIds: [],
+  startedFromSpec: null,
 };
 
 function createSampleObservation(
@@ -104,12 +114,8 @@ function createSampleObservation(
       measurementFaultAt: null,
       updatedAt: "2026-08-29T12:00:00.000Z",
     },
-    tokenUsage: null,
-    measurements: {
-      content: "",
-      records: [],
-      expected: { kind: "missing" },
-    },
+    tokenUsage: 0,
+    measurements: { content: "", records: [], expected: { kind: "missing" } },
     correlationId: "corr-1",
     eventId: "evt-1",
     occurredAt: "2026-08-29T12:00:00.000Z",
@@ -153,7 +159,12 @@ function createSampleObservation(
       initialSnapshotRef: null,
       initialSnapshotDigest: null,
       preparedVerdicts: [],
+      repairLoopDecision: null,
+      preparedRepairStops: [],
     },
+    repairResolution: null,
+    repairResolutionHistory: [],
+    repairLoopStopsReadable: true,
     gateFacts: {
       readable: true,
       stopLoss: { tripped: false, exhausted: false },
@@ -165,8 +176,11 @@ function createSampleObservation(
     specApproved: true,
     referencedFiles: [],
     gateDecision: sampleGateDecision,
+    policyMode: "enforce",
     defaultGateMode: "enforce",
+    acceptanceAttemptCeiling: { kind: "resolved", value: 3 },
     tokenBudget: null,
+    objectiveTokenBudget: null,
     events,
     persistedSnapshot: null,
     replayedSnapshot: null,
@@ -223,8 +237,8 @@ describe("kratos narrate command", () => {
 
   const sampleEvents: readonly ReadableEvent[] = [
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-01",
       eventType: "transition",
       occurredAt: "2026-08-29T10:00:00.000Z",
@@ -236,14 +250,13 @@ describe("kratos narrate command", () => {
       effect: "state",
       artifactRefs: [],
       evidenceRefs: [],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: null,
       eventHash: "a".repeat(64),
     },
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-02",
       eventType: "decision",
       occurredAt: "2026-08-29T10:05:00.000Z",
@@ -255,14 +268,13 @@ describe("kratos narrate command", () => {
       effect: "none",
       artifactRefs: [],
       evidenceRefs: ["evidence/approval.json"],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: "a".repeat(64),
       eventHash: "b".repeat(64),
     },
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-03",
       eventType: "decision",
       occurredAt: "2026-08-29T10:10:00.000Z",
@@ -274,14 +286,13 @@ describe("kratos narrate command", () => {
       effect: "none",
       artifactRefs: [],
       evidenceRefs: ["evidence/violation.json"],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: "b".repeat(64),
       eventHash: "c".repeat(64),
     },
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-04",
       eventType: "operation",
       occurredAt: "2026-08-29T10:15:00.000Z",
@@ -293,14 +304,13 @@ describe("kratos narrate command", () => {
       effect: "state",
       artifactRefs: [],
       evidenceRefs: [],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: "c".repeat(64),
       eventHash: "d".repeat(64),
     },
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-05",
       eventType: "recovery",
       occurredAt: "2026-08-29T10:16:00.000Z",
@@ -312,14 +322,13 @@ describe("kratos narrate command", () => {
       effect: "none",
       artifactRefs: [],
       evidenceRefs: [],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: "d".repeat(64),
       eventHash: "e".repeat(64),
     },
     {
-      contractVersion: "1.2.0",
-      stateContract: "1.2.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       eventId: "evt-06",
       eventType: "decision",
       occurredAt: "2026-08-29T10:17:00.000Z",
@@ -331,7 +340,6 @@ describe("kratos narrate command", () => {
       effect: "none",
       artifactRefs: [],
       evidenceRefs: [],
-      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       previousHash: "e".repeat(64),
       eventHash: "f".repeat(64),

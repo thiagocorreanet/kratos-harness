@@ -5,8 +5,7 @@ import type {
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
 import type {
-  AgentOutputV1,
-  AgentOutputV1_2,
+  ReadableAgentOutput,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -25,9 +24,13 @@ import type {
   MigrationV1,
   MigrationV1_1,
   ProjectConfigV1_4,
+  CurrentRepairResolution,
+  ReadableRepairResolution,
+  RepairRestartV1,
   RunUsageV1,
   SnapshotV1,
 } from "@kratos/contracts";
+import type { CurrentPhaseHandoff } from "@kratos/contracts";
 import type { PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { PhaseMeasurement } from "../measurements/index.js";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
@@ -53,6 +56,10 @@ import type { MigrationPlan } from "../migration/index.js";
 import type { TaskDocumentObservation } from "../acceptance-criteria/index.js";
 import type { CandidateCaptureDecision } from "../hooks/index.js";
 import type { StackProfileReadinessObservation } from "../diagnostics/index.js";
+import type {
+  RepairLoopDecision,
+  RepairLoopStopArtifact,
+} from "../repair-loop/index.js";
 
 export type GuardWriteOutcome =
   | { readonly kind: "allowed" }
@@ -91,7 +98,7 @@ export interface FlagSpec {
 }
 
 export type JsonContractId =
-  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.2.0";
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.3.0";
 
 export interface Decision {
   readonly result: Result;
@@ -109,6 +116,12 @@ export interface Decision {
   readonly rootMode?: "existing" | "initialize";
   /** Reducers required when the plan appends a workflow event. */
   readonly eventReducers?: EventReducerRegistry<WorkflowState>;
+  /** Reducers bound to each distinct run in one atomic multi-run append. */
+  readonly eventReducerRegistries?: readonly {
+    readonly feature: string;
+    readonly runId: string;
+    readonly reducers: EventReducerRegistry<WorkflowState>;
+  }[];
   /** Re-observe this authorized repair plan immediately before committing it. */
   readonly revalidateRepairDigest?: string;
   /** Re-resolve this phase assignment immediately before appending its event. */
@@ -237,7 +250,7 @@ export type CommandObservation =
         readonly feature: string;
         readonly runId: string;
         readonly phase: PhaseHandoffV1_2["phase"];
-        readonly assignment: PhaseHandoffV1_2;
+        readonly assignment: CurrentPhaseHandoff | PhaseHandoffV1_2;
         readonly usage: RunUsageV1;
         readonly recoveries: readonly {
           readonly feature: string;
@@ -283,6 +296,7 @@ export type CommandObservation =
        */
       readonly observedLineage: RunLineage;
       readonly phaseAssignment:
+        | { readonly kind: "resolved"; readonly value: CurrentPhaseHandoff }
         | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
         | {
             readonly kind: "refused";
@@ -311,7 +325,6 @@ export type CommandObservation =
       /** Host-observed execution validated against the current assignment. */
       readonly phaseExecution: PhaseExecutionObservation | null;
       readonly usage: RunUsageV1;
-      /** Validated measured total, or null for absent/corrupt legacy usage. */
       readonly tokenUsage: number | null;
       readonly measurements: {
         readonly content: string;
@@ -345,7 +358,7 @@ export type CommandObservation =
       /** The agent reply an output-recording command was pointed at, if any. */
       readonly agentOutput: AgentOutputObservation;
       /** Every agent output the run recorded, in agent order. */
-      readonly agentOutputs: readonly (AgentOutputV1 | AgentOutputV1_2)[];
+      readonly agentOutputs: readonly ReadableAgentOutput[];
       readonly agentOutputsReadable: boolean;
       /** Parsed task declarations and immutable acceptance history. */
       readonly acceptanceCriteria: {
@@ -382,7 +395,28 @@ export type CommandObservation =
           readonly ref: string;
           readonly digest: string;
         }[];
+        readonly repairLoopDecision: RepairLoopDecision | null;
+        readonly preparedRepairStops: readonly {
+          readonly value: RepairLoopStopArtifact;
+          readonly ref: string;
+          readonly digest: string;
+        }[];
       };
+      readonly repairResolution: {
+        readonly value: CurrentRepairResolution;
+        readonly ref: string;
+        readonly digest: string;
+        readonly restart: {
+          readonly value: RepairRestartV1;
+          readonly ref: string;
+          readonly digest: string;
+        } | null;
+      } | null;
+      readonly repairResolutionHistory: readonly {
+        readonly operation: string;
+        readonly artifact: ReadableRepairResolution;
+      }[];
+      readonly repairLoopStopsReadable: boolean;
       /** The gate facts exactly as recorded, before the approval boundary. */
       readonly gateFacts: {
         readonly readable: boolean;
@@ -404,8 +438,24 @@ export type CommandObservation =
         readonly sha256: string;
       }[];
       readonly gateDecision: GateDecision;
+      readonly policyMode: GateMode;
       readonly defaultGateMode: GateMode;
+      /** Project ceiling or the fail-closed configuration refusal that prevented it. */
+      readonly acceptanceAttemptCeiling:
+        | { readonly kind: "resolved"; readonly value: number }
+        | {
+            readonly kind: "refused";
+            readonly reasonCode:
+              | "profile.config_migration_required"
+              | "guard.config_missing"
+              | "guard.config_corrupt"
+              | "contract.state_version_invalid"
+              | "contract.state_version_unsupported";
+            readonly subject: string;
+          };
       readonly tokenBudget: number | null;
+      /** Mutable objective budget used only when starting a fresh run. */
+      readonly objectiveTokenBudget: number | null;
       readonly events: readonly ReadableEvent[];
       readonly persistedSnapshot: SnapshotV1 | null;
       readonly replayedSnapshot: SnapshotV1 | null;

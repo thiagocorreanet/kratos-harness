@@ -192,7 +192,7 @@ function configuration(answers: Answers): string {
     contractVersion: "1.4.0",
     stateContract: "1.4.0",
     pluginVersion: KRATOS_VERSION,
-    hostContract: "1.3.0",
+    hostContract: "1.4.0",
     language: answers.language,
     policyMode: answers.policyMode,
     gateModes: {},
@@ -205,6 +205,9 @@ function configuration(answers: Answers): string {
     projectProfile: structuredClone(
       answers.projectProfile,
     ) as ProjectConfigV1_4["projectProfile"],
+    ...(answers.acceptanceAttemptCeiling === undefined
+      ? {}
+      : { acceptanceAttemptCeiling: answers.acceptanceAttemptCeiling }),
   };
   return json(config);
 }
@@ -338,8 +341,8 @@ function codexConfiguration(answers: Answers): string {
   return lines(
     `# Managed by Kratos ${KRATOS_VERSION}.`,
     "",
-    'contract_version = "1.3.0"',
-    'host_contract = "1.3.0"',
+    'contract_version = "1.4.0"',
+    'host_contract = "1.4.0"',
     `policy_mode = "${answers.policyMode}"`,
     "",
     "[language]",
@@ -407,9 +410,6 @@ function instructions(answers: Answers, file: string, note: string): string {
     "  hit belong in `.brain/03-memory/gotchas.md`.",
     "- Architecture records live in `.brain/01-architecture`, one decision per",
     "  file under `adr`.",
-    "- Phase-agent relays receive the host-observed session ID and occurrence",
-    "  time. A refused phase start renders the runtime response before native",
-    "  phase work begins.",
     `- ${note}`,
     "",
     MANAGED_SECTION_END,

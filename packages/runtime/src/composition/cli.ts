@@ -193,7 +193,7 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (invocation.command.jsonContract === "phase-handoff@1.2.0") {
+    } else if (invocation.command.jsonContract === "phase-handoff@1.3.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
@@ -269,17 +269,25 @@ export async function runCommandLine(
     const outcome = await applyPlan(
       decision.plan,
       applyPorts,
-      decision.eventReducers === undefined
+      decision.eventReducers === undefined &&
+        decision.eventReducerRegistries === undefined
         ? expectedPreview === undefined
           ? { rootMode: decision.rootMode ?? "existing" }
           : {
               rootMode: decision.rootMode ?? "existing",
               expectPreview: expectedPreview,
             }
-        : {
-            rootMode: decision.rootMode ?? "existing",
-            eventReducers: decision.eventReducers,
-          },
+        : decision.eventReducers !== undefined
+          ? {
+              rootMode: decision.rootMode ?? "existing",
+              eventReducers: decision.eventReducers,
+            }
+          : decision.eventReducerRegistries !== undefined
+            ? {
+                rootMode: decision.rootMode ?? "existing",
+                eventReducerRegistries: decision.eventReducerRegistries,
+              }
+            : { rootMode: decision.rootMode ?? "existing" },
     );
     if (
       outcome.kind === "committed" &&

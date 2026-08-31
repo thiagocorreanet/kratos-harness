@@ -72,12 +72,19 @@ function draft(index: number): CurrentEventDraft {
 }
 
 function stream(): readonly [EventV1_2, EventV1_2] {
-  const first = sealEvent(draft(1), { revision: 0, hash: null }, services);
+  const first = sealEvent(
+    draft(1),
+    {
+      revision: 0,
+      hash: null,
+    },
+    services,
+  ) as EventV1_2;
   const second = sealEvent(
     draft(2),
     { revision: 1, hash: first.eventHash },
     services,
-  );
+  ) as EventV1_2;
   return [first, second];
 }
 
@@ -138,7 +145,7 @@ describe("event hash-chain verification", () => {
       currentDraft(1),
       { revision: 0, hash: null },
       services,
-    );
+    ) as EventV1_2;
     if (event.resolvedAssignment === undefined) {
       throw new Error("missing resolved assignment");
     }
@@ -160,7 +167,7 @@ describe("event hash-chain verification", () => {
       currentDraft(1),
       { revision: 0, hash: null },
       services,
-    );
+    ) as EventV1_2;
     if (event.resolvedAssignment === undefined) {
       throw new Error("missing resolved assignment");
     }

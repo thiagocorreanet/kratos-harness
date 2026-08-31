@@ -38,7 +38,7 @@ import {
 } from "./measurements.js";
 import { readCandidates } from "./memory.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
-import { observeWorkflow } from "./workflow.js";
+import { observeRunTokenCeiling, observeWorkflow } from "./workflow.js";
 
 export async function observeHostOperation(
   invocation: Invocation,
@@ -326,6 +326,12 @@ async function observeHookContext(
       target.record.runId !== activeRunId);
   const budgetPath = `.brain/02-features/${feature}/state.json`;
   const budgetObservation = await tokenBudget(feature, ports, registry);
+  const frozenBudget = await observeRunTokenCeiling(
+    feature,
+    runId,
+    ports,
+    registry,
+  );
   if (
     selectedMeasurement &&
     (budgetObservation.kind === "invalid" ||
@@ -334,6 +340,12 @@ async function observeHookContext(
     return corruptHookState(
       budgetPath,
       "The measured session owner has no valid feature state.",
+    );
+  }
+  if (frozenBudget.kind === "unreadable") {
+    return corruptHookState(
+      `.brain/02-features/${feature}/runs/${runId}/events.jsonl`,
+      "The measured session owner has no readable frozen run budget.",
     );
   }
   const usagePath = `.brain/02-features/${feature}/runs/${runId}/usage.json`;
@@ -404,8 +416,7 @@ async function observeHookContext(
     value: {
       feature,
       runId,
-      budget:
-        budgetObservation.kind === "valid" ? budgetObservation.value : null,
+      budget: frozenBudget.value,
       usage:
         usageObservation.kind === "valid"
           ? usageObservation.value

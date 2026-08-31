@@ -438,6 +438,8 @@ describe("event sealing", () => {
   it("retains copied reference arrays after the caller mutates them", () => {
     const value = draft();
     const event = seal(value);
+    if (event.contractVersion === "1.1.0")
+      throw new Error("wrong event version");
     value.artifactRefs.push(".brain/attacker-artifact.md");
     value.evidenceRefs.push(".brain/attacker-evidence.json");
 
@@ -452,6 +454,7 @@ describe("event sealing", () => {
     failure.mode = "shadow";
     failure.evidenceRefs.push(".brain/attacker-evidence.md");
 
+    if (!("gateFailures" in event)) throw new Error("wrong event version");
     expect(event.gateFailures).toEqual([gateFailure()]);
   });
 

@@ -114,18 +114,20 @@ export function upgradeProjectConfigurationV1_3(
   };
 }
 
-/** Upgrade a v1.3 configuration payload with empty per-gate overrides. */
+/** Upgrade a v1.3 configuration without inventing an optional attempt override. */
 export function upgradeProjectConfigurationV1_4(
   source: ProjectConfigV1_3,
 ): ProjectConfigV1_4 {
   return {
-    ...source,
     contractVersion: "1.4.0",
     stateContract: "1.4.0",
-    hostContract: "1.3.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.4.0",
     language: { ...source.language },
-    managedState: { ...source.managedState },
+    policyMode: source.policyMode,
     gateModes: {},
+    managedState: { ...source.managedState },
+    modelRoles: source.modelRoles,
     projectProfile: structuredClone(source.projectProfile),
   };
 }

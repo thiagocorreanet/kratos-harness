@@ -594,6 +594,32 @@ describe("effect plan application", () => {
     expect(storage.calls()).toEqual([]);
   });
 
+  it("accepts current 1.4 event drafts in managed append plans", async () => {
+    const { storage, ports } = fakeRuntime();
+    const currentEvent = {
+      ...eventDraft(1),
+      contractVersion: "1.4.0" as const,
+      stateContract: "1.4.0" as const,
+    };
+
+    await applyPlan(
+      planOf({
+        kind: "append_event",
+        feature: "sample-feature",
+        runId: "run-01",
+        event: currentEvent,
+      }),
+      ports,
+      { rootMode: "existing", eventReducers },
+    );
+
+    expect(
+      storage.snapshot().files[
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+      ],
+    ).toContain('"stateContract":"1.4.0"');
+  });
+
   it("emits nothing when publication does not commit", async () => {
     const { storage, output, ports } = fakeRuntime();
     const durableFileSystem: DurableFileSystem = {

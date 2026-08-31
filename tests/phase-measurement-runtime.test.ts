@@ -190,11 +190,19 @@ async function result(
   return JSON.parse(run.output.structured_.join("")) as OperationResultV1;
 }
 
-async function started(): Promise<RuntimeSubject> {
+async function started(
+  tokenCeiling: number | null = null,
+): Promise<RuntimeSubject> {
   const run = subject();
-  expect(await result(run, ["objective", "Measure phase usage"])).toMatchObject(
-    { reasonCode: "trail.ok" },
-  );
+  expect(
+    await result(run, [
+      "objective",
+      "Measure phase usage",
+      ...(tokenCeiling === null
+        ? []
+        : ["--token-ceiling", String(tokenCeiling)]),
+    ]),
+  ).toMatchObject({ reasonCode: "trail.ok" });
   expect(
     await result(run, [
       "start",
@@ -399,6 +407,27 @@ async function switchToEmptyRun(
       2,
     )}\n`,
   );
+  const sourceEvents =
+    run.storage.snapshot().files[
+      ".brain/02-features/measure-phase-usage/runs/run-01/events.jsonl"
+    ];
+  if (sourceEvents !== undefined) {
+    await run.ports.fileSystem.write(
+      `.brain/02-features/measure-phase-usage/runs/${runId}/events.jsonl`,
+      sourceEvents,
+    );
+  }
+  const sourceState =
+    run.storage.snapshot().files[
+      ".brain/02-features/measure-phase-usage/runs/run-01/state.json"
+    ];
+  if (sourceState !== undefined) {
+    const snapshot = JSON.parse(sourceState) as Record<string, unknown>;
+    await run.ports.fileSystem.write(
+      `.brain/02-features/measure-phase-usage/runs/${runId}/state.json`,
+      `${JSON.stringify({ ...snapshot, runId }, null, 2)}\n`,
+    );
+  }
   await run.ports.fileSystem.write(
     ".brain/02-features/measure-phase-usage/active-run",
     `${runId}\n`,
@@ -507,8 +536,8 @@ effort: low
 ===KRATOS-AGENT-OUTPUT-V1===
 ${JSON.stringify(
   {
-    contractVersion: "1.2.0",
-    hostContract: "1.2.0",
+    contractVersion: "1.3.0",
+    hostContract: "1.3.0",
     agent: "code",
     outcome: {
       status: "completed",
@@ -541,7 +570,7 @@ ${JSON.stringify(
       model: "codex-implementation",
       effort: "high",
     },
-    payloadContract: "host.agent-output@1.2.0",
+    payloadContract: "host.agent-output@1.3.0",
     payload: { ref, sha256: run.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: current.assignmentDigest,
@@ -569,20 +598,21 @@ async function enterCodePhase(run: RuntimeSubject): Promise<void> {
 
 describe("phase measurement runtime lifecycle", () => {
   it("closes an over-budget measured phase and latches stop-loss in the same lifecycle", async () => {
-    const run = await started();
-    await setTokenBudget(run, 100);
+    const run = await started(100);
     await startPhase(run, "session-budgeted");
 
-    expect(
-      await samplePhase(
-        run,
-        "session-budgeted",
-        125,
-        "over-budget-end",
-        END,
-        "session.end",
-      ),
-    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    const budgetSample = await samplePhase(
+      run,
+      "session-budgeted",
+      125,
+      "over-budget-end",
+      END,
+      "session.end",
+    );
+    expect(budgetSample).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
 
     expect(records(run)).toEqual([
       expect.objectContaining({
@@ -1094,17 +1124,19 @@ describe("phase measurement runtime lifecycle", () => {
       `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`,
     );
 
-    expect(
-      await samplePhase(
-        run,
-        "session-subagent",
-        30,
-        "subagent-active-b",
-        AFTER,
-        "session.sample",
-        REFRESH,
-      ),
-    ).toMatchObject({ reasonCode: "trail.ok", stateChanged: true });
+    const claimedSample = await samplePhase(
+      run,
+      "session-subagent",
+      30,
+      "subagent-active-b",
+      AFTER,
+      "session.sample",
+      REFRESH,
+    );
+    expect(claimedSample).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
     const runTwoUsage =
       run.storage.snapshot().files[
         ".brain/02-features/measure-phase-usage/runs/run-02/usage.json"
@@ -1294,8 +1326,7 @@ describe("phase measurement runtime lifecycle", () => {
   });
 
   it("routes a delayed contributing subagent final to its old phase and run", async () => {
-    const run = await started();
-    await setTokenBudget(run, 55);
+    const run = await started(55);
     await startPhase(run, "session-a");
     await samplePhase(run, "session-subagent", 20, "subagent-first", SAMPLE);
     await completeCurrentPhase(run, 0);
@@ -1723,8 +1754,7 @@ describe("phase measurement runtime lifecycle", () => {
   });
 
   it("routes a delayed measured session to its owning run after the active run changes", async () => {
-    const run = await started();
-    await setTokenBudget(run, 45);
+    const run = await started(45);
     await startPhase(run, "session-old");
     await samplePhase(run, "session-old", 40, "old-sample", SAMPLE);
     await completeCurrentPhase(run, 0);
