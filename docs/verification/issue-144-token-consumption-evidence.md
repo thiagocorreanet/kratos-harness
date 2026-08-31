@@ -384,4 +384,3 @@ task reports referenced by the feature SDD ledger.
 Evidence pointer: every acceptance criterion, exact named test,
 compatibility/state/security impact, command, and fresh result is mapped in
 `docs/verification/issue-144-token-consumption-evidence.md`.
-```

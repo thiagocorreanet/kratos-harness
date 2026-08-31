@@ -28,6 +28,7 @@
 ### Task 1: Phase measurement contracts and pure domain
 
 **Files:**
+
 - Create: `schemas/state/phase-measurement.v1.schema.json`
 - Create: `packages/runtime/src/domain/measurements/index.ts`
 - Create: `tests/phase-measurement-domain.test.ts`
@@ -35,6 +36,7 @@
 - Modify: contract catalog, schema registry, generated-type inputs, fixture tests, and additive reason catalog
 
 **Interfaces:**
+
 - Produces: `PhaseMeasurement`, `upsertPhaseMeasurement(records, next)`, `startPhaseMeasurement(input)`, `samplePhaseMeasurement(record, usage, now)`, `completePhaseMeasurement(record, usage, now, observedIdentity)`, `interruptPhaseMeasurement(record, usage, now, reason)`, and `parsePhaseMeasurementLog(text, registry)`.
 - A record contains the exact fields approved by the spec; closed-state nullable fields are validated semantically in the domain and structurally in the schema.
 
@@ -84,12 +86,14 @@ git commit -m "feat(metrics): define phase measurement ledger"
 ### Task 2: Runtime lifecycle, raw-log upsert, and recovery
 
 **Files:**
+
 - Modify: `packages/runtime/src/composition/host.ts`
 - Modify: `packages/runtime/src/domain/cli/hook.ts`
 - Modify: workflow observation/decision composition and CLI observation types
 - Create: `tests/phase-measurement-runtime.test.ts`
 
 **Interfaces:**
+
 - Consumes Task 1 lifecycle/upsert functions and `RunUsageV1.totalGrossTokens`.
 - Produces a `phase.start` observation path, raw-log precondition observation, completion effects attached to accepted transitions, session-end interruption, and refresh/start recovery.
 
@@ -130,6 +134,7 @@ git commit -m "feat(metrics): measure phase lifecycle consumption"
 ### Task 3: Distribution rollup, refresh command, and numeric reporting
 
 **Files:**
+
 - Add rollup/statistics functions under `packages/runtime/src/domain/measurements/`
 - Add `metrics refresh` command and its composition observation
 - Modify: `packages/runtime/src/domain/cli/diagnostics.ts`
@@ -137,6 +142,7 @@ git commit -m "feat(metrics): measure phase lifecycle consumption"
 - Create: `tests/phase-metrics-rollup.test.ts`
 
 **Interfaces:**
+
 - Produces: `nearestRank(values, ratio)`, `derivePhaseDistributions(records, 5)`, and `renderTaskMetrics(report)`.
 - Refresh returns `metrics.refresh_ok` when every represented phase has sufficient calibration, otherwise `metrics.calibration_insufficient` while still writing distributions.
 
@@ -172,6 +178,7 @@ git commit -m "feat(metrics): refresh phase distributions"
 ### Task 4: Equivalent Claude Code and Codex phase-start relays
 
 **Files:**
+
 - Modify: `packages/adapters/src/hooks.ts`
 - Modify: `packages/adapters/src/index.ts`
 - Modify shared phase relay/runtime assets under `distribution/shared/`
@@ -179,6 +186,7 @@ git commit -m "feat(metrics): refresh phase distributions"
 - Modify: `tests/phase-agent-relay-distribution.test.ts`
 
 **Interfaces:**
+
 - Consumes the Task 2 `phase.start` ingress and current `PhaseHandoffV1_1`.
 - Produces byte-equivalent normalized phase-start observations from both hosts before `launcher.launch` and refuses launch if session identity is unavailable or runtime start is refused.
 
@@ -206,11 +214,13 @@ git commit -m "feat(metrics): relay phase measurement starts"
 ### Task 5: Public documentation, acceptance evidence, and full verification
 
 **Files:**
+
 - Modify user command/configuration/host documentation and compatibility notes
 - Create: `docs/verification/issue-144-token-consumption-evidence.md`
 - Modify PR template only if a reusable required evidence field is absent
 
 **Interfaces:**
+
 - Documents raw-versus-curated state, lifecycle failure recovery, exact percentile/minimum policy, explicit-budget authority, compatibility, and security.
 
 - [ ] **Step 1: Update public English documentation with executable command examples and recovery behavior; remove all placeholder language**
