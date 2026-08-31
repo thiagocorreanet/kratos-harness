@@ -47,6 +47,28 @@ const services = {
   isPromise: () => false,
   schemaRegistry: createSchemaRegistry(),
 };
+const passingGateDecision = { outcome: "pass" as const, failures: [] };
+
+function gateFailure(
+  gateId: "spec-approved" | "gaps-closed" | "final-acceptance",
+  mode: "enforce" | "warn" | "shadow",
+) {
+  const reasonCode =
+    gateId === "spec-approved"
+      ? ("gate.aprovacao_spec" as const)
+      : gateId === "gaps-closed"
+        ? ("gate.gaps_abertos" as const)
+        : ("gate.aceitacao_final" as const);
+  return {
+    gateId,
+    reasonCode,
+    priority:
+      gateId === "spec-approved" ? 40 : gateId === "gaps-closed" ? 50 : 80,
+    mode,
+    evidenceRefs: [".brain/approvals"],
+    detail: null,
+  };
+}
 
 function present(overrides: Partial<WorkflowState> = {}): WorkflowObservation {
   return {
@@ -84,8 +106,9 @@ describe("workflow start and continuation", () => {
     if (decision.kind !== "recorded") throw new Error("start refused");
 
     expect(snapshotEventDraft(decision.event, () => false)).toMatchObject({
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
+      gateFailures: [],
       observedIdentity: { host: "codex", model: "gpt-5", effort: null },
     });
     expect(decision.event).not.toHaveProperty("resolvedAssignment");
@@ -102,11 +125,12 @@ describe("workflow start and continuation", () => {
       observedIdentity: identity,
       resolvedAssignment: assignment,
       phaseExecution,
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase" as const,
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     };
@@ -115,7 +139,8 @@ describe("workflow start and continuation", () => {
     expect(
       sealEvent(continued.event, { revision: 1, hash: digest }, services),
     ).toMatchObject({
-      stateContract: "1.1.0",
+      stateContract: "1.2.0",
+      gateFailures: [],
       resolvedAssignment: assignment,
     });
 
@@ -134,7 +159,8 @@ describe("workflow start and continuation", () => {
     });
     if (recorded.kind !== "recorded") throw new Error("record refused");
     expect(snapshotEventDraft(recorded.event, () => false)).toMatchObject({
-      stateContract: "1.1.0",
+      stateContract: "1.2.0",
+      gateFailures: [],
       resolvedAssignment: assignment,
     });
   });
@@ -213,11 +239,12 @@ describe("workflow start and continuation", () => {
       observedIdentity: { host: "codex", model: "user-declared-model" },
       resolvedAssignment: assignment,
       phaseExecution: runtimeInput as typeof phaseExecution,
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     });
@@ -243,11 +270,12 @@ describe("workflow start and continuation", () => {
         effort: "medium",
         provenance: "unknown",
       },
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     });
@@ -294,11 +322,12 @@ describe("workflow start and continuation", () => {
         effort: "medium",
         provenance: "host-reported",
       },
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     });
@@ -326,11 +355,12 @@ describe("workflow start and continuation", () => {
       occurredAt: "2026-08-15T12:01:00.000Z",
       expectedRevision: 1,
       observedIdentity: identity,
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     });
@@ -373,7 +403,8 @@ describe("workflow start and continuation", () => {
       if (decision.kind !== "recorded") throw new Error("fact refused");
 
       expect(snapshotEventDraft(decision.event, () => false)).toMatchObject({
-        stateContract: "1.1.0",
+        stateContract: "1.2.0",
+        gateFailures: [],
         observedIdentity: { host: "codex", model: "gpt-5", effort: null },
       });
       expect(decision.event).not.toHaveProperty("resolvedAssignment");
@@ -430,11 +461,12 @@ describe("workflow start and continuation", () => {
         occurredAt: "2026-08-15T12:01:00.000Z",
         expectedRevision: 0,
         observedIdentity: identity,
+        gateDecision: passingGateDecision,
         action: {
           kind: "complete-phase",
           artifactRefs: [".brain/02-features/workflow/00-prd.md"],
           evidenceRefs: [".brain/evidence/prd.json"],
-          gateFailures: [],
+          rejectionReasons: [],
           allowFinalCompletion: false,
         },
       }),
@@ -453,11 +485,12 @@ describe("workflow start and continuation", () => {
       occurredAt: "2026-08-15T12:01:00.000Z",
       expectedRevision: 1,
       observedIdentity: identity,
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [],
         evidenceRefs: [],
-        gateFailures: ["gate.prd_ausente"],
+        rejectionReasons: ["gate.prd_ausente"],
         allowFinalCompletion: false,
       },
     });
@@ -469,6 +502,165 @@ describe("workflow start and continuation", () => {
       event: { reasonCode: "run.transition.rejected" },
     });
   });
+
+  it("rejects on the aggregate outcome and records the complete mixed trace", () => {
+    const failures = [
+      gateFailure("spec-approved", "enforce"),
+      gateFailure("gaps-closed", "shadow"),
+    ];
+    const rejected = decideContinueWorkflow(present(), {
+      feature: "workflow",
+      runId: "run-01",
+      correlationId: "continue-mixed",
+      eventId: "event-mixed",
+      occurredAt: "2026-08-15T12:01:00.000Z",
+      expectedRevision: 1,
+      observedIdentity: identity,
+      gateDecision: { outcome: "block", failures },
+      action: {
+        kind: "complete-phase",
+        artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+        evidenceRefs: [],
+        rejectionReasons: ["evidence-invalid"],
+        allowFinalCompletion: false,
+      },
+    });
+
+    expect(rejected).toMatchObject({
+      kind: "recorded",
+      transition: "rejected",
+      why: ["gate.aprovacao_spec", "gate.gaps_abertos", "evidence-invalid"],
+    });
+    if (rejected.kind !== "recorded") return;
+    expect(rejected.event.gateFailures.map(({ mode }) => mode)).toEqual([
+      "enforce",
+      "shadow",
+    ]);
+  });
+
+  it.each([
+    {
+      mode: "warn",
+      outcome: "warn",
+      artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+      evidenceRefs: [],
+      rejectionReasons: ["evidence-invalid"],
+      why: ["evidence-invalid"],
+    },
+    {
+      mode: "shadow",
+      outcome: "pass",
+      artifactRefs: [".brain/02-features/workflow/00-prd.md"],
+      evidenceRefs: [],
+      rejectionReasons: ["evidence-invalid"],
+      why: ["evidence-invalid"],
+    },
+    {
+      mode: "warn",
+      outcome: "warn",
+      artifactRefs: [],
+      evidenceRefs: [".brain/evidence/prd.json"],
+      rejectionReasons: [],
+      why: ["artifact-missing"],
+    },
+    {
+      mode: "shadow",
+      outcome: "pass",
+      artifactRefs: [],
+      evidenceRefs: [".brain/evidence/prd.json"],
+      rejectionReasons: [],
+      why: ["artifact-missing"],
+    },
+    {
+      mode: "warn",
+      outcome: "warn",
+      artifactRefs: [],
+      evidenceRefs: [".brain/evidence/prd.json"],
+      rejectionReasons: ["artifact-unreadable"],
+      why: ["artifact-unreadable"],
+    },
+    {
+      mode: "shadow",
+      outcome: "pass",
+      artifactRefs: [],
+      evidenceRefs: [".brain/evidence/prd.json"],
+      rejectionReasons: ["artifact-unreadable"],
+      why: ["artifact-unreadable"],
+    },
+  ] as const)(
+    "keeps a $mode gate finding out of public why when rejection is $why",
+    ({ mode, outcome, artifactRefs, evidenceRefs, rejectionReasons, why }) => {
+      const failure = gateFailure("gaps-closed", mode);
+      const rejected = decideContinueWorkflow(present(), {
+        feature: "workflow",
+        runId: "run-01",
+        correlationId: `continue-${mode}-${why[0]}`,
+        eventId: `event-${mode}-${why[0]}`,
+        occurredAt: "2026-08-15T12:01:00.000Z",
+        expectedRevision: 1,
+        observedIdentity: identity,
+        gateDecision: { outcome, failures: [failure] },
+        action: {
+          kind: "complete-phase",
+          artifactRefs,
+          evidenceRefs,
+          rejectionReasons,
+          allowFinalCompletion: false,
+        },
+      });
+
+      expect(rejected).toMatchObject({
+        kind: "recorded",
+        transition: "rejected",
+        why,
+      });
+      if (rejected.kind !== "recorded") return;
+      expect(rejected.event.gateFailures).toEqual([failure]);
+    },
+  );
+
+  it.each([
+    ["warn", "warn"],
+    ["shadow", "pass"],
+  ] as const)(
+    "completes final acceptance with a %s finding and records it",
+    (mode, outcome) => {
+      const failure = gateFailure("final-acceptance", mode);
+      const accepted = decideContinueWorkflow(
+        present({ currentStep: "acceptance", revision: 6 }),
+        {
+          feature: "workflow",
+          runId: "run-01",
+          correlationId: `accept-${mode}`,
+          eventId: `event-${mode}`,
+          occurredAt: "2026-08-15T12:06:00.000Z",
+          expectedRevision: 6,
+          observedIdentity: identity,
+          resolvedAssignment: {
+            ...assignment,
+            phase: "acceptance",
+            role: "judge",
+          },
+          phaseExecution,
+          gateDecision: { outcome, failures: [failure] },
+          action: {
+            kind: "complete-phase",
+            artifactRefs: [".brain/02-features/workflow/03-summa.md"],
+            evidenceRefs: [".brain/evidence/acceptance.json"],
+            rejectionReasons: [],
+            allowFinalCompletion: true,
+          },
+        },
+      );
+
+      expect(accepted).toMatchObject({
+        kind: "recorded",
+        transition: "completed",
+      });
+      if (accepted.kind !== "recorded") return;
+      expect(accepted.event.gateFailures[0]?.mode).toBe(mode);
+    },
+  );
 
   it("replays accepted transitions into a contract-valid snapshot", () => {
     const started = decideStartWorkflow(
@@ -500,11 +692,12 @@ describe("workflow start and continuation", () => {
       observedIdentity: identity,
       resolvedAssignment: assignment,
       phaseExecution,
+      gateDecision: passingGateDecision,
       action: {
         kind: "complete-phase",
         artifactRefs: [".brain/02-features/workflow/00-prd.md"],
         evidenceRefs: [".brain/evidence/prd.json"],
-        gateFailures: [],
+        rejectionReasons: [],
         allowFinalCompletion: false,
       },
     });
@@ -554,11 +747,12 @@ describe("workflow start and continuation", () => {
           role: "judge",
         },
         phaseExecution,
+        gateDecision: passingGateDecision,
         action: {
           kind: "complete-phase",
           artifactRefs: [".brain/02-features/workflow/03-summa.md"],
           evidenceRefs: [".brain/evidence/acceptance.json"],
-          gateFailures: [],
+          rejectionReasons: [],
           allowFinalCompletion: true,
         },
       },

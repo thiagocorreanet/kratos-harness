@@ -7,7 +7,7 @@ import {
   PRD_DOCUMENT,
   inspectPrdDocument,
 } from "@kratos/runtime/domain/feature-documents";
-import { evaluateGates } from "@kratos/runtime/domain/gates";
+import { evaluateGates, resolveGateModes } from "@kratos/runtime/domain/gates";
 import {
   DEFAULT_LANGUAGE_POLICY,
   profileStack,
@@ -324,7 +324,7 @@ ${PRD_DOCUMENT.requiredSections
 
 describe("the PRD presence gate", () => {
   const base = {
-    mode: "enforce" as const,
+    gateModes: resolveGateModes("strict", {}),
     phase: "prd" as const,
     contextReadable: true,
     stopLoss: { tripped: false, exhausted: false },

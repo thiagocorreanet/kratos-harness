@@ -43,13 +43,19 @@ The state family contains:
 - [`project-config.v1.2.schema.json`](state/project-config.v1.2.schema.json), the
   configuration with closed per-artifact language policy;
 - [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
-  current configuration with complete project-profile answers;
+  predecessor configuration with complete project-profile answers;
+- [`project-config.v1.4.schema.json`](state/project-config.v1.4.schema.json), the
+  current `state.project-config@1.4.0` configuration with required closed
+  partial `gateModes` overrides and `policyMode` as the inherited default;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
 - [`event.v1.schema.json`](state/event.v1.schema.json);
-- [`event.v1.1.schema.json`](state/event.v1.1.schema.json), the current event
+- [`event.v1.1.schema.json`](state/event.v1.1.schema.json), the role-aware event
   envelope with runtime-selected and nullable host-observed execution metadata;
+- [`event.v1.2.schema.json`](state/event.v1.2.schema.json), the current
+  `state.event@1.2.0` envelope with a required ordered `gateFailures` trace and
+  one effective `shadow`, `warn`, or `enforce` mode per failure;
 - [`approval.v1.schema.json`](state/approval.v1.schema.json);
 - [`evidence.v1.schema.json`](state/evidence.v1.schema.json);
 - [`gap.v1.schema.json`](state/gap.v1.schema.json), one recorded gap and the
@@ -97,12 +103,20 @@ See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json).
+[`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json).
 The immutable predecessors remain
+[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
 [`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
 [`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
 [`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
 and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
+
+The current family identities are state `1.4.0` and host `1.3.0`; per-gate
+policy introduces no host-protocol revision. Unknown `gateModes` keys or values
+are rejected rather than treated as fallbacks. Event 1.0 and 1.1 remain
+readable and byte-preserved beside event 1.2, whose closed trace lets replay
+retain the mode observed at the time of each failure. Neither prompts nor hosts
+may select or override these runtime-owned modes.
 
 The compatibility test family contains the closed
 [`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)

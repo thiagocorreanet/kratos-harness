@@ -9,6 +9,8 @@ import {
   hostInstallManifest,
   type HostAdapter,
 } from "@kratos/adapters";
+import type { AdapterMessageV1_1 } from "@kratos/contracts";
+import type { GateDecision } from "@kratos/runtime/domain/gates";
 
 import { fakeHostAdapter } from "./support/fake-host-adapter.js";
 import {
@@ -23,6 +25,47 @@ import {
   responsePayload,
   type HostAdapterFactory,
 } from "./support/host-adapter-contract.js";
+
+const mixedDecision = {
+  outcome: "block",
+  primary: {
+    gateId: "spec-approved",
+    reasonCode: "gate.aprovacao_spec",
+    priority: 40,
+    mode: "enforce",
+    evidenceRefs: ["approvals/spec.json"],
+    detail: null,
+  },
+  failures: [
+    {
+      gateId: "spec-approved",
+      reasonCode: "gate.aprovacao_spec",
+      priority: 40,
+      mode: "enforce",
+      evidenceRefs: ["approvals/spec.json"],
+      detail: null,
+    },
+    {
+      gateId: "gaps-closed",
+      reasonCode: "gate.gaps_abertos",
+      priority: 50,
+      mode: "shadow",
+      evidenceRefs: ["gaps/open.json"],
+      detail: "One gap remains open.",
+    },
+  ],
+  gateModes: {
+    "context-readable": "enforce",
+    "stop-loss": "enforce",
+    "prd-present": "enforce",
+    "spec-approved": "enforce",
+    "gaps-closed": "shadow",
+    "partition-approved": "warn",
+    "acceptance-criteria": "enforce",
+    "final-acceptance": "enforce",
+  },
+  criteria: [],
+} as const satisfies GateDecision;
 
 describeHostAdapterContract("fake", () => fakeHostAdapter());
 describeHostAdapterContract("fake with capabilities", () =>
@@ -43,6 +86,34 @@ describeHostAdapterContract("Antigravity", () =>
 );
 
 describe("the host adapter conformance suite", () => {
+  it("relays the same mixed gate decision bytes through Claude Code and Codex", () => {
+    const base = conformanceResponse();
+    const response = conformanceResponse({
+      payload: {
+        ...responsePayload(base),
+        why: mixedDecision.failures.map(
+          ({ gateId, reasonCode, mode }) => `${gateId}:${reasonCode}:${mode}`,
+        ),
+      },
+    } as Partial<AdapterMessageV1_1>);
+
+    const claude = claudeCodeAdapter({
+      modelRouting: claudeCatalog(),
+    }).relay(response);
+    const codex = codexAdapter({ modelRouting: codexCatalog() }).relay(
+      response,
+    );
+
+    expect(claude.stdout).toBe(codex.stdout);
+    expect(JSON.parse(codex.stdout)).toMatchObject({
+      reasonCode: "gate.aprovacao_spec",
+      why: [
+        "spec-approved:gate.aprovacao_spec:enforce",
+        "gaps-closed:gate.gaps_abertos:shadow",
+      ],
+    });
+  });
+
   it("is addressed by a factory returning one adapter", () => {
     const factory: HostAdapterFactory = () => fakeHostAdapter();
     expect(factory()).not.toBe(factory());

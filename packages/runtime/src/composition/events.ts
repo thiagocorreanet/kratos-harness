@@ -1,6 +1,6 @@
 import { types } from "node:util";
 
-import type { EventV1_1 } from "@kratos/contracts";
+import type { EventV1_2 } from "@kratos/contracts";
 
 import {
   EventIntegrityError,
@@ -113,7 +113,7 @@ export interface PreparedEventWrite {
 
 export interface PreparedEventAppend {
   readonly paths: EventStorePaths;
-  readonly event: EventV1_1;
+  readonly event: EventV1_2;
   readonly effects: readonly [PreparedEventWrite, PreparedEventWrite];
   readonly expected: ReadonlyMap<string, PathFingerprint>;
 }
@@ -411,7 +411,7 @@ function trustedServices<State>(
 
 function prepared(
   paths: EventStorePaths,
-  event: EventV1_1,
+  event: EventV1_2,
   expected: ReadonlyMap<string, PathFingerprint>,
   priorEvents: string,
   snapshotCanonical: string,
@@ -434,18 +434,25 @@ function prepared(
   });
 }
 
-function freezeEvent(event: EventV1_1): EventV1_1 {
+function freezeEvent(event: EventV1_2): EventV1_2 {
+  const gateFailures = event.gateFailures.map((failure) =>
+    Object.freeze({
+      ...failure,
+      evidenceRefs: Object.freeze([...failure.evidenceRefs]),
+    }),
+  );
   return Object.freeze({
     ...event,
     artifactRefs: Object.freeze([...event.artifactRefs]),
     evidenceRefs: Object.freeze([...event.evidenceRefs]),
+    gateFailures: Object.freeze(gateFailures),
     observedIdentity: Object.freeze({ ...event.observedIdentity }),
     ...(event.resolvedAssignment === undefined
       ? {}
       : {
           resolvedAssignment: Object.freeze({ ...event.resolvedAssignment }),
         }),
-  }) as EventV1_1;
+  }) as EventV1_2;
 }
 
 function readonlyMap(
@@ -479,7 +486,7 @@ function readonlyMap(
   return Object.freeze(readonly);
 }
 
-function canonicalEventLine(event: EventV1_1): string {
+function canonicalEventLine(event: EventV1_2): string {
   return `${canonicalizeJson(event)}\n`;
 }
 

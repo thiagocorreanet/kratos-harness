@@ -280,7 +280,7 @@ function decideRecord(observation: Observation): Decision {
     boundary: boundaryOf(observation),
     prdDigest: observation.observedLineage.prdDigest,
     specDigest: observation.observedLineage.specDigest,
-    policyMode: observation.policyMode,
+    policyMode: observation.defaultGateMode,
     recordedAt: observation.occurredAt,
     existing: observation.gaps,
   });

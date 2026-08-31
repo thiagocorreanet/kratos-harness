@@ -2,6 +2,7 @@ import type { EventV1, EventV1_1, SnapshotV1 } from "@kratos/contracts";
 
 import type { CurrentEventDraft } from "../events/index.js";
 import { FACT_EVENT_REASONS, type FactOperation } from "../events/semantics.js";
+import type { GateDecision } from "../gates/index.js";
 export { FACT_EVENT_REASONS, type FactOperation };
 
 export const WORKFLOW_POLICY_VERSION = "workflow-v1";
@@ -85,12 +86,13 @@ export interface ContinueWorkflowRequest {
   readonly observedIdentity: WorkflowIdentity;
   readonly resolvedAssignment?: WorkflowAssignment;
   readonly phaseExecution?: PhaseExecutionObservation;
+  readonly gateDecision: Pick<GateDecision, "outcome" | "failures">;
   readonly action:
     | {
         readonly kind: "complete-phase";
         readonly artifactRefs: readonly string[];
         readonly evidenceRefs: readonly string[];
-        readonly gateFailures: readonly string[];
+        readonly rejectionReasons: readonly string[];
         readonly allowFinalCompletion: boolean;
       }
     | { readonly kind: "resume" }

@@ -236,7 +236,7 @@ export function renderStaticDashboard(bundle: EvidenceBundle): string {
   const gateRows = bundle.gates.failures
     .map(
       (gate) =>
-        `<tr><td>${html(gate.gateId)}</td><td>${html(gate.reasonCode)}</td><td>${html(bundle.gates.mode)}</td></tr>`,
+        `<tr><td>${html(gate.gateId)}</td><td>${html(gate.reasonCode)}</td><td>${html(gate.mode)}</td></tr>`,
     )
     .join("");
   const evidenceRows = bundle.evidence
@@ -253,7 +253,7 @@ export function renderStaticDashboard(bundle: EvidenceBundle): string {
     "<style>body{font:14px system-ui;margin:2rem;max-width:80rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.5rem;text-align:left}code{word-break:break-all}</style>",
     `<h1>Run ${html(bundle.runId)}</h1>`,
     `<p>Bundle digest: <code>${html(bundle.digest)}</code></p>`,
-    `<p>Status: ${html(bundle.snapshot.status)}. Policy: ${html(bundle.gates.mode)}. Budget: ${html(bundle.budget.allocated === null ? "unbounded" : String(bundle.budget.allocated))}.</p>`,
+    `<p>Status: ${html(bundle.snapshot.status)}. Policy: per-gate. Budget: ${html(bundle.budget.allocated === null ? "unbounded" : String(bundle.budget.allocated))}.</p>`,
     "<h2>Timeline</h2>",
     "<table><caption>Verified event timeline</caption><thead><tr><th>Time</th><th>Reason</th><th>Event hash</th></tr></thead>",
     `<tbody>${rows}</tbody></table>`,

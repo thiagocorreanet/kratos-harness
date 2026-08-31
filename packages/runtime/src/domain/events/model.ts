@@ -1,13 +1,23 @@
-import type { EventV1, EventV1_1 } from "@kratos/contracts";
+import type { EventV1, EventV1_1, EventV1_2 } from "@kratos/contracts";
 
 import type { Digests } from "../../ports/index.js";
 import type { SchemaRegistry } from "../schema/index.js";
 
-export type ReadableEvent = EventV1 | EventV1_1;
-export type CurrentEventDraft = Omit<EventV1_1, "previousHash" | "eventHash">;
-export type LegacyEventDraft = Omit<EventV1, "previousHash" | "eventHash">;
-/** Transitional producer surface; sealing still rejects legacy drafts. */
-export type EventDraftV1 = LegacyEventDraft | CurrentEventDraft;
+export type ReadableEvent = EventV1 | EventV1_1 | EventV1_2;
+type UnsealedEventDraft<Event> = Omit<Event, "previousHash" | "eventHash"> & {
+  readonly previousHash?: never;
+  readonly eventHash?: never;
+};
+
+export type CurrentEventDraft = UnsealedEventDraft<EventV1_2>;
+export type LegacyEventDraft = UnsealedEventDraft<EventV1>;
+/**
+ * Transitional producer surface for unsealed drafts.  Event 1.0 and 1.1
+ * remain constructible for migration/reducer compatibility, although sealing
+ * accepts only the current 1.2 draft.
+ */
+export type EventDraftV1 =
+  LegacyEventDraft | UnsealedEventDraft<EventV1_1> | CurrentEventDraft;
 
 export interface EventChainCursor {
   readonly revision: number;

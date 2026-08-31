@@ -25,6 +25,7 @@ export {
   upgradeProjectConfiguration,
   upgradeProjectConfigurationV1_2,
   upgradeProjectConfigurationV1_3,
+  upgradeProjectConfigurationV1_4,
   upgradeState,
   type StateUpgrade,
   type UpgradeResult,

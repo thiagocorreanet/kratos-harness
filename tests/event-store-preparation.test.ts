@@ -44,8 +44,8 @@ const seed: State = {
 
 function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}`,
     eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -57,6 +57,7 @@ function draft(index: number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
   };
 }
@@ -150,6 +151,60 @@ async function failureCode(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe("event-store append preparation", () => {
+  it("returns a frozen gate-failure trace consistent with its planned event line", async () => {
+    const storage = memoryTransactionStorage({
+      directories: [
+        ".brain/transactions",
+        ".brain/02-features/sample-feature/runs/run-01",
+      ],
+    });
+    const prepared = await prepareEventAppend(
+      {
+        feature: "sample-feature",
+        runId: "run-01",
+        event: {
+          ...draft(1),
+          eventType: "transition",
+          operation: "sdd.continue:prepared-trace-01",
+          reasonCode: "run.transition.accepted",
+          observedIdentity: {
+            host: "codex",
+            model: "gpt-5",
+            effort: "medium",
+          },
+          resolvedAssignment: {
+            phase: "code",
+            role: "implementer",
+            model: "gpt-5",
+            effort: "medium",
+          },
+          gateFailures: [
+            {
+              gateId: "stop-loss",
+              reasonCode: "blocked.stop_loss_flag",
+              mode: "enforce",
+              priority: 20,
+              evidenceRefs: [".brain/03-memory/task_metrics.md"],
+              detail: null,
+            },
+          ],
+        },
+      },
+      services(storage),
+    );
+    const failure = prepared.event.gateFailures[0];
+    if (failure === undefined) throw new Error("missing gate failure");
+
+    expect(Object.isFrozen(prepared.event.gateFailures)).toBe(true);
+    expect(Object.isFrozen(failure)).toBe(true);
+    expect(Object.isFrozen(failure.evidenceRefs)).toBe(true);
+    expect(() => {
+      failure.mode = "shadow";
+    }).toThrow(TypeError);
+    expect(prepared.effects[0].content).toContain('"mode":"enforce"');
+    expect(prepared.event.gateFailures[0]?.mode).toBe("enforce");
+  });
+
   it("appends a current event without rewriting a legacy event line", async () => {
     const oldEvent = {
       ...(JSON.parse(goldenV1.unsignedCanonical) as Omit<EventV1, "eventHash">),
@@ -182,7 +237,7 @@ describe("event-store append preparation", () => {
 
     expect(prepared.effects[0].content.startsWith(oldLine)).toBe(true);
     expect(prepared.effects[0].content.slice(0, oldLine.length)).toBe(oldLine);
-    expect(prepared.event.stateContract).toBe("1.1.0");
+    expect(prepared.event.stateContract).toBe("1.2.0");
   });
 
   it("derives only the two canonical paths for a valid run ID", () => {
@@ -952,7 +1007,7 @@ describe("event-store append preparation", () => {
   it("snapshots an in-flight draft mutation before the first read", async () => {
     const files = await firstFiles();
     const storage = persistedStorage(files);
-    const mutable = draft(2) as CurrentEventDraft & { operation: string };
+    const mutable = draft(2);
     let release: (() => void) | undefined;
     const wait = new Promise<void>((resolve) => {
       release = resolve;

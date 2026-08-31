@@ -24,6 +24,13 @@ let agentOutput: string;
 let configuration: string;
 let projectInitialization: string;
 let hosts: string;
+let gatesApprovalsEvidence: string;
+let eventStore: string;
+let migrationRecovery: string;
+let schemaRegistry: string;
+let migrationObservability: string;
+let systemArchitecture: string;
+let commands: string;
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -91,6 +98,13 @@ beforeAll(async () => {
     configuration,
     projectInitialization,
     hosts,
+    gatesApprovalsEvidence,
+    eventStore,
+    migrationRecovery,
+    schemaRegistry,
+    migrationObservability,
+    systemArchitecture,
+    commands,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -135,6 +149,28 @@ beforeAll(async () => {
       "utf8",
     ),
     readFile(join(repositoryRoot, "docs/user/hosts.md"), "utf8"),
+    readFile(
+      join(repositoryRoot, "docs/architecture/gates-approvals-evidence.md"),
+      "utf8",
+    ),
+    readFile(join(repositoryRoot, "docs/architecture/event-store.md"), "utf8"),
+    readFile(
+      join(repositoryRoot, "docs/user/migration-and-recovery.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/schema-registry.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/migration-observability.md"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "docs/architecture/system-architecture.md"),
+      "utf8",
+    ),
+    readFile(join(repositoryRoot, "docs/user/commands.md"), "utf8"),
   ]);
 });
 
@@ -170,6 +206,63 @@ describe("project discovery documentation", () => {
 });
 
 describe("contract versioning documentation", () => {
+  it("publishes per-gate policy modes and their current state contracts", () => {
+    const documentation = [
+      guide,
+      schemaIndex,
+      configuration,
+      gatesApprovalsEvidence,
+      eventStore,
+      migrationRecovery,
+    ].join("\n");
+
+    for (const phrase of [
+      "gateModes",
+      "gaps-closed",
+      "shadow",
+      "warn",
+      "enforce",
+      "state.event@1.2.0",
+      "state.project-config@1.4.0",
+    ]) {
+      expect(documentation).toContain(phrase);
+    }
+  });
+
+  it("publishes current state and migration boundaries in every operator guide", () => {
+    for (const phrase of [
+      "| `state.event` | state | `1.2.0` | `EventV1_2` |",
+      "| `state.project-config` | state | `1.4.0` | `ProjectConfigV1_4` |",
+      "pre-`1.4.0` project configuration",
+      "| `host.init-answers` | host | `1.3.0` | `InitAnswersV1_3` |",
+    ]) {
+      expect(schemaRegistry).toContain(phrase);
+    }
+
+    for (const phrase of [
+      "current `1.4.0` state",
+      "pre-`1.4.0` configuration",
+    ]) {
+      expect(migrationObservability).toContain(phrase);
+    }
+
+    expect(systemArchitecture).toMatch(
+      /current execution requires a `1\.4\.0`\s+project configuration/u,
+    );
+
+    for (const phrase of [
+      "pre-`1.4.0` configuration",
+      "current `1.4.0` state",
+      "host.init-answers@1.3.0",
+    ]) {
+      expect(commands).toContain(phrase);
+    }
+
+    expect(guide).toMatch(
+      /every pre-`1\.4\.0` project configuration,\s+including `1\.3\.0`/u,
+    );
+  });
+
   it("documents identities, migration, PRD protection, and verification", () => {
     for (const token of [
       "pluginVersion",
@@ -270,6 +363,7 @@ describe("contract versioning documentation", () => {
       "contract-manifest.v1.3.schema.json",
       "contract-manifest.v1.4.schema.json",
       "contract-manifest.v1.5.schema.json",
+      "contract-manifest.v1.6.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",

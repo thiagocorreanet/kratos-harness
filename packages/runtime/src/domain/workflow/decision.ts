@@ -16,6 +16,7 @@ import {
   type WorkflowAssignment,
   type WorkflowObservation,
 } from "./model.js";
+import type { GateFailure } from "../gates/index.js";
 
 const operationId = (
   name: "continue" | "start" | FactOperation,
@@ -143,11 +144,12 @@ function event(
   evidenceRefs: readonly string[] = [],
   resolvedAssignment?: WorkflowAssignment,
   phaseExecution?: PhaseExecutionObservation,
+  gateFailures: readonly GateFailure[] = [],
 ): CurrentEventDraft {
   const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: input.eventId,
     eventType: fact.eventType,
     occurredAt: input.occurredAt,
@@ -160,6 +162,7 @@ function event(
     artifactRefs: [...artifactRefs],
     evidenceRefs: [...evidenceRefs],
     observedIdentity: phaseIdentity(input.identity, phaseExecution),
+    gateFailures: [...gateFailures] as CurrentEventDraft["gateFailures"],
     ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
   };
 }
@@ -271,7 +274,8 @@ export function decideContinueWorkflow(
     );
   }
   if (
-    request.action.gateFailures.length !== 0 ||
+    request.gateDecision.outcome === "block" ||
+    request.action.rejectionReasons.length !== 0 ||
     request.action.artifactRefs.length === 0 ||
     request.action.evidenceRefs.length === 0
   ) {
@@ -282,7 +286,7 @@ export function decideContinueWorkflow(
       "rejected",
       request.action.artifactRefs,
       request.action.evidenceRefs,
-      rejectionWhy(request.action),
+      rejectionWhy(request.gateDecision, request.action),
     );
   }
   const finalPhase = state.currentStep === RUN_PHASES.at(-1);
@@ -317,12 +321,18 @@ export function decideContinueWorkflow(
 }
 
 function rejectionWhy(
+  gateDecision: ContinueWorkflowRequest["gateDecision"],
   action: Extract<
     ContinueWorkflowRequest["action"],
     { readonly kind: "complete-phase" }
   >,
 ): readonly string[] {
-  const reasons = [...action.gateFailures];
+  const reasons = [
+    ...(gateDecision.outcome === "block"
+      ? gateDecision.failures.map(({ reasonCode }) => reasonCode)
+      : []),
+    ...action.rejectionReasons,
+  ];
   if (
     action.artifactRefs.length === 0 &&
     !reasons.includes("artifact-unreadable")
@@ -367,6 +377,7 @@ function recorded(
       transition === "accepted" || transition === "completed"
         ? request.phaseExecution
         : undefined,
+      request.gateDecision.failures,
     ),
     ...(why === undefined ? {} : { why: [...why] }),
   };
@@ -463,8 +474,8 @@ export function decideRecordFact(
     kind: "recorded",
     transition: "observed",
     event: {
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       eventId: request.eventId,
       eventType: WORKFLOW_OPERATION_FACTS[request.operation].eventType,
       occurredAt: request.occurredAt,
@@ -480,6 +491,7 @@ export function decideRecordFact(
         request.observedIdentity,
         request.phaseExecution,
       ),
+      gateFailures: [],
       ...(request.resolvedAssignment === undefined
         ? {}
         : { resolvedAssignment: request.resolvedAssignment }),

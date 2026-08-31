@@ -4,6 +4,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import {
@@ -110,6 +111,22 @@ export function upgradeProjectConfigurationV1_3(
     projectProfile: structuredClone(
       projectProfile,
     ) as ProjectConfigV1_3["projectProfile"],
+  };
+}
+
+/** Upgrade a v1.3 configuration payload with empty per-gate overrides. */
+export function upgradeProjectConfigurationV1_4(
+  source: ProjectConfigV1_3,
+): ProjectConfigV1_4 {
+  return {
+    ...source,
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
+    hostContract: "1.3.0",
+    language: { ...source.language },
+    managedState: { ...source.managedState },
+    gateModes: {},
+    projectProfile: structuredClone(source.projectProfile),
   };
 }
 

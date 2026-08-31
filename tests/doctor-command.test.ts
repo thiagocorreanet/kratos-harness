@@ -31,6 +31,7 @@ import { describe, expect, it } from "vitest";
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
+import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 
 import { codexCatalog } from "./support/model-routing.js";
 
@@ -370,7 +371,7 @@ describe("stack-profile doctor readiness", () => {
     const run = subject({
       mutateFiles: (files) => ({
         ...files,
-        ".brain/config.json": '{"stateContract":"1.3.0"}\n',
+        ".brain/config.json": `${JSON.stringify({ ...projectConfigV1_4, projectProfile: null })}\n`,
       }),
     });
 
