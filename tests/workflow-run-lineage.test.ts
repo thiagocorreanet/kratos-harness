@@ -232,11 +232,53 @@ async function recordEvidence(
 }
 
 /** Complete the current phase against one artifact and its recorded evidence. */
-function completePhase(
+async function completePhase(
   run: Subject,
   ref: string,
   correlationId: string,
 ): Promise<number> {
+  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
+  const handoff = JSON.parse(run.output.structured_.join("")) as {
+    readonly assignmentDigest: string;
+  };
+  (run.output.structured_ as string[]).splice(0);
+  (run.output.human_ as string[]).splice(0);
+  const sessionId = `session-${correlationId}`;
+  const artifact = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+  const lifecycle = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    kind: "phase.start",
+    sessionId,
+    correlationId: `phase-start-${correlationId}`,
+    occurredAt: NOW,
+    assignmentDigest: handoff.assignmentDigest,
+  } as const;
+  const content = `${JSON.stringify(lifecycle, null, 2)}\n`;
+  await run.storage.fileSystem.write(artifact, content);
+  const message = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    messageId: `message-${correlationId}`,
+    correlationId: lifecycle.correlationId,
+    operationId: `operation-${correlationId}`,
+    sequence: 1,
+    occurredAt: NOW,
+    kind: "hook",
+    payload: {
+      host: "claude-code",
+      hook: "phase.start",
+      phase: "before",
+      artifact: { ref: artifact, sha256: run.ports.digests.sha256(content) },
+    },
+  };
+  expect(
+    await runCommandLine(["hook", "--host", "claude-code"], {
+      ...run.ports,
+      fileSystem: run.storage.fileSystem,
+      standardInput: pipedInput(JSON.stringify(message)),
+    }),
+  ).toBe(0);
   return runCommandLine(
     [
       "continue",
@@ -809,7 +851,10 @@ describe("a run whose phases write the lineage files", () => {
       recordedEvent?.artifactRefs,
     );
 
-    const verdictToTamper = verdictRefs[0];
+    const verdictToTamper = verdictRefs.find((ref) => {
+      const verdict = JSON.parse(files[ref] ?? "{}") as { outcome?: unknown };
+      return verdict.outcome === "failed";
+    });
     if (verdictToTamper === undefined) throw new Error("no verdict to tamper");
     const tamperedValue = JSON.parse(files[verdictToTamper] ?? "") as {
       outcome: string;

@@ -1172,6 +1172,56 @@
       "recovery": "Preview and authorize the memory migration with complete source-line coverage before retrying."
     },
     {
+      "code": "metrics.phase_not_started",
+      "description": "The phase has no active measurement bound to its runtime assignment.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Request a fresh handoff and start the phase through the configured host relay."
+    },
+    {
+      "code": "metrics.phase_assignment_conflict",
+      "description": "The open phase measurement is bound to a different runtime assignment.",
+      "status": "blocked",
+      "exitCode": 3,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Close or recover the open phase measurement, then request a fresh handoff."
+    },
+    {
+      "code": "metrics.log_invalid",
+      "description": "The raw phase measurement log is malformed or violates its contract.",
+      "status": "failure",
+      "exitCode": 4,
+      "evidence": "required",
+      "stateChanged": false,
+      "retryable": true,
+      "recovery": "Repair or restore the local task log before refreshing metrics."
+    },
+    {
+      "code": "metrics.refresh_ok",
+      "description": "The committed phase metrics rollup was refreshed from validated measurements.",
+      "status": "success",
+      "exitCode": 0,
+      "evidence": "required",
+      "stateChanged": true,
+      "retryable": false,
+      "recovery": null
+    },
+    {
+      "code": "metrics.calibration_insufficient",
+      "description": "At least one phase has too few completed measurements for calibration.",
+      "status": "advisory",
+      "exitCode": 0,
+      "evidence": "required",
+      "stateChanged": true,
+      "retryable": false,
+      "recovery": "Collect at least 5 completed measurements for each phase before using its recommended budget."
+    },
+    {
       "code": "blocked.stop_loss_rejections",
       "description": "The run reached its acceptance rejection ceiling for one or more criteria.",
       "status": "blocked",

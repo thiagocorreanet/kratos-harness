@@ -12,6 +12,7 @@
   "effect": "state",
   "artifactRefs": [],
   "evidenceRefs": [],
+  "gateFailures": [],
   "observedIdentity": {
     "host": "codex",
     "model": "gpt-5.6-terra",

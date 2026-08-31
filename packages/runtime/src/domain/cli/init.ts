@@ -21,6 +21,10 @@ type Observation = Extract<
 >;
 
 const HOSTS: readonly Host[] = ["claude", "codex", "antigravity"];
+const CREATE_ONCE_DESTINATIONS: readonly string[] = [
+  ".brain/03-memory/task_log.jsonl",
+  ".brain/03-memory/task_metrics.md",
+];
 
 /**
  * Establish the managed surface a project needs before anything else runs.
@@ -117,6 +121,11 @@ function decide(
   for (const effect of writes) {
     /* v8 ignore next -- the observation covers every destination generated */
     const existing = observed.get(effect.path) ?? { kind: "absent" };
+    const createOnce = CREATE_ONCE_DESTINATIONS.includes(effect.path);
+    if (createOnce && existing.kind === "file") {
+      outcomes.push({ path: effect.path, outcome: "preserved" });
+      continue;
+    }
     // Only the instruction files carry a managed section. Everything else is
     // generated whole, and asking the section planner about it would refuse a
     // file for lacking markers it was never supposed to have.
@@ -133,7 +142,9 @@ function decide(
       content: content.content,
       ...(effect.path === ".brain/config.json"
         ? { expected: observation.configExpected }
-        : {}),
+        : createOnce
+          ? { expected: { kind: "missing" } as const }
+          : {}),
     });
     outcomes.push({
       path: effect.path,

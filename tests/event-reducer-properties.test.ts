@@ -69,6 +69,7 @@ function draft(index: number, random: () => number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/${suffix}.md`],
     evidenceRefs: [`.brain/evidence/${suffix}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     resolvedAssignment: {
       phase: "code",

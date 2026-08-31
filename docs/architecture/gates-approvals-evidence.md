@@ -5,6 +5,48 @@ no filesystem, clock, Git, process, or network I/O. Failures are aggregated in
 stable priority order. `shadow` records findings while passing, `warn` reports
 findings without blocking, and `enforce` blocks.
 
+## Per-gate policy resolution
+
+`policyMode` remains the required inherited project default. `standard`
+resolves to `warn` for every gate and `strict` resolves to `enforce`. Current
+`state.project-config@1.4.0` adds `gateModes`, a required closed partial map:
+
+```json
+{
+  "policyMode": "strict",
+  "gateModes": {
+    "gaps-closed": "shadow"
+  }
+}
+```
+
+| `policyMode` | Inherited mode for an absent `gateModes` entry |
+| --- | --- |
+| `standard` | `warn` |
+| `strict` | `enforce` |
+
+Only the eight published gate IDs may occur in `gateModes`, and every supplied
+value must be `shadow`, `warn`, or `enforce`. The pure resolver expands this
+validated partial map into one immutable mode for every gate before evaluation.
+Unknown gate IDs or modes fail schema validation. Missing, unreadable, or
+invalid current policy fails closed in composition with unreadable context and
+an all-`enforce` resolved table.
+
+Each failure carries the effective mode of its own gate. Aggregation first
+orders by outcome severity (`block` before `warn` before `pass`), then by the
+existing numeric gate priority, then by gate ID. The first ordered failure is
+`primary`, so it always belongs to the outcome that decided the aggregate
+result. Equal-outcome failures retain their existing priority and gate-ID
+order. No failures produce `pass` with a null primary; shadow-only failures
+produce `pass` while retaining their first recorded failure as primary.
+
+An `enforce` failure blocks the transition. `warn` and `shadow` failures remain
+in the decision and `state.event@1.2.0` trace while the transition continues;
+warn produces the aggregate `warn` outcome and shadow produces `pass`. Prompts,
+agent output, and hosts never select or override a gate mode, aggregate
+failures, or choose `primary`. They only relay or render the runtime-owned
+decision. Gate policy resolution and evaluation remain pure and host neutral.
+
 ## Requirement document facts
 
 The composition layer reads the active `00-prd.md` through the durable
@@ -62,34 +104,6 @@ task document, appended snapshot, and its anchor. Each verdict also binds the
 snapshot path and digest it judged. Editing historical JSON makes the acceptance
 context unreadable instead of rewriting replayed history.
 
-## Repeated-rejection stop facts
-
-The workflow reducer contributes ordered active repair stops to the gate
-context. For every such stop, the gate emits
-`blocked.stop_loss_rejections` with its immutable stop-artifact reference. The
-reason is distinct from `blocked.stop_loss_budget` (token exhaustion) and
-`blocked.stop_loss_flag` (the existing host-observed latch). The three reasons
-may coexist and retain their stable aggregation order; clearing one does not
-clear either of the others.
-
-The artifact binds the run ID, AC identifier, attempt, frozen ceiling,
-classification, bounded diagnosis, and record time. Public gate and handoff
-views expose only typed, digest-bound facts. Events carry references and
-classifications rather than diagnosis text, source documents, prompts, or
-absolute paths. A missing, unreadable, changed, or mismatched artifact fails
-the context closed.
-
-Repair classification is supplied by the acceptance verdict when a criterion
-reaches the ceiling and is not inferred later. The explicit resolution command
-records the human identity and bounded, non-whitespace observation in another
-digest-bound artifact. A code resolution selectively resets one criterion in
-the existing run. Every code stop must be resolved before a specification
-resolution can create a new run at `spec` from a restart ticket. The ticket
-retires source AC identifiers, so a new specification approval and new
-identifiers remain required. Observation verifies all recovery artifact
-digests, source/target bindings, and successor cross-links before treating the
-run as readable.
-
 ## Gap facts
 
 `gates.json` under the run directory carries the facts the gates read:
@@ -126,17 +140,21 @@ separately whether a document actually changed as a result. An owner may also
 proceed over a gap nobody answered; the waiver is recorded, the gap stops
 blocking, and it stays on record as unanswered.
 
-The rollout axis is the existing `GateMode`. Under `enforce` an open gap blocks
-with `gate.gaps_abertos`. Under `warn` and `shadow` the same gap is recorded,
-reported by `kratos handoff` and `kratos doctor`, and the run continues. The
-project configuration selects `enforce` with `policyMode: "strict"` and `warn`
-otherwise; `shadow` is available to the evaluator for staged rollout.
+The rollout axis is the effective `GateMode` for `gaps-closed`. Under `enforce`
+an open gap blocks with `gate.gaps_abertos`. Under `warn` and `shadow` the same
+gap is recorded, reported by `kratos handoff` and `kratos doctor`, and the run
+continues. The gate inherits the `policyMode` default unless its `gateModes`
+entry overrides that default.
 
 An approval binds the run, gate, PRD digest, specification digest, policy
-version, approver, decision, observation, challenge, decision time, and expiry.
-The challenge is the SHA-256 digest of canonical binding data. A changed
-artifact, expired approval, repeated approval identifier, or altered challenge
-cannot authorize the current operation.
+version, effective mode, approver, decision, observation, challenge, decision
+time, and expiry. A `spec` approval binds the `spec-approved` mode, and a
+`final-acceptance` approval binds that gate's mode. A legacy unmapped target
+binds the inherited project default. Changing the authorized gate's override
+invalidates its SHA-256 challenge; changing an unrelated override does not.
+With `gateModes: {}`, the canonical effective-mode input and challenge bytes
+are unchanged. A changed artifact, expired approval, repeated approval
+identifier, or altered challenge cannot authorize the current operation.
 
 Evidence metadata binds a project-relative reference to its content digest,
 classification, and redaction policy. Restricted evidence cannot be declared
@@ -148,6 +166,6 @@ and objective digest, run state, current phase, gate outcome, blockers, and next
 host action without copying user-authored objective text into a public stream.
 
 Final acceptance requires every identified criterion to pass, complete steps,
-no gate failures, a valid
-`final-acceptance` approval, verified evidence, and artifact lineage bound to
-the same run and policy.
+no enforcing gate failure, a valid `final-acceptance` approval, verified
+evidence, and artifact lineage bound to the same run and policy. Warn and shadow
+findings remain recorded without being promoted into a blocking outcome.

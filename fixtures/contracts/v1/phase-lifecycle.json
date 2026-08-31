@@ -1,0 +1,9 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.0.0",
+  "kind": "phase.start",
+  "sessionId": "session-144",
+  "correlationId": "correlation-144",
+  "occurredAt": "2026-08-30T12:00:00.000Z",
+  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

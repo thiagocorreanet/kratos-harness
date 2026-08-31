@@ -84,6 +84,8 @@ export type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  PhaseLifecycleV1,
+  PhaseMeasurementV1,
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
   PhaseHandoffV1_3,

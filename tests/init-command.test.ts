@@ -17,7 +17,7 @@ import {
   recordingOutput,
   sequentialIds,
 } from "@kratos/runtime/infra/fake";
-import type { RuntimePorts } from "@kratos/runtime/ports";
+import type { DurableFileSystem, RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
@@ -185,6 +185,111 @@ describe("the init command", () => {
     );
     expect(again.output.structured_.join("")).toContain("preserved");
   });
+
+  it("creates measurement artifacts once and preserves their bytes while refreshing managed instructions", async () => {
+    const first = subject();
+    expect(await runCommandLine(["init"], first.ports)).toBe(0);
+    const initialized = Object.fromEntries(
+      Object.entries(first.storage.snapshot().files).filter(
+        ([path]) => !path.startsWith(".brain/transactions/"),
+      ),
+    );
+    expect(initialized[".brain/03-memory/task_log.jsonl"]).toBe("");
+    expect(initialized[".brain/03-memory/task_metrics.md"]).toContain(
+      "# Task metrics",
+    );
+
+    const raw = '{"measured":"raw bytes"}\r\n';
+    const rollup = "# Task metrics\r\n\r\nMeasured rollup bytes.  \r\n";
+    const instructions = initialized["CLAUDE.md"];
+    if (instructions === undefined) {
+      throw new Error("Initialization did not create CLAUDE.md");
+    }
+    const staleInstructions = `# Project-owned prefix\r\n\r\n${instructions.replace("# Kratos", "# Stale Kratos")}`;
+    const again = subject(
+      ANSWERS,
+      {
+        ...initialized,
+        ".brain/03-memory/task_log.jsonl": raw,
+        ".brain/03-memory/task_metrics.md": rollup,
+        "CLAUDE.md": staleInstructions,
+      },
+      {},
+      [],
+      first.storage.snapshot().directories,
+    );
+
+    expect(
+      await runCommandLine(["init"], again.ports),
+      again.output.human_.join("") + again.output.structured_.join(""),
+    ).toBe(0);
+
+    const reinitialized = again.storage.snapshot().files;
+    expect(reinitialized[".brain/03-memory/task_log.jsonl"]).toBe(raw);
+    expect(reinitialized[".brain/03-memory/task_metrics.md"]).toBe(rollup);
+    expect(reinitialized["CLAUDE.md"]).toBe(
+      `# Project-owned prefix\r\n\r\n${instructions}`,
+    );
+  });
+
+  it.each([
+    [
+      "raw log",
+      ".brain/03-memory/task_log.jsonl",
+      '{"concurrent":"raw bytes"}\r\n',
+    ],
+    [
+      "rollup",
+      ".brain/03-memory/task_metrics.md",
+      "# Concurrent metrics\r\n\r\nSentinel bytes.  \r\n",
+    ],
+  ])(
+    "rejects concurrent %s creation without publishing partial initialization",
+    async (_label, target, sentinel) => {
+      const run = subject(
+        ANSWERS,
+        {},
+        {},
+        [],
+        [".brain", ".brain/transactions"],
+      );
+      const observed = run.ports.durableFileSystem;
+      let targetInspections = 0;
+      const durableFileSystem: DurableFileSystem = {
+        ...observed,
+        inspect: async (path) => {
+          if (path === target) {
+            targetInspections += 1;
+            if (targetInspections === 2) {
+              await run.storage.fileSystem.write(target, sentinel);
+            }
+          }
+          return observed.inspect(path);
+        },
+      };
+
+      expect(
+        await runCommandLine(["--json", "init"], {
+          ...run.ports,
+          durableFileSystem,
+        }),
+        run.output.structured_.join("") + run.output.human_.join(""),
+      ).toBe(5);
+      expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+        reasonCode: "runtime.revision_conflict",
+        stateChanged: false,
+        evidence: [{ ref: target }],
+      });
+      expect(targetInspections).toBeGreaterThanOrEqual(2);
+      expect(
+        Object.fromEntries(
+          Object.entries(run.storage.snapshot().files).filter(
+            ([path]) => !path.startsWith(".brain/transactions/"),
+          ),
+        ),
+      ).toEqual({ [target]: sentinel });
+    },
+  );
 
   it("persists every profile leaf as unresolved on a fresh initialization", async () => {
     const run = subject();

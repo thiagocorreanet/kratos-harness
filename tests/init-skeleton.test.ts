@@ -308,6 +308,7 @@ describe("the generated skeleton", () => {
       hostContract: "1.4.0",
       language: ptBrPolicy,
       policyMode: "strict",
+      gateModes: {},
       managedState: {
         directory: ".brain",
         eventLog: "events.jsonl",

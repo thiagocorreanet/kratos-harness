@@ -1,6 +1,6 @@
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import type {
-  EventV1_2,
+  EventV1_1,
   OperationResultV1,
   PhaseHandoffV1_2,
 } from "@kratos/contracts";
@@ -125,13 +125,13 @@ function eventPath(subject: WorkflowSubject): string {
   return `.brain/02-features/${feature}/runs/run-01/events.jsonl`;
 }
 
-function lastEvent(subject: WorkflowSubject): EventV1_2 {
+function lastEvent(subject: WorkflowSubject): EventV1_1 {
   const stream = subject.storage.snapshot().files[eventPath(subject)] ?? "";
   const line = stream.trim().split("\n").at(-1);
   if (line === undefined || line.length === 0) {
     throw new Error("The workflow has no event to inspect");
   }
-  return JSON.parse(line) as EventV1_2;
+  return JSON.parse(line) as EventV1_1;
 }
 
 async function currentHandoff(
@@ -297,19 +297,23 @@ async function started(options: SubjectOptions = {}): Promise<WorkflowSubject> {
       (path) => !path.includes("/transactions/"),
     ),
   );
-  expect(
-    await runCommandLine(
-      ["start", "--run-id", "run-01", "--correlation-id", "start-01"],
-      run.ports,
-    ),
-  ).toBe(0);
-  clearOutput(run.output);
+  const startExit = await runCommandLine(
+    ["start", "--run-id", "run-01", "--correlation-id", "start-01"],
+    run.ports,
+  );
+  if (options.configuration === projectConfigV1) {
+    expect(startExit).not.toBe(0);
+  } else {
+    expect(startExit).toBe(0);
+    clearOutput(run.output);
+  }
   return { ...run, before: run.storage.snapshot() };
 }
 
 async function advanceToPhase(
   run: WorkflowSubject,
   completed: number,
+  withMeasurements = true,
 ): Promise<void> {
   const phases = [
     [".brain/02-features/ship-handoff/00-prd.md", "# PRD\n"],
@@ -319,6 +323,58 @@ async function advanceToPhase(
     [".brain/02-features/ship-handoff/review-summary.md", "Review complete.\n"],
   ] as const;
   for (const [index, [ref, content]] of phases.slice(0, completed).entries()) {
+    if (withMeasurements) {
+      const phaseHandoff = await currentHandoff(run);
+      const sessionId = `phase-session-${String(index)}`;
+      const lifecycle = {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        kind: "phase.start",
+        sessionId,
+        correlationId: `phase-start-${String(index)}`,
+        occurredAt: "2026-08-28T12:00:00.000Z",
+        assignmentDigest: phaseHandoff.assignmentDigest,
+      };
+      const lifecycleRef = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+      const lifecycleContent = `${JSON.stringify(lifecycle, null, 2)}\n`;
+      await run.ports.fileSystem.write(lifecycleRef, lifecycleContent);
+      const relayHost =
+        phaseHandoff.host === "claude" ? "claude-code" : "codex";
+      const message = {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        messageId: `phase-start-message-${String(index)}`,
+        correlationId: lifecycle.correlationId,
+        operationId: `phase-start-operation-${String(index)}`,
+        sequence: index,
+        occurredAt: lifecycle.occurredAt,
+        kind: "hook",
+        payload: {
+          host: relayHost,
+          hook: "phase.start",
+          phase: "before",
+          artifact: {
+            ref: lifecycleRef,
+            sha256: run.ports.digests.sha256(lifecycleContent),
+          },
+        },
+      };
+      const lifecycleExit = await runCommandLine(
+        ["hook", "--host", relayHost],
+        {
+          ...run.ports,
+          standardInput: pipedInput(JSON.stringify(message)),
+        },
+      );
+      expect(
+        lifecycleExit,
+        `${run.output.human_.join("")} ${run.output.structured_.join("")}`,
+      ).toBe(0);
+      expect(
+        run.storage.snapshot().files[".brain/03-memory/task_log.jsonl"],
+        `${run.output.human_.join("")} ${run.output.structured_.join("")}`,
+      ).toBeDefined();
+    }
     await run.ports.fileSystem.write(ref, content);
     expect(
       await runCommandLine(
@@ -331,6 +387,7 @@ async function advanceToPhase(
         ],
         run.ports,
       ),
+      `${run.output.human_.join("")} ${run.output.structured_.join("")}`,
     ).toBe(0);
     expect(
       await runCommandLine(
@@ -346,13 +403,14 @@ async function advanceToPhase(
         ],
         run.ports,
       ),
+      `${run.output.human_.join("")} ${run.output.structured_.join("")} task_log=${run.storage.snapshot().files[".brain/03-memory/task_log.jsonl"] ?? "<missing>"}`,
     ).toBe(0);
   }
   clearOutput(run.output);
 }
 
 async function advanceToReview(run: WorkflowSubject): Promise<void> {
-  await advanceToPhase(run, 4);
+  await advanceToPhase(run, 4, true);
 }
 
 function codeReply(
@@ -596,6 +654,11 @@ describe("read-only model-role handoffs", () => {
 
   it.each([
     [
+      "legacy configuration",
+      { configuration: projectConfigV1 },
+      "profile.config_migration_required",
+    ],
+    [
       "missing host role map",
       {
         configuration: roleConfig("claude", {
@@ -616,29 +679,19 @@ describe("read-only model-role handoffs", () => {
       { launcherHost: "unknown" as const },
       "model.host_missing",
     ],
-  ])("refuses %s without mutation", async (_label, options, reasonCode) => {
+  ])("refuses %s without mutation", async (label, options, reasonCode) => {
     const run = await started(options);
+
+    if (label === "legacy configuration") {
+      expect(run.output.human_.join("")).toContain(reasonCode);
+      expect(run.output.human_.join("")).toContain("State changed: false");
+      expect(run.storage.snapshot()).toEqual(run.before);
+      return;
+    }
 
     expect(await runCommandLine(["--json", "handoff"], run.ports)).not.toBe(0);
     expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
       reasonCode,
-      stateChanged: false,
-    });
-    expect(run.storage.snapshot()).toEqual(run.before);
-  });
-
-  it("refuses legacy configuration without mutation", async () => {
-    const startedRun = await started();
-    await startedRun.ports.fileSystem.write(
-      ".brain/config.json",
-      JSON.stringify(projectConfigV1),
-    );
-    clearOutput(startedRun.output);
-    const run = { ...startedRun, before: startedRun.storage.snapshot() };
-
-    expect(await runCommandLine(["--json", "handoff"], run.ports)).not.toBe(0);
-    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
-      reasonCode: "profile.config_migration_required",
       stateChanged: false,
     });
     expect(run.storage.snapshot()).toEqual(run.before);

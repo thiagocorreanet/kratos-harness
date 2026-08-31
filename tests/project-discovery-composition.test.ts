@@ -29,6 +29,7 @@ const configuration: ProjectConfigV1_4 = {
     enforcement: "advisory",
   },
   policyMode: "standard",
+  gateModes: {},
   managedState: {
     directory: ".brain",
     eventLog: "events.jsonl",

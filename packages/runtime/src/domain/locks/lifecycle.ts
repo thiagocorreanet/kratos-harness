@@ -230,6 +230,7 @@ export function prepareLeaseTransition(
     artifactRefs: [input.leaseRef],
     evidenceRefs: [],
     observedIdentity: { ...input.observedIdentity, effort: null },
+    gateFailures: [],
   };
   let sealed: EventV1_2;
   try {

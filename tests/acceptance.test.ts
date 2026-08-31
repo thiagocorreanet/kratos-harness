@@ -3,6 +3,7 @@ import {
   decideDone,
   validateLineageDag,
 } from "@kratos/runtime/domain/acceptance";
+import { resolveGateModes } from "@kratos/runtime/domain/gates";
 import { describe, expect, it } from "vitest";
 
 const approval = {
@@ -42,7 +43,7 @@ describe("done acceptance", () => {
       outcome: "pass" as const,
       primary: null,
       failures: [],
-      mode: "enforce" as const,
+      gateModes: resolveGateModes("strict", {}),
       criteria: [
         {
           criterionId: "AC-1.1.1",
@@ -72,6 +73,38 @@ describe("done acceptance", () => {
       reasonCode: "gate.aceitacao_final",
     });
   });
+
+  it.each([
+    ["warn", "warn"],
+    ["shadow", "pass"],
+  ] as const)(
+    "accepts final findings in %s mode while preserving the trace",
+    (mode, outcome) => {
+      const failure = {
+        gateId: "final-acceptance" as const,
+        reasonCode: "gate.aceitacao_final" as const,
+        priority: 80,
+        mode,
+        evidenceRefs: [".brain/approvals"],
+        detail: null,
+      };
+
+      expect(
+        decideDone({
+          ...candidate,
+          gates: {
+            ...candidate.gates,
+            outcome,
+            primary: failure,
+            failures: [failure],
+          },
+        }),
+      ).toMatchObject({
+        kind: "accepted",
+        reasonCode: "done.all_steps",
+      });
+    },
+  );
 
   it("refuses stale or incomplete lineage", () => {
     expect(

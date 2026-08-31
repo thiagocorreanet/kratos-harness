@@ -17,10 +17,11 @@
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
-// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.3 sha256:3b897513b55c5ad29bd8e6bb137cf5a16ecf3f6e01f71c5fce4d421f0cdba100
+// source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
@@ -29,9 +30,9 @@
 // source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
-// source: https://kratos.dev/schemas/state/event/v1.2 sha256:c91746a8b6ea23e23e76db4d070cc34ab70f3aec786c48b1046c89cfc1b612c6
-// source: https://kratos.dev/schemas/state/event/v1.3 sha256:4597757c6002b64fc79c09fd7ff1ab6c3f380e93dd1e7690c46615f84370c5a5
-// source: https://kratos.dev/schemas/state/event/v1.4 sha256:4cc9e11e6f6103573f040f93a2a9e968e31a1e93b9834858ac3b3879a6064be1
+// source: https://kratos.dev/schemas/state/event/v1.2 sha256:50adde1dd706a3d79a772ddf886764d19d83a0048c6f646def22e6a121d4f9be
+// source: https://kratos.dev/schemas/state/event/v1.3 sha256:a68359c94c812bf65e785057af8ace223ed03d8c30e98859156e22a8af8d5873
+// source: https://kratos.dev/schemas/state/event/v1.4 sha256:c01f73fdb88fa4d1a179a36ca2657bac4cd159b245c3c4ab2798f4b556352085
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
@@ -43,11 +44,12 @@
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
+// source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:c783ccba225a9cd283460d11f9f1b590195c70ddcc8af28bf2bd891014888548
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
 // source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
-// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:7b5faec50005e8222a5b97c3a50094b255ae48cad2b4fca033644b5e1e576afb
+// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:2a1681a6231b74735ad73f8f8dab4d29869c3c4b5c89577945d5aa47637eeeb9
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1 sha256:bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1.1 sha256:8dde526faeb7bc240f31e6edef90f6c2670e166dad0b75cda25ab58734386124
@@ -1611,7 +1613,7 @@ export namespace HostOperationMessageV1Contract {
     occurredAt: string;
     kind: "hook";
     payload: {
-      host: "claude-code" | "codex";
+      host: "claude-code" | "codex" | "antigravity";
       hook: Id;
       phase: "before" | "after";
       artifact: Artifact;
@@ -1896,6 +1898,22 @@ export namespace PhaseHandoffV1_3Contract {
   }
 }
 export type PhaseHandoffV1_3 = PhaseHandoffV1_3Contract.PhaseHandoffV1_3;
+export namespace PhaseLifecycleV1Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type Sha256 = string;
+
+  export interface PhaseLifecycleV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.0.0";
+    kind: "phase.start";
+    sessionId: Id;
+    correlationId: Id;
+    occurredAt: Timestamp;
+    assignmentDigest: Sha256;
+  }
+}
+export type PhaseLifecycleV1 = PhaseLifecycleV1Contract.PhaseLifecycleV1;
 export namespace PreToolUseV1Contract {
   export type Mutation =
     CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;
@@ -2147,6 +2165,8 @@ export namespace EventV1_2Contract {
    * @maxItems 256
    */
   export type References = Reference[];
+  export type Revision = number;
+  export type SafeDetail = string;
   export type AcceptanceDecision = {
     [k: string]: unknown | undefined;
   } & {
@@ -2178,6 +2198,43 @@ export namespace EventV1_2Contract {
     artifactRefs: References;
     evidenceRefs: References;
     observedIdentity: ObservedIdentity;
+    /**
+     * @maxItems 8
+     */
+    gateFailures:
+      | []
+      | [GateFailure]
+      | [GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure, GateFailure]
+      | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ]
+      | [
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+          GateFailure,
+        ];
     resolvedAssignment?: ResolvedAssignment;
     runLimits?: RunLimits;
     acceptanceDecision?: AcceptanceDecision;
@@ -2188,6 +2245,179 @@ export namespace EventV1_2Contract {
     host: Id;
     model: Id | null;
     effort: Id | null;
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "blocked.stop_loss_rejections"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: Revision;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [Reference]
+      | [Reference, Reference]
+      | [Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference, Reference]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ];
+    detail: SafeDetail | null;
   }
   export interface ResolvedAssignment {
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
@@ -2222,6 +2452,44 @@ export namespace EventV1_3Contract {
    * @maxItems 256
    */
   export type References = Reference[];
+  /**
+   * @maxItems 8
+   */
+  export type GateFailures =
+    | []
+    | [GateFailure]
+    | [GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ];
+  export type SafeDetail = string;
   export type AcceptanceDecision = {
     [k: string]: unknown | undefined;
   } & {
@@ -2253,6 +2521,7 @@ export namespace EventV1_3Contract {
     artifactRefs: References;
     evidenceRefs: References;
     observedIdentity: ObservedIdentity;
+    gateFailures: GateFailures;
     resolvedAssignment?: ResolvedAssignment;
     runLimits?: RunLimits;
     acceptanceDecision?: AcceptanceDecision;
@@ -2265,6 +2534,179 @@ export namespace EventV1_3Contract {
     host: Id;
     model: Id | null;
     effort: Id | null;
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "blocked.stop_loss_rejections"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: NonNegativeInteger;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [Reference]
+      | [Reference, Reference]
+      | [Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference]
+      | [Reference, Reference, Reference, Reference, Reference, Reference]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ]
+      | [
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+          Reference,
+        ];
+    detail: SafeDetail | null;
   }
   export interface ResolvedAssignment {
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
@@ -2316,6 +2758,43 @@ export namespace EventV1_4Contract {
    * @maxItems 256
    */
   export type References = string[];
+  /**
+   * @maxItems 8
+   */
+  export type GateFailures =
+    | []
+    | [GateFailure]
+    | [GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ];
   export type AcceptanceDecision = {
     [k: string]: unknown | undefined;
   } & {
@@ -2346,6 +2825,7 @@ export namespace EventV1_4Contract {
     artifactRefs: References;
     evidenceRefs: References;
     observedIdentity: ObservedIdentity;
+    gateFailures: GateFailures;
     resolvedAssignment?: ResolvedAssignment;
     runLimits?: RunLimits;
     acceptanceDecision?: AcceptanceDecision;
@@ -2358,6 +2838,152 @@ export namespace EventV1_4Contract {
     host: string;
     model: string | null;
     effort: string | null;
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "blocked.stop_loss_rejections"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: number;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [string]
+      | [string, string]
+      | [string, string, string]
+      | [string, string, string, string]
+      | [string, string, string, string, string]
+      | [string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string, string]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+    detail: string | null;
   }
   export interface ResolvedAssignment {
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
@@ -2702,6 +3328,145 @@ export namespace NarrationV1Contract {
   }
 }
 export type NarrationV1 = NarrationV1Contract.NarrationV1;
+export namespace PhaseMeasurementV1Contract {
+  export type PhaseMeasurementV1 =
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "running";
+        startedAt: Timestamp;
+        endedAt: null;
+        durationMs: null;
+        baselineGrossTokens: Count;
+        finalGrossTokens: null;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: null;
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "completed";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: (
+          | (
+              | "phase_completed"
+              | "session_interrupted"
+              | "recovered_completed"
+              | "recovered_interrupted"
+            )
+          | null
+        ) &
+          ("phase_completed" | "recovered_completed");
+        updatedAt: Timestamp;
+      }
+    | {
+        contractVersion: "1.0.0";
+        stateContract: "1.0.0";
+        feature: Id;
+        runId: Id;
+        phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+        sessionId: Id;
+        /**
+         * @minItems 1
+         * @maxItems 256
+         */
+        contributingSessionIds?: [Id, ...Id[]];
+        /**
+         * @maxItems 256
+         */
+        contributorCheckpoints?: {
+          sessionId: Id;
+          cumulativeGrossTokens: Count;
+          occurredAt: Timestamp;
+        }[];
+        correlationId: Id;
+        status: "interrupted";
+        startedAt: Timestamp;
+        endedAt: Timestamp;
+        durationMs: Count;
+        baselineGrossTokens: Count;
+        finalGrossTokens: Count;
+        grossTokens: Count;
+        assignmentDigest: Sha256;
+        resolvedAssignment: ResolvedAssignment;
+        observedIdentity: ObservedIdentity;
+        closeReason: (
+          | (
+              | "phase_completed"
+              | "session_interrupted"
+              | "recovered_completed"
+              | "recovered_interrupted"
+            )
+          | null
+        ) &
+          ("session_interrupted" | "recovered_interrupted");
+        updatedAt: Timestamp;
+      };
+  export type Id = string;
+  export type Count = number;
+  export type Timestamp = string;
+  export type Sha256 = string;
+
+  export interface ResolvedAssignment {
+    host: "claude" | "codex" | "antigravity";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface ObservedIdentity {
+    model: Id | null;
+    effort: Id | null;
+  }
+}
+export type PhaseMeasurementV1 = PhaseMeasurementV1Contract.PhaseMeasurementV1;
 export namespace ProjectConfigV1Contract {
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
@@ -2905,6 +3670,7 @@ export namespace ProjectConfigV1_3Contract {
 export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
 export namespace ProjectConfigV1_4Contract {
   export type LanguageCode = "en" | "pt-BR";
+  export type GateMode = "shadow" | "warn" | "enforce";
   export type Assignment =
     | Id
     | {
@@ -2930,6 +3696,8 @@ export namespace ProjectConfigV1_4Contract {
     hostContract: "1.4.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
+    gateModes: GateModes;
+    acceptanceAttemptCeiling?: number;
     managedState: {
       directory: ".brain";
       eventLog: "events.jsonl";
@@ -2937,7 +3705,6 @@ export namespace ProjectConfigV1_4Contract {
     };
     modelRoles: ModelRoles;
     projectProfile: ProjectProfile;
-    acceptanceAttemptCeiling?: number;
   }
   export interface LanguagePolicy {
     conversation: LanguageCode;
@@ -2947,6 +3714,16 @@ export namespace ProjectConfigV1_4Contract {
     commits: LanguageCode;
     preserveConventions: boolean;
     enforcement: "advisory" | "off";
+  }
+  export interface GateModes {
+    "context-readable"?: GateMode;
+    "stop-loss"?: GateMode;
+    "prd-present"?: GateMode;
+    "spec-approved"?: GateMode;
+    "gaps-closed"?: GateMode;
+    "partition-approved"?: GateMode;
+    "acceptance-criteria"?: GateMode;
+    "final-acceptance"?: GateMode;
   }
   export interface ModelRoles {
     claude?: RoleMap;

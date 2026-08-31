@@ -116,6 +116,7 @@ delimiter, the envelope, and the extraction rules. The
 current registry format is
 [`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json).
 The immutable predecessors remain
+[`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json),
 [`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json),
 [`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
 [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json) for the

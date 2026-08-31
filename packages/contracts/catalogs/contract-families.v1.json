@@ -174,6 +174,14 @@
       "typeName": "PhaseHandoffV1_3"
     },
     {
+      "id": "host.phase-lifecycle",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/phase-lifecycle.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PhaseLifecycleV1"
+    },
+    {
       "id": "host.pre-tool-use",
       "family": "host",
       "version": "1.0.0",
@@ -348,6 +356,14 @@
       "path": "schemas/state/narration.v1.schema.json",
       "boundary": "persisted",
       "typeName": "NarrationV1"
+    },
+    {
+      "id": "state.phase-measurement",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/phase-measurement.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "PhaseMeasurementV1"
     },
     {
       "id": "state.project-config",

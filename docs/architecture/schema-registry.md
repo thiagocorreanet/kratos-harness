@@ -26,7 +26,7 @@ shows the foundational payloads used throughout this boundary.
 | `host.init-answers` | host | `1.4.0` | `InitAnswersV1_4` |
 | `host.operation-message` | host | `1.0.0` | `HostOperationMessageV1` |
 | `state.approval` | state | `1.0.0` | `ApprovalV1` |
-| `state.event` | state | `1.3.0` | `EventV1_3` |
+| `state.event` | state | `1.4.0` | `EventV1_4` |
 | `state.evidence` | state | `1.0.0` | `EvidenceV1` |
 | `state.feature` | state | `1.0.0` | `FeatureStateV1` |
 | `state.gap` | state | `1.0.0` | `GapRecordV1` |

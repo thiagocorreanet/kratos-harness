@@ -195,6 +195,7 @@ function configuration(answers: Answers): string {
     hostContract: "1.4.0",
     language: answers.language,
     policyMode: answers.policyMode,
+    gateModes: {},
     managedState: {
       directory: ".brain",
       eventLog: "events.jsonl",

@@ -11,7 +11,10 @@ import {
   type CommandObservation,
   type Invocation,
 } from "@kratos/runtime/domain/cli";
-import type { GateDecision } from "@kratos/runtime/domain/gates";
+import {
+  resolveGateModes,
+  type GateDecision,
+} from "@kratos/runtime/domain/gates";
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
 const sampleHandoff: CurrentPhaseHandoff = {
@@ -52,7 +55,7 @@ const sampleGateDecision: GateDecision = {
   outcome: "pass",
   primary: null,
   failures: [],
-  mode: "enforce",
+  gateModes: resolveGateModes("strict", {}),
   criteria: [],
 };
 
@@ -101,6 +104,18 @@ function createSampleObservation(
     },
     currentPhaseMemory: sampleHandoff.memory,
     phaseExecution: null,
+    usage: {
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      runId: "run-sample",
+      totalGrossTokens: 0,
+      epoch: { number: 1, baselineGrossTokens: 0, exhaustedAt: null },
+      sessions: [],
+      measurementFaultAt: null,
+      updatedAt: "2026-08-29T12:00:00.000Z",
+    },
+    tokenUsage: 0,
+    measurements: { content: "", records: [], expected: { kind: "missing" } },
     correlationId: "corr-1",
     eventId: "evt-1",
     occurredAt: "2026-08-29T12:00:00.000Z",
@@ -162,6 +177,7 @@ function createSampleObservation(
     referencedFiles: [],
     gateDecision: sampleGateDecision,
     policyMode: "enforce",
+    defaultGateMode: "enforce",
     acceptanceAttemptCeiling: { kind: "resolved", value: 3 },
     tokenBudget: null,
     objectiveTokenBudget: null,

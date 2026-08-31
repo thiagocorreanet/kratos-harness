@@ -2,7 +2,7 @@ import { types } from "node:util";
 
 import type { EventV1, EventV1_2 } from "@kratos/contracts";
 import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
-import goldenV1_1 from "./fixtures/events/golden-event-v1.1.json" with { type: "json" };
+import goldenV1_2 from "./fixtures/events/golden-event-v1.2.json" with { type: "json" };
 import {
   EVENT_RECORD_BYTES,
   EVENT_STREAM_BYTES,
@@ -38,9 +38,7 @@ function sealedV1Event(): EventV1 {
 
 function currentDraft(revision: number): CurrentEventDraft {
   return {
-    ...(structuredClone(goldenV1_1.draft) as CurrentEventDraft),
-    contractVersion: "1.2.0",
-    stateContract: "1.2.0",
+    ...(structuredClone(goldenV1_2.draft) as CurrentEventDraft),
     eventId: `event-${String(revision).padStart(2, "0")}`,
     priorRevision: revision - 1,
     resultingRevision: revision,
@@ -62,6 +60,7 @@ function draft(index: number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/feature-01/${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     resolvedAssignment: {
       phase: "code",
@@ -73,12 +72,19 @@ function draft(index: number): CurrentEventDraft {
 }
 
 function stream(): readonly [EventV1_2, EventV1_2] {
-  const first = sealEvent(draft(1), { revision: 0, hash: null }, services);
+  const first = sealEvent(
+    draft(1),
+    {
+      revision: 0,
+      hash: null,
+    },
+    services,
+  ) as EventV1_2;
   const second = sealEvent(
     draft(2),
     { revision: 1, hash: first.eventHash },
     services,
-  );
+  ) as EventV1_2;
   return [first, second];
 }
 
@@ -139,7 +145,7 @@ describe("event hash-chain verification", () => {
       currentDraft(1),
       { revision: 0, hash: null },
       services,
-    );
+    ) as EventV1_2;
     if (event.resolvedAssignment === undefined) {
       throw new Error("missing resolved assignment");
     }
@@ -161,7 +167,7 @@ describe("event hash-chain verification", () => {
       currentDraft(1),
       { revision: 0, hash: null },
       services,
-    );
+    ) as EventV1_2;
     if (event.resolvedAssignment === undefined) {
       throw new Error("missing resolved assignment");
     }
@@ -220,7 +226,7 @@ describe("event hash-chain verification", () => {
       },
     ],
     [
-      "a 1.1 declaration carrying a legacy observed identity",
+      "a 1.2 declaration carrying a legacy observed identity",
       (() => {
         const event = sealEvent(
           currentDraft(1),

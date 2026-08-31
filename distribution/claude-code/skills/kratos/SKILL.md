@@ -71,6 +71,10 @@ returned handoff to the relay. Its launcher binds the native Claude Code
 phase-agent call to the returned `model` and `effort` exactly. The record
 transport invokes `agent record` with the adapter message produced by the
 relay, which keeps the returned `assignmentDigest` outside agent output.
+Supply the relay with the host-observed `sessionId` and `occurredAt`. Before
+the native launcher runs, the relay sends that lifecycle and the handoff's
+`assignmentDigest` to `hook --host claude-code`. A nonzero start returns
+`runtime-refused` with the runtime rendering and does not launch or record.
 
 Declare exact model and effort selection unavailable when the native launcher
 cannot bind either field. The relay then returns

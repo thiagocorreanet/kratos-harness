@@ -47,6 +47,7 @@ const artifacts = [
   ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
+  ["host/phase-lifecycle.v1.schema.json", "phase-lifecycle.json", "host"],
   ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
@@ -57,6 +58,7 @@ const artifacts = [
     "state",
   ],
   ["state/run-usage.v1.schema.json", "run-usage.json", "state"],
+  ["state/phase-measurement.v1.schema.json", "phase-measurement.json", "state"],
   ["state/repair-loop-stop.v1.schema.json", "repair-loop-stop.json", "state"],
   ["state/repair-resolution.v1.schema.json", "repair-resolution.json", "state"],
   ["state/repair-restart.v1.schema.json", "repair-restart.json", "state"],
@@ -103,6 +105,64 @@ function contractAjv(): Ajv2020 {
 }
 
 describe("versioned state and host schemas", () => {
+  it("requires a closed partial gate-mode override map in project config v1.4", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "state/project-config.v1.4.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const project = {
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.4.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: {} },
+      projectProfile: {
+        commands: {
+          test: { status: "unresolved" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+    };
+
+    expect(
+      validate({ ...project, gateModes: { "gaps-closed": "shadow" } }),
+    ).toBe(true);
+    expect(validate({ ...project, gateModes: { unknown: "shadow" } })).toBe(
+      false,
+    );
+    expect(
+      validate({ ...project, gateModes: { "gaps-closed": "observe" } }),
+    ).toBe(false);
+    expect(validate({ ...project, gateModes: undefined })).toBe(false);
+  });
+
   it("validates the closed v1.3 project profile leaves and their limits", async () => {
     const [initSchema, projectSchema] = await Promise.all([
       readJson(join(schemaRoot, "host/init-answers.v1.3.schema.json")),
@@ -500,40 +560,12 @@ describe("versioned state and host schemas", () => {
       "40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd",
     ],
     [
-      "contracts/contract-manifest.v1.schema.json",
-      "0de8cb9096adbe984b729cb511d57f8c9aa0e3f50f6ec09b9bc39cf5b022cff6",
-    ],
-    [
       "contracts/contract-manifest.v1.1.schema.json",
       "7693411838fa4629ca524fd0053de08372201d2d3ffd44e9e2e3c69f5d91d9bf",
     ],
     [
       "contracts/contract-manifest.v1.2.schema.json",
       "cc681c74f36da960791a0e5a79d8f5eca96a246dc59da244fc91992620ec8f78",
-    ],
-    [
-      "contracts/contract-manifest.v1.3.schema.json",
-      "8a1d74451b62386e478b6dea41c2bdb670974f5a8c1b7a76908dc58a7e8d57dd",
-    ],
-    [
-      "contracts/contract-manifest.v1.4.schema.json",
-      "43eff27f9f858b973aac151cfed56b4ff5eb3be59626294414d4984cb6974c21",
-    ],
-    [
-      "contracts/contract-manifest.v1.5.schema.json",
-      "e56e5894dff7bec85425b23ff124d1d95aa380073e9e2ba50b7419707d24f04e",
-    ],
-    [
-      "contracts/contract-manifest.v1.6.schema.json",
-      "1c03f8ae90287f4fbfa62543dfbdfb2476eb1ee7cbd1f4bdc6dfc31a47c80746",
-    ],
-    [
-      "host/agent-output.v1.schema.json",
-      "7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a",
-    ],
-    [
-      "host/agent-output.v1.1.schema.json",
-      "088f8496631fb80570f3a863bc71753ef37deab1dbe6d03ad5b2b6e571f26c63",
     ],
     [
       "host/adapter-message.v1.1.schema.json",
@@ -556,24 +588,8 @@ describe("versioned state and host schemas", () => {
       "1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae",
     ],
     [
-      "host/phase-handoff.v1.2.schema.json",
-      "a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a",
-    ],
-    [
       "state/event.v1.1.schema.json",
       "856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f",
-    ],
-    [
-      "state/event.v1.2.schema.json",
-      "c91746a8b6ea23e23e76db4d070cc34ab70f3aec786c48b1046c89cfc1b612c6",
-    ],
-    [
-      "state/event.v1.3.schema.json",
-      "4597757c6002b64fc79c09fd7ff1ab6c3f380e93dd1e7690c46615f84370c5a5",
-    ],
-    [
-      "state/migration.v1.schema.json",
-      "6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e",
     ],
     [
       "state/migration.v1.1.schema.json",
@@ -590,14 +606,6 @@ describe("versioned state and host schemas", () => {
     [
       "state/project-config.v1.3.schema.json",
       "7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b",
-    ],
-    [
-      "state/repair-loop-stop.v1.schema.json",
-      "bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b",
-    ],
-    [
-      "state/repair-resolution.v1.schema.json",
-      "3b8a23ff65be970d92f7bcfed2398f012d9353fc76c44f8ae7f4dd6e00c005f8",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));

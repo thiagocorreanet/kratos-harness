@@ -1,0 +1,31 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "feature": "feature-144",
+  "runId": "run-144",
+  "phase": "code",
+  "sessionId": "session-144",
+  "contributingSessionIds": ["session-144"],
+  "contributorCheckpoints": [],
+  "correlationId": "correlation-144",
+  "status": "completed",
+  "startedAt": "2026-08-30T12:00:00.000Z",
+  "endedAt": "2026-08-30T12:03:00.000Z",
+  "durationMs": 180000,
+  "baselineGrossTokens": 100,
+  "finalGrossTokens": 160,
+  "grossTokens": 60,
+  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resolvedAssignment": {
+    "host": "codex",
+    "role": "implementer",
+    "model": "codex-implementation",
+    "effort": "high"
+  },
+  "observedIdentity": {
+    "model": "gpt-5",
+    "effort": "medium"
+  },
+  "closeReason": "phase_completed",
+  "updatedAt": "2026-08-30T12:03:00.000Z"
+}

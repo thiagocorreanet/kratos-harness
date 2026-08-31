@@ -1,7 +1,7 @@
 import { relaySelectedPhase } from "@kratos/adapters";
 import { REASON_CATALOG, type CurrentPhaseHandoff } from "@kratos/contracts";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
-import { evaluateGates } from "@kratos/runtime/domain/gates";
+import { evaluateGates, resolveGateModes } from "@kratos/runtime/domain/gates";
 import { PHASE_AGENT_PROMPTS } from "@kratos/runtime/domain/phase-agents";
 import { describe, expect, it } from "vitest";
 
@@ -166,7 +166,7 @@ describe("repair-loop host contracts", () => {
 
   it("aggregates every repeated rejection before independent token and flag stops", () => {
     const decision = evaluateGates({
-      mode: "enforce",
+      gateModes: resolveGateModes("strict", {}),
       phase: "acceptance",
       contextReadable: true,
       stopLoss: {
@@ -251,12 +251,15 @@ describe("repair-loop host contracts", () => {
         modelRouting,
         messageId: "message-01",
         correlationId: "correlation-01",
+        sessionId: "session-01",
+        occurredAt: "2026-08-30T12:00:00Z",
         runtime: {
           handoff: () =>
             Promise.resolve({
               kind: "ready" as const,
               handoff: runtimeHandoff,
             }),
+          start: () => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 }),
           record: (message) => {
             records.push(message);
             return Promise.resolve({ stdout: "{}\n", stderr: "", exitCode: 0 });

@@ -450,6 +450,12 @@ function prepared(
 function freezeEvent(
   event: EventV1_2 | EventV1_3 | EventV1_4,
 ): EventV1_2 | EventV1_3 | EventV1_4 {
+  const gateFailures = event.gateFailures.map((failure) =>
+    Object.freeze({
+      ...failure,
+      evidenceRefs: Object.freeze([...failure.evidenceRefs]),
+    }),
+  );
   const resolution =
     event.stateContract === "1.3.0" || event.stateContract === "1.4.0"
       ? event.repairResolution
@@ -462,6 +468,7 @@ function freezeEvent(
     ...event,
     artifactRefs: Object.freeze([...event.artifactRefs]),
     evidenceRefs: Object.freeze([...event.evidenceRefs]),
+    gateFailures: Object.freeze(gateFailures),
     observedIdentity: Object.freeze({ ...event.observedIdentity }),
     ...(event.resolvedAssignment === undefined
       ? {}

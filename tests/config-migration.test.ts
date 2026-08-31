@@ -895,6 +895,7 @@ describe("configuration migration", () => {
       stateContract: "1.4.0",
       pluginVersion: "0.0.0-development",
       hostContract: "1.4.0",
+      gateModes: {},
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",

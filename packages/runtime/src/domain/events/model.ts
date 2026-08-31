@@ -11,19 +11,20 @@ import type { SchemaRegistry } from "../schema/index.js";
 
 export type ReadableEvent =
   EventV1 | EventV1_1 | EventV1_2 | EventV1_3 | EventV1_4;
-export type CurrentEventDraft = Omit<EventV1_2, "previousHash" | "eventHash">;
-export type ResolutionEventDraft = Omit<
-  EventV1_3,
-  "previousHash" | "eventHash"
->;
-export type UpgradeEventDraft = Omit<EventV1_4, "previousHash" | "eventHash">;
-export type PreviousEventDraft = Omit<EventV1_1, "previousHash" | "eventHash">;
+type UnsealedEventDraft<Event> = Omit<Event, "previousHash" | "eventHash"> & {
+  readonly previousHash?: never;
+  readonly eventHash?: never;
+};
+export type CurrentEventDraft = UnsealedEventDraft<EventV1_2>;
+export type ResolutionEventDraft = UnsealedEventDraft<EventV1_3>;
+export type UpgradeEventDraft = UnsealedEventDraft<EventV1_4>;
+export type PreviousEventDraft = UnsealedEventDraft<EventV1_1>;
 export type SealableEventDraft =
   | PreviousEventDraft
   | CurrentEventDraft
   | ResolutionEventDraft
   | UpgradeEventDraft;
-export type LegacyEventDraft = Omit<EventV1, "previousHash" | "eventHash">;
+export type LegacyEventDraft = UnsealedEventDraft<EventV1>;
 /** Transitional producer surface; sealing still rejects legacy drafts. */
 export type EventDraftV1 = LegacyEventDraft | SealableEventDraft;
 

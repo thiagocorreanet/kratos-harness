@@ -1,11 +1,17 @@
-import type { HookObservationV1 } from "@kratos/contracts";
+import type { HookObservationV1, PhaseLifecycleV1 } from "@kratos/contracts";
 
 import { normalizeAntigravityPreToolUse } from "./antigravity/pre-tool-use.js";
 import { normalizeClaudeCodePreToolUse } from "./claude-code/pre-tool-use.js";
 import { normalizeCodexPreToolUse } from "./codex/pre-tool-use.js";
 import type { NormalizedPreToolUse } from "./pre-tool-use.js";
 
-export type HookKind = HookObservationV1["kind"];
+export type HookKind = HookObservationV1["kind"] | PhaseLifecycleV1["kind"];
+type NormalizedHook = HookObservationV1 | PhaseLifecycleV1;
+
+const HOST_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
+const HOST_TIMESTAMP =
+  /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?Z$/u;
+const SHA256 = /^[a-f0-9]{64}$/u;
 
 function record(value: unknown): Readonly<Record<string, unknown>> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -22,6 +28,17 @@ function stringField(
     if (typeof candidate === "string" && candidate.length > 0) return candidate;
   }
   return "unknown";
+}
+
+function requiredStringField(
+  value: Readonly<Record<string, unknown>>,
+  ...names: readonly string[]
+): string | null {
+  for (const name of names) {
+    const candidate = value[name];
+    if (typeof candidate === "string" && candidate.length > 0) return candidate;
+  }
+  return null;
 }
 
 function usage(
@@ -57,9 +74,49 @@ function toolFamily(
   return "other";
 }
 
-function normalize(kind: HookKind, input: unknown): HookObservationV1 | null {
+function normalize(kind: HookKind, input: unknown): NormalizedHook | null {
   const native = record(input);
   if (native === null) return null;
+  if (kind === "phase.start") {
+    const sessionId = requiredStringField(native, "session_id", "sessionId");
+    const correlationId = requiredStringField(
+      native,
+      "correlation_id",
+      "correlationId",
+    );
+    const occurredAt = requiredStringField(
+      native,
+      "occurred_at",
+      "occurredAt",
+      "timestamp",
+    );
+    const assignmentDigest = requiredStringField(
+      native,
+      "assignment_digest",
+      "assignmentDigest",
+    );
+    if (
+      sessionId === null ||
+      correlationId === null ||
+      occurredAt === null ||
+      assignmentDigest === null ||
+      !HOST_ID.test(sessionId) ||
+      !HOST_ID.test(correlationId) ||
+      !HOST_TIMESTAMP.test(occurredAt) ||
+      !SHA256.test(assignmentDigest)
+    ) {
+      return null;
+    }
+    return {
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      kind,
+      sessionId,
+      correlationId,
+      occurredAt,
+      assignmentDigest,
+    };
+  }
   const sessionId = stringField(native, "session_id", "sessionId");
   const occurredAt = stringField(
     native,
@@ -128,7 +185,7 @@ function before(
 export function normalizeAntigravityHook(
   kind: HookKind,
   input: unknown,
-): HookObservationV1 | null {
+): NormalizedHook | null {
   return kind === "tool.before"
     ? before(input, normalizeAntigravityPreToolUse(input))
     : normalize(kind, input);
@@ -137,7 +194,7 @@ export function normalizeAntigravityHook(
 export function normalizeClaudeCodeHook(
   kind: HookKind,
   input: unknown,
-): HookObservationV1 | null {
+): NormalizedHook | null {
   return kind === "tool.before"
     ? before(input, normalizeClaudeCodePreToolUse(input))
     : normalize(kind, input);
@@ -146,7 +203,7 @@ export function normalizeClaudeCodeHook(
 export function normalizeCodexHook(
   kind: HookKind,
   input: unknown,
-): HookObservationV1 | null {
+): NormalizedHook | null {
   return kind === "tool.before"
     ? before(input, normalizeCodexPreToolUse(input))
     : normalize(kind, input);

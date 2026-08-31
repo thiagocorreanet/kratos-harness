@@ -379,6 +379,7 @@ describe("composed command line", () => {
               effect: "state",
               artifactRefs: [".brain/features/feature-1.md"],
               evidenceRefs: [".brain/evidence/private-event.json"],
+              gateFailures: [],
               observedIdentity: {
                 host: "codex",
                 model: "gpt-5",

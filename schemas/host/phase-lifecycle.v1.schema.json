@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/phase-lifecycle/v1",
+  "title": "Kratos phase lifecycle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "kind",
+    "sessionId",
+    "correlationId",
+    "occurredAt",
+    "assignmentDigest"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "hostContract": { "const": "1.0.0" },
+    "kind": { "const": "phase.start" },
+    "sessionId": { "$ref": "#/$defs/id" },
+    "correlationId": { "$ref": "#/$defs/id" },
+    "occurredAt": { "$ref": "#/$defs/timestamp" },
+    "assignmentDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

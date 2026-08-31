@@ -16,6 +16,54 @@ export const GATE_IDS = [
 
 export type GateId = (typeof GATE_IDS)[number];
 
+export type ProjectPolicyMode = "standard" | "strict";
+export type GateOutcome = "pass" | "warn" | "block";
+export type GateModes = Readonly<Record<GateId, GateMode>>;
+
+export const GATE_PRIORITIES: Readonly<Record<GateId, number>> = Object.freeze({
+  "context-readable": 10,
+  "stop-loss": 20,
+  "prd-present": 30,
+  "spec-approved": 40,
+  "gaps-closed": 50,
+  "partition-approved": 60,
+  "acceptance-criteria": 70,
+  "final-acceptance": 80,
+});
+
+export type GateFailureReason =
+  | "blocked.context_unreadable"
+  | "blocked.stop_loss_budget"
+  | "blocked.stop_loss_flag"
+  | "blocked.stop_loss_rejections"
+  | "gate.aceitacao_final"
+  | "gate.ac_incomplete"
+  | "gate.aprovacao_spec"
+  | "gate.gaps_abertos"
+  | "gate.particionamento"
+  | "gate.prd_ausente"
+  | "gate.prd_section_missing"
+  | "gate.prd_untouched";
+
+export const GATE_REASON_CODES = {
+  "context-readable": ["blocked.context_unreadable"],
+  "stop-loss": [
+    "blocked.stop_loss_budget",
+    "blocked.stop_loss_flag",
+    "blocked.stop_loss_rejections",
+  ],
+  "prd-present": [
+    "gate.prd_ausente",
+    "gate.prd_section_missing",
+    "gate.prd_untouched",
+  ],
+  "spec-approved": ["gate.aprovacao_spec"],
+  "gaps-closed": ["gate.gaps_abertos"],
+  "partition-approved": ["gate.particionamento"],
+  "acceptance-criteria": ["gate.ac_incomplete"],
+  "final-acceptance": ["gate.aceitacao_final"],
+} as const satisfies Readonly<Record<GateId, readonly GateFailureReason[]>>;
+
 export interface LanguageObservationMetadata {
   readonly artifactRef?: string;
   readonly artifactType?:
@@ -34,7 +82,7 @@ export interface GateAdvisory {
 }
 
 export interface GateContext {
-  readonly mode: GateMode;
+  readonly gateModes: GateModes;
   readonly phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
   readonly contextReadable: boolean;
   readonly stopLoss: {
@@ -72,29 +120,24 @@ export interface AcceptanceCriterionGateState {
 
 export interface GateFailure {
   readonly gateId: GateId;
-  readonly reasonCode:
-    | "blocked.context_unreadable"
-    | "blocked.stop_loss_budget"
-    | "blocked.stop_loss_flag"
-    | "blocked.stop_loss_rejections"
-    | "gate.aceitacao_final"
-    | "gate.ac_incomplete"
-    | "gate.aprovacao_spec"
-    | "gate.gaps_abertos"
-    | "gate.particionamento"
-    | "gate.prd_ausente"
-    | "gate.prd_section_missing"
-    | "gate.prd_untouched";
+  readonly reasonCode: GateFailureReason;
   readonly priority: number;
+  readonly mode: GateMode;
   readonly evidenceRefs: readonly string[];
   readonly detail: string | null;
 }
 
-export interface GateDecision {
-  readonly outcome: "pass" | "warn" | "block";
+export interface GateAggregation {
+  readonly outcome: GateOutcome;
   readonly primary: GateFailure | null;
   readonly failures: readonly GateFailure[];
+}
+
+export interface GateDecision {
+  readonly outcome: GateOutcome;
+  readonly primary: GateFailure | null;
+  readonly failures: readonly GateFailure[];
+  readonly gateModes: GateModes;
   readonly advisories?: readonly GateAdvisory[];
-  readonly mode: GateMode;
   readonly criteria: readonly AcceptanceCriterionGateState[];
 }

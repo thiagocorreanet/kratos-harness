@@ -15,6 +15,8 @@ export interface StopLossState {
 export interface UsageSampleResult {
   readonly usage: RunUsageV1;
   readonly stopLoss: StopLossState;
+  /** Monotonic contribution newly accepted from this one session. */
+  readonly newlyObservedGrossTokens: number;
 }
 
 export function initialRunUsage(runId: string, now: string): RunUsageV1 {
@@ -77,12 +79,17 @@ export function recordUsageSample(
     sessions,
     updatedAt: sample.now,
   };
-  return result(usage, sample.budget);
+  return result(usage, sample.budget, delta);
 }
 
-function result(usage: RunUsageV1, budget: number | null): UsageSampleResult {
+function result(
+  usage: RunUsageV1,
+  budget: number | null,
+  newlyObservedGrossTokens = 0,
+): UsageSampleResult {
   return {
     usage,
+    newlyObservedGrossTokens,
     stopLoss: {
       tripped: usage.measurementFaultAt !== null,
       exhausted:

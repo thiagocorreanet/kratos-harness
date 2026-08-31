@@ -68,6 +68,7 @@ export function roleConfig(
       enforcement: "advisory",
     },
     policyMode: "strict",
+    gateModes: {},
     managedState: {
       directory: ".brain",
       eventLog: "events.jsonl",

@@ -72,6 +72,7 @@ function stoppedDecision(overrides: Readonly<Record<string, unknown>> = {}) {
     effect: "state-and-artifact",
     artifactRefs: [".brain/runs/run-01/repair-stops/AC-1.1.1.json"],
     evidenceRefs: [],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     acceptanceDecision: {
       outcome: "stopped",

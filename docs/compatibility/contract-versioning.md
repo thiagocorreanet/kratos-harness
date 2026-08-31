@@ -27,7 +27,7 @@ the metadata-only Go v3 migration profiles.
 | Contract-manifest schema | `v1.7` | Contract-family manifest format |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
 | `stateContract` | `1.4.0` | Persisted `.brain/` configuration and history |
-| `hostContract` | `1.4.0` | Cross-process adapter request and response messages |
+| `hostContract` | `1.3.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
 and the numeric `schema_version` field inside a legacy payload is not converted
@@ -44,26 +44,20 @@ contains `1.0.0` through `1.4.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-- Current `state.project-config` writes `1.4.0`, including the granular
-  language policy introduced in `1.2.0` and the typed project profile
-  introduced in `1.3.0`. Its optional `acceptanceAttemptCeiling` is a positive
-  safe integer; omitted current values resolve to `3` only at runtime.
-- `state.event@1.4.0` is the additive successor for the explicit legacy-policy
-  upgrade boundary. Repair resolution and specification restart continue to
-  write `state.event@1.3.0`; ordinary starts and acceptance decisions continue
-  to write `state.event@1.2.0`.
-- `state.repair-loop-stop@1.1.0` and `state.repair-resolution@1.1.0` reject
-  whitespace-only diagnoses and human observations. Their `1.0.0`
-  predecessors remain readable and byte-preserved.
-- Role-aware `state.event` and `state.migration` payloads continue to write
-  their registered `1.1.0` revisions.
+- Current `state.project-config` writes `1.4.0`. It keeps `policyMode` as the
+  inherited default and requires the closed partial `gateModes` override map,
+  in addition to the granular language policy from `1.2.0` and typed project
+  profile from `1.3.0`.
+- Current `state.event` writes `1.2.0` with the ordered effective-mode trace in
+  `gateFailures`. Role-aware `state.migration` continues to write its registered
+  `1.1.0` revision.
 - `state.curated-memory`, `state.beat`, and `state.narration` write their
   additive registered `1.0.0` revisions.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
   `state.acceptance-verdict`, `state.approval`, `state.evidence`,
   `state.failure-candidate`, `state.feature`, `state.feature-scope`,
   `state.gap`, `state.gates`, `state.guardrails`, `state.lock`,
-  `state.requirement-discovery`, `state.run-usage`,
+  `state.phase-measurement`, `state.requirement-discovery`, `state.run-usage`,
   `state.session-telemetry`, `state.snapshot`,
   `state.transaction-manifest`, and `state.transaction-progress` continue to
   write their registered `1.0.0` revision.
@@ -72,30 +66,33 @@ State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is the frozen
 predecessor family; both are `migration-only`. Ordinary operations must not
 treat them as current state or mutate them. An explicit migration planner owns
 their inspection and recovery. A project configuration at `1.0.0`, `1.1.0`,
-  `1.2.0`, or `1.3.0` is readable only to that planner and returns
+or `1.2.0` is readable only to that planner and returns
 `profile.config_migration_required` before an ordinary operation can treat it
-as current state.
+as current state. A `1.3.0` project configuration now receives the same refusal
+until its adjacent `1.4.0` migration is applied.
 
-The host family's current global revision is also `1.4.0`, with `1.0.0`
-through `1.4.0` accepted for their registered payloads. Exact writes again
+The host family's current global revision is also `1.3.0`, with `1.0.0`
+through `1.3.0` accepted for their registered payloads. Exact writes again
 follow `CONTRACT_VERSIONS`:
 
-- Current `host.init-answers` writes `1.4.0` with optional partial
-  `projectProfile` answers and set/clear/preserve support for
-  `acceptanceAttemptCeiling`.
-- Current `host.phase-handoff` and `host.agent-output` write their cumulative
-  `1.3.0` revisions with memory binding and runtime-derived repair-loop
-  context. Memory capture, change, and migration retain `1.2.0`.
-- `host.adapter-message` continues to write its registered `1.1.0` revision.
+- Current `host.init-answers` writes `1.3.0` with optional partial
+  `projectProfile` answers. `host.adapter-message` continues to write its
+  registered `1.1.0` revision.
+- Memory-aware `host.phase-handoff`, `host.agent-output`,
+  `host.memory-capture`, `host.memory-change`, and `host.memory-migration`
+  write their registered `1.2.0` revisions.
 - Unchanged host payloads `host.gap-proposal`,
-  `host.hook-observation`, `host.operation-message`, and `host.pre-tool-use`
+  `host.hook-observation`, `host.operation-message`, `host.phase-lifecycle`, and
+  `host.pre-tool-use`
   continue to write their registered `1.0.0` revision.
 
 Model routing, memory-aware handoff/output, execution observation, and
 initialization therefore select the exact registered payload revision, not a
 forced revision change to unrelated contracts. Host `0.9.0`, unknown earlier
 versions, and future versions require an adapter upgrade. Host compatibility
-is not inferred from a shared major version.
+is not inferred from a shared major version. Per-gate state does not change the
+host family: `hostContract` and `host.init-answers` remain `1.3.0`, and hosts
+gain no policy authority.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -180,10 +177,27 @@ Revision `1.8.0` preserves those 107 entries and appends two language policy out
 Revision `1.9.0` preserves those 109 entries and appends
 [`profile.config_migration_required`](../../packages/contracts/catalogs/reason-codes.v1.9.json),
 the blocked / exit 4 refusal used when a project configuration predates the
-typed project profile and requires explicit migration. It is the stable
-ordinary-operation refusal for every pre-`1.3.0` project configuration;
+typed project profile and requires explicit migration. The reason was
+introduced for that pre-`1.3.0` profile boundary and is now the stable
+ordinary-operation refusal for every pre-`1.4.0` project configuration,
+including `1.3.0`, whose adjacent migration adds `gateModes: {}`.
 `model.config_migration_required` remains published predecessor history rather
 than the current migration diagnosis.
+
+Revision `1.10.0` preserves those 110 entries and appends the phase-measurement
+outcomes in
+[`reason-codes.v1.10.json`](../../packages/contracts/catalogs/reason-codes.v1.10.json):
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `metrics.phase_not_started` | 3 | No active assignment-bound measurement exists |
+| `metrics.phase_assignment_conflict` | 3 | The open measurement has another assignment |
+| `metrics.log_invalid` | 4 | The local measurement log is invalid |
+| `metrics.refresh_ok` | 0 | The validated rollup was refreshed |
+| `metrics.calibration_insufficient` | 0 | Calibration lacks completed samples |
+
+Strict refusal replaces the earlier contradictory one-time-warning proposal by
+owner decision. No warning receipt or warning state exists.
 
 Revision `1.10.0` preserves every `1.9.0` entry and appends the curated-memory
 outcomes below. `state.curated-memory@1.0.0`,
@@ -204,15 +218,8 @@ version rather than widening an old contract.
 | `memory.migration_required` | 4 | Legacy Gotchas require explicit lossless adoption |
 
 Revision `1.11.0` preserves every `1.10.0` entry and appends
-[`blocked.stop_loss_rejections`](../../packages/contracts/catalogs/reason-codes.v1.11.json),
-the blocked / exit 3 gate outcome for one active repeated-rejection stop. The
-gate may emit the same stable reason once per stopped criterion, in task-document
-order, while token exhaustion remains `blocked.stop_loss_budget`.
-
-The repeated-rejection reason is independent of the existing budget and flag
-reasons. A gate can return all three from the same context. Repair resolution
-releases only the repeated-rejection stop, while the confirmed budget-unlock
-flow releases only the budget latch. No warning receipt or warning state exists.
+`blocked.stop_loss_rejections`, the fail-closed outcome used when repeated
+acceptance rejection reaches the run-frozen attempt ceiling.
 
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
@@ -221,9 +228,10 @@ version value.
 
 ## Current payload schemas
 
-Current state schemas include project configuration, requirement
-discovery, workflow facts, snapshots, events, approvals, evidence metadata,
-feature scope, guardrails, lock leases, migrations, and transaction records.
+Current state schemas include project configuration, requirement discovery,
+phase measurements, workflow facts, snapshots, events, approvals, evidence
+metadata, feature scope, guardrails, lock leases, migrations, and transaction
+records.
 Host schemas cover adapter messages, phase-agent output, gap proposals,
 initialization answers, operation delivery, and normalized pre-tool mutation
 requests, plus phase handoff. All are JSON Schema 2020-12 documents with closed
@@ -231,38 +239,49 @@ objects and exact family identities.
 
 The `1.1.0` additions are role-aware revisions of `state.project-config`,
 `state.event`, `state.migration`, `host.init-answers`, `host.adapter-message`,
-and `host.phase-handoff`. `host.agent-output@1.1.0` adds optional bounded fault
-reports to rejected acceptance output, while `host.phase-handoff@1.2.0` carries
-the runtime-derived attempt ceiling, ordered attempts, required fault IDs, and
-active faults. The `1.2.0` project-configuration and initialization
+and `host.phase-handoff`. The `1.2.0` project-configuration and initialization
 revisions add granular language policy. Their `1.3.0` revisions add the typed
-project profile. `state.project-config@1.4.0` and
-`host.init-answers@1.4.0` add the optional acceptance attempt ceiling. The
-explicit `1.3.0 -> 1.4.0` configuration migration preserves predecessor bytes;
-the default is not serialized into an unset configuration.
+project profile. `state.project-config@1.4.0` adds the required closed partial
+`gateModes` map while `state.event@1.2.0` adds a required ordered
+`gateFailures` trace containing each failure's effective mode.
 
-`host.agent-output@1.3.0` and `host.phase-handoff@1.3.0` combine memory binding
-with repair-loop context and require diagnoses to contain a non-whitespace
-character. The runtime preserves the original non-blank text.
-`state.repair-loop-stop@1.1.0` and `state.repair-resolution@1.1.0` apply the
-same rule to persisted recovery evidence.
+A mixed event stream is valid: each line selects its exact registered schema
+before the continuous revision and hash chain is verified. `state.event@1.0.0`,
+`state.event@1.1.0`, and `state.event@1.2.0` may coexist without upgrading or
+rewriting old bytes. Migration changes only `.brain/config.json` and its audit
+bundle; it does not rewrite historical events, snapshots, documents,
+approvals, or evidence.
 
-`state.event@1.2.0` records run-frozen limits and closed acceptance-decision
-metadata. `state.repair-loop-stop@1.1.0` holds the complete bounded diagnosis,
-while its event reference carries only the typed binding. `state.event@1.3.0`
-adds digest-bound repair resolutions and specification restart references;
-`state.repair-resolution@1.1.0` and `state.repair-restart@1.0.0` are additive
-artifacts. `state.event@1.4.0` persists `run.policy_upgraded`, the only boundary
-that freezes chosen limits for a legacy run before v2 continuation. Replay
-never infers those limits. A mixed event stream is valid only with that explicit
-boundary: each line selects its exact registered schema before the continuous
-revision and hash chain is verified.
-Migration changes only `.brain/config.json` and its audit bundle; it does not
-rewrite historical events, snapshots, documents, approvals, or evidence.
+The adjacent `1.3.0` to `1.4.0` configuration migration adds
+`gateModes: {}` and advances only the configuration/state contract constants.
+It preserves `policyMode`, language policy, managed state, model roles, project
+profile, and all historical artifacts. For equal gate facts, resolving the old
+global default and resolving the migrated empty override map produce
+byte-identical canonical `GateDecision` values. `standard` remains warn,
+`strict` remains enforce, and existing approval challenge bytes remain valid
+because the authorized gate receives the same effective mode.
+
+With non-empty overrides, every failure resolves independently: enforce maps to
+block, warn to warn, and shadow to pass. Aggregation orders by outcome severity
+(`block` before `warn` before `pass`), then the established priority and gate
+ID; `primary` is the first failure and therefore comes from the deciding
+outcome. Prompts and host adapters neither resolve these modes nor override the
+runtime decision.
+
+The memory contracts independently use their registered `1.0.0` and `1.2.0`
+payload revisions; their addition does not rewrite existing configuration or
+event history.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.
 The embedded record is host neutral and carries no new I/O or trust authority.
+
+`state.phase-measurement@1.0.0` is likewise additive. It records only bounded
+phase identity, runtime-resolved assignment metadata, timestamps, and gross
+token counts; existing state remains readable and no migration is required.
+`host.phase-lifecycle@1.0.0` is a separate closed phase-start ingress carried
+inside `host.operation-message@1.0.0`; the published hook-observation v1 schema
+and its bytes remain unchanged.
 
 The schemas constrain wire shape; runtime services own the corresponding
 behavior. Event replay and chain verification are implemented by the

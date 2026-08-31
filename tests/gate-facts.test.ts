@@ -1,5 +1,14 @@
-import type { GapRecordV1, GateFactsV1 } from "@kratos/contracts";
+import type {
+  EventV1_2,
+  GapRecordV1,
+  GateFactsV1,
+  PhaseHandoffV1_1,
+  ProjectConfigV1_4,
+} from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
+import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
+import { observeWorkflow } from "@kratos/runtime/composition/workflow";
+import { DEFAULT_REGISTRY, parseInvocation } from "@kratos/runtime/domain/cli";
 import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
 import {
   fixedClock,
@@ -57,6 +66,11 @@ interface Subject {
   readonly ports: RuntimePorts;
   readonly storage: ReturnType<typeof memoryTransactionStorage>;
   readonly output: ReturnType<typeof recordingOutput>;
+}
+
+function clearOutput(run: Subject): void {
+  (run.output.structured_ as string[]).splice(0);
+  (run.output.human_ as string[]).splice(0);
 }
 
 function subject(
@@ -144,6 +158,29 @@ function stateOf(run: Subject): {
 function gateFacts(run: Subject): GateFactsV1 | null {
   const text = settled(run)[`${RUN_ROOT}/${runId(run)}/gates.json`];
   return text === undefined ? null : (JSON.parse(text) as GateFactsV1);
+}
+
+function withGateModes(
+  run: Subject,
+  gateModes: ProjectConfigV1_4["gateModes"],
+): Subject {
+  const configuration = JSON.parse(
+    settled(run)[".brain/config.json"] ?? "",
+  ) as ProjectConfigV1_4;
+  return next(run, {
+    ".brain/config.json": JSON.stringify({ ...configuration, gateModes }),
+  });
+}
+
+function currentEvents(run: Subject): readonly EventV1_2[] {
+  const log =
+    Object.entries(settled(run)).find(([path]) =>
+      path.endsWith("/events.jsonl"),
+    )?.[1] ?? "";
+  return log
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as EventV1_2);
 }
 
 function gapRecord(run: Subject, gapId: string): GapRecordV1 {
@@ -235,11 +272,59 @@ async function recordEvidence(
   return next(run);
 }
 
-function completePhase(
+async function startCurrentPhase(
+  run: Subject,
+  correlationId: string,
+): Promise<void> {
+  clearOutput(run);
+  expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
+  const handoff = JSON.parse(
+    run.output.structured_.join(""),
+  ) as PhaseHandoffV1_1;
+  const sessionId = `session-${correlationId}`;
+  const lifecycle = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    kind: "phase.start",
+    sessionId,
+    correlationId: `phase-${correlationId}`,
+    occurredAt: NOW,
+    assignmentDigest: handoff.assignmentDigest,
+  };
+  const ref = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+  const content = `${JSON.stringify(lifecycle, null, 2)}\n`;
+  await run.storage.fileSystem.write(ref, content);
+  const message = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    messageId: `message-${correlationId}`,
+    correlationId: lifecycle.correlationId,
+    operationId: `operation-${correlationId}`,
+    sequence: 0,
+    occurredAt: NOW,
+    kind: "hook",
+    payload: {
+      host: "claude-code",
+      hook: "phase.start",
+      phase: "before",
+      artifact: { ref, sha256: run.ports.digests.sha256(content) },
+    },
+  };
+  expect(
+    await runCommandLine(["hook", "--host", "claude-code"], {
+      ...run.ports,
+      standardInput: pipedInput(JSON.stringify(message)),
+    }),
+  ).toBe(0);
+  clearOutput(run);
+}
+
+async function completePhase(
   run: Subject,
   ref: string,
   correlationId: string,
 ): Promise<number> {
+  await startCurrentPhase(run, correlationId);
   return runCommandLine(
     [
       "continue",
@@ -345,6 +430,68 @@ describe("a run whose model proposed a gap", () => {
     expect(stateOf(written)).toMatchObject({
       status: "active",
       currentStep: "spec",
+    });
+  });
+
+  it("composes non-empty v1.4 overrides through decision, transition, and event", async () => {
+    const configured = withGateModes(await startedRun("strict"), {
+      "prd-present": "warn",
+      "gaps-closed": "shadow",
+    });
+    const proposed = await recordProposal(configured, "gaps-overridden");
+    const written = await recordEvidence(
+      next(proposed, { [PRD]: "# PRD\n\nRefunds within thirty days.\n" }),
+      PRD,
+      "evidence-overridden-prd",
+    );
+    const argv = [
+      "continue",
+      "--complete",
+      "--artifact",
+      PRD,
+      "--evidence",
+      PRD,
+      "--correlation-id",
+      "complete-overridden-prd",
+    ] as const;
+    await startCurrentPhase(written, "complete-overridden-prd");
+    const parsed = parseInvocation(argv, DEFAULT_REGISTRY);
+    if (parsed.kind !== "invocation") throw new Error("continue did not parse");
+
+    const observed = await observeWorkflow(
+      parsed.invocation,
+      written.ports,
+      createSchemaRegistry(),
+    );
+    if (
+      observed.kind !== "observed" ||
+      observed.observation.kind !== "workflow"
+    ) {
+      throw new Error("workflow was not observed");
+    }
+    expect(observed.observation.gateDecision).toMatchObject({
+      outcome: "warn",
+      gateModes: {
+        "prd-present": "warn",
+        "gaps-closed": "shadow",
+      },
+      failures: [
+        { gateId: "prd-present", mode: "warn" },
+        { gateId: "gaps-closed", mode: "shadow" },
+      ],
+    });
+
+    expect(await runCommandLine(argv, written.ports)).toBe(0);
+    expect(stateOf(written)).toMatchObject({
+      status: "active",
+      currentStep: "spec",
+    });
+    expect(currentEvents(written).at(-1)).toMatchObject({
+      operation: "sdd.continue:complete-overridden-prd",
+      gateFailures: [
+        { gateId: "prd-present", mode: "warn" },
+        { gateId: "gaps-closed", mode: "shadow" },
+      ],
     });
   });
 

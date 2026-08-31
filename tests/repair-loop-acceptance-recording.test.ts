@@ -216,20 +216,67 @@ async function complete(
   ref: string,
   correlationId: string,
 ): Promise<Subject> {
+  const assignment = await currentHandoff(run);
+  const sessionId = `session-${correlationId}`;
+  const artifact = `.brain/03-memory/.cache/hooks/${sessionId}/phase-start.json`;
+  const lifecycle = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    kind: "phase.start",
+    sessionId,
+    correlationId: `phase-start-${correlationId}`,
+    occurredAt: NOW,
+    assignmentDigest: assignment.assignmentDigest,
+  } as const;
+  const lifecycleContent = `${JSON.stringify(lifecycle, null, 2)}\n`;
+  await run.storage.fileSystem.write(artifact, lifecycleContent);
+  const message = {
+    contractVersion: "1.0.0",
+    hostContract: "1.0.0",
+    messageId: `message-phase-start-${correlationId}`,
+    correlationId: lifecycle.correlationId,
+    operationId: `operation-phase-start-${correlationId}`,
+    sequence: 1,
+    occurredAt: NOW,
+    kind: "hook",
+    payload: {
+      host: "claude-code",
+      hook: "phase.start",
+      phase: "before",
+      artifact: {
+        ref: artifact,
+        sha256: run.ports.digests.sha256(lifecycleContent),
+      },
+    },
+  };
+  const lifecycleExit = await runCommandLine(
+    ["hook", "--host", "claude-code"],
+    {
+      ...run.ports,
+      fileSystem: run.storage.fileSystem,
+      standardInput: pipedInput(JSON.stringify(message)),
+    },
+  );
   expect(
-    await runCommandLine(
-      [
-        "continue",
-        "--complete",
-        "--artifact",
-        ref,
-        "--evidence",
-        ref,
-        "--correlation-id",
-        correlationId,
-      ],
-      run.ports,
-    ),
+    lifecycleExit,
+    [...run.output.structured_, ...run.output.human_].join("\n"),
+  ).toBe(0);
+  const exitCode = await runCommandLine(
+    [
+      "continue",
+      "--complete",
+      "--artifact",
+      ref,
+      "--evidence",
+      ref,
+      "--correlation-id",
+      correlationId,
+    ],
+    run.ports,
+  );
+  expect(
+    exitCode,
+    [...run.output.structured_, ...run.output.human_].join("\n"),
   ).toBe(0);
   return next(run);
 }

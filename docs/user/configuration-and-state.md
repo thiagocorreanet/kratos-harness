@@ -7,20 +7,50 @@ documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
 The current `state.project-config@1.4.0` records plugin and host contracts,
-granular language policy, policy mode, host-specific model roles, managed state
-paths, the typed project profile, and an optional acceptance attempt ceiling.
+granular language policy, inherited policy mode, per-gate overrides,
+host-specific model roles, managed state paths, and the typed project profile.
 Secrets, tokens, prompts, and private keys are prohibited. Historical
-configuration `1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` is
-readable only for explicit migration and returns
+configuration `1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` is readable only for
+explicit migration and returns
 `profile.config_migration_required` before an ordinary operation can treat it
 as current state.
 
-`acceptanceAttemptCeiling`, when present, is a positive safe integer. When it
-is absent, resolved runtime configuration uses the documented default of `3`
-without serializing that default back into configuration. The setting limits
-rejected acceptance attempts per stable AC identifier, not review findings or
-the entire run. `objective.budget.tokens` is separate optional objective state;
-both resolved limits are frozen in each new run and are recovered by replay.
+## Gate policy modes
+
+`policyMode` remains required and supplies the mode inherited by every gate
+without an override:
+
+| `policyMode` | Inherited gate mode |
+| --- | --- |
+| `standard` | `warn` |
+| `strict` | `enforce` |
+
+`gateModes` is also required. It is a closed partial map: keys may only be
+published gate IDs and values may only be `shadow`, `warn`, or `enforce`. An
+empty object preserves the inherited behavior for every gate.
+
+```json
+{
+  "policyMode": "strict",
+  "gateModes": {
+    "gaps-closed": "shadow"
+  }
+}
+```
+
+In this example, `gaps-closed` records an open-gap finding but allows the
+operation to continue; every other gate inherits `enforce` and can block.
+`warn` findings also remain recorded while allowing continuation. If several
+gates fail, the runtime selects outcome severity in the order block, warn,
+pass, then preserves the established priority and gate-ID ordering within an
+outcome. `primary` is the first ordered failure from the outcome that decided
+the result.
+
+The runtime resolves the complete mode table before pure gate evaluation.
+Unreadable policy fails closed with an all-`enforce` table and unreadable
+context. Prompts, agent responses, command hosts, Claude Code, and Codex do not
+decide or override modes; they only convey configuration input or render the
+runtime-owned result.
 
 ## Project profile
 
@@ -93,11 +123,10 @@ not shared runtime constants and not dynamic inheritance.
 | `.brain/02-features/` | Managed state | Objectives, runs, and materialized snapshots |
 | `.brain/approvals/` | Managed state | Content-bound decisions |
 | `.brain/evidence/` | Managed metadata | Digests, classification, and references |
+| `.brain/03-memory/task_log.jsonl` | Ignored local state | Raw keyed phase token/duration measurements |
+| `.brain/03-memory/task_metrics.md` | Tracked managed report | Deliberately refreshed phase distributions and bounded provenance |
 | `.brain/02-features/<feature>/runs/<run>/gaps/` | Managed state | One record per detected gap and the answer it carries |
 | `.brain/02-features/<feature>/runs/<run>/gates.json` | Derived state | The facts the gates read, derived from the records |
-| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-stops/` | Immutable managed evidence | Diagnosis, classification, attempt, and ceiling for each repeated-rejection stop |
-| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-resolutions/` | Immutable managed evidence | Explicit human resolutions bound to their stopped criterion |
-| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-restarts/` | Immutable managed evidence | Specification-restart tickets with retired AC identifiers |
 | `.brain/03-memory/candidates/*.json` | Machine-local diagnostic inbox | Sanitized failure candidates; ignored by Git |
 | `.brain/03-memory/curated-memory.json` | Committed managed ledger | Versioned authority for confirmed and archived lessons |
 | `.brain/03-memory/gotchas.md` | Committed deterministic projection | Exact Markdown rendering of the ledger |
@@ -109,6 +138,33 @@ Commit configuration, events, and non-sensitive evidence metadata when project
 policy requires an auditable trail. Ignore local dashboards, transient locks,
 and sensitive external evidence. Never add a broad ignore rule that hides the
 entire `.brain` directory without an explicit governance decision.
+
+Initialization places `03-memory/task_log.jsonl` in `.brain/.gitignore`. The
+file is a canonical keyed set despite its JSONL form: one line is identified by
+`(runId, phase)`, and managed transactions atomically replace validated bytes.
+Each record includes the sorted, unique session identifiers that contributed
+tokens to that phase, bounded to 256 identifiers. A pre-ownership `1.0.0`
+record without that field remains readable and gains its launcher as the sole
+contributor on the next raw-log rewrite. Records may also carry at most 256
+contributor checkpoints: a session identifier, cumulative gross-token count,
+and observation time used for chronological allocation. A compatible `1.0.0`
+record without checkpoints remains readable and gains an empty checkpoint list
+on its next raw-log rewrite without changing its distribution. The file is raw
+machine-local operational state and is not a history stream. The tracked
+`task_metrics.md` is the reviewable projection; only `metrics refresh` may
+replace it. Refresh records a raw-log digest, generation time, bounded
+feature/run sources, counts, and distributions, but no prompts or transcripts.
+
+The additive `state.phase-measurement@1.0.0` records are created lazily. Existing
+projects need no state rewrite or migration, and the initialized empty raw log
+is valid. Published predecessor state remains readable unchanged.
+
+Both measurement destinations are create-once initialization state. A later
+`kratos init` preserves their bytes exactly, including non-canonical line endings
+or trailing spaces, instead of restoring the empty-log or initial-report seed.
+First creation carries a missing-file precondition. Concurrent creation of
+either path therefore returns `runtime.revision_conflict`, preserves the
+concurrent bytes, and prevents partial initialization writes.
 
 Curated memory has a deliberately split Git boundary: candidate JSON is
 machine-local and ignored, while `curated-memory.json` and `gotchas.md` are

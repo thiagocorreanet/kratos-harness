@@ -1,6 +1,7 @@
 import { isAcceptanceCriterionId } from "@kratos/contracts";
 
 import type { CurrentEventDraft, UpgradeEventDraft } from "../events/index.js";
+import type { GateDecision, GateFailure } from "../gates/index.js";
 import {
   WORKFLOW_OPERATION_FACTS,
   WORKFLOW_POLICY_UPGRADE_FACT,
@@ -26,6 +27,11 @@ const operationId = (
   name: "continue" | "start" | FactOperation,
   correlationId: string,
 ) => `sdd.${name}:${correlationId}`;
+
+const PASS_GATE_DECISION: Pick<GateDecision, "outcome" | "failures"> = {
+  outcome: "pass",
+  failures: [],
+};
 
 /** Every transition that moves the run, as opposed to recording a fact. */
 type MovingTransition =
@@ -173,6 +179,7 @@ function event(
     readonly acceptanceAttemptCeiling: number;
     readonly tokenCeiling: number | null;
   },
+  gateFailures: readonly GateFailure[] = [],
 ): CurrentEventDraft {
   const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
@@ -190,6 +197,7 @@ function event(
     artifactRefs: [...artifactRefs],
     evidenceRefs: [...evidenceRefs],
     observedIdentity: phaseIdentity(input.identity, phaseExecution),
+    gateFailures: [...gateFailures] as CurrentEventDraft["gateFailures"],
     ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
     ...(runLimits === undefined ? {} : { runLimits }),
   };
@@ -222,6 +230,7 @@ function policyUpgradeEvent(
     effect: WORKFLOW_POLICY_UPGRADE_FACT.effect,
     artifactRefs: [],
     evidenceRefs: [],
+    gateFailures: [],
     observedIdentity: phaseIdentity(input.identity, undefined),
     runLimits,
   };
@@ -339,6 +348,7 @@ export function decideStartWorkflow(
         effect: "state-and-artifact",
         artifactRefs: [request.startFromSpec.restartTicketRef],
         evidenceRefs: [],
+        gateFailures: [],
         observedIdentity: phaseIdentity(request.observedIdentity, undefined),
         runLimits: {
           acceptanceAttemptCeiling: request.acceptanceAttemptCeiling ?? 3,
@@ -438,7 +448,9 @@ export function decideContinueWorkflow(
     );
   }
   if (
-    request.action.gateFailures.length !== 0 ||
+    (request.gateDecision ?? PASS_GATE_DECISION).outcome === "block" ||
+    (request.action.rejectionReasons ?? request.action.gateFailures ?? [])
+      .length !== 0 ||
     request.action.artifactRefs.length === 0 ||
     request.action.evidenceRefs.length === 0
   ) {
@@ -449,7 +461,7 @@ export function decideContinueWorkflow(
       "rejected",
       request.action.artifactRefs,
       request.action.evidenceRefs,
-      rejectionWhy(request.action),
+      rejectionWhy(request.gateDecision ?? PASS_GATE_DECISION, request.action),
     );
   }
   const finalPhase = state.currentStep === RUN_PHASES.at(-1);
@@ -600,6 +612,7 @@ export function decideResolveRepairStop(
       effect: "state-and-artifact",
       artifactRefs,
       evidenceRefs: [],
+      gateFailures: [],
       observedIdentity: phaseIdentity(request.observedIdentity, undefined),
       repairResolution: {
         criterionId: request.criterionId,
@@ -615,12 +628,18 @@ export function decideResolveRepairStop(
 }
 
 function rejectionWhy(
+  gateDecision: NonNullable<ContinueWorkflowRequest["gateDecision"]>,
   action: Extract<
     ContinueWorkflowRequest["action"],
     { readonly kind: "complete-phase" }
   >,
 ): readonly string[] {
-  const reasons = [...action.gateFailures];
+  const reasons = [
+    ...(gateDecision.outcome === "block"
+      ? gateDecision.failures.map(({ reasonCode }) => reasonCode)
+      : []),
+    ...(action.rejectionReasons ?? action.gateFailures ?? []),
+  ];
   if (
     action.artifactRefs.length === 0 &&
     !reasons.includes("artifact-unreadable")
@@ -665,6 +684,8 @@ function recorded(
       transition === "accepted" || transition === "completed"
         ? request.phaseExecution
         : undefined,
+      undefined,
+      (request.gateDecision ?? PASS_GATE_DECISION).failures,
     ),
     ...(why === undefined ? {} : { why: [...why] }),
   };
@@ -784,6 +805,7 @@ export function decideRecordFact(
         request.observedIdentity,
         request.phaseExecution,
       ),
+      gateFailures: [],
       ...(request.resolvedAssignment === undefined
         ? {}
         : { resolvedAssignment: request.resolvedAssignment }),

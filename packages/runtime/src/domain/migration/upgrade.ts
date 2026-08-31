@@ -125,6 +125,7 @@ export function upgradeProjectConfigurationV1_4(
     hostContract: "1.4.0",
     language: { ...source.language },
     policyMode: source.policyMode,
+    gateModes: {},
     managedState: { ...source.managedState },
     modelRoles: source.modelRoles,
     projectProfile: structuredClone(source.projectProfile),

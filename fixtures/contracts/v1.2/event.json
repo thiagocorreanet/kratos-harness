@@ -17,6 +17,7 @@
     "model": "gpt-5.6-terra",
     "effort": "medium"
   },
+  "gateFailures": [],
   "runLimits": {
     "acceptanceAttemptCeiling": 3,
     "tokenCeiling": 100000

@@ -57,9 +57,12 @@ import {
 } from "../domain/agent/index.js";
 import type { GapProposalObservation } from "../domain/gaps/index.js";
 import {
+  approvalModeFor,
   evaluateGates,
+  resolveGateModes,
   type GateDecision,
   type GateMode,
+  type GateModes,
 } from "../domain/gates/index.js";
 import {
   inspectPrdDocument,
@@ -97,6 +100,10 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
+import {
+  observePhaseMeasurementLog,
+  observeValidatedRunUsage,
+} from "./measurements.js";
 import { configurationValidator } from "./schema.js";
 import { observePhaseMemoryBinding } from "./memory.js";
 
@@ -106,7 +113,7 @@ const EMPTY_GATE_DECISION: GateDecision = Object.freeze({
   outcome: "pass",
   primary: null,
   failures: Object.freeze([]),
-  mode: "enforce",
+  gateModes: resolveGateModes("strict", {}),
   criteria: Object.freeze([]),
 });
 
@@ -269,6 +276,26 @@ export async function observeWorkflow(
   const host = invocation.flags.get("--host");
   const model = invocation.flags.get("--model");
   const occurredAt = anchored.clock.now().toISOString();
+  const measurements = await observePhaseMeasurementLog(anchored, registry);
+  if (measurements === null) {
+    return {
+      kind: "failure",
+      result: resultFor("metrics.log_invalid", {
+        why: ["The local phase measurement log could not be validated."],
+        evidence: [
+          { kind: "artifact", ref: ".brain/03-memory/task_log.jsonl" },
+        ],
+      }),
+    };
+  }
+  const observedUsage = await observeValidatedRunUsage(
+    configuration.feature,
+    runId,
+    occurredAt,
+    anchored,
+    registry,
+  );
+  const usage = observedUsage.usage;
   const eventId = anchored.ids.next();
   const git = await observeGitContext(anchored);
   const policy = await observePolicy(anchored, registry);
@@ -333,7 +360,11 @@ export async function observeWorkflow(
           prdDigest: observedLineage.prdDigest,
           specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
-          policyMode: policy.mode,
+          policyMode: approvalModeFor(
+            approval.gate,
+            policy.defaultMode,
+            policy.gateModes,
+          ),
           objectiveDigest,
           revision: approvalRevision(
             approval.gate,
@@ -398,7 +429,7 @@ export async function observeWorkflow(
     },
   );
   const gateDecision = evaluateGates({
-    mode: policy.mode,
+    gateModes: policy.gateModes,
     phase,
     contextReadable:
       policy.readable &&
@@ -525,7 +556,7 @@ export async function observeWorkflow(
             gates: gateDecision,
             approvals: approvals.values,
             lineage: artifactLineage.readable ? artifactLineage.values : [],
-            budget: { allocated: tokenBudget, used: null },
+            budget: { allocated: tokenBudget, used: observedUsage.tokenUsage },
           },
           anchored.digests,
         )
@@ -544,6 +575,9 @@ export async function observeWorkflow(
           ? currentPhaseMemory.value
           : { kind: "unreadable" },
       phaseExecution: preparedPhaseExecution.value,
+      usage,
+      tokenUsage: observedUsage.tokenUsage,
+      measurements,
       correlationId:
         typeof correlation === "string" ? correlation : anchored.ids.next(),
       eventId,
@@ -581,6 +615,7 @@ export async function observeWorkflow(
       referencedFiles,
       gateDecision,
       policyMode: policy.mode,
+      defaultGateMode: policy.defaultMode,
       acceptanceAttemptCeiling,
       tokenBudget,
       objectiveTokenBudget,
@@ -591,7 +626,11 @@ export async function observeWorkflow(
           prdDigest: observedLineage.prdDigest,
           specDigest: observedLineage.specDigest,
           policyVersion: "workflow-v1",
-          policyMode: policy.mode,
+          policyMode: approvalModeFor(
+            invocation.positionals[0] ?? "final-acceptance",
+            policy.defaultMode,
+            policy.gateModes,
+          ),
           objectiveDigest,
           revision: approvalRevision(
             invocation.positionals[0] ?? "final-acceptance",
@@ -2215,13 +2254,27 @@ function refusedConfiguration(reasonCode: ConfigurationRefusalReason) {
   };
 }
 
+interface ObservedGatePolicy {
+  readonly readable: boolean;
+  readonly mode: GateMode;
+  readonly defaultMode: GateMode;
+  readonly gateModes: GateModes;
+}
+
 async function observePolicy(
   ports: RuntimePorts,
   registry: SchemaRegistry,
-): Promise<{ readonly readable: boolean; readonly mode: GateMode }> {
+): Promise<ObservedGatePolicy> {
   const path = ".brain/config.json";
   const entry = await ports.durableFileSystem.inspect(path);
-  if (entry.kind !== "file") return { readable: false, mode: "enforce" };
+  if (entry.kind !== "file") {
+    return {
+      readable: false,
+      mode: "enforce",
+      defaultMode: "enforce",
+      gateModes: resolveGateModes("strict", {}),
+    };
+  }
   try {
     const classified = classifyConfiguration(
       {
@@ -2231,14 +2284,30 @@ async function observePolicy(
       configurationValidator(registry),
     );
     if (classified.kind !== "valid") {
-      return { readable: false, mode: "enforce" };
+      return {
+        readable: false,
+        mode: "enforce",
+        defaultMode: "enforce",
+        gateModes: resolveGateModes("strict", {}),
+      };
     }
     return {
       readable: true,
       mode: classified.value.policyMode === "strict" ? "enforce" : "warn",
+      defaultMode:
+        classified.value.policyMode === "strict" ? "enforce" : "warn",
+      gateModes: resolveGateModes(
+        classified.value.policyMode,
+        classified.value.gateModes,
+      ),
     };
   } catch {
-    return { readable: false, mode: "enforce" };
+    return {
+      readable: false,
+      mode: "enforce",
+      defaultMode: "enforce",
+      gateModes: resolveGateModes("strict", {}),
+    };
   }
 }
 

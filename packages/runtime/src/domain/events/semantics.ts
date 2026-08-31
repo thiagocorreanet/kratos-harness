@@ -1,4 +1,9 @@
 import type { CurrentEventDraft, ReadableEvent } from "./model.js";
+import {
+  compareGateFailures,
+  GATE_PRIORITIES,
+  GATE_REASON_CODES,
+} from "../gates/index.js";
 import { PHASE_MODEL_ROLE } from "../model-roles/model.js";
 
 type AssignmentPolicy = "forbidden" | "required";
@@ -251,6 +256,39 @@ export function assertEventSemanticPolicy(event: ReadableEvent): void {
       PHASE_MODEL_ROLE[event.resolvedAssignment.phase]
   ) {
     throw new Error("invalid event semantics");
+  }
+  if ("gateFailures" in event) {
+    const ids = event.gateFailures.map(({ gateId }) => gateId);
+    if (new Set(ids).size !== ids.length) {
+      throw new Error("invalid event semantics");
+    }
+    if (
+      event.gateFailures.some(
+        (failure) =>
+          failure.priority !== GATE_PRIORITIES[failure.gateId] ||
+          !(GATE_REASON_CODES[failure.gateId] as readonly string[]).includes(
+            failure.reasonCode,
+          ),
+      )
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    if (
+      event.gateFailures.some((failure, index, failures) => {
+        const previous = index === 0 ? undefined : failures[index - 1];
+        return (
+          previous !== undefined && compareGateFailures(previous, failure) > 0
+        );
+      })
+    ) {
+      throw new Error("invalid event semantics");
+    }
+    if (
+      !event.operation.startsWith("sdd.continue:") &&
+      event.gateFailures.length > 0
+    ) {
+      throw new Error("invalid event semantics");
+    }
   }
   if (event.operation.startsWith("lock.")) {
     if (

@@ -31,6 +31,8 @@ import type {
   LockLeaseV1,
   MigrationV1,
   MigrationV1_1,
+  PhaseLifecycleV1,
+  PhaseMeasurementV1,
   NarrationV1,
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
@@ -72,6 +74,7 @@ export interface ContractValues {
     | InitAnswersV1_3
     | InitAnswersV1_4;
   readonly "host.operation-message": HostOperationMessageV1;
+  readonly "host.phase-lifecycle": PhaseLifecycleV1;
   readonly "host.phase-handoff":
     PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3;
   readonly "host.memory-capture": MemoryCaptureV1_2;
@@ -94,6 +97,7 @@ export interface ContractValues {
   readonly "state.guardrails": GuardrailsV1;
   readonly "state.lock": LockLeaseV1;
   readonly "state.migration": MigrationV1 | MigrationV1_1;
+  readonly "state.phase-measurement": PhaseMeasurementV1;
   readonly "state.narration": NarrationV1;
   readonly "state.project-config":
     | ProjectConfigV1

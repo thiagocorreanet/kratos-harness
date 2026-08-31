@@ -19,6 +19,7 @@
     "artifactRefs",
     "evidenceRefs",
     "observedIdentity",
+    "gateFailures",
     "previousHash",
     "eventHash"
   ],
@@ -59,6 +60,9 @@
     },
     "observedIdentity": {
       "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/observedIdentity"
+    },
+    "gateFailures": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailures"
     },
     "resolvedAssignment": {
       "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/resolvedAssignment"

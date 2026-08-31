@@ -8,7 +8,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `help`, `version`, `handshake` | Usage and contract orientation | No |
 | `adapters` | Report supported host package manifests | No |
 | `init` | Create or reconcile managed project surfaces | Yes |
-| `objective TEXT [--token-ceiling N]` | Record or replace the active objective and optionally declare a run token ceiling | Yes |
+| `objective TEXT` | Record or replace the active objective | Yes |
 | `start` | Start or idempotently resume a run | Yes |
 | `continue` | Resume, reject, or complete one phase | Conditional |
 | `approve GATE` | Record digest-bound approval or rejection | Yes |
@@ -21,6 +21,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `unlock stop-loss --run ID` | Confirm `UNLOCK ID` on standard input and start a new budget epoch | Conditional |
 | `done` | Request accepted final completion | Conditional |
 | `status`, `stats`, `budgets` | Derive active-run views | No |
+| `metrics refresh` | Refresh the tracked phase-distribution rollup from validated local measurements | Yes |
 | `doctor`, `explain CODE` | Diagnose state and explain recovery | No |
 | `handoff` | Derive a phase handoff | No |
 | `hook` | Accept one versioned host operation from standard input | Conditional |
@@ -31,12 +32,10 @@ also accept `--root PATH` where shown by `kratos help`.
 | `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
 | `migrate config` | Preview or authorize replacement of pre-`1.4.0` configuration with current state | Conditional |
-| `migrate config` | Preview or authorize replacement of pre-`1.3.0` configuration with current state | Conditional |
 | `migrate memory MAPPING` | Preview or losslessly adopt legacy Gotchas | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
 | `repair` | Preview or explicitly authorize a safe repair | Conditional |
-| `repair resolve AC-ID --run ID --resolved-by ID --observation TEXT` | Resolve one recorded repeated-rejection stop | Conditional |
 | `evidence bundle` | Write a privacy-reviewed evidence bundle | Yes |
 | `dashboard` | Write a script-free local dashboard | Yes |
 
@@ -46,7 +45,7 @@ Never automate by scraping human output; use `--json`.
 
 ## Model-role command behavior
 
-`kratos init` consumes `host.init-answers@1.4.0` from standard input or
+`kratos init` consumes `host.init-answers@1.3.0` from standard input or
 `--answers PATH`. Explicit host role maps override adapter defaults. Omitted
 maps are filled only from the corresponding enabled host catalog, and every
 default is disclosed and persisted after canonical resolution. Initialization
@@ -57,9 +56,16 @@ The same answers document may carry a partial typed `projectProfile` for the
 project's exact root commands; source, test, and configuration paths; directory
 and naming conventions; and implementation languages. Every leaf is explicitly
 resolved, not applicable with a reason, or unresolved. Omitted leaves preserve
-current `1.4.0` state during reinitialization; explicit unresolved leaves clear
-it. Initialization never infers these values from stack markers and never
-executes a configured command.
+current `1.4.0` project configuration state during reinitialization; explicit
+unresolved leaves clear it. Initialization never infers these values from stack
+markers and never executes a configured command.
+
+`kratos init` creates the raw phase log and tracked phase report only when each
+path is absent. Reinitialization preserves the exact existing bytes of both
+measurement artifacts while it can still refresh managed instruction sections.
+If either measurement path appears after observation but before the managed
+transaction commits, initialization returns `runtime.revision_conflict` and
+publishes none of its other planned writes.
 
 `kratos doctor` is also read-only. Its `stack-profile` check passes only when
 the deterministic rendered bytes match and no typed leaf is unresolved. It
@@ -82,70 +88,67 @@ referenced output bytes. A known mismatch returns
 persists `model: null` and `effort: null`; `--model` remains diagnostic input and
 does not manufacture an observation.
 
-The current handoff also reports the run-frozen acceptance attempt ceiling,
-attempt counts in task-document order, `faultsRequiredFor` for the next verdict,
-and bounded active `faults`. Hosts relay this context unchanged; they do not
-calculate repair-loop transitions.
+## Phase measurements, budgets, and reports
 
-## Run limits and repeated-rejection recovery
+The runtime measures gross tokens and elapsed duration once for each of the six
+canonical phases, in order: `prd`, `spec`, `plan`, `code`, `review`, and
+`acceptance`. A completed phase has one physical record keyed by run and phase.
+Retries update that record or leave its bytes unchanged; they do not append a
+second copy.
 
-`acceptanceAttemptCeiling` is an optional positive safe integer in
-`state.project-config@1.4.0`. When it is absent, the runtime resolves it to
-`3`; it is never unbounded. During initialization,
-`host.init-answers@1.4.0` sets the value with a positive integer, clears an
-existing override with `null`, and preserves the existing value when the field
-is omitted. The resolved value is frozen in the run's `workflow-v2` start
-event, so changing project configuration later cannot change an existing run.
+Usage attribution follows the session that produced each newly observed token
+delta. The first accepted sample from an unowned host or subagent session is
+claimed atomically by the sole eligible running phase and stored in that
+record's sorted contributor list, which accepts at most 256 identifiers.
+For each contributor, the record also keeps its latest cumulative-token and
+observation-time checkpoint. Repeated or regressing totals add no tokens. If a
+completed phase's contributing session reports a delayed final increase after
+the next phase has started, the runtime recomputes that contributor's
+chronological allocation across the affected phases. The increase raises only
+the phase interval where it occurred and does not disturb other contributors,
+while the sum of phase consumption remains aligned with run-wide numeric usage
+and stop-loss facts.
 
-`kratos objective TEXT --token-ceiling N` declares the optional positive token
-ceiling at `objective.budget.tokens`. That value is also frozen when a run
-starts. Token measurement is owned by the existing hook and usage pipeline; it
-is not performed by the objective command.
+Contributor ownership remains durable if another phase or run becomes active:
+a later sample still updates only the owning phase and run's measurement,
+usage, and stop-loss state. If a session identifier is reused by sequential
+phases, the observation time and stored checkpoints select and, when necessary,
+reallocate only that contributor among phase intervals. The runtime refuses the
+sample without mutation when one contributor appears in overlapping phase
+records, checkpoint chronology or allocation contradicts cumulative usage, an
+unowned sample has zero or multiple eligible running phases, a 257th contributor
+would be added, prior usage lacks a durable owner, or the owning run's usage or
+gate state is missing or malformed.
 
-For every rejected acceptance criterion, the runtime records the next attempt
-in task-document order. Below the frozen acceptance ceiling, the same run
-returns to `code` for repair. At the ceiling, it records a stop with a required
-`code` or `specification` classification and diagnosis. An accepted verdict,
-plain `start`, plain `continue`, and repeated commands never reset attempts.
+`kratos budgets --json` and `kratos evidence bundle --json` report numeric
+`used` values after the run has a validated usage sample. That number comes from
+the run-wide `totalGrossTokens` ledger that also drives the existing stop-loss
+gate. It does not come from adding recommendations, and neither measurement nor
+calibration can create, raise, or replace the explicit token allocation supplied
+with the objective.
 
-Plain resume cannot release an active repeated-rejection stop. Use the explicit
-host-neutral recovery command, addressed to the blocked source run:
-
-```bash
-kratos repair resolve AC-1.2.3 --run run-17 \
-  --resolved-by reviewer-42 \
-  --observation "The failing implementation was corrected and independently checked."
-```
-
-The human identity and observation are required; observations are bounded to
-2,048 non-control characters and must contain a non-whitespace character. A
-`code` classification rejects `--next-run`, resets only that criterion, and
-returns the same run to `code` only after all active repair stops have been
-resolved. Repeating the same correlation is a no-op only when the original
-criterion, classification, target run, human input, and recovery artifact
-bindings match exactly; a divergent retry is a revision conflict.
-
-A `specification` classification requires a fresh run identifier:
+Refresh the committed distribution report explicitly:
 
 ```bash
-kratos repair resolve AC-1.2.3 --run run-17 \
-  --resolved-by owner-7 \
-  --observation "The acceptance criterion must be replaced after specification review." \
-  --next-run run-18
+kratos metrics refresh --root PATH --json
 ```
 
-Resolve every active `code` stop before a `specification` stop. A spec-first
-request is refused without changing the source run. The successful command
-records the resolution against `run-17`, preserves its history and blocked
-state, creates `run-18` at `spec`, freezes new run limits, and requires a new
-specification approval. The restart ticket retires every affected source AC
-identifier; a corrected plan must use new identifiers. Repeating the exact same
-resolution correlation after the active-run pointer changes is still a no-op.
+The command validates the local raw log and writes
+`.brain/03-memory/task_metrics.md`. It renders completed and interrupted counts,
+completed feature/run sources, and token and duration `min`, `p50`, `p95`, and
+`max` for every canonical phase. Percentiles use nearest rank over ascending
+integer samples: the selected zero-based position is
+`ceil(ratio * sample count) - 1`. A recommendation is the token p95 and requires
+at least five completed samples for that phase. With fewer than five, refresh
+still writes the available distribution, returns the successful advisory
+`metrics.calibration_insufficient`, and identifies the exact `n/5` shortfall.
+Interrupted records remain visible in their count but are excluded from sample
+statistics and recommendations.
 
-Repeated rejection and token exhaustion are independent. The gate can report
-`blocked.stop_loss_rejections` and `blocked.stop_loss_budget` together (and can
-also retain `blocked.stop_loss_flag`); resolving a repair stop does not unlock a
-token stop, and `unlock stop-loss` does not reset rejection attempts.
+Only `metrics refresh` writes the tracked rollup. `stats` and `budgets` remain
+read-only and do not refresh it implicitly. Run refresh between executions: it
+is also a recovery boundary and closes stale `running` entries before rendering
+the report.
 
 ## Curated-memory commands
 
@@ -218,6 +221,11 @@ Preview a pre-`1.4.0` configuration with current answers from a file:
 ```bash
 kratos migrate config --answers model-roles.json --root PATH
 ```
+
+Sources through `1.2.0` use the answers document to supply missing authority.
+A `1.3.0` source already contains that authority, so its adjacent upgrade to
+current `1.4.0` state may omit `--answers` and adds only `gateModes: {}` plus
+the current configuration/state version constants.
 
 The preview performs no writes and prints the source, destination, answers,
 catalog, and plan digests; confirmed hosts; every canonical assignment and

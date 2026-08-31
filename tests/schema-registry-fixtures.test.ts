@@ -14,6 +14,7 @@ import initAnswersV1_2 from "../fixtures/contracts/v1.2/init-answers.json" with 
 import initAnswersV1_3 from "../fixtures/contracts/v1.3/init-answers.json" with { type: "json" };
 import initAnswersV1_4 from "../fixtures/contracts/v1.4/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
+import phaseLifecycle from "../fixtures/contracts/v1/phase-lifecycle.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
 import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
@@ -33,6 +34,7 @@ import guardrails from "../fixtures/contracts/v1/guardrails.json" with { type: "
 import lock from "../fixtures/contracts/v1/lock.json" with { type: "json" };
 import migration from "../fixtures/contracts/v1/migration.json" with { type: "json" };
 import migrationV1_1 from "../fixtures/contracts/v1.1/migration.json" with { type: "json" };
+import phaseMeasurement from "../fixtures/contracts/v1/phase-measurement.json" with { type: "json" };
 import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
 import phaseHandoffV1_2 from "../fixtures/contracts/v1.2/phase-handoff.json" with { type: "json" };
 import phaseHandoffV1_3 from "../fixtures/contracts/v1.3/phase-handoff.json" with { type: "json" };
@@ -228,6 +230,16 @@ const fixtures = [
     requiredField: "hosts",
     structuralReasonCode: "trail.output_invalido",
     fixture: initAnswersV1_4,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-lifecycle",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "assignmentDigest",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseLifecycle,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -522,6 +534,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.phase-measurement",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "runId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: phaseMeasurement,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.project-config",
     version: "1.0.0",
     versionField: "stateContract",
@@ -565,7 +587,7 @@ const fixtures = [
     id: "state.project-config",
     version: "1.4.0",
     versionField: "stateContract",
-    requiredField: "projectProfile",
+    requiredField: "gateModes",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfigV1_4,
     invalidVersionReason: "contract.state_version_invalid",

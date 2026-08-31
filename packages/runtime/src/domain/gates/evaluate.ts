@@ -7,28 +7,21 @@ import type {
   GateFailure,
   GateId,
 } from "./model.js";
-
-const PRIORITY: Readonly<Record<GateId, number>> = {
-  "context-readable": 10,
-  "stop-loss": 20,
-  "prd-present": 30,
-  "spec-approved": 40,
-  "gaps-closed": 50,
-  "partition-approved": 60,
-  "acceptance-criteria": 70,
-  "final-acceptance": 80,
-};
+import { GATE_PRIORITIES } from "./model.js";
+import { aggregateGateFailures } from "./policy.js";
 
 function failure(
   gateId: GateId,
   reasonCode: GateFailure["reasonCode"],
+  context: GateContext,
   evidenceRefs: readonly string[],
   detail: string | null = null,
 ): GateFailure {
   return {
     gateId,
     reasonCode,
-    priority: PRIORITY[gateId],
+    priority: GATE_PRIORITIES[gateId],
+    mode: context.gateModes[gateId],
     evidenceRefs,
     detail,
   };
@@ -90,7 +83,7 @@ export function evaluateGates(context: GateContext): GateDecision {
 
   if (!context.contextReadable) {
     failures.push(
-      failure("context-readable", "blocked.context_unreadable", [
+      failure("context-readable", "blocked.context_unreadable", context, [
         ".brain/config.json",
       ]),
     );
@@ -100,6 +93,7 @@ export function evaluateGates(context: GateContext): GateDecision {
       failure(
         "stop-loss",
         "blocked.stop_loss_rejections",
+        context,
         [stop.artifactRef],
         `Acceptance criterion ${stop.criterionId} stopped at attempt ${String(stop.attempt)} with classification ${stop.classification}.`,
       ),
@@ -107,25 +101,27 @@ export function evaluateGates(context: GateContext): GateDecision {
   }
   if (context.stopLoss.exhausted) {
     failures.push(
-      failure("stop-loss", "blocked.stop_loss_budget", [
+      failure("stop-loss", "blocked.stop_loss_budget", context, [
         ".brain/03-memory/task_metrics.md",
       ]),
     );
   }
   if (context.stopLoss.tripped) {
     failures.push(
-      failure("stop-loss", "blocked.stop_loss_flag", [
+      failure("stop-loss", "blocked.stop_loss_flag", context, [
         ".brain/03-memory/task_metrics.md",
       ]),
     );
   }
   if (context.prdDocument.kind === "missing") {
     failures.push(
-      failure("prd-present", "gate.prd_ausente", [".brain/02-features/active"]),
+      failure("prd-present", "gate.prd_ausente", context, [
+        ".brain/02-features/active",
+      ]),
     );
   } else if (context.prdDocument.kind === "untouched") {
     failures.push(
-      failure("prd-present", "gate.prd_untouched", [
+      failure("prd-present", "gate.prd_untouched", context, [
         ".brain/02-features/active",
       ]),
     );
@@ -134,6 +130,7 @@ export function evaluateGates(context: GateContext): GateDecision {
       failure(
         "prd-present",
         "gate.prd_section_missing",
+        context,
         [".brain/02-features/active"],
         `Missing required section: ${context.prdDocument.missingSection}`,
       ),
@@ -144,19 +141,21 @@ export function evaluateGates(context: GateContext): GateDecision {
     !approved(context.approvals, "spec", context)
   ) {
     failures.push(
-      failure("spec-approved", "gate.aprovacao_spec", [".brain/approvals"]),
+      failure("spec-approved", "gate.aprovacao_spec", context, [
+        ".brain/approvals",
+      ]),
     );
   }
   if (context.openGaps > 0) {
     failures.push(
-      failure("gaps-closed", "gate.gaps_abertos", [
+      failure("gaps-closed", "gate.gaps_abertos", context, [
         ".brain/02-features/active",
       ]),
     );
   }
   if (context.partitionRequired && !context.partitionApproved) {
     failures.push(
-      failure("partition-approved", "gate.particionamento", [
+      failure("partition-approved", "gate.particionamento", context, [
         ".brain/approvals",
       ]),
     );
@@ -175,6 +174,7 @@ export function evaluateGates(context: GateContext): GateDecision {
       failure(
         "acceptance-criteria",
         "gate.ac_incomplete",
+        context,
         [".brain/02-features/active"],
         `Acceptance criterion ${incomplete.criterionId} is incomplete.`,
       ),
@@ -182,7 +182,9 @@ export function evaluateGates(context: GateContext): GateDecision {
   }
   if (context.phase === "acceptance" && !context.finalAcceptance) {
     failures.push(
-      failure("final-acceptance", "gate.aceitacao_final", [".brain/approvals"]),
+      failure("final-acceptance", "gate.aceitacao_final", context, [
+        ".brain/approvals",
+      ]),
     );
   }
 
@@ -233,28 +235,14 @@ export function evaluateGates(context: GateContext): GateDecision {
     }
   }
 
-  failures.sort(
-    (left, right) =>
-      left.priority - right.priority ||
-      left.gateId.localeCompare(right.gateId, "en-US"),
-  );
-  const immutable = Object.freeze(failures.map((item) => Object.freeze(item)));
   const immutableAdvisories = Object.freeze(
     advisories.map((item) => Object.freeze(item)),
   );
+  const aggregate = aggregateGateFailures(failures);
   return {
-    outcome:
-      failures.length === 0
-        ? "pass"
-        : context.mode === "enforce"
-          ? "block"
-          : context.mode === "warn"
-            ? "warn"
-            : "pass",
-    primary: immutable[0] ?? null,
-    failures: immutable,
+    ...aggregate,
+    gateModes: context.gateModes,
     advisories: immutableAdvisories,
-    mode: context.mode,
     criteria,
   };
 }

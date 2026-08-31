@@ -8,7 +8,7 @@ import {
 import { planOf } from "@kratos/runtime/domain/effects";
 import type {
   CurrentEventDraft,
-  EventDraftV1,
+  ReadableEvent,
   EventReducerRegistry,
 } from "@kratos/runtime/domain/events";
 import { EventIntegrityError } from "@kratos/runtime/domain/events";
@@ -36,6 +36,7 @@ function draft(index: number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/feature-${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
   };
 }
@@ -428,7 +429,7 @@ describe("event-store transaction integration", () => {
       step: string | null;
       tag: string;
     }
-    const originalReducer = (state: MutableState, event: EventDraftV1) => ({
+    const originalReducer = (state: MutableState, event: ReadableEvent) => ({
       ...state,
       step: event.operation,
     });
@@ -443,7 +444,7 @@ describe("event-store transaction integration", () => {
       seed: MutableState;
       reducers: Record<
         string,
-        (state: MutableState, event: EventDraftV1) => MutableState
+        (state: MutableState, event: ReadableEvent) => MutableState
       >;
       materialize: EventReducerRegistry<MutableState>["materialize"];
     } = {

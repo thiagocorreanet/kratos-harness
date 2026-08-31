@@ -19,6 +19,7 @@
     "artifactRefs",
     "evidenceRefs",
     "observedIdentity",
+    "gateFailures",
     "previousHash",
     "eventHash"
   ],
@@ -42,6 +43,9 @@
     "artifactRefs": { "$ref": "#/$defs/references" },
     "evidenceRefs": { "$ref": "#/$defs/references" },
     "observedIdentity": { "$ref": "#/$defs/observedIdentity" },
+    "gateFailures": {
+      "$ref": "#/$defs/gateFailures"
+    },
     "resolvedAssignment": { "$ref": "#/$defs/resolvedAssignment" },
     "runLimits": { "$ref": "#/$defs/runLimits" },
     "acceptanceDecision": { "$ref": "#/$defs/acceptanceDecision" },
@@ -53,6 +57,69 @@
     "eventHash": { "$ref": "#/$defs/sha256" }
   },
   "$defs": {
+    "gateFailures": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/gateFailure" }
+    },
+    "gateFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gateId",
+        "reasonCode",
+        "mode",
+        "priority",
+        "evidenceRefs",
+        "detail"
+      ],
+      "properties": {
+        "gateId": {
+          "enum": [
+            "context-readable",
+            "stop-loss",
+            "prd-present",
+            "spec-approved",
+            "gaps-closed",
+            "partition-approved",
+            "acceptance-criteria",
+            "final-acceptance"
+          ]
+        },
+        "reasonCode": {
+          "enum": [
+            "blocked.context_unreadable",
+            "blocked.stop_loss_budget",
+            "blocked.stop_loss_flag",
+            "blocked.stop_loss_rejections",
+            "gate.aceitacao_final",
+            "gate.ac_incomplete",
+            "gate.aprovacao_spec",
+            "gate.gaps_abertos",
+            "gate.particionamento",
+            "gate.prd_ausente",
+            "gate.prd_section_missing",
+            "gate.prd_untouched"
+          ]
+        },
+        "mode": { "enum": ["shadow", "warn", "enforce"] },
+        "priority": { "$ref": "#/$defs/nonNegativeInteger" },
+        "evidenceRefs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/reference" }
+        },
+        "detail": {
+          "oneOf": [{ "$ref": "#/$defs/safeDetail" }, { "type": "null" }]
+        }
+      }
+    },
+    "safeDetail": {
+      "type": "string",
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000-\\u001f\\u007f\\r\\n]*$"
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"

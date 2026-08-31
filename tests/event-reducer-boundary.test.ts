@@ -85,6 +85,7 @@ function draft(): CurrentEventDraft {
     effect: "state",
     artifactRefs: [".brain/features/feature-01.md"],
     evidenceRefs: [".brain/evidence/event-01.json"],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: null },
   };
 }

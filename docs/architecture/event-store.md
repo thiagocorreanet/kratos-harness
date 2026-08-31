@@ -69,20 +69,34 @@ event store does not sign events or establish authority.
 ## Mixed revisions and phase execution provenance
 
 The parser selects each line's exact registered schema from its inert
-`stateContract` data property. `state.event@1.0.0` remains readable and
-byte-identical. Current operations select their registered event revision:
-`1.2.0` for workflow-v2 start and acceptance decisions, and `1.3.0` for
-explicit repair resolution and specification restart. A valid stream may
-therefore contain all readable revisions in one continuous chain:
+`stateContract` data property. `state.event@1.0.0` and
+`state.event@1.1.0` remain readable and byte-identical; current writes use
+`state.event@1.2.0`. A valid post-migration stream may therefore contain all
+three revisions in one continuous chain:
 
 ```text
-state.event@1.0.0 → state.event@1.1.0 → state.event@1.2.0 → state.event@1.3.0
+state.event@1.0.0 → state.event@1.1.0 → state.event@1.2.0
 ```
 
 Verification does not upgrade old bytes or apply the current schema to a legacy
 record. It validates each record against its exact revision, then checks one
 contiguous revision sequence, predecessor hash chain, and replay result across
 the whole stream. Configuration migration never rewrites an event or snapshot.
+
+Every new event has an explicit `gateFailures` array. An operation without a
+gate evaluation records an empty array. Each recorded failure carries its
+`gateId`, `reasonCode`, effective `mode`, canonical `priority`, bounded
+`evidenceRefs`, and bounded nullable `detail`. Accepted warn and shadow
+transitions therefore retain the findings that were present when the run
+continued; blocked transitions retain the full ordered trace rather than only
+the headline failure.
+
+Semantic validation rejects duplicate gate IDs, a non-canonical order, an
+incorrect priority, or a gate/reason mismatch. Replay consumes the mode stored
+on each failure; it does not recalculate historical modes from the current
+`policyMode` or `gateModes`. Changing a recorded mode changes canonical event
+bytes and its hash. Hosts and prompts cannot add, remove, reorder, or override
+these runtime-owned policy facts.
 
 Current phase-scoped events separate selected policy from observed execution:
 
@@ -168,14 +182,14 @@ the expected tail and make stale truncation `runtime.state_corrupt`.
 
 ## Bounded metadata boundary
 
-Only the closed metadata-only `EventV1` or `EventV1_1` envelope is persisted. It
-has no raw payload, source content, exception, environment, credential, prompt,
-or message field; there are no raw prompts in the event store. The draft
-boundary copies only the closed fields, safe
-relative references, runtime-resolved assignment, and validated observed
-identity metadata before sealing. Sensitive evidence remains with its owning
-component and is referenced by approved metadata rather than copied into
-history.
+Only the closed metadata-only `EventV1`, `EventV1_1`, or current `EventV1_2`
+envelope is persisted. It has no raw payload, source content, exception,
+environment, credential, prompt, or message field; there are no raw prompts in
+the event store. The draft boundary copies only the closed fields, safe
+relative references, bounded gate-failure records, runtime-resolved assignment,
+and validated observed identity metadata before sealing. Sensitive evidence
+remains with its owning component and is referenced by approved metadata rather
+than copied into history.
 
 The parser measures UTF-8 bytes before replay and refuses a record over
 64 KiB, a stream over 64 MiB, or more than 100,000 events. These limits and the

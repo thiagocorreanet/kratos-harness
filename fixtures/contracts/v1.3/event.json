@@ -12,6 +12,7 @@
   "effect": "state-and-artifact",
   "artifactRefs": [".brain/runs/run-01/resolutions/resolution-01.json"],
   "evidenceRefs": [],
+  "gateFailures": [],
   "observedIdentity": {
     "host": "codex",
     "model": "gpt-5.6-terra",

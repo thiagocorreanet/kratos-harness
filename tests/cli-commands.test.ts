@@ -179,6 +179,7 @@ describe("implemented commands", () => {
       "memory list",
       "memory merge",
       "memory promote",
+      "metrics refresh",
       "migrate brain",
       "migrate config",
       "migrate memory",

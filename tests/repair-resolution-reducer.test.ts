@@ -362,6 +362,7 @@ describe("repair resolution reducer", () => {
             effect: "state",
             artifactRefs: [`artifacts/${phase}.md`],
             evidenceRefs: [`evidence/${phase}.json`],
+            gateFailures: [],
             observedIdentity: {
               host: "cli",
               model: "model-01",
@@ -400,6 +401,7 @@ describe("repair resolution reducer", () => {
       effect: "state-and-artifact",
       artifactRefs: [".brain/runs/run-01/stops/AC-1.1.1.json"],
       evidenceRefs: [],
+      gateFailures: [],
       observedIdentity: { host: "cli", model: null, effort: null },
       acceptanceDecision: {
         outcome: "stopped",

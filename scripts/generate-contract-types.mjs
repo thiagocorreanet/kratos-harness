@@ -144,6 +144,40 @@ function transactionProgressTypeSchema(schema) {
   };
 }
 
+function phaseMeasurementTypeSchema(schema) {
+  const [running, completed, interrupted] = schema.allOf ?? [];
+  const runningProperties = running?.then?.properties;
+  const completedProperties = completed?.then?.properties;
+  const interruptedProperties = interrupted?.then?.properties;
+  if (
+    runningProperties === undefined ||
+    completedProperties === undefined ||
+    interruptedProperties === undefined
+  ) {
+    throw new Error("phase measurement schema is incomplete");
+  }
+  return {
+    $schema: schema.$schema,
+    $id: schema.$id,
+    title: schema.title,
+    oneOf: [
+      closedObjectVariant(schema, {
+        status: { const: "running" },
+        ...runningProperties,
+      }),
+      closedObjectVariant(schema, {
+        status: { const: "completed" },
+        ...completedProperties,
+      }),
+      closedObjectVariant(schema, {
+        status: { const: "interrupted" },
+        ...interruptedProperties,
+      }),
+    ],
+    $defs: schema.$defs,
+  };
+}
+
 /**
  * The agent output contract validates as one closed object whose payload is
  * chosen by the `agent` discriminator, because that is what makes a refusal
@@ -261,6 +295,9 @@ function schemaForTypeGeneration(id, schema) {
   }
   if (id === "state.transaction-progress") {
     return transactionProgressTypeSchema(schema);
+  }
+  if (id === "state.phase-measurement") {
+    return phaseMeasurementTypeSchema(schema);
   }
   if (
     id === "host.adapter-message" &&

@@ -419,7 +419,14 @@ describe("contract reason catalog revision", () => {
     });
   });
 
-  it("preserves revision 1.9 and appends the curated-memory reason policies", () => {
+  it("preserves revision 1.9 and appends memory and measurement reasons", () => {
+    const metricsAdditions = [
+      "metrics.phase_not_started",
+      "metrics.phase_assignment_conflict",
+      "metrics.log_invalid",
+      "metrics.refresh_ok",
+      "metrics.calibration_insufficient",
+    ];
     const policies = new Map([
       ["memory.lesson_incomplete", ["failure", 2, "optional", false]],
       ["memory.curation_required", ["blocked", 3, "required", true]],
@@ -437,7 +444,19 @@ describe("contract reason catalog revision", () => {
       catalogV110.reasons
         .slice(catalogV19.reasons.length)
         .map(({ code }) => code),
-    ).toEqual([...policies.keys()]);
+    ).toEqual([...policies.keys(), ...metricsAdditions]);
+    expect(catalogV110.reasons).toHaveLength(122);
+    expect(
+      catalogV110.reasons.find(
+        ({ code }) => code === "metrics.calibration_insufficient",
+      ),
+    ).toMatchObject({
+      status: "advisory",
+      exitCode: 0,
+      evidence: "required",
+      stateChanged: true,
+      retryable: false,
+    });
     for (const [code, [status, exitCode, evidence, retryable]] of policies) {
       expect(
         catalogV110.reasons.find((reason) => reason.code === code),

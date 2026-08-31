@@ -1,14 +1,14 @@
 import { types } from "node:util";
 
 import legacyGolden from "./fixtures/events/golden-event-v1.json" with { type: "json" };
-import golden from "./fixtures/events/golden-event-v1.1.json" with { type: "json" };
+import golden from "./fixtures/events/golden-event-v1.2.json" with { type: "json" };
 import {
   EventIntegrityError,
   sealEvent,
   unsignedEvent,
   type CurrentEventDraft,
 } from "@kratos/runtime/domain/events";
-import type { EventV1, EventV1_1 } from "@kratos/contracts";
+import type { EventV1, EventV1_2 } from "@kratos/contracts";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 import { sha256Digests } from "../packages/runtime/src/infra/digests.js";
@@ -25,14 +25,25 @@ function draft(): CurrentEventDraft {
   return structuredClone(golden.draft) as CurrentEventDraft;
 }
 
+function gateFailure() {
+  return {
+    gateId: "stop-loss",
+    reasonCode: "blocked.stop_loss_flag",
+    mode: "enforce",
+    priority: 20,
+    evidenceRefs: [".brain/03-memory/task_metrics.md"],
+    detail: null,
+  };
+}
+
 function unassignedDraft(): Omit<CurrentEventDraft, "resolvedAssignment"> {
   const { resolvedAssignment, ...unassigned } = draft();
   void resolvedAssignment;
   return unassigned;
 }
 
-function goldenUnsigned(): Omit<EventV1_1, "eventHash"> {
-  return JSON.parse(golden.unsignedCanonical) as Omit<EventV1_1, "eventHash">;
+function goldenUnsigned(): Omit<EventV1_2, "eventHash"> {
+  return JSON.parse(golden.unsignedCanonical) as Omit<EventV1_2, "eventHash">;
 }
 
 function seal(input: unknown, revision = 0, hash: string | null = null) {
@@ -269,9 +280,9 @@ describe("event sealing", () => {
   });
 
   it("rejects a resolved assignment on an infrastructure event", () => {
-    const input: Omit<EventV1_1, "previousHash" | "eventHash"> = {
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+    const input: Omit<EventV1_2, "previousHash" | "eventHash"> = {
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       eventId: "lease-event-01",
       eventType: "operation",
       occurredAt: "2026-08-10T00:01:00Z",
@@ -283,6 +294,7 @@ describe("event sealing", () => {
       effect: "state",
       artifactRefs: [],
       evidenceRefs: [],
+      gateFailures: [],
       observedIdentity: { host: "codex", model: null, effort: null },
       resolvedAssignment: {
         phase: "code",
@@ -426,12 +438,71 @@ describe("event sealing", () => {
   it("retains copied reference arrays after the caller mutates them", () => {
     const value = draft();
     const event = seal(value);
+    if (event.contractVersion === "1.1.0")
+      throw new Error("wrong event version");
     value.artifactRefs.push(".brain/attacker-artifact.md");
     value.evidenceRefs.push(".brain/attacker-evidence.json");
 
     expect(event.artifactRefs).toEqual(golden.draft.artifactRefs);
     expect(event.evidenceRefs).toEqual(golden.draft.evidenceRefs);
   });
+
+  it("retains copied gate-failure records and nested references after source mutation", () => {
+    const failure = gateFailure();
+    const value = { ...draft(), gateFailures: [failure] };
+    const event = seal(value);
+    failure.mode = "shadow";
+    failure.evidenceRefs.push(".brain/attacker-evidence.md");
+
+    if (!("gateFailures" in event)) throw new Error("wrong event version");
+    expect(event.gateFailures).toEqual([gateFailure()]);
+  });
+
+  it.each([
+    ["a gate-failure proxy", new Proxy(gateFailure(), {})],
+    [
+      "a gate-failure accessor",
+      Object.defineProperty(gateFailure(), "detail", {
+        configurable: true,
+        get: () => "attacker text",
+      }),
+    ],
+    [
+      "a sparse gate-failure array",
+      (() => {
+        const failures: unknown[] = Array(1);
+        return failures;
+      })(),
+    ],
+    ["too many gate failures", Array.from({ length: 9 }, () => gateFailure())],
+    [
+      "too many nested gate references",
+      [
+        {
+          ...gateFailure(),
+          evidenceRefs: Array.from(
+            { length: 17 },
+            (_, index) => `.brain/evidence-${String(index)}.md`,
+          ),
+        },
+      ],
+    ],
+    [
+      "a nested reference proxy",
+      [
+        {
+          ...gateFailure(),
+          evidenceRefs: new Proxy([...gateFailure().evidenceRefs], {}),
+        },
+      ],
+    ],
+  ])(
+    "rejects %s without copying hostile nested traces",
+    (_description, trace) => {
+      const gateFailures = Array.isArray(trace) ? trace : [trace];
+      expect(integrityKind({ ...draft(), gateFailures })).toBe("invalid_event");
+    },
+  );
 
   it("accepts only canonical dense reference-array keys before copying", () => {
     const references = [".brain/features/feature-01/00-prd.md"];
@@ -637,6 +708,24 @@ describe("event sealing", () => {
       );
     },
   );
+
+  it.each([
+    ["gateId", { gateId: "gaps-closed" }],
+    ["reasonCode", { reasonCode: "gate.gaps_abertos" }],
+    ["mode", { mode: "shadow" }],
+    ["priority", { priority: 21 }],
+    ["evidenceRefs", { evidenceRefs: [".brain/other-evidence.md"] }],
+    ["detail", { detail: "safe detail" }],
+  ])("hashes each gate-failure %s field", (_field, replacement) => {
+    const unsigned = {
+      ...goldenUnsigned(),
+      gateFailures: [{ ...gateFailure(), ...replacement }],
+    };
+
+    expect(services.digests.sha256(canonicalizeJson(unsigned))).not.toBe(
+      golden.eventHash,
+    );
+  });
 
   it.each([
     ["contractVersion", { contractVersion: "1.0.1" }],

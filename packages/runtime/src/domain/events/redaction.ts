@@ -6,6 +6,8 @@ import {
   type ResolutionEventDraft,
   type SealableEventDraft,
 } from "./model.js";
+import type { EventV1_2 } from "@kratos/contracts";
+import { GATE_IDS } from "../gates/index.js";
 import { assertEventSemanticPolicy } from "./semantics.js";
 
 const DRAFT_KEYS = [
@@ -23,6 +25,7 @@ const DRAFT_KEYS = [
   "artifactRefs",
   "evidenceRefs",
   "observedIdentity",
+  "gateFailures",
 ] as const;
 
 const IDENTITY_KEYS = ["host", "model", "effort"] as const;
@@ -59,6 +62,7 @@ const STARTED_FROM_SPEC_KEYS = [
 const MAX_REFERENCE_COUNT = 256;
 
 type DataRecord = Record<PropertyKey, unknown>;
+type GateFailureV1_2 = EventV1_2["gateFailures"][number];
 
 function invalidEvent(): never {
   throw new EventIntegrityError("invalid_event");
@@ -110,6 +114,7 @@ function requireRevision(value: DataRecord, key: string): number {
 function copyReferences(
   value: unknown,
   isProxy: EventServices["isProxy"],
+  maxCount = MAX_REFERENCE_COUNT,
 ): string[] {
   if (typeof value !== "object" || value === null) invalidEvent();
   if (isProxy(value)) invalidEvent();
@@ -121,7 +126,7 @@ function copyReferences(
     !("value" in lengthDescriptor) ||
     typeof lengthDescriptor.value !== "number" ||
     !Number.isSafeInteger(lengthDescriptor.value) ||
-    lengthDescriptor.value > MAX_REFERENCE_COUNT
+    lengthDescriptor.value > maxCount
   ) {
     invalidEvent();
   }
@@ -146,6 +151,67 @@ function copyReferences(
       invalidEvent();
     }
     copied.push(descriptor.value);
+  }
+  return copied;
+}
+
+function copyGateFailure(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): GateFailureV1_2 {
+  const failure = requirePlainRecord(value, isProxy);
+  requireExactKeys(failure, [
+    "gateId",
+    "reasonCode",
+    "mode",
+    "priority",
+    "evidenceRefs",
+    "detail",
+  ]);
+  const detail = requireDataValue(failure, "detail");
+  if (typeof detail !== "string" && detail !== null) invalidEvent();
+  return {
+    gateId: requireString(failure, "gateId") as GateFailureV1_2["gateId"],
+    reasonCode: requireString(
+      failure,
+      "reasonCode",
+    ) as GateFailureV1_2["reasonCode"],
+    mode: requireString(failure, "mode") as GateFailureV1_2["mode"],
+    priority: requireRevision(failure, "priority"),
+    evidenceRefs: copyReferences(
+      requireDataValue(failure, "evidenceRefs"),
+      isProxy,
+      16,
+    ) as GateFailureV1_2["evidenceRefs"],
+    detail,
+  };
+}
+
+function copyGateFailures(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): GateFailureV1_2[] {
+  if (typeof value !== "object" || value === null) invalidEvent();
+  if (isProxy(value) || !Array.isArray(value)) invalidEvent();
+  const keys = Object.getOwnPropertyNames(value);
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  if (
+    lengthDescriptor === undefined ||
+    !("value" in lengthDescriptor) ||
+    typeof lengthDescriptor.value !== "number" ||
+    !Number.isSafeInteger(lengthDescriptor.value) ||
+    lengthDescriptor.value > GATE_IDS.length ||
+    Object.getOwnPropertySymbols(value).length !== 0 ||
+    keys.length !== lengthDescriptor.value + 1 ||
+    keys[keys.length - 1] !== "length"
+  ) {
+    invalidEvent();
+  }
+  const copied: GateFailureV1_2[] = [];
+  for (let index = 0; index < lengthDescriptor.value; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor === undefined || !("value" in descriptor)) invalidEvent();
+    copied.push(copyGateFailure(descriptor.value, isProxy));
   }
   return copied;
 }
@@ -397,6 +463,10 @@ export function snapshotEventDraft(
       ),
       observedIdentity: copyObservedIdentity(
         requireDataValue(draft, "observedIdentity"),
+        isProxy,
+      ),
+      gateFailures: copyGateFailures(
+        requireDataValue(draft, "gateFailures"),
         isProxy,
       ),
       ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),

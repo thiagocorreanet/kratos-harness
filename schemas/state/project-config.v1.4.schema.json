@@ -11,6 +11,7 @@
     "hostContract",
     "language",
     "policyMode",
+    "gateModes",
     "managedState",
     "modelRoles",
     "projectProfile"
@@ -22,6 +23,12 @@
     "hostContract": { "const": "1.4.0" },
     "language": { "$ref": "#/$defs/languagePolicy" },
     "policyMode": { "enum": ["standard", "strict"] },
+    "gateModes": { "$ref": "#/$defs/gateModes" },
+    "acceptanceAttemptCeiling": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
     "managedState": {
       "type": "object",
       "additionalProperties": false,
@@ -33,14 +40,24 @@
       }
     },
     "modelRoles": { "$ref": "#/$defs/modelRoles" },
-    "projectProfile": { "$ref": "#/$defs/projectProfile" },
-    "acceptanceAttemptCeiling": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
-    }
+    "projectProfile": { "$ref": "#/$defs/projectProfile" }
   },
   "$defs": {
+    "gateMode": { "enum": ["shadow", "warn", "enforce"] },
+    "gateModes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context-readable": { "$ref": "#/$defs/gateMode" },
+        "stop-loss": { "$ref": "#/$defs/gateMode" },
+        "prd-present": { "$ref": "#/$defs/gateMode" },
+        "spec-approved": { "$ref": "#/$defs/gateMode" },
+        "gaps-closed": { "$ref": "#/$defs/gateMode" },
+        "partition-approved": { "$ref": "#/$defs/gateMode" },
+        "acceptance-criteria": { "$ref": "#/$defs/gateMode" },
+        "final-acceptance": { "$ref": "#/$defs/gateMode" }
+      }
+    },
     "languageCode": { "enum": ["en", "pt-BR"] },
     "languagePolicy": {
       "type": "object",

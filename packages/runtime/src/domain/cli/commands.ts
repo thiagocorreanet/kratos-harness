@@ -20,6 +20,7 @@ import {
   doctorCommand,
   explainCommand,
   handoffCommand,
+  metricsRefreshCommand,
   statsCommand,
   statusCommand,
 } from "./diagnostics.js";
@@ -138,6 +139,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   migrateConfigCommand,
   migrateMemoryCommand,
   migrateRollbackCommand,
+  metricsRefreshCommand,
   memoryCaptureCommand,
   memoryListCommand,
   memoryPromoteCommand,
