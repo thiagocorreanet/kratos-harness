@@ -1,15 +1,20 @@
-import type { CurrentEventDraft } from "../events/index.js";
+import { isAcceptanceCriterionId } from "@kratos/contracts";
+
+import type { CurrentEventDraft, UpgradeEventDraft } from "../events/index.js";
 import {
   WORKFLOW_OPERATION_FACTS,
+  WORKFLOW_POLICY_UPGRADE_FACT,
   WORKFLOW_TRANSITION_FACTS,
 } from "../events/semantics.js";
 
 import {
   RUN_PHASES,
+  LEGACY_WORKFLOW_POLICY_VERSION,
   WORKFLOW_POLICY_VERSION,
   type ContinueWorkflowRequest,
   type FactOperation,
   type PhaseExecutionObservation,
+  type ResolveRepairStopRequest,
   type StartWorkflowRequest,
   type WorkflowDecision,
   type WorkflowIdentity,
@@ -23,14 +28,17 @@ const operationId = (
 ) => `sdd.${name}:${correlationId}`;
 
 /** Every transition that moves the run, as opposed to recording a fact. */
-type MovingTransition = Exclude<
-  Extract<WorkflowDecision, { readonly kind: "recorded" }>["transition"],
-  "observed"
->;
+type MovingTransition =
+  "started" | "resumed" | "accepted" | "rejected" | "completed";
 
 const id = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
 const feature = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 const sha256 = /^[a-f0-9]{64}$/u;
+const reference =
+  // eslint-disable-next-line no-control-regex -- persisted references cannot contain control bytes.
+  /^(?!\/)(?![A-Za-z]:[\\/])(?!.*\\)(?!.*(?:^|\/)\.\.(?:\/|$))(?![a-z][a-z0-9+.-]*:\/\/)[^\u0000-\u001f\u007f]{1,1024}$/u;
+// eslint-disable-next-line no-control-regex -- reject every ASCII control byte in a human note.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
 
 function validStartRequest(request: StartWorkflowRequest): boolean {
   return (
@@ -44,7 +52,25 @@ function validStartRequest(request: StartWorkflowRequest): boolean {
     (request.observedIdentity.model === null ||
       id.test(request.observedIdentity.model)) &&
     sha256.test(request.lineage.prdDigest) &&
-    sha256.test(request.lineage.specDigest)
+    sha256.test(request.lineage.specDigest) &&
+    (request.acceptanceAttemptCeiling === undefined ||
+      (Number.isSafeInteger(request.acceptanceAttemptCeiling) &&
+        request.acceptanceAttemptCeiling > 0)) &&
+    (request.tokenCeiling === undefined ||
+      request.tokenCeiling === null ||
+      (Number.isSafeInteger(request.tokenCeiling) &&
+        request.tokenCeiling > 0)) &&
+    (request.startFromSpec === undefined ||
+      (id.test(request.startFromSpec.sourceRunId) &&
+        request.startFromSpec.sourceRunId !== request.runId &&
+        reference.test(request.startFromSpec.restartTicketRef) &&
+        sha256.test(request.startFromSpec.restartTicketDigest) &&
+        request.startFromSpec.retiredCriterionIds.length > 0 &&
+        new Set(request.startFromSpec.retiredCriterionIds).size ===
+          request.startFromSpec.retiredCriterionIds.length &&
+        request.startFromSpec.retiredCriterionIds.every(
+          isAcceptanceCriterionId,
+        )))
   );
 }
 
@@ -143,11 +169,15 @@ function event(
   evidenceRefs: readonly string[] = [],
   resolvedAssignment?: WorkflowAssignment,
   phaseExecution?: PhaseExecutionObservation,
+  runLimits?: {
+    readonly acceptanceAttemptCeiling: number;
+    readonly tokenCeiling: number | null;
+  },
 ): CurrentEventDraft {
   const fact = WORKFLOW_TRANSITION_FACTS[transition];
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: input.eventId,
     eventType: fact.eventType,
     occurredAt: input.occurredAt,
@@ -161,6 +191,39 @@ function event(
     evidenceRefs: [...evidenceRefs],
     observedIdentity: phaseIdentity(input.identity, phaseExecution),
     ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
+    ...(runLimits === undefined ? {} : { runLimits }),
+  };
+}
+
+function policyUpgradeEvent(
+  input: {
+    readonly eventId: string;
+    readonly occurredAt: string;
+    readonly operation: string;
+    readonly revision: number;
+    readonly identity: WorkflowIdentity;
+  },
+  runLimits: {
+    readonly acceptanceAttemptCeiling: number;
+    readonly tokenCeiling: number | null;
+  },
+): UpgradeEventDraft {
+  return {
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
+    eventId: input.eventId,
+    eventType: WORKFLOW_POLICY_UPGRADE_FACT.eventType,
+    occurredAt: input.occurredAt,
+    operation: input.operation,
+    policyVersion: WORKFLOW_POLICY_VERSION,
+    priorRevision: input.revision,
+    resultingRevision: input.revision + 1,
+    reasonCode: WORKFLOW_POLICY_UPGRADE_FACT.reasonCode,
+    effect: WORKFLOW_POLICY_UPGRADE_FACT.effect,
+    artifactRefs: [],
+    evidenceRefs: [],
+    observedIdentity: phaseIdentity(input.identity, undefined),
+    runLimits,
   };
 }
 
@@ -194,6 +257,51 @@ export function decideStartWorkflow(
     if (observation.state.status === "completed") {
       return { kind: "unchanged", reason: "already-completed" };
     }
+    if (
+      observation.state.policyVersion === LEGACY_WORKFLOW_POLICY_VERSION &&
+      observation.state.acceptanceAttemptCeiling === null &&
+      observation.state.tokenCeiling === null &&
+      observation.state.attempts.length === 0 &&
+      observation.state.activeRepairStops.length === 0 &&
+      observation.state.repairStopHistory.length === 0 &&
+      observation.state.repairResolutions.length === 0 &&
+      observation.state.specificationRestart === null &&
+      observation.state.retiredCriterionIds.length === 0 &&
+      observation.state.startedFromSpec === null
+    ) {
+      return {
+        kind: "recorded",
+        transition: "upgraded",
+        event: policyUpgradeEvent(
+          {
+            eventId: request.eventId,
+            occurredAt: request.occurredAt,
+            operation,
+            revision: observation.state.revision,
+            identity: request.observedIdentity,
+          },
+          {
+            acceptanceAttemptCeiling: request.acceptanceAttemptCeiling ?? 3,
+            tokenCeiling: request.tokenCeiling ?? null,
+          },
+        ),
+      };
+    }
+    if (
+      observation.state.policyVersion !== WORKFLOW_POLICY_VERSION ||
+      observation.state.acceptanceAttemptCeiling === null
+    ) {
+      return { kind: "refused", reasonCode: "trail.uso" };
+    }
+    if (
+      observation.state.activeRepairStops.length !== 0 ||
+      observation.state.specificationRestart !== null
+    ) {
+      return {
+        kind: "refused",
+        reasonCode: "blocked.stop_loss_rejections",
+      };
+    }
     return {
       kind: "recorded",
       transition: "resumed",
@@ -209,6 +317,40 @@ export function decideStartWorkflow(
       ),
     };
   }
+  if (request.startFromSpec !== undefined) {
+    const [firstCriterionId, ...remainingCriterionIds] =
+      request.startFromSpec.retiredCriterionIds;
+    if (firstCriterionId === undefined)
+      return { kind: "refused", reasonCode: "trail.uso" };
+    return {
+      kind: "recorded",
+      transition: "started",
+      event: {
+        contractVersion: "1.3.0",
+        stateContract: "1.3.0",
+        eventId: request.eventId,
+        eventType: "recovery",
+        occurredAt: request.occurredAt,
+        operation: `sdd.repair.restart:${request.correlationId}`,
+        policyVersion: WORKFLOW_POLICY_VERSION,
+        priorRevision: 0,
+        resultingRevision: 1,
+        reasonCode: "run.started_from_spec",
+        effect: "state-and-artifact",
+        artifactRefs: [request.startFromSpec.restartTicketRef],
+        evidenceRefs: [],
+        observedIdentity: phaseIdentity(request.observedIdentity, undefined),
+        runLimits: {
+          acceptanceAttemptCeiling: request.acceptanceAttemptCeiling ?? 3,
+          tokenCeiling: request.tokenCeiling ?? null,
+        },
+        startedFromSpec: {
+          ...request.startFromSpec,
+          retiredCriterionIds: [firstCriterionId, ...remainingCriterionIds],
+        },
+      },
+    };
+  }
   return {
     kind: "recorded",
     transition: "started",
@@ -221,6 +363,14 @@ export function decideStartWorkflow(
         identity: request.observedIdentity,
       },
       "started",
+      [],
+      [],
+      undefined,
+      undefined,
+      {
+        acceptanceAttemptCeiling: request.acceptanceAttemptCeiling ?? 3,
+        tokenCeiling: request.tokenCeiling ?? null,
+      },
     ),
   };
 }
@@ -252,8 +402,25 @@ export function decideContinueWorkflow(
   if (state.status === "completed") {
     return { kind: "unchanged", reason: "already-completed" };
   }
+  if (
+    state.policyVersion !== WORKFLOW_POLICY_VERSION ||
+    state.acceptanceAttemptCeiling === null
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
   if (request.expectedRevision !== state.revision) {
     return { kind: "refused", reasonCode: "runtime.revision_conflict" };
+  }
+
+  if (
+    request.action.kind !== "reject" &&
+    (state.activeRepairStops.length !== 0 ||
+      state.specificationRestart !== null)
+  ) {
+    return {
+      kind: "refused",
+      reasonCode: "blocked.stop_loss_rejections",
+    };
   }
 
   if (request.action.kind === "resume") {
@@ -314,6 +481,137 @@ export function decideContinueWorkflow(
     request.action.artifactRefs,
     request.action.evidenceRefs,
   );
+}
+
+export function decideResolveRepairStop(
+  observation: WorkflowObservation,
+  request: ResolveRepairStopRequest,
+): WorkflowDecision {
+  const operation = `sdd.repair.resolve:${request.correlationId}`;
+  if (
+    !feature.test(request.feature) ||
+    !id.test(request.runId) ||
+    !isAcceptanceCriterionId(request.criterionId) ||
+    !id.test(request.correlationId) ||
+    !id.test(request.eventId) ||
+    !id.test(operation) ||
+    !Number.isSafeInteger(request.expectedRevision) ||
+    request.expectedRevision < 0 ||
+    !id.test(request.resolvedBy) ||
+    request.observation.trim().length < 1 ||
+    request.observation.length > 2048 ||
+    CONTROL_CHARACTERS.test(request.observation) ||
+    !id.test(request.observedIdentity.host) ||
+    (request.observedIdentity.model !== null &&
+      !id.test(request.observedIdentity.model)) ||
+    !reference.test(request.resolutionRef) ||
+    !sha256.test(request.resolutionDigest)
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (observation.kind === "corrupt") {
+    return { kind: "refused", reasonCode: "blocked.state_unreadable" };
+  }
+  if (observation.kind === "absent") {
+    return { kind: "refused", reasonCode: "blocked.context_unreadable" };
+  }
+  const state = observation.state;
+  if (state.feature !== request.feature) {
+    return { kind: "refused", reasonCode: "blocked.feature_mismatch" };
+  }
+  if (state.runId !== request.runId) {
+    return { kind: "refused", reasonCode: "blocked.runid_mismatch" };
+  }
+  const priorResolution = state.repairResolutions.find(
+    (resolution) => resolution.operation === operation,
+  );
+  if (state.operations.includes(operation)) {
+    const requestClassification =
+      request.nextRunId === null ? "code" : "specification";
+    return priorResolution?.criterionId === request.criterionId &&
+      priorResolution.classification === requestClassification &&
+      priorResolution.resolutionRef === request.resolutionRef &&
+      priorResolution.resolutionDigest === request.resolutionDigest &&
+      priorResolution.nextRunId === request.nextRunId &&
+      priorResolution.restartTicketRef === request.restartTicketRef &&
+      priorResolution.restartTicketDigest === request.restartTicketDigest
+      ? { kind: "unchanged", reason: "duplicate" }
+      : { kind: "refused", reasonCode: "runtime.revision_conflict" };
+  }
+  if (
+    state.policyVersion !== WORKFLOW_POLICY_VERSION ||
+    state.status !== "blocked" ||
+    state.specificationRestart !== null
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  if (request.expectedRevision !== state.revision) {
+    return { kind: "refused", reasonCode: "runtime.revision_conflict" };
+  }
+  const stop = state.activeRepairStops.find(
+    ({ criterionId }) => criterionId === request.criterionId,
+  );
+  if (stop === undefined) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  const specification = stop.classification === "specification";
+  if (
+    specification &&
+    state.activeRepairStops.some(
+      (candidate) => candidate.classification === "code",
+    )
+  ) {
+    return {
+      kind: "refused",
+      reasonCode: "blocked.stop_loss_rejections",
+    };
+  }
+  if (
+    specification !== (request.nextRunId !== null) ||
+    specification !== (request.restartTicketRef !== null) ||
+    specification !== (request.restartTicketDigest !== null) ||
+    (request.nextRunId !== null &&
+      (!id.test(request.nextRunId) || request.nextRunId === request.runId)) ||
+    (request.restartTicketRef !== null &&
+      !reference.test(request.restartTicketRef)) ||
+    (request.restartTicketDigest !== null &&
+      !sha256.test(request.restartTicketDigest))
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
+  const artifactRefs = [
+    request.resolutionRef,
+    ...(request.restartTicketRef === null ? [] : [request.restartTicketRef]),
+  ];
+  return {
+    kind: "recorded",
+    transition: "resolved",
+    event: {
+      contractVersion: "1.3.0",
+      stateContract: "1.3.0",
+      eventId: request.eventId,
+      eventType: "recovery",
+      occurredAt: request.occurredAt,
+      operation,
+      policyVersion: WORKFLOW_POLICY_VERSION,
+      priorRevision: state.revision,
+      resultingRevision: state.revision + 1,
+      reasonCode: "run.repair_stop.resolved",
+      effect: "state-and-artifact",
+      artifactRefs,
+      evidenceRefs: [],
+      observedIdentity: phaseIdentity(request.observedIdentity, undefined),
+      repairResolution: {
+        criterionId: request.criterionId,
+        classification: stop.classification,
+        resolutionRef: request.resolutionRef,
+        resolutionDigest: request.resolutionDigest,
+        nextRunId: request.nextRunId,
+        restartTicketRef: request.restartTicketRef,
+        restartTicketDigest: request.restartTicketDigest,
+      },
+    },
+  };
 }
 
 function rejectionWhy(
@@ -434,6 +732,12 @@ export function decideRecordFact(
   if (state.status === "completed") {
     return { kind: "unchanged", reason: "already-completed" };
   }
+  if (
+    state.policyVersion !== WORKFLOW_POLICY_VERSION ||
+    state.acceptanceAttemptCeiling === null
+  ) {
+    return { kind: "refused", reasonCode: "trail.uso" };
+  }
   if (request.expectedRevision !== state.revision) {
     return { kind: "refused", reasonCode: "runtime.revision_conflict" };
   }
@@ -463,8 +767,8 @@ export function decideRecordFact(
     kind: "recorded",
     transition: "observed",
     event: {
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       eventId: request.eventId,
       eventType: WORKFLOW_OPERATION_FACTS[request.operation].eventType,
       occurredAt: request.occurredAt,

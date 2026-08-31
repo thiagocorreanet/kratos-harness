@@ -6,13 +6,21 @@ Kratos resolves explicit command flags first, then project configuration, then
 documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
-The current `state.project-config@1.3.0` records plugin and host contracts,
+The current `state.project-config@1.4.0` records plugin and host contracts,
 granular language policy, policy mode, host-specific model roles, managed state
-paths, and the typed project profile. Secrets, tokens, prompts, and private
-keys are prohibited. Historical configuration `1.0.0`, `1.1.0`, or `1.2.0` is
+paths, the typed project profile, and an optional acceptance attempt ceiling.
+Secrets, tokens, prompts, and private keys are prohibited. Historical
+configuration `1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` is
 readable only for explicit migration and returns
 `profile.config_migration_required` before an ordinary operation can treat it
 as current state.
+
+`acceptanceAttemptCeiling`, when present, is a positive safe integer. When it
+is absent, resolved runtime configuration uses the documented default of `3`
+without serializing that default back into configuration. The setting limits
+rejected acceptance attempts per stable AC identifier, not review findings or
+the entire run. `objective.budget.tokens` is separate optional objective state;
+both resolved limits are frozen in each new run and are recovered by replay.
 
 ## Project profile
 
@@ -87,6 +95,9 @@ not shared runtime constants and not dynamic inheritance.
 | `.brain/evidence/` | Managed metadata | Digests, classification, and references |
 | `.brain/02-features/<feature>/runs/<run>/gaps/` | Managed state | One record per detected gap and the answer it carries |
 | `.brain/02-features/<feature>/runs/<run>/gates.json` | Derived state | The facts the gates read, derived from the records |
+| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-stops/` | Immutable managed evidence | Diagnosis, classification, attempt, and ceiling for each repeated-rejection stop |
+| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-resolutions/` | Immutable managed evidence | Explicit human resolutions bound to their stopped criterion |
+| `.brain/02-features/<feature>/runs/<run>/acceptance/repair-restarts/` | Immutable managed evidence | Specification-restart tickets with retired AC identifiers |
 | `.brain/03-memory/candidates/*.json` | Machine-local diagnostic inbox | Sanitized failure candidates; ignored by Git |
 | `.brain/03-memory/curated-memory.json` | Committed managed ledger | Versioned authority for confirmed and archived lessons |
 | `.brain/03-memory/gotchas.md` | Committed deterministic projection | Exact Markdown rendering of the ledger |

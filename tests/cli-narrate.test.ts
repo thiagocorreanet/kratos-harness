@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type {
   NarrationV1,
-  PhaseHandoffV1_2,
+  CurrentPhaseHandoff,
   ReadableEvent,
 } from "@kratos/contracts";
 import {
@@ -14,9 +14,9 @@ import {
 import type { GateDecision } from "@kratos/runtime/domain/gates";
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
-const sampleHandoff: PhaseHandoffV1_2 = {
-  contractVersion: "1.2.0",
-  hostContract: "1.2.0",
+const sampleHandoff: CurrentPhaseHandoff = {
+  contractVersion: "1.3.0",
+  hostContract: "1.3.0",
   feature: "narration-feature",
   runId: "run-sample",
   revision: 2,
@@ -35,6 +35,12 @@ const sampleHandoff: PhaseHandoffV1_2 = {
   blockers: [],
   openGaps: 0,
   nextAction: "continue",
+  acceptance: {
+    attemptCeiling: 3,
+    attempts: [],
+    faultsRequiredFor: [],
+    faults: [],
+  },
   memory: {
     ref: ".brain/03-memory/gotchas.md",
     sha256: "0".repeat(64),
@@ -61,6 +67,16 @@ const sampleWorkflowState: WorkflowState = {
   createdAt: "2026-08-29T10:00:00.000Z",
   updatedAt: "2026-08-29T10:15:00.000Z",
   operations: [],
+  policyVersion: "workflow-v2",
+  acceptanceAttemptCeiling: 3,
+  tokenCeiling: null,
+  attempts: [],
+  activeRepairStops: [],
+  repairStopHistory: [],
+  repairResolutions: [],
+  specificationRestart: null,
+  retiredCriterionIds: [],
+  startedFromSpec: null,
 };
 
 function createSampleObservation(
@@ -128,7 +144,12 @@ function createSampleObservation(
       initialSnapshotRef: null,
       initialSnapshotDigest: null,
       preparedVerdicts: [],
+      repairLoopDecision: null,
+      preparedRepairStops: [],
     },
+    repairResolution: null,
+    repairResolutionHistory: [],
+    repairLoopStopsReadable: true,
     gateFacts: {
       readable: true,
       stopLoss: { tripped: false, exhausted: false },
@@ -141,7 +162,9 @@ function createSampleObservation(
     referencedFiles: [],
     gateDecision: sampleGateDecision,
     policyMode: "enforce",
+    acceptanceAttemptCeiling: { kind: "resolved", value: 3 },
     tokenBudget: null,
+    objectiveTokenBudget: null,
     events,
     persistedSnapshot: null,
     replayedSnapshot: null,

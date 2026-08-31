@@ -292,7 +292,7 @@ function observed(
       summary: `${name === "doctor" ? "Diagnose" : "Report"} ${name === "doctor" ? "managed state integrity" : `the active run ${name}`} without mutation.`,
       flags: ROOT_FLAG,
       positionals: { min: 0, max: 0 },
-      jsonContract: name === "handoff" ? "phase-handoff@1.2.0" : "result@1.0.0",
+      jsonContract: name === "handoff" ? "phase-handoff@1.3.0" : "result@1.0.0",
     },
     (_invocation, observation) => handler(observation),
   );

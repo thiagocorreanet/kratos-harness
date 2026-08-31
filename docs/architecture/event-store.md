@@ -70,11 +70,13 @@ event store does not sign events or establish authority.
 
 The parser selects each line's exact registered schema from its inert
 `stateContract` data property. `state.event@1.0.0` remains readable and
-byte-identical; current writes use `state.event@1.1.0`. A valid post-migration
-stream may therefore contain both revisions in one continuous chain:
+byte-identical. Current operations select their registered event revision:
+`1.2.0` for workflow-v2 start and acceptance decisions, and `1.3.0` for
+explicit repair resolution and specification restart. A valid stream may
+therefore contain all readable revisions in one continuous chain:
 
 ```text
-state.event@1.0.0 → state.event@1.0.0 → state.event@1.1.0
+state.event@1.0.0 → state.event@1.1.0 → state.event@1.2.0 → state.event@1.3.0
 ```
 
 Verification does not upgrade old bytes or apply the current schema to a legacy

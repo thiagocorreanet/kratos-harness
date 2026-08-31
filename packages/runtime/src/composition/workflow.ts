@@ -1,17 +1,20 @@
 import type {
   AdapterMessageV1_1,
-  AgentOutputV1,
-  AgentOutputV1_2,
+  CurrentPhaseHandoff,
+  ReadableAgentOutput,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
   ReadableEvent,
   EvidenceV1,
   GapRecordV1,
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
+  ReadableRepairLoopStop,
+  ReadableRepairResolution,
+  RepairRestartV1,
   SnapshotV1,
 } from "@kratos/contracts";
-import { CONTRACT_VERSIONS, type PhaseHandoffV1_2 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -82,13 +85,20 @@ import {
   unresolvedProjectProfileKeys,
 } from "../domain/init/index.js";
 import type { StackProfileReadinessObservation } from "../domain/diagnostics/index.js";
+import {
+  buildRepairLoopStop,
+  buildRepairResolution,
+  buildRepairRestartTicket,
+  decideRepairLoop,
+  type RepairLoopDecision,
+  type RepairLoopStopArtifact,
+} from "../domain/repair-loop/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { configurationValidator } from "./schema.js";
 import { observePhaseMemoryBinding } from "./memory.js";
-import { declaredContractVersion } from "./contract-version.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -108,6 +118,11 @@ const EMPTY_GATE_DECISION: GateDecision = Object.freeze({
 interface RunReference {
   readonly feature: string;
   readonly runId: string;
+}
+
+interface ObservedRepairResolution {
+  readonly operation: string;
+  readonly artifact: ReadableRepairResolution;
 }
 
 /** Where one run keeps everything it recorded. */
@@ -144,15 +159,30 @@ export async function observeWorkflow(
     feature === null
       ? EMPTY_DIGEST
       : await fileDigest(featurePaths(feature).state, anchored);
-  const tokenBudget =
+  const objectiveTokenBudget =
     feature === null
       ? null
       : await activeTokenBudget(feature, anchored, registry);
+  const projectConfiguration = await observeConfigurationSnapshot(
+    anchored,
+    registry,
+  );
+  const acceptanceAttemptCeiling =
+    projectConfiguration.kind === "valid"
+      ? {
+          kind: "resolved" as const,
+          value: projectConfiguration.value.acceptanceAttemptCeiling,
+        }
+      : projectConfiguration;
   const activeRun =
     feature === null ? null : await activeRunId(feature, anchored);
+  const selectedSourceRun = invocation.flags.get("--run");
+  const resolvingRepair =
+    invocation.command.path.join(" ") === "repair resolve" &&
+    typeof selectedSourceRun === "string";
   const requestedRun = invocation.flags.get("--run-id");
   const runId =
-    activeRun ??
+    (resolvingRepair ? selectedSourceRun : activeRun) ??
     (typeof requestedRun === "string" ? requestedRun : anchored.ids.next());
   const observedPrd =
     feature === null
@@ -185,10 +215,15 @@ export async function observeWorkflow(
       ? {
           workflow: { kind: "absent", operations: [] } as const,
           events: [],
+          repairResolutionHistory: [],
           persistedSnapshot: null,
           replayedSnapshot: null,
         }
       : await observeRun(location, anchored, registry);
+  const tokenBudget =
+    run.workflow.kind === "present"
+      ? run.workflow.state.tokenCeiling
+      : objectiveTokenBudget;
   /**
    * Lineage is a fact of the run, not of the working tree the run is there to
    * change. An open run replays from the digests it committed at `run.started`;
@@ -215,6 +250,7 @@ export async function observeWorkflow(
       objectiveDigest,
       gateDecision: EMPTY_GATE_DECISION,
       openGaps: 0,
+      acceptance: acceptanceHandoffContext(run.workflow, [], []),
       launcherHost:
         typeof invocation.flags.get("--host") === "string"
           ? (invocation.flags.get("--host") as string)
@@ -256,12 +292,26 @@ export async function observeWorkflow(
   const acceptanceCriteria = await observeAcceptanceCriteria(
     configuration,
     run.events,
+    run.workflow,
     eventId,
     occurredAt,
     agentOutput,
     evidence,
     anchored,
     registry,
+  );
+  const repairLoopFaults = await observeRepairLoopFaults(
+    run.workflow,
+    anchored,
+    registry,
+  );
+  const preparedRepairResolution = prepareRepairResolution(
+    invocation,
+    run.workflow,
+    configuration,
+    eventId,
+    occurredAt,
+    anchored,
   );
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(
@@ -359,8 +409,22 @@ export async function observeWorkflow(
       artifactLineage.readable &&
       observedPrd.readable &&
       acceptanceCriteria.readable &&
+      repairLoopFaults.readable &&
       run.workflow.kind !== "corrupt",
-    stopLoss: gateFacts.stopLoss,
+    stopLoss: {
+      ...gateFacts.stopLoss,
+      repeatedRejections:
+        run.workflow.kind === "present"
+          ? run.workflow.state.activeRepairStops.map(
+              ({ criterionId, attempt, classification, artifactRef }) => ({
+                criterionId,
+                attempt,
+                classification,
+                artifactRef,
+              }),
+            )
+          : [],
+    },
     prdDigest:
       observedLineage.prdDigest === EMPTY_DIGEST
         ? null
@@ -379,23 +443,31 @@ export async function observeWorkflow(
     ),
     acceptanceCriteria: acceptanceCriterionStates,
   });
-  const phaseAssignment = await observePhaseAssignment({
-    phase,
-    runId,
-    revision: run.workflow.kind === "present" ? run.workflow.state.revision : 0,
-    feature: configuration.feature,
-    status:
-      run.workflow.kind === "present" ? run.workflow.state.status : "idle",
-    objectiveDigest,
-    gateDecision,
-    openGaps,
-    launcherHost:
-      typeof invocation.flags.get("--host") === "string"
-        ? (invocation.flags.get("--host") as string)
-        : anchored.environment.get("KRATOS_HOST"),
-    ports: anchored,
-    registry,
-  });
+  const phaseAssignment = resolvingRepair
+    ? refusedAssignment("model.assignment_stale", "repair-resolution")
+    : await observePhaseAssignment({
+        phase,
+        runId,
+        revision:
+          run.workflow.kind === "present" ? run.workflow.state.revision : 0,
+        feature: configuration.feature,
+        status:
+          run.workflow.kind === "present" ? run.workflow.state.status : "idle",
+        objectiveDigest,
+        gateDecision,
+        openGaps,
+        acceptance: acceptanceHandoffContext(
+          run.workflow,
+          acceptanceCriteria.currentDeclarations,
+          repairLoopFaults.values,
+        ),
+        launcherHost:
+          typeof invocation.flags.get("--host") === "string"
+            ? (invocation.flags.get("--host") as string)
+            : anchored.environment.get("KRATOS_HOST"),
+        ports: anchored,
+        registry,
+      });
   const currentPhaseMemory = await observePhaseMemoryBinding(
     phase,
     anchored,
@@ -500,13 +572,18 @@ export async function observeWorkflow(
       agentOutputs: agentOutputs.values,
       agentOutputsReadable: agentOutputs.readable,
       acceptanceCriteria,
+      repairResolution: preparedRepairResolution,
+      repairResolutionHistory: run.repairResolutionHistory,
+      repairLoopStopsReadable: repairLoopFaults.readable,
       gateFacts,
       openGaps,
       specApproved,
       referencedFiles,
       gateDecision,
       policyMode: policy.mode,
+      acceptanceAttemptCeiling,
       tokenBudget,
+      objectiveTokenBudget,
       approvalChallenge: approvalChallenge(
         {
           runId,
@@ -836,7 +913,7 @@ async function observePhaseResultRequest(
   if (
     message.messageType !== "request" ||
     message.phaseExecution === undefined ||
-    message.payloadContract !== "host.agent-output@1.2.0" ||
+    message.payloadContract !== "host.agent-output@1.3.0" ||
     ref === undefined ||
     message.payload.ref !== ref ||
     typeof correlationId !== "string" ||
@@ -912,7 +989,7 @@ async function observeAgentReply(
   }
   const validated = registry.validate({
     id: "host.agent-output",
-    version: "1.2.0",
+    version: "1.3.0",
     value: extracted.value,
     structuralReasonCode: "trail.output_invalido",
   });
@@ -929,7 +1006,7 @@ async function observeAgentReply(
 /**
  * Preserve structural refusal unless the memory field is the only relevant
  * defect. The assigned binding is substituted into a copy and passed through
- * the same v1.2 validator; a wrong version, agent, payload, or extra field
+ * the same current validator; a wrong version, agent, payload, or extra field
  * therefore stays `trail.output_invalido` rather than masquerading as stale
  * phase context.
  */
@@ -963,7 +1040,7 @@ function classifyMissingMemoryAcknowledgement(
   }
   const validated = registry.validate({
     id: "host.agent-output",
-    version: "1.2.0",
+    version: "1.3.0",
     value: { ...candidate, memory: assignment.value.memory },
     structuralReasonCode: "trail.output_invalido",
   });
@@ -985,34 +1062,26 @@ async function observeAgentOutputs(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly (AgentOutputV1 | AgentOutputV1_2)[];
+  readonly values: readonly ReadableAgentOutput[];
 }> {
   const root = `${runRoot(configuration)}/agent-output`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: (AgentOutputV1 | AgentOutputV1_2)[] = [];
+    const values: ReadableAgentOutput[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
       const file = await ports.durableFileSystem.inspect(path);
       if (file.kind !== "file") return { readable: false, values: [] };
-      const document = JSON.parse(
+      const parsed = JSON.parse(
         await ports.durableFileSystem.readText(path),
       ) as unknown;
-      const version = declaredContractVersion(
-        document,
-        "contractVersion",
-        "1.0.0",
-      );
-      if (version !== "1.0.0" && version !== "1.2.0") {
-        return { readable: false, values: [] };
-      }
       const validated = registry.validate({
         id: "host.agent-output",
-        version,
-        value: document,
+        version: hostContractVersion(parsed),
+        value: parsed,
         structuralReasonCode: "trail.output_invalido",
       });
       if (
@@ -1032,9 +1101,20 @@ async function observeAgentOutputs(
   }
 }
 
+function hostContractVersion(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, "hostContract");
+  return descriptor !== undefined && "value" in descriptor
+    ? descriptor.value
+    : undefined;
+}
+
 async function observeAcceptanceCriteria(
   configuration: RunReference,
   events: readonly ReadableEvent[],
+  workflow: WorkflowObservation,
   eventId: string,
   occurredAt: string,
   agentOutput: AgentOutputObservation,
@@ -1352,6 +1432,12 @@ async function observeAcceptanceCriteria(
     ref: string;
     digest: string;
   }[] = [];
+  let repairLoopDecision: RepairLoopDecision | null = null;
+  const preparedRepairStops: {
+    value: RepairLoopStopArtifact;
+    ref: string;
+    digest: string;
+  }[] = [];
   const baselineSnapshot = snapshot ?? bootstrapSnapshot;
   const baselineSnapshotRef = snapshotRef ?? bootstrapSnapshotRef;
   const baselineSnapshotDigest = snapshotDigest ?? bootstrapSnapshotDigest;
@@ -1411,6 +1497,72 @@ async function observeAcceptanceCriteria(
           digest: ports.digests.sha256(`${JSON.stringify(value, null, 2)}\n`),
         });
       }
+      const reportedCriteria = decision.criteria.flatMap((criterion) =>
+        criterion.outcome === "not-run"
+          ? []
+          : [
+              {
+                criterionId: criterion.criterionId,
+                outcome: criterion.outcome,
+              },
+            ],
+      );
+      const payload = agentOutput.value.payload;
+      const faults =
+        "faults" in payload && Array.isArray(payload.faults)
+          ? payload.faults
+          : [];
+      const firstReportedCriterion = decision.criteria[0]?.criterionId;
+      const loopDecision: RepairLoopDecision =
+        payload.verdict === "rejected" && reportedCriteria.length === 0
+          ? {
+              kind: "refused",
+              reason: "invalid-criterion",
+              ...(firstReportedCriterion === undefined
+                ? {}
+                : { criterionId: firstReportedCriterion }),
+            }
+          : decideRepairLoop({
+              attemptCeiling:
+                workflow.kind === "present" &&
+                workflow.state.acceptanceAttemptCeiling !== null
+                  ? workflow.state.acceptanceAttemptCeiling
+                  : 0,
+              attempts:
+                workflow.kind === "present" ? workflow.state.attempts : [],
+              criteria: reportedCriteria,
+              faults,
+            });
+      repairLoopDecision = loopDecision;
+      if (loopDecision.kind === "stopped") {
+        for (const stop of loopDecision.stops) {
+          const stopId = `stop-${ports.digests
+            .sha256(
+              `${configuration.runId}\n${eventId}\n${stop.criterionId}\n${String(stop.attempt)}`,
+            )
+            .slice(0, 48)}`;
+          const value = buildRepairLoopStop({
+            stopId,
+            runId: configuration.runId,
+            criterionId: stop.criterionId,
+            attempt: stop.attempt,
+            attemptCeiling:
+              workflow.kind === "present" &&
+              workflow.state.acceptanceAttemptCeiling !== null
+                ? workflow.state.acceptanceAttemptCeiling
+                : 0,
+            classification: stop.classification,
+            diagnosis: stop.diagnosis,
+            recordedAt: occurredAt,
+          });
+          const ref = `${runRoot(configuration)}/acceptance/repair-stops/${eventId}/${stop.criterionId}.json`;
+          preparedRepairStops.push({
+            value,
+            ref,
+            digest: ports.digests.sha256(`${JSON.stringify(value, null, 2)}\n`),
+          });
+        }
+      }
     }
   }
   return {
@@ -1435,6 +1587,8 @@ async function observeAcceptanceCriteria(
     initialSnapshotRef,
     initialSnapshotDigest,
     preparedVerdicts,
+    repairLoopDecision,
+    preparedRepairStops,
   };
 }
 
@@ -1445,6 +1599,177 @@ function parseArtifactDigestRef(
   return match === null
     ? null
     : { artifactRef: match[1] ?? "", digest: match[2] ?? "" };
+}
+
+async function observeRepairLoopFaults(
+  workflow: WorkflowObservation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<{
+  readonly readable: boolean;
+  readonly values: CurrentPhaseHandoff["acceptance"]["faults"];
+}> {
+  if (workflow.kind !== "present") {
+    return { readable: true, values: [] };
+  }
+  const values: CurrentPhaseHandoff["acceptance"]["faults"] = [];
+  try {
+    for (const stop of workflow.state.activeRepairStops) {
+      const artifact = await readRecoveryArtifact<ReadableRepairLoopStop>(
+        "state.repair-loop-stop",
+        stop.artifactRef,
+        stop.artifactDigest,
+        ports,
+        registry,
+      );
+      if (
+        artifact?.runId !== workflow.state.runId ||
+        artifact.criterionId !== stop.criterionId ||
+        artifact.attempt !== stop.attempt ||
+        artifact.classification !== stop.classification
+      ) {
+        return { readable: false, values: [] };
+      }
+      values.push({
+        criterionId: stop.criterionId,
+        attempt: stop.attempt,
+        classification: stop.classification,
+        diagnosis: artifact.diagnosis,
+        artifactRef: stop.artifactRef,
+        artifactDigest: stop.artifactDigest,
+      });
+    }
+    return { readable: true, values };
+  } catch {
+    return { readable: false, values: [] };
+  }
+}
+
+function acceptanceHandoffContext(
+  workflow: WorkflowObservation,
+  declarations: readonly { readonly criterionId: string }[],
+  faults: CurrentPhaseHandoff["acceptance"]["faults"],
+): CurrentPhaseHandoff["acceptance"] {
+  if (workflow.kind !== "present") {
+    return {
+      attemptCeiling: null,
+      attempts: [],
+      faultsRequiredFor: [],
+      faults: [...faults],
+    };
+  }
+  const state = workflow.state;
+  const byCriterion = new Map(
+    state.attempts.map(({ criterionId, attempt }) => [criterionId, attempt]),
+  );
+  const attempts = declarations.flatMap(({ criterionId }) => {
+    const attempt = byCriterion.get(criterionId);
+    return attempt === undefined ? [] : [{ criterionId, attempt }];
+  });
+  const ceiling = state.acceptanceAttemptCeiling;
+  const faultsRequiredFor =
+    ceiling === null || state.activeRepairStops.length !== 0
+      ? []
+      : declarations
+          .filter(
+            ({ criterionId }) =>
+              (byCriterion.get(criterionId) ?? 0) + 1 >= ceiling,
+          )
+          .map(({ criterionId }) => criterionId);
+  return {
+    attemptCeiling: ceiling,
+    attempts,
+    faultsRequiredFor,
+    faults: [...faults],
+  };
+}
+
+function prepareRepairResolution(
+  invocation: Invocation,
+  workflow: WorkflowObservation,
+  configuration: RunReference,
+  eventId: string,
+  occurredAt: string,
+  ports: RuntimePorts,
+): Extract<
+  CommandObservation,
+  { readonly kind: "workflow" }
+>["repairResolution"] {
+  if (
+    invocation.command.path.join(" ") !== "repair resolve" ||
+    workflow.kind !== "present"
+  ) {
+    return null;
+  }
+  const criterionId = invocation.positionals[0];
+  const resolvedBy = invocation.flags.get("--resolved-by");
+  const observation = invocation.flags.get("--observation");
+  const nextRun = invocation.flags.get("--next-run");
+  if (
+    criterionId === undefined ||
+    typeof resolvedBy !== "string" ||
+    typeof observation !== "string"
+  ) {
+    return null;
+  }
+  const stop = workflow.state.activeRepairStops.find(
+    (candidate) => candidate.criterionId === criterionId,
+  );
+  if (stop === undefined) return null;
+  try {
+    const resolutionId = `resolution-${eventId}`;
+    const ref = `${runRoot(configuration)}/acceptance/repair-resolutions/${eventId}/${criterionId}.json`;
+    const value = buildRepairResolution({
+      resolutionId,
+      runId: configuration.runId,
+      criterionId,
+      classification: stop.classification,
+      stopRef: stop.artifactRef,
+      stopDigest: stop.artifactDigest,
+      resolvedBy,
+      observation,
+      resolvedAt: occurredAt,
+      nextRunId: typeof nextRun === "string" ? nextRun : null,
+    });
+    const digest = ports.digests.sha256(`${JSON.stringify(value, null, 2)}\n`);
+    if (stop.classification === "code") {
+      return { value, ref, digest, restart: null };
+    }
+    if (typeof nextRun !== "string") return null;
+    const retiredCriterionIds = workflow.state.repairStopHistory.map(
+      ({ criterionId: stoppedCriterionId }) => stoppedCriterionId,
+    );
+    const [firstRetiredCriterionId, ...remainingRetiredCriterionIds] =
+      retiredCriterionIds;
+    if (firstRetiredCriterionId === undefined) return null;
+    const restartRef = `${runRoot(configuration)}/acceptance/repair-restarts/${eventId}.json`;
+    const restartValue = buildRepairRestartTicket({
+      ticketId: `restart-${eventId}`,
+      sourceRunId: configuration.runId,
+      nextRunId: nextRun,
+      resolutionRef: ref,
+      resolutionDigest: digest,
+      retiredCriterionIds: [
+        firstRetiredCriterionId,
+        ...remainingRetiredCriterionIds,
+      ],
+      createdAt: occurredAt,
+    });
+    return {
+      value,
+      ref,
+      digest,
+      restart: {
+        value: restartValue,
+        ref: restartRef,
+        digest: ports.digests.sha256(
+          `${JSON.stringify(restartValue, null, 2)}\n`,
+        ),
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 function frozenDeclarationTuple(
@@ -1467,17 +1792,20 @@ function frozenDeclarationTuple(
   return first === undefined ? null : [first, ...rest];
 }
 
+type ConfigurationRefusalReason =
+  | "profile.config_migration_required"
+  | "guard.config_missing"
+  | "guard.config_corrupt"
+  | "contract.state_version_invalid"
+  | "contract.state_version_unsupported";
+
 type PhaseAssignmentReason =
   | "model.role_missing"
   | "model.host_missing"
   | "model.resolution_unavailable"
   | "model.effort_unsupported"
   | "model.independence_violation"
-  | "profile.config_migration_required"
-  | "guard.config_missing"
-  | "guard.config_corrupt"
-  | "contract.state_version_invalid"
-  | "contract.state_version_unsupported"
+  | ConfigurationRefusalReason
   | "model.assignment_stale"
   | "memory.migration_required"
   | "memory.projection_drift"
@@ -1486,7 +1814,7 @@ type PhaseAssignmentReason =
 type PhaseAssignmentSubject = string;
 
 type PhaseAssignmentObservation =
-  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
+  | { readonly kind: "resolved"; readonly value: CurrentPhaseHandoff }
   | PhaseAssignmentRefusal;
 
 interface PhaseAssignmentRefusal {
@@ -1570,10 +1898,11 @@ async function observePhaseAssignment(input: {
   readonly runId: string;
   readonly revision: number;
   readonly feature: string;
-  readonly status: PhaseHandoffV1_2["status"];
+  readonly status: CurrentPhaseHandoff["status"];
   readonly objectiveDigest: string;
   readonly gateDecision: GateDecision;
   readonly openGaps: number;
+  readonly acceptance: CurrentPhaseHandoff["acceptance"];
   readonly launcherHost: string | undefined;
   readonly ports: RuntimePorts;
   readonly registry: SchemaRegistry;
@@ -1677,7 +2006,7 @@ async function observePhaseAssignment(input: {
     return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
   }
 
-  const value = {
+  const value: CurrentPhaseHandoff = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -1708,8 +2037,9 @@ async function observePhaseAssignment(input: {
         : input.phase === "acceptance"
           ? "Review the evidence bundle, record final approval, and run kratos done."
           : `Complete the ${input.phase} phase and run kratos continue.`,
+    acceptance: input.acceptance,
     memory: memory.value,
-  } as PhaseHandoffV1_2;
+  };
   return { kind: "resolved", value };
 }
 
@@ -1742,19 +2072,25 @@ async function observeConfigurationSnapshot(
 ): Promise<
   | {
       readonly kind: "valid";
-      readonly value: ProjectConfigV1_3;
+      readonly value: ProjectConfigV1_4 & {
+        readonly acceptanceAttemptCeiling: number;
+      };
       readonly digest: string;
     }
-  | PhaseAssignmentRefusal
+  | {
+      readonly kind: "refused";
+      readonly reasonCode: ConfigurationRefusalReason;
+      readonly subject: "configuration";
+    }
 > {
   const path = ".brain/config.json";
   try {
     const entry = await ports.durableFileSystem.inspect(path);
     if (entry.kind === "missing") {
-      return refusedAssignment("guard.config_missing", "configuration");
+      return refusedConfiguration("guard.config_missing");
     }
     if (entry.kind !== "file") {
-      return refusedAssignment("guard.config_corrupt", "configuration");
+      return refusedConfiguration("guard.config_corrupt");
     }
     const text = await ports.durableFileSystem.readText(path);
     const configuration = classifyConfiguration(
@@ -1762,7 +2098,7 @@ async function observeConfigurationSnapshot(
       configurationValidator(registry),
     );
     if (configuration.kind !== "valid") {
-      return refusedAssignment(configuration.reasonCode, "configuration");
+      return refusedConfiguration(configuration.reasonCode);
     }
     return {
       kind: "valid",
@@ -1770,7 +2106,7 @@ async function observeConfigurationSnapshot(
       digest: ports.digests.sha256(text),
     };
   } catch {
-    return refusedAssignment("guard.config_missing", "configuration");
+    return refusedConfiguration("guard.config_missing");
   }
 }
 
@@ -1869,6 +2205,14 @@ function refusedAssignment(
   subject: PhaseAssignmentSubject,
 ): PhaseAssignmentRefusal {
   return { kind: "refused", reasonCode, subject };
+}
+
+function refusedConfiguration(reasonCode: ConfigurationRefusalReason) {
+  return {
+    kind: "refused" as const,
+    reasonCode,
+    subject: "configuration" as const,
+  };
 }
 
 async function observePolicy(
@@ -2165,6 +2509,232 @@ async function fileDigest(path: string, ports: RuntimePorts): Promise<string> {
   return entry.kind === "file" ? entry.sha256 : EMPTY_DIGEST;
 }
 
+async function readRecoveryArtifact<Artifact>(
+  id:
+    | "state.repair-loop-stop"
+    | "state.repair-resolution"
+    | "state.repair-restart",
+  ref: string,
+  digest: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<Artifact | null> {
+  const entry = await ports.durableFileSystem.inspect(ref);
+  if (entry.kind !== "file" || entry.sha256 !== digest) return null;
+  const content = await ports.durableFileSystem.readText(ref);
+  if (ports.digests.sha256(content) !== digest) return null;
+  const parsed = JSON.parse(content) as unknown;
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const version = (parsed as { readonly stateContract?: unknown })
+    .stateContract;
+  if (version !== "1.0.0" && version !== "1.1.0") return null;
+  const validated = registry.validate({
+    id,
+    version,
+    value: parsed,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  return validated.kind === "valid" ? (validated.value as Artifact) : null;
+}
+
+function sameStrings(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+async function validSuccessorRun(
+  source: RunReference,
+  projectId: string,
+  event: Extract<ReadableEvent, { readonly stateContract: "1.3.0" | "1.4.0" }>,
+  ticket: RepairRestartV1,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<boolean> {
+  const target = { feature: source.feature, runId: ticket.nextRunId };
+  const root = runRoot(target);
+  const eventsPath = `${root}/events.jsonl`;
+  const snapshotPath = `${root}/state.json`;
+  const eventsEntry = await ports.durableFileSystem.inspect(eventsPath);
+  const snapshotEntry = await ports.durableFileSystem.inspect(snapshotPath);
+  if (eventsEntry.kind !== "file" || snapshotEntry.kind !== "file") {
+    return false;
+  }
+  const parsedSnapshot = JSON.parse(
+    await ports.durableFileSystem.readText(snapshotPath),
+  ) as unknown;
+  const validatedSnapshot = registry.validate({
+    id: "state.snapshot",
+    version: "1.0.0",
+    value: parsedSnapshot,
+    structuralReasonCode: "runtime.state_corrupt",
+  });
+  if (
+    validatedSnapshot.kind !== "valid" ||
+    validatedSnapshot.value.projectId !== projectId ||
+    validatedSnapshot.value.runId !== ticket.nextRunId
+  ) {
+    return false;
+  }
+  const services = {
+    digests: ports.digests,
+    isProxy: () => false,
+    isPromise: () => false,
+    schemaRegistry: registry,
+  };
+  const verified = verifyEventStream(
+    await ports.durableFileSystem.readText(eventsPath),
+    services,
+  );
+  const replay = replayEventStream(
+    verified,
+    workflowReducerRegistry({
+      projectId: validatedSnapshot.value.projectId,
+      feature: source.feature,
+      runId: ticket.nextRunId,
+      lineage: validatedSnapshot.value.lineage,
+    }),
+    services,
+  );
+  const first = verified.events[0];
+  const restart =
+    first?.stateContract === "1.3.0" || first?.stateContract === "1.4.0"
+      ? first.startedFromSpec
+      : undefined;
+  const correlation = event.operation.slice("sdd.repair.resolve:".length);
+  return (
+    first?.reasonCode === "run.started_from_spec" &&
+    first.operation === `sdd.repair.restart:${correlation}` &&
+    restart?.sourceRunId === source.runId &&
+    restart.restartTicketRef === event.repairResolution?.restartTicketRef &&
+    restart.restartTicketDigest ===
+      event.repairResolution.restartTicketDigest &&
+    sameStrings(restart.retiredCriterionIds, ticket.retiredCriterionIds) &&
+    auditSnapshot(validatedSnapshot.value, replay.snapshot, ports.digests)
+      .kind === "consistent" &&
+    replay.state.startedFromSpec?.sourceRunId === source.runId &&
+    replay.state.startedFromSpec.restartTicketRef ===
+      restart.restartTicketRef &&
+    replay.state.startedFromSpec.restartTicketDigest ===
+      restart.restartTicketDigest &&
+    sameStrings(replay.state.retiredCriterionIds, ticket.retiredCriterionIds)
+  );
+}
+
+async function validRecoveryEvidence(
+  source: RunReference,
+  state: Extract<WorkflowObservation, { readonly kind: "present" }>["state"],
+  events: readonly ReadableEvent[],
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<readonly ObservedRepairResolution[] | null> {
+  const resolutions = events.filter(
+    (
+      event,
+    ): event is Extract<
+      ReadableEvent,
+      { readonly stateContract: "1.3.0" | "1.4.0" }
+    > =>
+      (event.stateContract === "1.3.0" || event.stateContract === "1.4.0") &&
+      event.repairResolution !== undefined,
+  );
+  if (resolutions.length !== state.repairResolutions.length) return null;
+  const observed: ObservedRepairResolution[] = [];
+  for (const event of resolutions) {
+    const binding = event.repairResolution;
+    if (binding === undefined) return null;
+    const stop = state.repairStopHistory.find(
+      ({ criterionId }) => criterionId === binding.criterionId,
+    );
+    if (
+      stop?.classification !== binding.classification ||
+      !event.artifactRefs.includes(binding.resolutionRef)
+    ) {
+      return null;
+    }
+    const stopArtifact = await readRecoveryArtifact<ReadableRepairLoopStop>(
+      "state.repair-loop-stop",
+      stop.artifactRef,
+      stop.artifactDigest,
+      ports,
+      registry,
+    );
+    const resolution = await readRecoveryArtifact<ReadableRepairResolution>(
+      "state.repair-resolution",
+      binding.resolutionRef,
+      binding.resolutionDigest,
+      ports,
+      registry,
+    );
+    if (
+      stopArtifact?.runId !== source.runId ||
+      stopArtifact.criterionId !== stop.criterionId ||
+      stopArtifact.attempt !== stop.attempt ||
+      stopArtifact.classification !== stop.classification ||
+      resolution?.runId !== source.runId ||
+      resolution.criterionId !== binding.criterionId ||
+      resolution.classification !== binding.classification ||
+      resolution.stopRef !== stop.artifactRef ||
+      resolution.stopDigest !== stop.artifactDigest ||
+      resolution.nextRunId !== binding.nextRunId
+    ) {
+      return null;
+    }
+    if (binding.classification === "code") {
+      if (
+        binding.nextRunId !== null ||
+        binding.restartTicketRef !== null ||
+        binding.restartTicketDigest !== null
+      ) {
+        return null;
+      }
+      observed.push({ operation: event.operation, artifact: resolution });
+      continue;
+    }
+    if (
+      binding.nextRunId === null ||
+      binding.restartTicketRef === null ||
+      binding.restartTicketDigest === null ||
+      !event.artifactRefs.includes(binding.restartTicketRef)
+    ) {
+      return null;
+    }
+    const ticket = await readRecoveryArtifact<RepairRestartV1>(
+      "state.repair-restart",
+      binding.restartTicketRef,
+      binding.restartTicketDigest,
+      ports,
+      registry,
+    );
+    const retired = state.repairStopHistory.map(
+      ({ criterionId }) => criterionId,
+    );
+    if (
+      ticket?.sourceRunId !== source.runId ||
+      ticket.nextRunId !== binding.nextRunId ||
+      ticket.resolutionRef !== binding.resolutionRef ||
+      ticket.resolutionDigest !== binding.resolutionDigest ||
+      !sameStrings(ticket.retiredCriterionIds, retired) ||
+      !(await validSuccessorRun(
+        source,
+        state.projectId,
+        event,
+        ticket,
+        ports,
+        registry,
+      ))
+    ) {
+      return null;
+    }
+    observed.push({ operation: event.operation, artifact: resolution });
+  }
+  return observed;
+}
+
 async function observeRun(
   configuration: RunReference,
   ports: RuntimePorts,
@@ -2172,6 +2742,7 @@ async function observeRun(
 ): Promise<{
   readonly workflow: WorkflowObservation;
   readonly events: readonly ReadableEvent[];
+  readonly repairResolutionHistory: readonly ObservedRepairResolution[];
   readonly persistedSnapshot: SnapshotV1 | null;
   readonly replayedSnapshot: SnapshotV1 | null;
 }> {
@@ -2184,6 +2755,7 @@ async function observeRun(
     return {
       workflow: { kind: "absent", operations: [] },
       events: [],
+      repairResolutionHistory: [],
       persistedSnapshot: null,
       replayedSnapshot: null,
     };
@@ -2227,9 +2799,20 @@ async function observeRun(
       workflowReducerRegistry(replayConfiguration),
       services,
     );
+    const repairResolutionHistory = await validRecoveryEvidence(
+      configuration,
+      replay.state,
+      verified.events,
+      ports,
+      registry,
+    );
+    if (repairResolutionHistory === null) {
+      return corruptRun();
+    }
     return {
       workflow: { kind: "present", state: replay.state },
       events: verified.events,
+      repairResolutionHistory,
       persistedSnapshot: state,
       replayedSnapshot: replay.snapshot,
     };
@@ -2238,15 +2821,32 @@ async function observeRun(
   }
 }
 
+export async function observeRunTokenCeiling(
+  feature: string,
+  runId: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | { readonly kind: "resolved"; readonly value: number | null }
+  | { readonly kind: "unreadable" }
+> {
+  const run = await observeRun({ feature, runId }, ports, registry);
+  return run.workflow.kind === "present"
+    ? { kind: "resolved", value: run.workflow.state.tokenCeiling }
+    : { kind: "unreadable" };
+}
+
 function corruptRun(): {
   readonly workflow: WorkflowObservation;
   readonly events: readonly ReadableEvent[];
+  readonly repairResolutionHistory: readonly ObservedRepairResolution[];
   readonly persistedSnapshot: null;
   readonly replayedSnapshot: null;
 } {
   return {
     workflow: { kind: "corrupt" },
     events: [],
+    repairResolutionHistory: [],
     persistedSnapshot: null,
     replayedSnapshot: null,
   };

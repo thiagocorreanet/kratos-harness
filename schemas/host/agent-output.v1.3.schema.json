@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/agent-output/v1.3",
+  "title": "Kratos agent output v1.3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "agent",
+    "outcome",
+    "artifacts",
+    "changedFiles",
+    "payload",
+    "memory"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.3.0" },
+    "hostContract": { "const": "1.3.0" },
+    "agent": {
+      "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+    },
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "artifacts": { "$ref": "#/$defs/artifacts" },
+    "changedFiles": { "$ref": "#/$defs/changedFiles" },
+    "payload": { "type": "object" },
+    "memory": { "$ref": "#/$defs/memory" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "agent": { "const": "prd" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/prdPayload" },
+          "memory": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "agent": { "const": "spec" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/specPayload" },
+          "memory": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "agent": { "const": "plan" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/planPayload" },
+          "memory": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "agent": { "const": "code" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/codePayload" },
+          "memory": { "$ref": "#/$defs/memoryObservation" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "agent": { "const": "review" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/reviewPayload" },
+          "memory": { "$ref": "#/$defs/memoryObservation" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "agent": { "const": "acceptance" } },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": { "$ref": "#/$defs/acceptancePayload" },
+          "memory": { "type": "null" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/id"
+    },
+    "text": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/text"
+    },
+    "reference": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/reference"
+    },
+    "outcome": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/outcome"
+    },
+    "artifacts": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/artifacts"
+    },
+    "changedFiles": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/changedFiles"
+    },
+    "prdPayload": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/prdPayload"
+    },
+    "specPayload": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/specPayload"
+    },
+    "planPayload": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/planPayload"
+    },
+    "codePayload": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/codePayload"
+    },
+    "reviewPayload": {
+      "$ref": "https://kratos.dev/schemas/host/agent-output/v1#/$defs/reviewPayload"
+    },
+    "acceptanceFault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterionId", "classification", "diagnosis"],
+      "properties": {
+        "criterionId": {
+          "$ref": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1"
+        },
+        "classification": { "enum": ["code", "specification"] },
+        "diagnosis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+        }
+      }
+    },
+    "acceptancePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "criteria"],
+      "properties": {
+        "verdict": { "enum": ["accepted", "rejected"] },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["criterionId", "outcome", "evidenceRef"],
+            "properties": {
+              "criterionId": { "$ref": "#/$defs/id" },
+              "outcome": { "enum": ["passed", "failed", "not-run"] },
+              "evidenceRef": { "$ref": "#/$defs/reference" }
+            }
+          }
+        },
+        "faults": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/acceptanceFault" }
+        }
+      }
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "memory": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/memoryObservation" }]
+    },
+    "memoryObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "lessonIds"],
+      "properties": {
+        "ref": { "const": ".brain/03-memory/gotchas.md" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "lessonIds": {
+          "type": "array",
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    }
+  }
+}

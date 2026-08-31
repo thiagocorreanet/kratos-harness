@@ -1,7 +1,7 @@
 import {
   KRATOS_VERSION,
   type CuratedMemoryV1,
-  type ProjectConfigV1_3,
+  type ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
@@ -188,11 +188,11 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1_3 = {
-    contractVersion: "1.3.0",
-    stateContract: "1.3.0",
+  const config: ProjectConfigV1_4 = {
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
     pluginVersion: KRATOS_VERSION,
-    hostContract: "1.3.0",
+    hostContract: "1.4.0",
     language: answers.language,
     policyMode: answers.policyMode,
     managedState: {
@@ -203,7 +203,10 @@ function configuration(answers: Answers): string {
     modelRoles: answers.modelRoles,
     projectProfile: structuredClone(
       answers.projectProfile,
-    ) as ProjectConfigV1_3["projectProfile"],
+    ) as ProjectConfigV1_4["projectProfile"],
+    ...(answers.acceptanceAttemptCeiling === undefined
+      ? {}
+      : { acceptanceAttemptCeiling: answers.acceptanceAttemptCeiling }),
   };
   return json(config);
 }
@@ -337,8 +340,8 @@ function codexConfiguration(answers: Answers): string {
   return lines(
     `# Managed by Kratos ${KRATOS_VERSION}.`,
     "",
-    'contract_version = "1.3.0"',
-    'host_contract = "1.3.0"',
+    'contract_version = "1.4.0"',
+    'host_contract = "1.4.0"',
     `policy_mode = "${answers.policyMode}"`,
     "",
     "[language]",

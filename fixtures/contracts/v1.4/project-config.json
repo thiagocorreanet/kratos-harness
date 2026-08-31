@@ -1,0 +1,50 @@
+{
+  "contractVersion": "1.4.0",
+  "stateContract": "1.4.0",
+  "pluginVersion": "0.0.0-development",
+  "hostContract": "1.4.0",
+  "language": {
+    "conversation": "en",
+    "documentation": "en",
+    "comments": "en",
+    "identifiers": "en",
+    "commits": "en",
+    "preserveConventions": true,
+    "enforcement": "advisory"
+  },
+  "policyMode": "standard",
+  "managedState": {
+    "directory": ".brain",
+    "eventLog": "events.jsonl",
+    "snapshots": true
+  },
+  "modelRoles": { "codex": {} },
+  "projectProfile": {
+    "commands": {
+      "test": { "status": "resolved", "value": "npm test" },
+      "lint": {
+        "status": "not-applicable",
+        "reason": "No linter is configured."
+      },
+      "build": { "status": "unresolved" },
+      "run": { "status": "resolved", "value": "npm run dev" }
+    },
+    "paths": {
+      "source": { "status": "resolved", "value": ["src"] },
+      "tests": { "status": "resolved", "value": ["tests"] },
+      "configuration": { "status": "unresolved" }
+    },
+    "conventions": {
+      "directoryLayout": {
+        "status": "resolved",
+        "value": "Feature directories."
+      },
+      "naming": { "status": "resolved", "value": "camelCase names." },
+      "implementationLanguages": {
+        "status": "resolved",
+        "value": ["TypeScript"]
+      }
+    }
+  },
+  "acceptanceAttemptCeiling": 3
+}

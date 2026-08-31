@@ -13,7 +13,7 @@ interface and are embedded in the runtime bundle.
 
 ## Closed contract catalog
 
-Callers select one of twenty-eight identifiers. `ContractValues` maps each
+Callers select one of thirty-three identifiers. `ContractValues` maps each
 identifier to the declaration generated from its committed schema; it is not
 an open string registry. The manifest is the complete list; the table below
 shows the foundational payloads used throughout this boundary.
@@ -21,19 +21,22 @@ shows the foundational payloads used throughout this boundary.
 | Contract identifier | Family | Current version | Generated TypeScript value |
 | --- | --- | --- | --- |
 | `host.adapter-message` | host | `1.1.0` | `AdapterMessageV1_1` |
-| `host.agent-output` | host | `1.0.0` | `AgentOutputV1` |
+| `host.agent-output` | host | `1.1.0` | `AgentOutputV1_1` |
 | `host.gap-proposal` | host | `1.0.0` | `GapProposalV1` |
-| `host.init-answers` | host | `1.3.0` | `InitAnswersV1_3` |
+| `host.init-answers` | host | `1.4.0` | `InitAnswersV1_4` |
 | `host.operation-message` | host | `1.0.0` | `HostOperationMessageV1` |
 | `state.approval` | state | `1.0.0` | `ApprovalV1` |
-| `state.event` | state | `1.1.0` | `EventV1_1` |
+| `state.event` | state | `1.3.0` | `EventV1_3` |
 | `state.evidence` | state | `1.0.0` | `EvidenceV1` |
 | `state.feature` | state | `1.0.0` | `FeatureStateV1` |
 | `state.gap` | state | `1.0.0` | `GapRecordV1` |
 | `state.gates` | state | `1.0.0` | `GateFactsV1` |
 | `state.lock` | state | `1.0.0` | `LockLeaseV1` |
 | `state.migration` | state | `1.1.0` | `MigrationV1_1` |
-| `state.project-config` | state | `1.3.0` | `ProjectConfigV1_3` |
+| `state.project-config` | state | `1.4.0` | `ProjectConfigV1_4` |
+| `state.repair-loop-stop` | state | `1.0.0` | `RepairLoopStopV1` |
+| `state.repair-resolution` | state | `1.0.0` | `RepairResolutionV1` |
+| `state.repair-restart` | state | `1.0.0` | `RepairRestartV1` |
 | `state.requirement-discovery` | state | `1.0.0` | `RequirementDiscoveryV1` |
 | `state.snapshot` | state | `1.0.0` | `SnapshotV1` |
 | `state.transaction-manifest` | state | `1.0.0` | `TransactionManifestV1` |
@@ -58,7 +61,7 @@ The registry processes a request in a fixed order:
 
 Ajv never sees a payload whose version is invalid, unsupported, future, or
 migration-only. Version failures use the registered compatibility reason and a
-`version` keyword diagnostic. A pre-`1.3.0` project configuration remains
+`version` keyword diagnostic. A pre-`1.4.0` project configuration remains
 selectable only by the explicit migration path; ordinary operations report
 `profile.config_migration_required` instead of treating it as current state.
 

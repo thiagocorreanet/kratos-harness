@@ -19,10 +19,10 @@ runtime. The active contract changes only after a verified commit.
 
 ### Project-configuration replacement
 
-A `state.project-config@1.0.0`, `1.1.0`, or `1.2.0` project returns
+A `state.project-config@1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` project returns
 `profile.config_migration_required` until it is explicitly upgraded.
 `kratos migrate config [--answers PATH]` previews its replacement with
-`state.project-config@1.3.0`. The `1.0.0` configuration does not record enabled
+`state.project-config@1.4.0`. The `1.0.0` configuration does not record enabled
 hosts, so the answers must confirm them; `.claude`, `.codex`, prompts,
 conversation, and agent output are observations, not migration authority.
 
@@ -38,6 +38,13 @@ host maps, while an explicit host role map canonically replaces only that host.
 Unknown
 aliases, unsupported efforts, missing roles, and canonical
 implementer/judge equality fail closed with no fallback and no write.
+
+The `1.3.0 -> 1.4.0` migration is explicit even though
+`acceptanceAttemptCeiling` is optional. It preserves the source bytes in the
+migration backup and does not silently write the default of `3`; runtime
+resolution supplies that default only after the current configuration is
+validated. Reinitialization can set a positive override, clear it with `null`,
+or preserve it by omitting the initialization-answer field.
 
 Apply uses the complete command printed by preview and requires `--yes`,
 `--plan-digest SHA256`, and `--plan-time INSTANT`. It binds exact answer bytes
@@ -107,6 +114,16 @@ explicit lossless mapping is reviewed and applied.
 divergence. `kratos repair` without `--apply` produces a closed-catalog repair
 plan. Application requires an authorization bound to the exact plan digest;
 changed preconditions invalidate it. Corrupted originals are preserved.
+
+Repeated-rejection recovery is also replay- and evidence-bound. Observation of
+a resolved source run revalidates the exact stop and resolution bytes, and for
+a specification restart also validates the restart ticket, ordered retired AC
+identifiers, target stream and snapshot, and source/target cross-links. A
+deleted or changed artifact, a missing target run, or divergent successor
+metadata makes the source run unreadable instead of reconstructing authority
+from mutable state. A correlation can be retried as an idempotent no-op only
+with the same criterion, recorded classification, target run, human input, and
+artifact bindings; otherwise the retry returns a revision conflict.
 
 Rollback validates the receipt, backup digest, current target, and unchanged
 files. It refuses rather than deleting the only known-good copy.

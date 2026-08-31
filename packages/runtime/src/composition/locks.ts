@@ -1,5 +1,5 @@
 import { types } from "node:util";
-import type { EventV1, EventV1_1, LockLeaseV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_2, LockLeaseV1 } from "@kratos/contracts";
 
 import {
   LEASE_SKEW_MS,
@@ -3361,7 +3361,7 @@ function outcomeFailure(error: unknown): LeaseOutcome {
 export interface LeaseGuardBinding {
   readonly guard: LeaseGuard;
   readonly renewedLease: LockLeaseV1;
-  readonly lifecycleEvent: EventV1_1;
+  readonly lifecycleEvent: EventV1_2;
   readonly leaseText: string;
   readonly eventsText: string;
   readonly expected: readonly [EventStorePrecondition, EventStorePrecondition];

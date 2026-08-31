@@ -62,6 +62,34 @@ task document, appended snapshot, and its anchor. Each verdict also binds the
 snapshot path and digest it judged. Editing historical JSON makes the acceptance
 context unreadable instead of rewriting replayed history.
 
+## Repeated-rejection stop facts
+
+The workflow reducer contributes ordered active repair stops to the gate
+context. For every such stop, the gate emits
+`blocked.stop_loss_rejections` with its immutable stop-artifact reference. The
+reason is distinct from `blocked.stop_loss_budget` (token exhaustion) and
+`blocked.stop_loss_flag` (the existing host-observed latch). The three reasons
+may coexist and retain their stable aggregation order; clearing one does not
+clear either of the others.
+
+The artifact binds the run ID, AC identifier, attempt, frozen ceiling,
+classification, bounded diagnosis, and record time. Public gate and handoff
+views expose only typed, digest-bound facts. Events carry references and
+classifications rather than diagnosis text, source documents, prompts, or
+absolute paths. A missing, unreadable, changed, or mismatched artifact fails
+the context closed.
+
+Repair classification is supplied by the acceptance verdict when a criterion
+reaches the ceiling and is not inferred later. The explicit resolution command
+records the human identity and bounded, non-whitespace observation in another
+digest-bound artifact. A code resolution selectively resets one criterion in
+the existing run. Every code stop must be resolved before a specification
+resolution can create a new run at `spec` from a restart ticket. The ticket
+retires source AC identifiers, so a new specification approval and new
+identifiers remain required. Observation verifies all recovery artifact
+digests, source/target bindings, and successor cross-links before treating the
+run as readable.
+
 ## Gap facts
 
 `gates.json` under the run directory carries the facts the gates read:

@@ -1,4 +1,4 @@
-import type { ModelAssignmentV1_1, ProjectConfigV1_3 } from "@kratos/contracts";
+import type { ModelAssignmentV1_1, ProjectConfigV1_4 } from "@kratos/contracts";
 import type { HostModelCatalog } from "@kratos/adapters";
 import { unresolvedProjectProfile } from "@kratos/runtime/domain/init";
 import type {
@@ -52,12 +52,12 @@ export function antigravityCatalog(): HostModelCatalog {
 export function roleConfig(
   host: "claude" | "codex" | "antigravity",
   roles: Partial<Record<ModelRole, ModelAssignmentV1_1>>,
-): ProjectConfigV1_3 {
+): ProjectConfigV1_4 {
   return {
-    contractVersion: "1.3.0",
-    stateContract: "1.3.0",
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
     pluginVersion: "0.0.0-development",
-    hostContract: "1.3.0",
+    hostContract: "1.4.0",
     language: {
       conversation: "en",
       documentation: "en",
@@ -78,7 +78,7 @@ export function roleConfig(
     },
     projectProfile: structuredClone(
       unresolvedProjectProfile(),
-    ) as ProjectConfigV1_3["projectProfile"],
+    ) as ProjectConfigV1_4["projectProfile"],
   };
 }
 

@@ -80,6 +80,7 @@ describe("commands that observe before deciding", () => {
       "narrate",
       "objective",
       "repair",
+      "repair resolve",
       "start",
       "stats",
       "status",

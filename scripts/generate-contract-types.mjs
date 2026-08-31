@@ -298,6 +298,18 @@ export async function generateContractTypes({
   const generatedResultSchemaText = JSON.stringify(
     conditionalUnion(resultSchema),
   );
+  const registeredSchemaTexts = new Map(
+    await Promise.all(
+      manifest.schemas.map(async (entry) => {
+        const schemaText = await readFile(
+          join(repositoryRoot, entry.path),
+          "utf8",
+        );
+        const schema = JSON.parse(schemaText);
+        return [schema.$id, schemaText];
+      }),
+    ),
+  );
   headers.push(
     `// dependency: ${resultSchema.$id} sha256:${createHash("sha256").update(resultSchemaText).digest("hex")}`,
     `// dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:${createHash("sha256").update(acceptanceCriterionIdSchemaText).digest("hex")}`,
@@ -333,6 +345,17 @@ export async function generateContractTypes({
               canRead:
                 /^https:\/\/kratos\.dev\/schemas\/contracts\/acceptance-criterion-id\/v1$/u,
               read: acceptanceCriterionIdSchemaText,
+            },
+            registeredSchema: {
+              order: 3,
+              canRead: (file) => registeredSchemaTexts.has(file.url),
+              read: (file) => {
+                const schemaText = registeredSchemaTexts.get(file.url);
+                if (schemaText === undefined) {
+                  throw new Error(`unregistered schema reference: ${file.url}`);
+                }
+                return schemaText;
+              },
             },
             agentOutputV1: {
               order: 3,

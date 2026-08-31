@@ -3,19 +3,25 @@ import versionCases from "../fixtures/contracts/v1/version-cases.json" with { ty
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import adapterMessageV1_1 from "../fixtures/contracts/v1.1/adapter-message.json" with { type: "json" };
 import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
+import agentOutputV1_1 from "../fixtures/contracts/v1.1/agent-output.json" with { type: "json" };
 import agentOutputV1_2 from "../fixtures/contracts/v1.2/agent-output.json" with { type: "json" };
+import agentOutputV1_3 from "../fixtures/contracts/v1.3/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import initAnswersV1_1 from "../fixtures/contracts/v1.1/init-answers.json" with { type: "json" };
 import initAnswersV1_2 from "../fixtures/contracts/v1.2/init-answers.json" with { type: "json" };
 import initAnswersV1_3 from "../fixtures/contracts/v1.3/init-answers.json" with { type: "json" };
+import initAnswersV1_4 from "../fixtures/contracts/v1.4/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
 import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json" with { type: "json" };
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
+import eventV1_2 from "../fixtures/contracts/v1.2/event.json" with { type: "json" };
+import eventV1_3 from "../fixtures/contracts/v1.3/event.json" with { type: "json" };
+import eventV1_4 from "../fixtures/contracts/v1.4/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
 import curatedMemory from "../fixtures/contracts/v1/curated-memory.json" with { type: "json" };
@@ -29,6 +35,7 @@ import migration from "../fixtures/contracts/v1/migration.json" with { type: "js
 import migrationV1_1 from "../fixtures/contracts/v1.1/migration.json" with { type: "json" };
 import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
 import phaseHandoffV1_2 from "../fixtures/contracts/v1.2/phase-handoff.json" with { type: "json" };
+import phaseHandoffV1_3 from "../fixtures/contracts/v1.3/phase-handoff.json" with { type: "json" };
 import memoryCapture from "../fixtures/contracts/v1.2/memory-capture.json" with { type: "json" };
 import memoryChangePromote from "../fixtures/contracts/v1.2/memory-change-promote.json" with { type: "json" };
 import memoryChangeMerge from "../fixtures/contracts/v1.2/memory-change-merge.json" with { type: "json" };
@@ -38,6 +45,12 @@ import projectConfig from "../fixtures/contracts/v1/project-config.json" with { 
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
+import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
+import repairLoopStop from "../fixtures/contracts/v1/repair-loop-stop.json" with { type: "json" };
+import repairLoopStopV1_1 from "../fixtures/contracts/v1.1/repair-loop-stop.json" with { type: "json" };
+import repairResolution from "../fixtures/contracts/v1/repair-resolution.json" with { type: "json" };
+import repairResolutionV1_1 from "../fixtures/contracts/v1.1/repair-resolution.json" with { type: "json" };
+import repairRestart from "../fixtures/contracts/v1/repair-restart.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
@@ -76,7 +89,7 @@ const narration = {
 
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0";
+  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0";
   readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
@@ -120,11 +133,31 @@ const fixtures = [
   },
   {
     id: "host.agent-output",
+    version: "1.1.0",
+    versionField: "hostContract",
+    requiredField: "payload",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutputV1_1,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.agent-output",
     version: "1.2.0",
     versionField: "hostContract",
-    requiredField: "memory",
+    requiredField: "payload",
     structuralReasonCode: "trail.output_invalido",
     fixture: agentOutputV1_2,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.agent-output",
+    version: "1.3.0",
+    versionField: "hostContract",
+    requiredField: "payload",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutputV1_3,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -189,6 +222,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.init-answers",
+    version: "1.4.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswersV1_4,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "host.phase-handoff",
     version: "1.1.0",
     versionField: "hostContract",
@@ -205,6 +248,16 @@ const fixtures = [
     requiredField: "memory",
     structuralReasonCode: "trail.output_invalido",
     fixture: phaseHandoffV1_2,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-handoff",
+    version: "1.3.0",
+    versionField: "hostContract",
+    requiredField: "acceptance",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseHandoffV1_3,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -285,6 +338,36 @@ const fixtures = [
     requiredField: "eventId",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: eventV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.event",
+    version: "1.2.0",
+    versionField: "stateContract",
+    requiredField: "eventId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: eventV1_2,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.event",
+    version: "1.3.0",
+    versionField: "stateContract",
+    requiredField: "eventId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: eventV1_3,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.event",
+    version: "1.4.0",
+    versionField: "stateContract",
+    requiredField: "eventHash",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: eventV1_4,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -479,12 +562,72 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.project-config",
+    version: "1.4.0",
+    versionField: "stateContract",
+    requiredField: "projectProfile",
+    structuralReasonCode: "guard.config_corrupt",
+    fixture: projectConfigV1_4,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.requirement-discovery",
     version: "1.0.0",
     versionField: "stateContract",
     requiredField: "classification",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: requirementDiscovery,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.repair-loop-stop",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "stopId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: repairLoopStop,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.repair-loop-stop",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "diagnosis",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: repairLoopStopV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.repair-resolution",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "resolutionId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: repairResolution,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.repair-resolution",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "observation",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: repairResolutionV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.repair-restart",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "ticketId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: repairRestart,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

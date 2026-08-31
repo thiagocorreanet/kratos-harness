@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type {
   ProjectConfigV1,
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
   ReadableProjectConfig,
 } from "@kratos/contracts";
 import type {
@@ -70,7 +70,7 @@ describe("project discovery vocabulary", () => {
       {
         kind: "initialized",
         root: "/workspace/project",
-        configuration: {} as ProjectConfigV1_3,
+        configuration: {} as ProjectConfigV1_4,
       },
       { kind: "root-only", root: "/workspace/project" },
       {

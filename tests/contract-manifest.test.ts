@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.5.schema.json",
+        "schemas/contracts/contract-manifest.v1.7.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -108,15 +108,15 @@ describe("contract family manifest", () => {
       contractVersion: "1.0.0",
       pluginVersion: "0.0.0-development",
       resultContract: "1.0.0",
-      reasonCatalog: "1.10.0",
+      reasonCatalog: "1.11.0",
       stateContract: {
-        current: "1.3.0",
-        readable: ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],
+        current: "1.4.0",
+        readable: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"],
         migrationOnly: ["0.9.0", "go-v3@0.6.5"],
       },
       hostContract: {
-        current: "1.3.0",
-        accepted: ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],
+        current: "1.4.0",
+        accepted: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"],
       },
     });
     const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
@@ -126,7 +126,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(45);
+    expect(manifest.schemas).toHaveLength(58);
     const keys = manifest.schemas.map(({ id, version }) => `${id}@${version}`);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(new Set(keys).size).toBe(keys.length);
@@ -139,7 +139,7 @@ describe("contract family manifest", () => {
     );
     for (const path of paths) {
       expect(path).toMatch(
-        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[123])?\.schema\.json$/u,
+        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[1234])?\.schema\.json$/u,
       );
     }
   });

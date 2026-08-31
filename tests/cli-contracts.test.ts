@@ -20,6 +20,7 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const schemaPaths = new Map([
   ["result@1.0.0", "schemas/result.v1.schema.json"],
   ["adapter-message@1.0.0", "schemas/host/adapter-message.v1.schema.json"],
+  ["phase-handoff@1.3.0", "schemas/host/phase-handoff.v1.3.schema.json"],
   ["phase-handoff@1.1.0", "schemas/host/phase-handoff.v1.1.schema.json"],
   ["phase-handoff@1.2.0", "schemas/host/phase-handoff.v1.2.schema.json"],
 ]);
@@ -27,6 +28,16 @@ const validators = new Map<string, (value: unknown) => boolean>();
 
 beforeAll(async () => {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const criterionIdSchema = JSON.parse(
+    await readFile(
+      join(
+        repositoryRoot,
+        "schemas/contracts/acceptance-criterion-id.v1.schema.json",
+      ),
+      "utf8",
+    ),
+  ) as object;
+  ajv.addSchema(criterionIdSchema);
   const resultSchema = JSON.parse(
     await readFile(
       join(repositoryRoot, "schemas/result.v1.schema.json"),

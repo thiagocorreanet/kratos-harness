@@ -1,7 +1,10 @@
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 
-import type { AdapterMessageV1_1, PhaseHandoffV1_2 } from "@kratos/contracts";
+import type {
+  AdapterMessageV1_1,
+  CurrentPhaseHandoff,
+} from "@kratos/contracts";
 import type { HostModelCatalog } from "@kratos/adapters";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -40,6 +43,7 @@ interface PackagedPhaseRelay {
         readonly role: string;
         readonly model: string;
         readonly effort: string;
+        readonly handoff: CurrentPhaseHandoff;
         readonly memory: null | {
           readonly ref: ".brain/03-memory/gotchas.md";
           readonly sha256: string;
@@ -70,10 +74,12 @@ interface PackagedPhaseRelay {
   >;
 }
 
-function handoff(host: "claude" | "codex" | "antigravity"): PhaseHandoffV1_2 {
+function handoff(
+  host: "claude" | "codex" | "antigravity",
+): CurrentPhaseHandoff {
   return {
-    contractVersion: "1.2.0",
-    hostContract: "1.2.0",
+    contractVersion: "1.3.0",
+    hostContract: "1.3.0",
     feature: "relay-feature",
     runId: "run-01",
     revision: 7,
@@ -92,6 +98,12 @@ function handoff(host: "claude" | "codex" | "antigravity"): PhaseHandoffV1_2 {
     blockers: [],
     openGaps: 0,
     nextAction: "Complete the selected phase.",
+    acceptance: {
+      attemptCeiling: 3,
+      attempts: [],
+      faultsRequiredFor: [],
+      faults: [],
+    },
     memory: {
       ref: ".brain/03-memory/gotchas.md",
       sha256: "d".repeat(64),
@@ -169,6 +181,7 @@ describe("packaged phase-agent relay", () => {
           role: "judge",
           model: "judge-canonical",
           effort: "high",
+          handoff: handoff(configurationHost),
           memory: {
             ref: ".brain/03-memory/gotchas.md",
             sha256: "d".repeat(64),
@@ -201,7 +214,7 @@ describe("packaged phase-agent relay", () => {
         messageType: "request",
         host: configurationHost,
         operation: "sdd.agent.record:phase-result-01",
-        payloadContract: "host.agent-output@1.2.0",
+        payloadContract: "host.agent-output@1.3.0",
         payload: {
           ref: ".brain/agent-replies/review.md",
           sha256: "c".repeat(64),

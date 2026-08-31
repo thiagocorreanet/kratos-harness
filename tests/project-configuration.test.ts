@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  ProjectConfigV1_3,
+  ProjectConfigV1_4,
   ReadableProjectConfig,
 } from "@kratos/contracts";
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
@@ -13,12 +13,13 @@ import {
   type ConfigurationObservation,
   type ConfigurationValidator,
 } from "@kratos/runtime/domain/project";
+import { createSchemaRegistry } from "@kratos/runtime/composition/schema";
 
-const validConfiguration: ProjectConfigV1_3 = {
-  contractVersion: "1.3.0",
-  stateContract: "1.3.0",
+const validConfiguration: ProjectConfigV1_4 = {
+  contractVersion: "1.4.0",
+  stateContract: "1.4.0",
   pluginVersion: "0.0.0-development",
-  hostContract: "1.3.0",
+  hostContract: "1.4.0",
   language: {
     conversation: "en",
     documentation: "en",
@@ -43,7 +44,7 @@ const validConfiguration: ProjectConfigV1_3 = {
   },
   projectProfile: structuredClone(
     projectConfigV1_3.projectProfile,
-  ) as ProjectConfigV1_3["projectProfile"],
+  ) as ProjectConfigV1_4["projectProfile"],
 };
 
 function file(value: unknown): ConfigurationObservation {
@@ -62,6 +63,60 @@ function recordingValidator(result: "valid" | "invalid") {
 }
 
 describe("project configuration classification", () => {
+  it("accepts a positive 1.4 ceiling and resolves an omitted ceiling to three", () => {
+    const registry = createSchemaRegistry();
+    const configured = {
+      ...validConfiguration,
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      hostContract: "1.4.0",
+      acceptanceAttemptCeiling: 5,
+    };
+    const omitted = {
+      ...validConfiguration,
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      hostContract: "1.4.0",
+    };
+
+    expect(
+      registry.validate({
+        id: "state.project-config",
+        version: "1.4.0",
+        value: configured,
+        structuralReasonCode: "guard.config_corrupt",
+      }),
+    ).toMatchObject({ kind: "valid" });
+    expect(
+      registry.validate({
+        id: "state.project-config",
+        version: "1.4.0",
+        value: { ...configured, acceptanceAttemptCeiling: 0 },
+        structuralReasonCode: "guard.config_corrupt",
+      }),
+    ).toMatchObject({ kind: "invalid" });
+    expect(
+      registry.validate({
+        id: "state.project-config",
+        version: "1.4.0",
+        value: {
+          ...configured,
+          acceptanceAttemptCeiling: Number.MAX_SAFE_INTEGER + 1,
+        },
+        structuralReasonCode: "guard.config_corrupt",
+      }),
+    ).toMatchObject({ kind: "invalid" });
+
+    const validator: ConfigurationValidator = () => ({
+      kind: "valid",
+      value: omitted as ReadableProjectConfig,
+    });
+    expect(classifyConfiguration(file(omitted), validator)).toMatchObject({
+      kind: "valid",
+      value: { acceptanceAttemptCeiling: 3 },
+    });
+  });
+
   it("requires migration instead of executing a readable 1.0 configuration", () => {
     const { validator, values } = recordingValidator("valid");
 
@@ -92,15 +147,15 @@ describe("project configuration classification", () => {
     expect(values).toEqual([]);
   });
 
-  it("preserves a readable 1.3 configuration for later phases", () => {
+  it("requires migration instead of executing a readable 1.3 configuration", () => {
     const validator: ConfigurationValidator = () => ({
       kind: "valid",
       value: projectConfigV1_3 as ReadableProjectConfig,
     });
 
     expect(classifyConfiguration(file(projectConfigV1_3), validator)).toEqual({
-      kind: "valid",
-      value: projectConfigV1_3,
+      kind: "migration-required",
+      reasonCode: "profile.config_migration_required",
     });
   });
 
@@ -153,7 +208,7 @@ describe("project configuration classification", () => {
     const secret = "/home/customer/token=private";
     const { validator } = recordingValidator("invalid");
     const result = classifyConfiguration(
-      file({ stateContract: "1.3.0", unexpected: secret }),
+      file({ stateContract: "1.4.0", unexpected: secret }),
       validator,
     );
     expect(result).toEqual({
@@ -165,7 +220,7 @@ describe("project configuration classification", () => {
 
   it("returns only the value accepted by the validator", () => {
     const parsed = {
-      stateContract: "1.3.0",
+      stateContract: "1.4.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -179,7 +234,7 @@ describe("project configuration classification", () => {
     const { validator, values } = recordingValidator("valid");
     expect(classifyConfiguration(file(parsed), validator)).toEqual({
       kind: "valid",
-      value: validConfiguration,
+      value: { ...validConfiguration, acceptanceAttemptCeiling: 3 },
     });
     expect(values).toEqual([parsed]);
   });
@@ -188,12 +243,12 @@ describe("project configuration classification", () => {
     const { validator, values } = recordingValidator("invalid");
     const input = {
       kind: "file",
-      text: '{"stateContract":"2.0.0","stateContract":"1.3.0"}',
+      text: '{"stateContract":"2.0.0","stateContract":"1.4.0"}',
     } as const;
     expect(classifyConfiguration(input, validator)).toEqual({
       kind: "failure",
       reasonCode: "guard.config_corrupt",
     });
-    expect(values).toEqual([{ stateContract: "1.3.0" }]);
+    expect(values).toEqual([{ stateContract: "1.4.0" }]);
   });
 });

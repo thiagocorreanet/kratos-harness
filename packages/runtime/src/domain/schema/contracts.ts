@@ -4,7 +4,9 @@ import type {
   AdapterMessageV1,
   AdapterMessageV1_1,
   AgentOutputV1,
+  AgentOutputV1_1,
   AgentOutputV1_2,
+  AgentOutputV1_3,
   ApprovalV1,
   BeatV1,
   HostOperationMessageV1,
@@ -12,8 +14,12 @@ import type {
   InitAnswersV1_1,
   InitAnswersV1_2,
   InitAnswersV1_3,
+  InitAnswersV1_4,
   EventV1,
   EventV1_1,
+  EventV1_2,
+  EventV1_3,
+  EventV1_4,
   EvidenceV1,
   FeatureStateV1,
   FeatureScopeV1,
@@ -28,12 +34,19 @@ import type {
   NarrationV1,
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
+  PhaseHandoffV1_3,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
   PreToolUseV1,
   RequirementDiscoveryV1,
+  RepairLoopStopV1,
+  RepairLoopStopV1_1,
+  RepairResolutionV1,
+  RepairResolutionV1_1,
+  RepairRestartV1,
   RunUsageV1,
   SessionTelemetryV1,
   SnapshotV1,
@@ -48,23 +61,30 @@ import type {
 
 export interface ContractValues {
   readonly "host.adapter-message": AdapterMessageV1 | AdapterMessageV1_1;
-  readonly "host.agent-output": AgentOutputV1 | AgentOutputV1_2;
+  readonly "host.agent-output":
+    AgentOutputV1 | AgentOutputV1_1 | AgentOutputV1_2 | AgentOutputV1_3;
   readonly "host.gap-proposal": GapProposalV1;
   readonly "host.hook-observation": HookObservationV1;
   readonly "host.init-answers":
-    InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3;
+    | InitAnswersV1
+    | InitAnswersV1_1
+    | InitAnswersV1_2
+    | InitAnswersV1_3
+    | InitAnswersV1_4;
+  readonly "host.operation-message": HostOperationMessageV1;
+  readonly "host.phase-handoff":
+    PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3;
   readonly "host.memory-capture": MemoryCaptureV1_2;
   readonly "host.memory-change": MemoryChangeV1_2;
   readonly "host.memory-migration": MemoryMigrationV1_2;
-  readonly "host.operation-message": HostOperationMessageV1;
-  readonly "host.phase-handoff": PhaseHandoffV1_1 | PhaseHandoffV1_2;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.curated-memory": CuratedMemoryV1;
   readonly "state.acceptance-criteria-snapshot": AcceptanceCriteriaSnapshotV1;
   readonly "state.acceptance-verdict": AcceptanceVerdictV1;
   readonly "state.beat": BeatV1;
-  readonly "state.event": EventV1 | EventV1_1;
+  readonly "state.event":
+    EventV1 | EventV1_1 | EventV1_2 | EventV1_3 | EventV1_4;
   readonly "state.evidence": EvidenceV1;
   readonly "state.failure-candidate": FailureCandidateV1;
   readonly "state.feature": FeatureStateV1;
@@ -76,8 +96,15 @@ export interface ContractValues {
   readonly "state.migration": MigrationV1 | MigrationV1_1;
   readonly "state.narration": NarrationV1;
   readonly "state.project-config":
-    ProjectConfigV1 | ProjectConfigV1_1 | ProjectConfigV1_2 | ProjectConfigV1_3;
+    | ProjectConfigV1
+    | ProjectConfigV1_1
+    | ProjectConfigV1_2
+    | ProjectConfigV1_3
+    | ProjectConfigV1_4;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
+  readonly "state.repair-loop-stop": RepairLoopStopV1 | RepairLoopStopV1_1;
+  readonly "state.repair-resolution": RepairResolutionV1 | RepairResolutionV1_1;
+  readonly "state.repair-restart": RepairRestartV1;
   readonly "state.run-usage": RunUsageV1;
   readonly "state.session-telemetry": SessionTelemetryV1;
   readonly "state.snapshot": SnapshotV1;

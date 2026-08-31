@@ -7,6 +7,9 @@ export {
   type EventIntegrityKind,
   type EventServices,
   type ReadableEvent,
+  type ResolutionEventDraft,
+  type UpgradeEventDraft,
+  type SealableEventDraft,
 } from "./model.js";
 export { snapshotEventDraft } from "./redaction.js";
 export { sealEvent, unsignedEvent } from "./seal.js";

@@ -61,12 +61,12 @@ function expectDeeplyFrozen(
 }
 
 describe("embedded schema catalog", () => {
-  it("registers readable 1.0.0 and current 1.1.0 schemas by id and version", () => {
+  it("registers all readable event schemas by id and version", () => {
     expect(
       EMBEDDED_SCHEMA_CATALOG.filter(({ id }) => id === "state.event").map(
         ({ version }) => version,
       ),
-    ).toEqual(["1.0.0", "1.1.0"]);
+    ).toEqual(["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"]);
   });
 
   it("contains every and only current state and host manifest entry", () => {

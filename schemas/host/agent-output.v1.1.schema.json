@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/agent-output/v1.1",
+  "title": "Kratos agent output v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "agent",
+    "outcome",
+    "artifacts",
+    "changedFiles",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.1.0"
+    },
+    "hostContract": {
+      "const": "1.1.0"
+    },
+    "agent": {
+      "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+    },
+    "outcome": {
+      "$ref": "#/$defs/outcome"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    },
+    "changedFiles": {
+      "$ref": "#/$defs/changedFiles"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "prd"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/prdPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "spec"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/specPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "plan"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/planPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "code"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/codePayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "review"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/reviewPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agent": {
+            "const": "acceptance"
+          }
+        },
+        "required": ["agent"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/acceptancePayload"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["optionId", "label"],
+      "properties": {
+        "optionId": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionId", "prompt", "kind", "options"],
+      "properties": {
+        "questionId": {
+          "$ref": "#/$defs/id"
+        },
+        "prompt": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": ["free-text", "single-choice", "multiple-choice"]
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "free-text"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["single-choice", "multiple-choice"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "type": "array",
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "next", "questions", "blockers"],
+      "properties": {
+        "status": {
+          "enum": ["completed", "awaiting-input", "blocked"]
+        },
+        "next": {
+          "enum": ["proceed", "wait", "retry", "finish", "stop"]
+        },
+        "questions": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/question"
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "next": {
+                "type": "string",
+                "enum": ["proceed", "finish"]
+              },
+              "questions": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "blockers": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "awaiting-input"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "next": {
+                "type": "string",
+                "const": "wait"
+              },
+              "questions": {
+                "type": "array",
+                "minItems": 1
+              },
+              "blockers": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "blocked"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "next": {
+                "type": "string",
+                "enum": ["retry", "stop"]
+              },
+              "questions": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "blockers": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    },
+    "changedFiles": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "change"],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/reference"
+          },
+          "change": {
+            "enum": ["added", "modified", "deleted"]
+          }
+        }
+      }
+    },
+    "prdPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective", "requirementIds", "gapIds"],
+      "properties": {
+        "objective": {
+          "$ref": "#/$defs/text"
+        },
+        "requirementIds": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "gapIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "specPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirementIds", "gapIds", "approvalRequired"],
+      "properties": {
+        "requirementIds": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "gapIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "approvalRequired": {
+          "type": "boolean"
+        }
+      }
+    },
+    "planPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stepId", "summary", "dependsOn"],
+            "properties": {
+              "stepId": {
+                "$ref": "#/$defs/id"
+              },
+              "summary": {
+                "$ref": "#/$defs/text"
+              },
+              "dependsOn": {
+                "type": "array",
+                "maxItems": 64,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/id"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "codePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "testsAdded", "testsPassed"],
+      "properties": {
+        "stepId": {
+          "$ref": "#/$defs/id"
+        },
+        "testsAdded": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "testsPassed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "reviewPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "findings"],
+      "properties": {
+        "verdict": {
+          "enum": ["pass", "changes-requested", "fail"]
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["findingId", "severity", "summary", "ref"],
+            "properties": {
+              "findingId": {
+                "$ref": "#/$defs/id"
+              },
+              "severity": {
+                "enum": ["high", "medium", "low"]
+              },
+              "summary": {
+                "$ref": "#/$defs/text"
+              },
+              "ref": {
+                "$ref": "#/$defs/reference"
+              }
+            }
+          }
+        }
+      }
+    },
+    "acceptancePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "criteria"],
+      "properties": {
+        "verdict": {
+          "enum": ["accepted", "rejected"]
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["criterionId", "outcome", "evidenceRef"],
+            "properties": {
+              "criterionId": {
+                "$ref": "#/$defs/id"
+              },
+              "outcome": {
+                "enum": ["passed", "failed", "not-run"]
+              },
+              "evidenceRef": {
+                "$ref": "#/$defs/reference"
+              }
+            }
+          }
+        },
+        "faults": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/acceptanceFault"
+          }
+        }
+      }
+    },
+    "acceptanceFault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterionId", "classification", "diagnosis"],
+      "properties": {
+        "criterionId": {
+          "$ref": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1"
+        },
+        "classification": {
+          "enum": ["code", "specification"]
+        },
+        "diagnosis": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}

@@ -43,6 +43,7 @@ import {
 import { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 import { unlockStopLossCommand } from "./unlock.js";
 import { narrateCommand } from "./narrate.js";
+import { repairResolveCommand } from "./repair-resolve.js";
 import {
   auditCommand,
   dashboardCommand,
@@ -145,6 +146,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   narrateCommand,
   objectiveCommand,
   repairCommand,
+  repairResolveCommand,
   startCommand,
   statsCommand,
   statusCommand,

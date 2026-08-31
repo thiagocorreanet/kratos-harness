@@ -7,11 +7,15 @@ import type {
   GuardrailsV1,
   AdapterMessageV1_1,
   EventV1_1,
+  EventV1_2,
+  EventV1_3,
+  EventV1_4,
   EventV1,
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
   InitAnswersV1_3,
+  InitAnswersV1_4,
   MigrationV1,
   MigrationV1_1,
   MemoryCaptureV1_2,
@@ -22,7 +26,10 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
   RequirementDiscoveryV1,
+  RepairLoopStopV1,
+  RepairLoopStopV1_1,
   TransactionManifestV1,
   TransactionProgressV1,
 } from "@kratos/contracts";
@@ -65,11 +72,12 @@ describe("schema registry vocabulary", () => {
       "state.migration",
       "state.project-config",
       "state.requirement-discovery",
+      "state.repair-loop-stop",
       "state.snapshot",
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(28);
+    expect(ids).toHaveLength(29);
     expectTypeOf<
       ContractValue<"state.acceptance-criteria-snapshot">
     >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();
@@ -93,15 +101,23 @@ describe("schema registry vocabulary", () => {
       | ProjectConfigV1_1
       | ProjectConfigV1_2
       | ProjectConfigV1_3
+      | ProjectConfigV1_4
     >();
     expectTypeOf<ContractValue<"state.event">>().toEqualTypeOf<
-      EventV1 | EventV1_1
+      EventV1 | EventV1_1 | EventV1_2 | EventV1_3 | EventV1_4
+    >();
+    expectTypeOf<ContractValue<"state.repair-loop-stop">>().toEqualTypeOf<
+      RepairLoopStopV1 | RepairLoopStopV1_1
     >();
     expectTypeOf<ContractValue<"state.migration">>().toEqualTypeOf<
       MigrationV1 | MigrationV1_1
     >();
     expectTypeOf<ContractValue<"host.init-answers">>().toEqualTypeOf<
-      InitAnswersV1 | InitAnswersV1_1 | InitAnswersV1_2 | InitAnswersV1_3
+      | InitAnswersV1
+      | InitAnswersV1_1
+      | InitAnswersV1_2
+      | InitAnswersV1_3
+      | InitAnswersV1_4
     >();
     expectTypeOf<ContractValue<"host.adapter-message">>().toEqualTypeOf<
       AdapterMessageV1 | AdapterMessageV1_1

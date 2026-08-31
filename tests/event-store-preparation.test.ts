@@ -44,8 +44,8 @@ const seed: State = {
 
 function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}`,
     eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -182,7 +182,7 @@ describe("event-store append preparation", () => {
 
     expect(prepared.effects[0].content.startsWith(oldLine)).toBe(true);
     expect(prepared.effects[0].content.slice(0, oldLine.length)).toBe(oldLine);
-    expect(prepared.event.stateContract).toBe("1.1.0");
+    expect(prepared.event.stateContract).toBe("1.2.0");
   });
 
   it("derives only the two canonical paths for a valid run ID", () => {

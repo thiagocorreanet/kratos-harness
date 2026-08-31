@@ -39,7 +39,22 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `operation-timeout.json`;
 - `operation-cancellation.json`;
 - `operation-error.json`;
-- `agent-output.json`.
+- `agent-output.json`;
+- `repair-loop-stop.json`;
+- `repair-resolution.json`;
+- `repair-restart.json`.
+
+[`contracts/v1.1`](contracts/v1.1) adds the predecessor `agent-output.json`
+fixture, plus current repair-stop and repair-resolution fixtures with non-blank
+human text. [`contracts/v1.2`](contracts/v1.2) adds the current
+`agent-output.json` fixture, the predecessor `phase-handoff.json` fixture, and
+the workflow-v2 event fixture with run-frozen limits and acceptance decisions.
+[`contracts/v1.3`](contracts/v1.3) adds the current `phase-handoff.json` fixture
+and the predecessor event fixture for repair resolution and specification
+restart. [`contracts/v1.4`](contracts/v1.4) adds the explicit policy-upgrade
+event fixture plus project configuration and initialization-answer fixtures for
+the optional acceptance attempt ceiling. Published predecessor fixtures remain
+unchanged.
 
 The [`contracts/v1.2`](contracts/v1.2) directory adds the explicit current
 agent-output and phase-handoff curated-memory observations, plus the memory

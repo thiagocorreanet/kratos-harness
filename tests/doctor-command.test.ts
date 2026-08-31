@@ -104,8 +104,8 @@ const replacementCharacterProfile: ResolvedProjectProfile = {
 const baseAnswers = (
   projectProfile: ResolvedProjectProfile,
 ): ResolvedAnswers => ({
-  contractVersion: "1.3.0",
-  hostContract: "1.3.0",
+  contractVersion: "1.4.0",
+  hostContract: "1.4.0",
   hosts: ["codex"],
   language: {
     conversation: "en",
@@ -370,7 +370,7 @@ describe("stack-profile doctor readiness", () => {
     const run = subject({
       mutateFiles: (files) => ({
         ...files,
-        ".brain/config.json": '{"stateContract":"1.3.0"}\n',
+        ".brain/config.json": '{"stateContract":"1.4.0"}\n',
       }),
     });
 

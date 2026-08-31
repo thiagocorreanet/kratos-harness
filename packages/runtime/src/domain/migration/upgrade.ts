@@ -4,6 +4,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import {
@@ -110,6 +111,23 @@ export function upgradeProjectConfigurationV1_3(
     projectProfile: structuredClone(
       projectProfile,
     ) as ProjectConfigV1_3["projectProfile"],
+  };
+}
+
+/** Upgrade a v1.3 configuration without inventing an optional attempt override. */
+export function upgradeProjectConfigurationV1_4(
+  source: ProjectConfigV1_3,
+): ProjectConfigV1_4 {
+  return {
+    contractVersion: "1.4.0",
+    stateContract: "1.4.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.4.0",
+    language: { ...source.language },
+    policyMode: source.policyMode,
+    managedState: { ...source.managedState },
+    modelRoles: source.modelRoles,
+    projectProfile: structuredClone(source.projectProfile),
   };
 }
 

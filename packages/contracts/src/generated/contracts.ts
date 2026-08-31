@@ -4,19 +4,23 @@
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
 // source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:5618d8b287ffcd797772334da37ceee406ca26330f9d1055872ecf7ab0fd02c7
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
+// source: https://kratos.dev/schemas/host/agent-output/v1.1 sha256:088f8496631fb80570f3a863bc71753ef37deab1dbe6d03ad5b2b6e571f26c63
 // source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
+// source: https://kratos.dev/schemas/host/agent-output/v1.3 sha256:872af92d3fe24771807ea566f41e6654f98e3ed5eedff012235c513690b5c484
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:81afcd81cd829a8c66c6e2d2cf704e76ed6a818ab873b5534f5265ad2c099112
 // source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7
+// source: https://kratos.dev/schemas/host/init-answers/v1.4 sha256:fa20c5b49969481e048244f96f3066d2138762578dd6427f0f524bfc82e931ee
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.3 sha256:3b897513b55c5ad29bd8e6bb137cf5a16ecf3f6e01f71c5fce4d421f0cdba100
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
@@ -25,6 +29,9 @@
 // source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
+// source: https://kratos.dev/schemas/state/event/v1.2 sha256:c91746a8b6ea23e23e76db4d070cc34ab70f3aec786c48b1046c89cfc1b612c6
+// source: https://kratos.dev/schemas/state/event/v1.3 sha256:4597757c6002b64fc79c09fd7ff1ab6c3f380e93dd1e7690c46615f84370c5a5
+// source: https://kratos.dev/schemas/state/event/v1.4 sha256:4cc9e11e6f6103573f040f93a2a9e968e31a1e93b9834858ac3b3879a6064be1
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
@@ -40,7 +47,13 @@
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
 // source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
+// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:7b5faec50005e8222a5b97c3a50094b255ae48cad2b4fca033644b5e1e576afb
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
+// source: https://kratos.dev/schemas/state/repair-loop-stop/v1 sha256:bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b
+// source: https://kratos.dev/schemas/state/repair-loop-stop/v1.1 sha256:8dde526faeb7bc240f31e6edef90f6c2670e166dad0b75cda25ab58734386124
+// source: https://kratos.dev/schemas/state/repair-resolution/v1 sha256:3b8a23ff65be970d92f7bcfed2398f012d9353fc76c44f8ae7f4dd6e00c005f8
+// source: https://kratos.dev/schemas/state/repair-resolution/v1.1 sha256:eb7609347284aaab02aa2177c765deff623281d6907c786af5fa0025c0839a25
+// source: https://kratos.dev/schemas/state/repair-restart/v1 sha256:9e5d3b1c5ff0bf5a8e9f144895fd61c31f2a7436cdc057945ed0c050a06cd814
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
 // source: https://kratos.dev/schemas/state/snapshot/v1 sha256:d69b9106ce76a395900012d65a507355aa45d19c4f52e21407e95ced233877e8
@@ -477,6 +490,200 @@ export namespace AgentOutputV1Contract {
   }
 }
 export type AgentOutputV1 = AgentOutputV1Contract.AgentOutputV1;
+export namespace AgentOutputV1_1Contract {
+  export type AgentOutputV1_1 =
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "prd";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PrdPayload;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "spec";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: SpecPayload;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "plan";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PlanPayload;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "code";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: CodePayload;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "review";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: ReviewPayload;
+      }
+    | {
+        contractVersion: "1.1.0";
+        hostContract: "1.1.0";
+        agent: "acceptance";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: AcceptancePayload;
+      };
+  export type Outcome = {
+    [k: string]: unknown | undefined;
+  } & {
+    status: "completed" | "awaiting-input" | "blocked";
+    next: "proceed" | "wait" | "retry" | "finish" | "stop";
+    /**
+     * @maxItems 64
+     */
+    questions: Question[];
+    /**
+     * @maxItems 64
+     */
+    blockers: Text[];
+  };
+  export type Question = {
+    [k: string]: unknown | undefined;
+  } & {
+    questionId: Id;
+    prompt: Text;
+    kind: "free-text" | "single-choice" | "multiple-choice";
+    /**
+     * @maxItems 32
+     */
+    options: Option[];
+  };
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  /**
+   * @maxItems 64
+   */
+  export type Artifacts = Reference[];
+  /**
+   * @maxItems 256
+   */
+  export type ChangedFiles = {
+    ref: Reference;
+    change: "added" | "modified" | "deleted";
+  }[];
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+
+  export interface Option {
+    optionId: Id;
+    label: Text;
+  }
+  export interface PrdPayload {
+    objective: Text;
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+  }
+  export interface SpecPayload {
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+    approvalRequired: boolean;
+  }
+  export interface PlanPayload {
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    steps: [
+      {
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      },
+      ...{
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      }[],
+    ];
+  }
+  export interface CodePayload {
+    stepId: Id;
+    testsAdded: number;
+    testsPassed: boolean;
+  }
+  export interface ReviewPayload {
+    verdict: "pass" | "changes-requested" | "fail";
+    /**
+     * @maxItems 128
+     */
+    findings: {
+      findingId: Id;
+      severity: "high" | "medium" | "low";
+      summary: Text;
+      ref: Reference;
+    }[];
+  }
+  export interface AcceptancePayload {
+    verdict: "accepted" | "rejected";
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    criteria: [
+      {
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      },
+      ...{
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      }[],
+    ];
+    /**
+     * @maxItems 256
+     */
+    faults?: AcceptanceFault[];
+  }
+  export interface AcceptanceFault {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    diagnosis: Text;
+  }
+}
+export type AgentOutputV1_1 = AgentOutputV1_1Contract.AgentOutputV1_1;
 export namespace AgentOutputV1_2Contract {
   export type AgentOutputV1_2 =
     | {
@@ -676,6 +883,215 @@ export namespace AgentOutputV1_2Contract {
   }
 }
 export type AgentOutputV1_2 = AgentOutputV1_2Contract.AgentOutputV1_2;
+export namespace AgentOutputV1_3Contract {
+  export type AgentOutputV1_3 =
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "prd";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PrdPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "spec";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: SpecPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "plan";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PlanPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "code";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: CodePayload;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "review";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: ReviewPayload;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        agent: "acceptance";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: AcceptancePayload;
+        memory: null & (null | MemoryObservation);
+      };
+  export type Outcome = {
+    [k: string]: unknown | undefined;
+  } & {
+    status: "completed" | "awaiting-input" | "blocked";
+    next: "proceed" | "wait" | "retry" | "finish" | "stop";
+    /**
+     * @maxItems 64
+     */
+    questions: Question[];
+    /**
+     * @maxItems 64
+     */
+    blockers: Text[];
+  };
+  export type Question = {
+    [k: string]: unknown | undefined;
+  } & {
+    questionId: Id;
+    prompt: Text;
+    kind: "free-text" | "single-choice" | "multiple-choice";
+    /**
+     * @maxItems 32
+     */
+    options: Option[];
+  };
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  /**
+   * @maxItems 64
+   */
+  export type Artifacts = Reference[];
+  /**
+   * @maxItems 256
+   */
+  export type ChangedFiles = {
+    ref: Reference;
+    change: "added" | "modified" | "deleted";
+  }[];
+  export type Sha256 = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+
+  export interface Option {
+    optionId: Id;
+    label: Text;
+  }
+  export interface PrdPayload {
+    objective: Text;
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+  export interface SpecPayload {
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+    approvalRequired: boolean;
+  }
+  export interface PlanPayload {
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    steps: [
+      {
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      },
+      ...{
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      }[],
+    ];
+  }
+  export interface CodePayload {
+    stepId: Id;
+    testsAdded: number;
+    testsPassed: boolean;
+  }
+  export interface ReviewPayload {
+    verdict: "pass" | "changes-requested" | "fail";
+    /**
+     * @maxItems 128
+     */
+    findings: {
+      findingId: Id;
+      severity: "high" | "medium" | "low";
+      summary: Text;
+      ref: Reference;
+    }[];
+  }
+  export interface AcceptancePayload {
+    verdict: "accepted" | "rejected";
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    criteria: [
+      {
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      },
+      ...{
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      }[],
+    ];
+    /**
+     * @maxItems 256
+     */
+    faults?: AcceptanceFault[];
+  }
+  export interface AcceptanceFault {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    diagnosis: string;
+  }
+}
+export type AgentOutputV1_3 = AgentOutputV1_3Contract.AgentOutputV1_3;
 export namespace GapProposalV1Contract {
   export type Id = string;
   export type Text = string;
@@ -966,6 +1382,114 @@ export namespace InitAnswersV1_3Contract {
   }
 }
 export type InitAnswersV1_3 = InitAnswersV1_3Contract.InitAnswersV1_3;
+export namespace InitAnswersV1_4Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface InitAnswersV1_4 {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    /**
+     * @minItems 1
+     */
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
+    language?: LanguagePolicy;
+    policyMode?: "standard" | "strict";
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+    projectProfile?: PartialProjectProfile;
+    acceptanceAttemptCeiling?: number | null;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+  export interface PartialProjectProfile {
+    commands?: PartialCommands;
+    paths?: PartialPaths;
+    conventions?: PartialConventions;
+  }
+  export interface PartialCommands {
+    test?: CommandLeaf;
+    lint?: CommandLeaf;
+    build?: CommandLeaf;
+    run?: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface PartialPaths {
+    source?: PathsLeaf;
+    tests?: PathsLeaf;
+    configuration?: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface PartialConventions {
+    directoryLayout?: ConventionLeaf;
+    naming?: ConventionLeaf;
+    implementationLanguages?: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type InitAnswersV1_4 = InitAnswersV1_4Contract.InitAnswersV1_4;
 export namespace MemoryCaptureV1_2Contract {
   export interface MemoryCaptureV1_2 {
     contractVersion: "1.2.0";
@@ -1300,6 +1824,78 @@ export namespace PhaseHandoffV1_2Contract {
   }
 }
 export type PhaseHandoffV1_2 = PhaseHandoffV1_2Contract.PhaseHandoffV1_2;
+export namespace PhaseHandoffV1_3Contract {
+  export type PhaseHandoffV1_3 = {
+    [k: string]: unknown | undefined;
+  } & {
+    contractVersion: "1.3.0";
+    hostContract: "1.3.0";
+    feature: Id;
+    runId: Id;
+    revision: number;
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    host: "claude" | "codex" | "antigravity";
+    assignment: Assignment;
+    assignmentDigest: Sha256;
+    objectiveDigest: Sha256;
+    status: "idle" | "active" | "blocked" | "completed";
+    gateOutcome: "pass" | "warn" | "block";
+    blockers: Id[];
+    openGaps: number;
+    nextAction: string;
+    acceptance: AcceptanceContext;
+    memory: Memory;
+  };
+  export type Id = string;
+  export type Sha256 = string;
+  export type PositiveInteger = number;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Reference = string;
+  export type Memory = null | MemoryObservation;
+
+  export interface Assignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface AcceptanceContext {
+    attemptCeiling: PositiveInteger | null;
+    /**
+     * @maxItems 256
+     */
+    attempts: Attempt[];
+    /**
+     * @maxItems 256
+     */
+    faultsRequiredFor: KratosAcceptanceCriterionIdentifierV1[];
+    /**
+     * @maxItems 256
+     */
+    faults: Fault[];
+  }
+  export interface Attempt {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+  }
+  export interface Fault {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    classification: "code" | "specification";
+    diagnosis: string;
+    artifactRef: Reference;
+    artifactDigest: Sha256;
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+}
+export type PhaseHandoffV1_3 = PhaseHandoffV1_3Contract.PhaseHandoffV1_3;
 export namespace PreToolUseV1Contract {
   export type Mutation =
     CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;
@@ -1541,6 +2137,273 @@ export namespace EventV1_1Contract {
   }
 }
 export type EventV1_1 = EventV1_1Contract.EventV1_1;
+export namespace EventV1_2Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type NonNegativeInteger = number;
+  export type PositiveInteger = number;
+  export type Reference = string;
+  /**
+   * @maxItems 256
+   */
+  export type References = Reference[];
+  export type AcceptanceDecision = {
+    [k: string]: unknown | undefined;
+  } & {
+    outcome: "passed" | "repair" | "stopped";
+    /**
+     * @maxItems 256
+     */
+    attempts: Attempt[];
+    /**
+     * @maxItems 256
+     */
+    repairStops: RepairStop[];
+  };
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Sha256 = string;
+
+  export interface EventV1_2 {
+    contractVersion: "1.2.0";
+    stateContract: "1.2.0";
+    eventId: Id;
+    eventType: "operation" | "decision" | "transition" | "recovery";
+    occurredAt: Timestamp;
+    operation: Id;
+    policyVersion: Id;
+    priorRevision: NonNegativeInteger;
+    resultingRevision: PositiveInteger;
+    reasonCode: string;
+    effect: "none" | "state" | "artifact" | "state-and-artifact";
+    artifactRefs: References;
+    evidenceRefs: References;
+    observedIdentity: ObservedIdentity;
+    resolvedAssignment?: ResolvedAssignment;
+    runLimits?: RunLimits;
+    acceptanceDecision?: AcceptanceDecision;
+    previousHash: Sha256 | null;
+    eventHash: Sha256;
+  }
+  export interface ObservedIdentity {
+    host: Id;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface ResolvedAssignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface RunLimits {
+    acceptanceAttemptCeiling: PositiveInteger;
+    tokenCeiling: PositiveInteger | null;
+  }
+  export interface Attempt {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+  }
+  export interface RepairStop {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    classification: "code" | "specification";
+    artifactRef: Reference;
+    artifactDigest: Sha256;
+  }
+}
+export type EventV1_2 = EventV1_2Contract.EventV1_2;
+export namespace EventV1_3Contract {
+  export type Id = string;
+  export type Timestamp = string;
+  export type NonNegativeInteger = number;
+  export type PositiveInteger = number;
+  export type Reference = string;
+  /**
+   * @maxItems 256
+   */
+  export type References = Reference[];
+  export type AcceptanceDecision = {
+    [k: string]: unknown | undefined;
+  } & {
+    outcome: "passed" | "repair" | "stopped";
+    /**
+     * @maxItems 256
+     */
+    attempts: Attempt[];
+    /**
+     * @maxItems 256
+     */
+    repairStops: RepairStop[];
+  };
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Sha256 = string;
+
+  export interface EventV1_3 {
+    contractVersion: "1.3.0";
+    stateContract: "1.3.0";
+    eventId: Id;
+    eventType: "operation" | "decision" | "transition" | "recovery";
+    occurredAt: Timestamp;
+    operation: Id;
+    policyVersion: Id;
+    priorRevision: NonNegativeInteger;
+    resultingRevision: PositiveInteger;
+    reasonCode: string;
+    effect: "none" | "state" | "artifact" | "state-and-artifact";
+    artifactRefs: References;
+    evidenceRefs: References;
+    observedIdentity: ObservedIdentity;
+    resolvedAssignment?: ResolvedAssignment;
+    runLimits?: RunLimits;
+    acceptanceDecision?: AcceptanceDecision;
+    repairResolution?: RepairResolution;
+    startedFromSpec?: StartedFromSpec;
+    previousHash: Sha256 | null;
+    eventHash: Sha256;
+  }
+  export interface ObservedIdentity {
+    host: Id;
+    model: Id | null;
+    effort: Id | null;
+  }
+  export interface ResolvedAssignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface RunLimits {
+    acceptanceAttemptCeiling: PositiveInteger;
+    tokenCeiling: PositiveInteger | null;
+  }
+  export interface Attempt {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+  }
+  export interface RepairStop {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    classification: "code" | "specification";
+    artifactRef: Reference;
+    artifactDigest: Sha256;
+  }
+  export interface RepairResolution {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    resolutionRef: Reference;
+    resolutionDigest: Sha256;
+    nextRunId: Id | null;
+    restartTicketRef: Reference | null;
+    restartTicketDigest: Sha256 | null;
+  }
+  export interface StartedFromSpec {
+    sourceRunId: Id;
+    restartTicketRef: Reference;
+    restartTicketDigest: Sha256;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    retiredCriterionIds: [
+      KratosAcceptanceCriterionIdentifierV1,
+      ...KratosAcceptanceCriterionIdentifierV1[],
+    ];
+  }
+}
+export type EventV1_3 = EventV1_3Contract.EventV1_3;
+export namespace EventV1_4Contract {
+  /**
+   * @maxItems 256
+   */
+  export type References = string[];
+  export type AcceptanceDecision = {
+    [k: string]: unknown | undefined;
+  } & {
+    outcome: "passed" | "repair" | "stopped";
+    /**
+     * @maxItems 256
+     */
+    attempts: Attempt[];
+    /**
+     * @maxItems 256
+     */
+    repairStops: RepairStop[];
+  };
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+
+  export interface EventV1_4 {
+    contractVersion: "1.4.0";
+    stateContract: "1.4.0";
+    eventId: string;
+    eventType: "operation" | "decision" | "transition" | "recovery";
+    occurredAt: string;
+    operation: string;
+    policyVersion: string;
+    priorRevision: number;
+    resultingRevision: number;
+    reasonCode: string;
+    effect: "none" | "state" | "artifact" | "state-and-artifact";
+    artifactRefs: References;
+    evidenceRefs: References;
+    observedIdentity: ObservedIdentity;
+    resolvedAssignment?: ResolvedAssignment;
+    runLimits?: RunLimits;
+    acceptanceDecision?: AcceptanceDecision;
+    repairResolution?: RepairResolution;
+    startedFromSpec?: StartedFromSpec;
+    previousHash: string | null;
+    eventHash: string;
+  }
+  export interface ObservedIdentity {
+    host: string;
+    model: string | null;
+    effort: string | null;
+  }
+  export interface ResolvedAssignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: string;
+    effort: string;
+  }
+  export interface RunLimits {
+    acceptanceAttemptCeiling: number;
+    tokenCeiling: number | null;
+  }
+  export interface Attempt {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: number;
+  }
+  export interface RepairStop {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: number;
+    classification: "code" | "specification";
+    artifactRef: string;
+    artifactDigest: string;
+  }
+  export interface RepairResolution {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    resolutionRef: string;
+    resolutionDigest: string;
+    nextRunId: string | null;
+    restartTicketRef: string | null;
+    restartTicketDigest: string | null;
+  }
+  export interface StartedFromSpec {
+    sourceRunId: string;
+    restartTicketRef: string;
+    restartTicketDigest: string;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    retiredCriterionIds: [
+      KratosAcceptanceCriterionIdentifierV1,
+      ...KratosAcceptanceCriterionIdentifierV1[],
+    ];
+  }
+}
+export type EventV1_4 = EventV1_4Contract.EventV1_4;
 export namespace EvidenceV1Contract {
   export type Id = string;
   export type Reference = string;
@@ -2040,6 +2903,113 @@ export namespace ProjectConfigV1_3Contract {
   }
 }
 export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
+export namespace ProjectConfigV1_4Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectConfigV1_4 {
+    contractVersion: "1.4.0";
+    stateContract: "1.4.0";
+    pluginVersion: "0.0.0-development";
+    hostContract: "1.4.0";
+    language: LanguagePolicy;
+    policyMode: "standard" | "strict";
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+    projectProfile: ProjectProfile;
+    acceptanceAttemptCeiling?: number;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+  export interface ProjectProfile {
+    commands: Commands;
+    paths: Paths;
+    conventions: Conventions;
+  }
+  export interface Commands {
+    test: CommandLeaf;
+    lint: CommandLeaf;
+    build: CommandLeaf;
+    run: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface Paths {
+    source: PathsLeaf;
+    tests: PathsLeaf;
+    configuration: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface Conventions {
+    directoryLayout: ConventionLeaf;
+    naming: ConventionLeaf;
+    implementationLanguages: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type ProjectConfigV1_4 = ProjectConfigV1_4Contract.ProjectConfigV1_4;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {
@@ -2143,6 +3113,123 @@ export namespace RequirementDiscoveryV1Contract {
 }
 export type RequirementDiscoveryV1 =
   RequirementDiscoveryV1Contract.RequirementDiscoveryV1;
+export namespace RepairLoopStopV1Contract {
+  export type Id = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type PositiveInteger = number;
+  export type Text = string;
+  export type Timestamp = string;
+
+  export interface RepairLoopStopV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    stopId: Id;
+    runId: Id;
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    attemptCeiling: PositiveInteger;
+    classification: "code" | "specification";
+    diagnosis: Text;
+    recordedAt: Timestamp;
+  }
+}
+export type RepairLoopStopV1 = RepairLoopStopV1Contract.RepairLoopStopV1;
+export namespace RepairLoopStopV1_1Contract {
+  export type Id = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type PositiveInteger = number;
+  export type Text = string;
+  export type Timestamp = string;
+
+  export interface RepairLoopStopV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    stopId: Id;
+    runId: Id;
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    attemptCeiling: PositiveInteger;
+    classification: "code" | "specification";
+    diagnosis: Text;
+    recordedAt: Timestamp;
+  }
+}
+export type RepairLoopStopV1_1 = RepairLoopStopV1_1Contract.RepairLoopStopV1_1;
+export namespace RepairResolutionV1Contract {
+  export type Id = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+
+  export interface RepairResolutionV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    resolutionId: Id;
+    runId: Id;
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    stopRef: Reference;
+    stopDigest: Sha256;
+    resolvedBy: Id;
+    observation: string;
+    resolvedAt: Timestamp;
+    nextRunId: Id | null;
+  }
+}
+export type RepairResolutionV1 = RepairResolutionV1Contract.RepairResolutionV1;
+export namespace RepairResolutionV1_1Contract {
+  export type Id = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type Timestamp = string;
+
+  export interface RepairResolutionV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    resolutionId: Id;
+    runId: Id;
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    classification: "code" | "specification";
+    stopRef: Reference;
+    stopDigest: Sha256;
+    resolvedBy: Id;
+    observation: string;
+    resolvedAt: Timestamp;
+    nextRunId: Id | null;
+  }
+}
+export type RepairResolutionV1_1 =
+  RepairResolutionV1_1Contract.RepairResolutionV1_1;
+export namespace RepairRestartV1Contract {
+  export type Id = string;
+  export type Reference = string;
+  export type Sha256 = string;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Timestamp = string;
+
+  export interface RepairRestartV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    ticketId: Id;
+    sourceRunId: Id;
+    nextRunId: Id;
+    resolutionRef: Reference;
+    resolutionDigest: Sha256;
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    retiredCriterionIds: [
+      KratosAcceptanceCriterionIdentifierV1,
+      ...KratosAcceptanceCriterionIdentifierV1[],
+    ];
+    startPhase: "spec";
+    createdAt: Timestamp;
+  }
+}
+export type RepairRestartV1 = RepairRestartV1Contract.RepairRestartV1;
 export namespace RunUsageV1Contract {
   export type Id = string;
   export type Count = number;

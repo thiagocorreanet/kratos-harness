@@ -8,7 +8,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `help`, `version`, `handshake` | Usage and contract orientation | No |
 | `adapters` | Report supported host package manifests | No |
 | `init` | Create or reconcile managed project surfaces | Yes |
-| `objective TEXT` | Record or replace the active objective | Yes |
+| `objective TEXT [--token-ceiling N]` | Record or replace the active objective and optionally declare a run token ceiling | Yes |
 | `start` | Start or idempotently resume a run | Yes |
 | `continue` | Resume, reject, or complete one phase | Conditional |
 | `approve GATE` | Record digest-bound approval or rejection | Yes |
@@ -30,11 +30,13 @@ also accept `--root PATH` where shown by `kratos help`.
 | `memory merge PROPOSAL` | Preview or apply a lossless lesson merge | Conditional |
 | `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
+| `migrate config` | Preview or authorize replacement of pre-`1.4.0` configuration with current state | Conditional |
 | `migrate config` | Preview or authorize replacement of pre-`1.3.0` configuration with current state | Conditional |
 | `migrate memory MAPPING` | Preview or losslessly adopt legacy Gotchas | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
 | `repair` | Preview or explicitly authorize a safe repair | Conditional |
+| `repair resolve AC-ID --run ID --resolved-by ID --observation TEXT` | Resolve one recorded repeated-rejection stop | Conditional |
 | `evidence bundle` | Write a privacy-reviewed evidence bundle | Yes |
 | `dashboard` | Write a script-free local dashboard | Yes |
 
@@ -44,7 +46,7 @@ Never automate by scraping human output; use `--json`.
 
 ## Model-role command behavior
 
-`kratos init` consumes `host.init-answers@1.3.0` from standard input or
+`kratos init` consumes `host.init-answers@1.4.0` from standard input or
 `--answers PATH`. Explicit host role maps override adapter defaults. Omitted
 maps are filled only from the corresponding enabled host catalog, and every
 default is disclosed and persisted after canonical resolution. Initialization
@@ -55,7 +57,7 @@ The same answers document may carry a partial typed `projectProfile` for the
 project's exact root commands; source, test, and configuration paths; directory
 and naming conventions; and implementation languages. Every leaf is explicitly
 resolved, not applicable with a reason, or unresolved. Omitted leaves preserve
-current `1.3.0` state during reinitialization; explicit unresolved leaves clear
+current `1.4.0` state during reinitialization; explicit unresolved leaves clear
 it. Initialization never infers these values from stack markers and never
 executes a configured command.
 
@@ -79,6 +81,71 @@ referenced output bytes. A known mismatch returns
 `model.execution_mismatch`. With no host execution report, direct CLI recording
 persists `model: null` and `effort: null`; `--model` remains diagnostic input and
 does not manufacture an observation.
+
+The current handoff also reports the run-frozen acceptance attempt ceiling,
+attempt counts in task-document order, `faultsRequiredFor` for the next verdict,
+and bounded active `faults`. Hosts relay this context unchanged; they do not
+calculate repair-loop transitions.
+
+## Run limits and repeated-rejection recovery
+
+`acceptanceAttemptCeiling` is an optional positive safe integer in
+`state.project-config@1.4.0`. When it is absent, the runtime resolves it to
+`3`; it is never unbounded. During initialization,
+`host.init-answers@1.4.0` sets the value with a positive integer, clears an
+existing override with `null`, and preserves the existing value when the field
+is omitted. The resolved value is frozen in the run's `workflow-v2` start
+event, so changing project configuration later cannot change an existing run.
+
+`kratos objective TEXT --token-ceiling N` declares the optional positive token
+ceiling at `objective.budget.tokens`. That value is also frozen when a run
+starts. Token measurement is owned by the existing hook and usage pipeline; it
+is not performed by the objective command.
+
+For every rejected acceptance criterion, the runtime records the next attempt
+in task-document order. Below the frozen acceptance ceiling, the same run
+returns to `code` for repair. At the ceiling, it records a stop with a required
+`code` or `specification` classification and diagnosis. An accepted verdict,
+plain `start`, plain `continue`, and repeated commands never reset attempts.
+
+Plain resume cannot release an active repeated-rejection stop. Use the explicit
+host-neutral recovery command, addressed to the blocked source run:
+
+```bash
+kratos repair resolve AC-1.2.3 --run run-17 \
+  --resolved-by reviewer-42 \
+  --observation "The failing implementation was corrected and independently checked."
+```
+
+The human identity and observation are required; observations are bounded to
+2,048 non-control characters and must contain a non-whitespace character. A
+`code` classification rejects `--next-run`, resets only that criterion, and
+returns the same run to `code` only after all active repair stops have been
+resolved. Repeating the same correlation is a no-op only when the original
+criterion, classification, target run, human input, and recovery artifact
+bindings match exactly; a divergent retry is a revision conflict.
+
+A `specification` classification requires a fresh run identifier:
+
+```bash
+kratos repair resolve AC-1.2.3 --run run-17 \
+  --resolved-by owner-7 \
+  --observation "The acceptance criterion must be replaced after specification review." \
+  --next-run run-18
+```
+
+Resolve every active `code` stop before a `specification` stop. A spec-first
+request is refused without changing the source run. The successful command
+records the resolution against `run-17`, preserves its history and blocked
+state, creates `run-18` at `spec`, freezes new run limits, and requires a new
+specification approval. The restart ticket retires every affected source AC
+identifier; a corrected plan must use new identifiers. Repeating the exact same
+resolution correlation after the active-run pointer changes is still a no-op.
+
+Repeated rejection and token exhaustion are independent. The gate can report
+`blocked.stop_loss_rejections` and `blocked.stop_loss_budget` together (and can
+also retain `blocked.stop_loss_flag`); resolving a repair stop does not unlock a
+token stop, and `unlock stop-loss` does not reset rejection attempts.
 
 ## Curated-memory commands
 
@@ -146,7 +213,7 @@ local candidate.
 
 ## Configuration migration commands
 
-Preview a pre-`1.3.0` configuration with current answers from a file:
+Preview a pre-`1.4.0` configuration with current answers from a file:
 
 ```bash
 kratos migrate config --answers model-roles.json --root PATH

@@ -186,6 +186,7 @@ describe("implemented commands", () => {
       "narrate",
       "objective",
       "repair",
+      "repair resolve",
       "scope record",
       "start",
       "stats",

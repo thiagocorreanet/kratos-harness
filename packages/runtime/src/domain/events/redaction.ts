@@ -3,6 +3,8 @@ import {
   type CurrentEventDraft,
   type EventServices,
   type ReadableEvent,
+  type ResolutionEventDraft,
+  type SealableEventDraft,
 } from "./model.js";
 import { assertEventSemanticPolicy } from "./semantics.js";
 
@@ -25,6 +27,35 @@ const DRAFT_KEYS = [
 
 const IDENTITY_KEYS = ["host", "model", "effort"] as const;
 const ASSIGNMENT_KEYS = ["phase", "role", "model", "effort"] as const;
+const RUN_LIMIT_KEYS = ["acceptanceAttemptCeiling", "tokenCeiling"] as const;
+const ACCEPTANCE_DECISION_KEYS = [
+  "outcome",
+  "attempts",
+  "repairStops",
+] as const;
+const ATTEMPT_KEYS = ["criterionId", "attempt"] as const;
+const REPAIR_STOP_KEYS = [
+  "criterionId",
+  "attempt",
+  "classification",
+  "artifactRef",
+  "artifactDigest",
+] as const;
+const REPAIR_RESOLUTION_KEYS = [
+  "criterionId",
+  "classification",
+  "resolutionRef",
+  "resolutionDigest",
+  "nextRunId",
+  "restartTicketRef",
+  "restartTicketDigest",
+] as const;
+const STARTED_FROM_SPEC_KEYS = [
+  "sourceRunId",
+  "restartTicketRef",
+  "restartTicketDigest",
+  "retiredCriterionIds",
+] as const;
 const MAX_REFERENCE_COUNT = 256;
 
 type DataRecord = Record<PropertyKey, unknown>;
@@ -155,6 +186,146 @@ function copyResolvedAssignment(
   };
 }
 
+function copyRecordArray<T>(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+  copy: (entry: unknown, isProxy: EventServices["isProxy"]) => T,
+): T[] {
+  if (typeof value !== "object" || value === null || isProxy(value)) {
+    invalidEvent();
+  }
+  if (!Array.isArray(value)) invalidEvent();
+  const length = requireDataValue(value as unknown as DataRecord, "length");
+  if (
+    typeof length !== "number" ||
+    !Number.isSafeInteger(length) ||
+    length < 0 ||
+    length > MAX_REFERENCE_COUNT ||
+    Object.getOwnPropertySymbols(value).length !== 0 ||
+    Object.getOwnPropertyNames(value).length !== length + 1
+  ) {
+    invalidEvent();
+  }
+  const result: T[] = [];
+  for (let index = 0; index < length; index += 1) {
+    result.push(
+      copy(
+        requireDataValue(value as unknown as DataRecord, String(index)),
+        isProxy,
+      ),
+    );
+  }
+  return result;
+}
+
+function copyRunLimits(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["runLimits"]> {
+  const limits = requirePlainRecord(value, isProxy);
+  requireExactKeys(limits, RUN_LIMIT_KEYS);
+  const tokenCeiling = requireDataValue(limits, "tokenCeiling");
+  if (tokenCeiling !== null && typeof tokenCeiling !== "number") invalidEvent();
+  return {
+    acceptanceAttemptCeiling: requireRevision(
+      limits,
+      "acceptanceAttemptCeiling",
+    ),
+    tokenCeiling,
+  };
+}
+
+function copyAttempt(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["acceptanceDecision"]>["attempts"][number] {
+  const attempt = requirePlainRecord(value, isProxy);
+  requireExactKeys(attempt, ATTEMPT_KEYS);
+  return {
+    criterionId: requireString(attempt, "criterionId"),
+    attempt: requireRevision(attempt, "attempt"),
+  };
+}
+
+function copyRepairStop(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["acceptanceDecision"]>["repairStops"][number] {
+  const stop = requirePlainRecord(value, isProxy);
+  requireExactKeys(stop, REPAIR_STOP_KEYS);
+  return {
+    criterionId: requireString(stop, "criterionId"),
+    attempt: requireRevision(stop, "attempt"),
+    classification: requireString(stop, "classification") as "code",
+    artifactRef: requireString(stop, "artifactRef"),
+    artifactDigest: requireString(stop, "artifactDigest"),
+  };
+}
+
+function copyAcceptanceDecision(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<CurrentEventDraft["acceptanceDecision"]> {
+  const decision = requirePlainRecord(value, isProxy);
+  requireExactKeys(decision, ACCEPTANCE_DECISION_KEYS);
+  return {
+    outcome: requireString(decision, "outcome") as "passed",
+    attempts: copyRecordArray(
+      requireDataValue(decision, "attempts"),
+      isProxy,
+      copyAttempt,
+    ),
+    repairStops: copyRecordArray(
+      requireDataValue(decision, "repairStops"),
+      isProxy,
+      copyRepairStop,
+    ),
+  };
+}
+
+function nullableString(value: DataRecord, key: string): string | null {
+  const result = requireDataValue(value, key);
+  if (result !== null && typeof result !== "string") invalidEvent();
+  return result;
+}
+
+function copyRepairResolution(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<ResolutionEventDraft["repairResolution"]> {
+  const resolution = requirePlainRecord(value, isProxy);
+  requireExactKeys(resolution, REPAIR_RESOLUTION_KEYS);
+  return {
+    criterionId: requireString(resolution, "criterionId"),
+    classification: requireString(resolution, "classification") as "code",
+    resolutionRef: requireString(resolution, "resolutionRef"),
+    resolutionDigest: requireString(resolution, "resolutionDigest"),
+    nextRunId: nullableString(resolution, "nextRunId"),
+    restartTicketRef: nullableString(resolution, "restartTicketRef"),
+    restartTicketDigest: nullableString(resolution, "restartTicketDigest"),
+  };
+}
+
+function copyStartedFromSpec(
+  value: unknown,
+  isProxy: EventServices["isProxy"],
+): NonNullable<ResolutionEventDraft["startedFromSpec"]> {
+  const restart = requirePlainRecord(value, isProxy);
+  requireExactKeys(restart, STARTED_FROM_SPEC_KEYS);
+  const retiredCriterionIds = copyReferences(
+    requireDataValue(restart, "retiredCriterionIds"),
+    isProxy,
+  );
+  const [firstCriterionId, ...remainingCriterionIds] = retiredCriterionIds;
+  if (firstCriterionId === undefined) invalidEvent();
+  return {
+    sourceRunId: requireString(restart, "sourceRunId"),
+    restartTicketRef: requireString(restart, "restartTicketRef"),
+    restartTicketDigest: requireString(restart, "restartTicketDigest"),
+    retiredCriterionIds: [firstCriterionId, ...remainingCriterionIds],
+  };
+}
+
 export function assertEventPolicy(event: ReadableEvent): void {
   try {
     assertEventSemanticPolicy(event);
@@ -166,7 +337,7 @@ export function assertEventPolicy(event: ReadableEvent): void {
 export function snapshotEventDraft(
   value: unknown,
   isProxy: EventServices["isProxy"],
-): CurrentEventDraft {
+): SealableEventDraft {
   try {
     const draft = requirePlainRecord(value, isProxy);
     const resolvedAssignment = Object.hasOwn(draft, "resolvedAssignment")
@@ -175,13 +346,33 @@ export function snapshotEventDraft(
           isProxy,
         )
       : undefined;
-    requireExactKeys(
-      draft,
-      resolvedAssignment === undefined
-        ? DRAFT_KEYS
-        : [...DRAFT_KEYS, "resolvedAssignment"],
-    );
-    const snapshot: CurrentEventDraft = {
+    const runLimits = Object.hasOwn(draft, "runLimits")
+      ? copyRunLimits(requireDataValue(draft, "runLimits"), isProxy)
+      : undefined;
+    const acceptanceDecision = Object.hasOwn(draft, "acceptanceDecision")
+      ? copyAcceptanceDecision(
+          requireDataValue(draft, "acceptanceDecision"),
+          isProxy,
+        )
+      : undefined;
+    const repairResolution = Object.hasOwn(draft, "repairResolution")
+      ? copyRepairResolution(
+          requireDataValue(draft, "repairResolution"),
+          isProxy,
+        )
+      : undefined;
+    const startedFromSpec = Object.hasOwn(draft, "startedFromSpec")
+      ? copyStartedFromSpec(requireDataValue(draft, "startedFromSpec"), isProxy)
+      : undefined;
+    requireExactKeys(draft, [
+      ...DRAFT_KEYS,
+      ...(resolvedAssignment === undefined ? [] : ["resolvedAssignment"]),
+      ...(runLimits === undefined ? [] : ["runLimits"]),
+      ...(acceptanceDecision === undefined ? [] : ["acceptanceDecision"]),
+      ...(repairResolution === undefined ? [] : ["repairResolution"]),
+      ...(startedFromSpec === undefined ? [] : ["startedFromSpec"]),
+    ]);
+    const snapshot = {
       contractVersion: requireString(draft, "contractVersion"),
       stateContract: requireString(draft, "stateContract"),
       eventId: requireString(draft, "eventId"),
@@ -209,7 +400,11 @@ export function snapshotEventDraft(
         isProxy,
       ),
       ...(resolvedAssignment === undefined ? {} : { resolvedAssignment }),
-    } as CurrentEventDraft;
+      ...(runLimits === undefined ? {} : { runLimits }),
+      ...(acceptanceDecision === undefined ? {} : { acceptanceDecision }),
+      ...(repairResolution === undefined ? {} : { repairResolution }),
+      ...(startedFromSpec === undefined ? {} : { startedFromSpec }),
+    } as SealableEventDraft;
     assertEventPolicy({
       ...snapshot,
       previousHash: null,

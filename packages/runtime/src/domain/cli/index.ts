@@ -33,6 +33,7 @@ export {
   statusCommand,
 } from "./diagnostics.js";
 export { narrateCommand } from "./narrate.js";
+export { repairResolveCommand } from "./repair-resolve.js";
 export { observingCommand } from "./observed.js";
 export {
   RETIRED_COMMANDS,

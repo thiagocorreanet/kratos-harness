@@ -3,6 +3,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import {
@@ -77,7 +78,10 @@ export function resolvePhaseAssignment(input: {
   readonly phase: RunPhase;
   readonly host: "claude" | "codex" | "antigravity";
   readonly configuration:
-    ProjectConfigV1_3 | ProjectConfigV1_2 | ProjectConfigV1_1;
+    | ProjectConfigV1_4
+    | ProjectConfigV1_3
+    | ProjectConfigV1_2
+    | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): ModelRoleResolution {
   const resolved = resolvePhaseAssignmentDetailed(input);
@@ -92,7 +96,10 @@ export function resolvePhaseAssignmentDetailed(input: {
   readonly phase: RunPhase;
   readonly host: "claude" | "codex" | "antigravity";
   readonly configuration:
-    ProjectConfigV1_3 | ProjectConfigV1_2 | ProjectConfigV1_1;
+    | ProjectConfigV1_4
+    | ProjectConfigV1_3
+    | ProjectConfigV1_2
+    | ProjectConfigV1_1;
   readonly catalog: HostModelCatalog;
 }): DetailedModelRoleResolution {
   const modelRoles: ProjectConfigV1_3["modelRoles"] =

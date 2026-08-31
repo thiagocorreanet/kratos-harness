@@ -1,7 +1,7 @@
 import { types } from "node:util";
 import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
 
-import type { EventV1, EventV1_1, SnapshotV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_2, SnapshotV1 } from "@kratos/contracts";
 import {
   EventIntegrityError,
   replayEventStream,
@@ -48,8 +48,8 @@ const seed: TestState = {
 
 function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}`,
     eventType: "transition",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -73,7 +73,7 @@ function draft(index: number): CurrentEventDraft {
 
 function stream(events = 2) {
   let cursor = { revision: 0, hash: null as string | null };
-  const sealed: EventV1_1[] = [];
+  const sealed: EventV1_2[] = [];
   for (let index = 1; index <= events; index += 1) {
     const event = sealEvent(draft(index), cursor, services);
     sealed.push(event);

@@ -2,7 +2,7 @@ import {
   CONTRACT_VERSIONS,
   KRATOS_VERSION,
   type AdapterMessageV1_1,
-  type PhaseHandoffV1_2,
+  type CurrentPhaseHandoff,
 } from "@kratos/contracts";
 
 export interface HostModelAssignment {
@@ -186,7 +186,7 @@ export interface HostRendering {
 
 export interface HostPhaseRuntime {
   handoff(): Promise<
-    | { readonly kind: "ready"; readonly handoff: PhaseHandoffV1_2 }
+    | { readonly kind: "ready"; readonly handoff: CurrentPhaseHandoff }
     | { readonly kind: "refused"; readonly rendering: HostRendering }
   >;
   record(message: AdapterMessageV1_1): Promise<HostRendering>;
@@ -199,12 +199,13 @@ export interface HostPhaseLauncher {
     readonly effort: boolean;
   };
   launch(request: {
-    readonly phase: PhaseHandoffV1_2["phase"];
-    readonly role: PhaseHandoffV1_2["assignment"]["role"];
+    readonly phase: CurrentPhaseHandoff["phase"];
+    readonly role: CurrentPhaseHandoff["assignment"]["role"];
     readonly model: string;
     readonly effort: string;
+    readonly handoff: CurrentPhaseHandoff;
     /** Exact runtime handoff acknowledgement the host gives the phase agent. */
-    readonly memory: PhaseHandoffV1_2["memory"];
+    readonly memory: CurrentPhaseHandoff["memory"];
   }): Promise<{
     readonly payload: { readonly ref: string; readonly sha256: string };
     /** Host observation only; nullable values are never filled from selection. */
@@ -430,6 +431,7 @@ export async function relaySelectedPhase(
       role: handoff.assignment.role,
       model: handoff.assignment.model,
       effort: handoff.assignment.effort,
+      handoff,
       memory: handoff.memory,
     }),
   );
@@ -448,7 +450,7 @@ export async function relaySelectedPhase(
     messageId: input.messageId,
     correlationId: input.correlationId,
     operation: `sdd.agent.record:${input.correlationId}`,
-    payloadContract: "host.agent-output@1.2.0",
+    payloadContract: "host.agent-output@1.3.0",
     payload: { ...execution.payload },
     phaseExecution: {
       assignmentDigest: handoff.assignmentDigest,

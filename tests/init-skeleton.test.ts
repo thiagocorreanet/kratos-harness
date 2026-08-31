@@ -302,10 +302,10 @@ describe("the generated skeleton", () => {
     );
 
     expect(config).toEqual({
-      contractVersion: "1.3.0",
-      stateContract: "1.3.0",
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
       pluginVersion: KRATOS_VERSION,
-      hostContract: "1.3.0",
+      hostContract: "1.4.0",
       language: ptBrPolicy,
       policyMode: "strict",
       managedState: {
@@ -330,7 +330,7 @@ describe("the generated skeleton", () => {
     expect(
       registry.validate({
         id: "state.project-config",
-        version: "1.3.0",
+        version: "1.4.0",
         value: config,
         structuralReasonCode: "guard.config_corrupt",
       }).kind,

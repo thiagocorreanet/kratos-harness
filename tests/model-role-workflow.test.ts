@@ -1,6 +1,6 @@
 import projectConfigV1 from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import type {
-  EventV1_1,
+  EventV1_2,
   OperationResultV1,
   PhaseHandoffV1_2,
 } from "@kratos/contracts";
@@ -95,8 +95,8 @@ function agentReplyWithExtraClaims(claims: Record<string, string>): string {
     .join("\n");
   return `${prose}\n\n===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "prd",
       outcome: {
         status: "completed",
@@ -125,13 +125,13 @@ function eventPath(subject: WorkflowSubject): string {
   return `.brain/02-features/${feature}/runs/run-01/events.jsonl`;
 }
 
-function lastEvent(subject: WorkflowSubject): EventV1_1 {
+function lastEvent(subject: WorkflowSubject): EventV1_2 {
   const stream = subject.storage.snapshot().files[eventPath(subject)] ?? "";
   const line = stream.trim().split("\n").at(-1);
   if (line === undefined || line.length === 0) {
     throw new Error("The workflow has no event to inspect");
   }
-  return JSON.parse(line) as EventV1_1;
+  return JSON.parse(line) as EventV1_2;
 }
 
 async function currentHandoff(
@@ -168,7 +168,7 @@ function phaseResultRequest(
       model: execution.model,
       effort: execution.effort,
     },
-    payloadContract: "host.agent-output@1.2.0",
+    payloadContract: "host.agent-output@1.3.0",
     payload: { ref, sha256: subject.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: execution.assignmentDigest,
@@ -361,8 +361,8 @@ function codeReply(
 ): string {
   return `===KRATOS-AGENT-OUTPUT-V1===\n${JSON.stringify(
     {
-      contractVersion: "1.2.0",
-      hostContract: "1.2.0",
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
       agent: "code",
       outcome: {
         status: "completed",
@@ -596,11 +596,6 @@ describe("read-only model-role handoffs", () => {
 
   it.each([
     [
-      "legacy configuration",
-      { configuration: projectConfigV1 },
-      "profile.config_migration_required",
-    ],
-    [
       "missing host role map",
       {
         configuration: roleConfig("claude", {
@@ -627,6 +622,23 @@ describe("read-only model-role handoffs", () => {
     expect(await runCommandLine(["--json", "handoff"], run.ports)).not.toBe(0);
     expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
       reasonCode,
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot()).toEqual(run.before);
+  });
+
+  it("refuses legacy configuration without mutation", async () => {
+    const startedRun = await started();
+    await startedRun.ports.fileSystem.write(
+      ".brain/config.json",
+      JSON.stringify(projectConfigV1),
+    );
+    clearOutput(startedRun.output);
+    const run = { ...startedRun, before: startedRun.storage.snapshot() };
+
+    expect(await runCommandLine(["--json", "handoff"], run.ports)).not.toBe(0);
+    expect(JSON.parse(run.output.structured_.join(""))).toMatchObject({
+      reasonCode: "profile.config_migration_required",
       stateChanged: false,
     });
     expect(run.storage.snapshot()).toEqual(run.before);

@@ -83,7 +83,7 @@ the document root.
 | `plan` | `steps`, each with `stepId`, `summary`, `dependsOn` |
 | `code` | `stepId`, `testsAdded`, `testsPassed` |
 | `review` | `verdict`, `findings` with severity and reference |
-| `acceptance` | `verdict`, `criteria` with outcome and evidence reference |
+| `acceptance` | `verdict`, `criteria` with outcome and evidence reference; rejected output may carry bounded `faults` |
 
 Five installed role prompts produce those six payloads. The researcher owns
 `prd`; the planner owns `spec`; the pre-code reviewer owns `plan`; the
@@ -106,19 +106,30 @@ them:
 1. **Extract.** Three exits: no block found, a block found that is not usable
    before parsing, or a block. The second exit names which rule broke, from
    `duplicate-open` to `invalid-json`.
-2. **Validate.** The extracted document is checked against
-   `host.agent-output@1.0.0` through the schema registry, then against the
+2. **Validate.** The extracted document is checked against its declared readable
+   `host.agent-output` revision through the schema registry. Current phase
+   relays request `host.agent-output@1.3.0`; predecessors
+   `host.agent-output@1.0.0` and `@1.1.0` remain readable. The current schema
+   requires every diagnosis to contain a non-whitespace character.
+   The block is then checked against the
    agreements the schema cannot state: a path claimed as both artifact and
    changed file, a repeated question, option, or step identifier, a dependency
    on a step the plan does not contain, a review that passes while carrying a
    high finding, a repeated acceptance criterion identifier, and an acceptance
    that accepts while a criterion did not pass. Acceptance identifiers use the
    canonical `AC-<work-unit>.<task>.E?<criterion>` schema dependency.
-3. **Record.** The validated block is written verbatim to
-   `runs/RUN/agent-output/AGENT.json` and one `run.agent.recorded` event is
-   appended. During acceptance the same atomic plan also writes one immutable
-   verdict per criterion and reconciles task-document checkboxes. Recording a
-   fact does not move the run through its phases.
+3. **Record.** Non-acceptance output is written verbatim to
+   `runs/RUN/agent-output/AGENT.json` and appends one `run.agent.recorded`
+   event. Acceptance uses one atomic plan for the output, every criterion
+   verdict, task-document checkboxes, any immutable repair-stop artifacts, and
+   the `sdd.acceptance.record:*` decision event. The runtime alone decides
+   whether that event preserves acceptance, returns to code, or blocks the run.
+
+For rejected acceptance output, the runtime requires exactly one
+`classification: code | specification` and bounded `diagnosis` for every
+criterion whose next attempt reaches the frozen ceiling. The handoff reports
+those IDs as `faultsRequiredFor`; neither the prompt nor the host recomputes the
+ceiling policy.
 
 Every refusal reports `trail.output_invalido` and names its cause. A reply with
 no block, a malformed block, or a schema-invalid block all fail closed and

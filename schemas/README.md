@@ -31,6 +31,8 @@ The universal runtime-result family contains:
 - [`reason-codes.v1.9.json`](../packages/contracts/catalogs/reason-codes.v1.9.json),
   which adds `profile.config_migration_required`;
 - [`reason-codes.v1.10.json`](../packages/contracts/catalogs/reason-codes.v1.10.json),
+- [`reason-codes.v1.11.json`](../packages/contracts/catalogs/reason-codes.v1.11.json),
+  the current revision, which adds `blocked.stop_loss_rejections`.
   the current revision, which adds the curated-memory refusal and recovery
   reasons.
 
@@ -43,13 +45,28 @@ The state family contains:
 - [`project-config.v1.2.schema.json`](state/project-config.v1.2.schema.json), the
   configuration with closed per-artifact language policy;
 - [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
-  current configuration with complete project-profile answers;
+  configuration with complete project-profile answers;
+- current [`project-config.v1.4.schema.json`](state/project-config.v1.4.schema.json),
+  which optionally carries the positive `acceptanceAttemptCeiling` override;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
 - [`event.v1.schema.json`](state/event.v1.schema.json);
-- [`event.v1.1.schema.json`](state/event.v1.1.schema.json), the current event
-  envelope with runtime-selected and nullable host-observed execution metadata;
+- [`event.v1.1.schema.json`](state/event.v1.1.schema.json), the event revision
+  that introduced runtime-selected and nullable host-observed execution metadata;
+- [`event.v1.2.schema.json`](state/event.v1.2.schema.json), which adds
+  run-frozen limits and acceptance-decision metadata;
+- [`event.v1.3.schema.json`](state/event.v1.3.schema.json), which adds
+  repair-resolution and specification-restart metadata;
+- current [`event.v1.4.schema.json`](state/event.v1.4.schema.json), which adds
+  the persisted legacy-policy upgrade boundary;
+- [`repair-loop-stop.v1.schema.json`](state/repair-loop-stop.v1.schema.json) and
+  current [`repair-loop-stop.v1.1.schema.json`](state/repair-loop-stop.v1.1.schema.json),
+  [`repair-resolution.v1.schema.json`](state/repair-resolution.v1.schema.json)
+  and current [`repair-resolution.v1.1.schema.json`](state/repair-resolution.v1.1.schema.json),
+  plus [`repair-restart.v1.schema.json`](state/repair-restart.v1.schema.json),
+  the immutable repair artifacts; the current stop and resolution schemas
+  reject whitespace-only human text;
 - [`approval.v1.schema.json`](state/approval.v1.schema.json);
 - [`evidence.v1.schema.json`](state/evidence.v1.schema.json);
 - [`gap.v1.schema.json`](state/gap.v1.schema.json), one recorded gap and the
@@ -77,14 +94,30 @@ current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.js
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
 [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
 [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
-current [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json)
-with partial project-profile answers, plus
+[`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json) with
+partial project-profile answers, plus current
+[`init-answers.v1.4.schema.json`](host/init-answers.v1.4.schema.json), which
+sets a positive ceiling, clears it with `null`, or preserves it when omitted,
+plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
-[`agent-output.v1.schema.json`](host/agent-output.v1.schema.json), the machine
-block one phase agent appends to its reply, plus
+[`agent-output.v1.schema.json`](host/agent-output.v1.schema.json),
+[`agent-output.v1.1.schema.json`](host/agent-output.v1.1.schema.json), and current
+[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), the
+machine block one phase agent appends to its reply, plus
 [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized
 structured file mutations, and
+[`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json),
+[`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json), and
+current [`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json)
+for the digest-bound resolved assignment and acceptance attempt context. See the
+[agent output contract](../docs/architecture/agent-output-contract.md) for the
+delimiter, the envelope, and the extraction rules. The
+current registry format is
+[`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json).
+The immutable predecessors remain
+[`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json),
+[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
 [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json) for the
 digest-bound resolved assignment, plus the explicit v1.2
 [`memory-capture.v1.2.schema.json`](host/memory-capture.v1.2.schema.json),

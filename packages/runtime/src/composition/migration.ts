@@ -8,6 +8,7 @@ import type {
   ProjectConfigV1_1,
   ProjectConfigV1_2,
   ProjectConfigV1_3,
+  ProjectConfigV1_4,
 } from "@kratos/contracts";
 
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
@@ -24,6 +25,7 @@ import {
   upgradeProjectConfiguration,
   upgradeProjectConfigurationV1_2,
   upgradeProjectConfigurationV1_3,
+  upgradeProjectConfigurationV1_4,
 } from "../domain/migration/index.js";
 import {
   classifyLegacyMemory,
@@ -396,7 +398,7 @@ async function observeConfig(
   }
 
   const version = ownString(parsed, "stateContract");
-  if (version === "1.3.0") {
+  if (version === "1.4.0") {
     if (authorized) {
       return resultFailure("runtime.revision_conflict", CONFIG_REF);
     }
@@ -424,7 +426,12 @@ async function observeConfig(
       authorized ? CONFIG_REF : undefined,
     );
   }
-  if (version !== "1.0.0" && version !== "1.1.0" && version !== "1.2.0") {
+  if (
+    version !== "1.0.0" &&
+    version !== "1.1.0" &&
+    version !== "1.2.0" &&
+    version !== "1.3.0"
+  ) {
     return resultFailure(
       authorized
         ? "runtime.revision_conflict"
@@ -445,7 +452,7 @@ async function observeConfig(
     );
   }
 
-  let destination: ProjectConfigV1_3;
+  let destination: ProjectConfigV1_4;
   let hosts: readonly ("claude" | "codex" | "antigravity")[];
   let answersAuthority: { readonly ref: string; readonly sha256: string };
   let defaulted: readonly string[];
@@ -502,9 +509,11 @@ async function observeConfig(
     ) {
       return resultFailure("trail.output_invalido");
     }
-    destination = upgradeProjectConfigurationV1_3(
-      upgradeProjectConfiguration(legacy, answers.answers.modelRoles),
-      answers.answers.projectProfile,
+    destination = upgradeProjectConfigurationV1_4(
+      upgradeProjectConfigurationV1_3(
+        upgradeProjectConfiguration(legacy, answers.answers.modelRoles),
+        answers.answers.projectProfile,
+      ),
     );
     hosts = answers.answers.hosts;
     answersAuthority = document.authority;
@@ -558,9 +567,11 @@ async function observeConfig(
         legacy.modelRoles,
         answers.answers.modelRoles,
       );
-      destination = upgradeProjectConfigurationV1_3(
-        upgradeProjectConfigurationV1_2({ ...legacy, modelRoles }),
-        answers.answers.projectProfile,
+      destination = upgradeProjectConfigurationV1_4(
+        upgradeProjectConfigurationV1_3(
+          upgradeProjectConfigurationV1_2({ ...legacy, modelRoles }),
+          answers.answers.projectProfile,
+        ),
       );
       hosts = configuredHosts(modelRoles);
       answersAuthority = document.authority;
@@ -581,11 +592,13 @@ async function observeConfig(
       );
       answersAuthority = { ref: "config", sha256: entry.sha256 };
       defaulted = [];
-      destination = upgradeProjectConfigurationV1_3(
-        upgradeProjectConfigurationV1_2(legacy),
+      destination = upgradeProjectConfigurationV1_4(
+        upgradeProjectConfigurationV1_3(
+          upgradeProjectConfigurationV1_2(legacy),
+        ),
       );
     }
-  } else {
+  } else if (version === "1.2.0") {
     const legacy = source.value as ProjectConfigV1_2;
     const document = await migrationAnswers(invocation, ports);
     if (document.kind === "document") {
@@ -633,9 +646,11 @@ async function observeConfig(
         legacy.modelRoles,
         answers.answers.modelRoles,
       );
-      destination = upgradeProjectConfigurationV1_3(
-        { ...legacy, modelRoles },
-        answers.answers.projectProfile,
+      destination = upgradeProjectConfigurationV1_4(
+        upgradeProjectConfigurationV1_3(
+          { ...legacy, modelRoles },
+          answers.answers.projectProfile,
+        ),
       );
       hosts = configuredHosts(modelRoles);
       answersAuthority = document.authority;
@@ -656,8 +671,16 @@ async function observeConfig(
       );
       answersAuthority = { ref: "config", sha256: entry.sha256 };
       defaulted = [];
-      destination = upgradeProjectConfigurationV1_3(legacy);
+      destination = upgradeProjectConfigurationV1_4(
+        upgradeProjectConfigurationV1_3(legacy),
+      );
     }
+  } else {
+    const legacy = source.value as ProjectConfigV1_3;
+    hosts = configuredHosts(legacy.modelRoles);
+    answersAuthority = { ref: "config", sha256: entry.sha256 };
+    defaulted = [];
+    destination = upgradeProjectConfigurationV1_4(legacy);
   }
 
   const catalogs = await Promise.all(
@@ -910,7 +933,7 @@ interface ConfigLineageContext {
     readonly host: "claude" | "codex" | "antigravity";
     readonly sha256: string;
   }[];
-  readonly modelRoles: ProjectConfigV1_3["modelRoles"];
+  readonly modelRoles: ProjectConfigV1_4["modelRoles"];
   readonly defaulted: readonly string[];
 }
 
@@ -1304,7 +1327,7 @@ function hasOwn(value: unknown, key: string): boolean {
 }
 
 function configuredHosts(
-  modelRoles: ProjectConfigV1_3["modelRoles"],
+  modelRoles: ProjectConfigV1_4["modelRoles"],
 ): readonly ("claude" | "codex" | "antigravity")[] {
   return (["claude", "codex", "antigravity"] as const).filter(
     (host) => modelRoles[host] !== undefined,
@@ -1313,9 +1336,9 @@ function configuredHosts(
 
 function mergeExplicitModelRoles(
   document: unknown,
-  persisted: ProjectConfigV1_3["modelRoles"],
-  resolved: ProjectConfigV1_3["modelRoles"],
-): ProjectConfigV1_3["modelRoles"] {
+  persisted: ProjectConfigV1_4["modelRoles"],
+  resolved: ProjectConfigV1_4["modelRoles"],
+): ProjectConfigV1_4["modelRoles"] {
   const supplied =
     isRecord(document) && isRecord(document.modelRoles)
       ? document.modelRoles

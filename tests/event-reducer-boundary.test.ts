@@ -72,8 +72,8 @@ it("snapshots a closed deeply frozen reducer registry without retaining source m
 
 function draft(): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: "event-01",
     eventType: "operation",
     occurredAt: "2026-08-10T00:01:00Z",

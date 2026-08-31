@@ -1,7 +1,6 @@
 import {
   isAcceptanceCriterionId,
-  type AgentOutputV1,
-  type AgentOutputV1_2,
+  type ReadableAgentOutput,
 } from "@kratos/contracts";
 
 /**
@@ -57,9 +56,10 @@ export function describeAgentOutputRefusal(reason: AgentOutputRefusal): string {
  * assume both the shape and the internal agreement of what it reads.
  */
 export function checkAgentOutput(
-  output: AgentOutputV1 | AgentOutputV1_2,
+  output: ReadableAgentOutput,
 ): AgentOutputRefusal | null {
-  const changed = output.changedFiles.map(({ ref }) => ref);
+  const changed: string[] = [];
+  for (const file of output.changedFiles) changed.push(file.ref);
   if (new Set(changed).size !== changed.length) {
     return "duplicate-changed-file";
   }
@@ -67,66 +67,74 @@ export function checkAgentOutput(
   // are the source and tests it touched. A path claimed as both erases exactly
   // the distinction the scope check reads.
   const artifacts = new Set(output.artifacts);
-  if (changed.some((ref) => artifacts.has(ref))) {
-    return "artifact-also-changed";
+  for (const ref of changed) {
+    if (artifacts.has(ref)) return "artifact-also-changed";
   }
 
   const questions = output.outcome.questions;
-  if (
-    new Set(questions.map(({ questionId }) => questionId)).size !==
-    questions.length
-  ) {
-    return "duplicate-question-id";
-  }
+  const questionIds = new Set<string>();
   for (const question of questions) {
-    const options = question.options.map(({ optionId }) => optionId);
-    if (new Set(options).size !== options.length) {
-      return "duplicate-option-id";
+    if (questionIds.has(question.questionId)) return "duplicate-question-id";
+    questionIds.add(question.questionId);
+    const optionIds = new Set<string>();
+    for (const option of question.options) {
+      if (optionIds.has(option.optionId)) return "duplicate-option-id";
+      optionIds.add(option.optionId);
     }
   }
 
   return checkPayload(output);
 }
 
-function checkPayload(
-  output: AgentOutputV1 | AgentOutputV1_2,
-): AgentOutputRefusal | null {
+function checkPayload(output: ReadableAgentOutput): AgentOutputRefusal | null {
   if (output.agent === "plan") {
     const steps = output.payload.steps;
-    const ids = steps.map(({ stepId }) => stepId);
+    const ids: string[] = [];
+    for (const step of steps) ids.push(step.stepId);
     if (new Set(ids).size !== ids.length) return "duplicate-step-id";
     const known = new Set(ids);
-    if (steps.some(({ dependsOn }) => dependsOn.some((id) => !known.has(id)))) {
-      return "unknown-step-dependency";
+    for (const step of steps) {
+      for (const dependency of step.dependsOn) {
+        if (!known.has(dependency)) return "unknown-step-dependency";
+      }
     }
     return null;
   }
   if (
     output.agent === "review" &&
     output.payload.verdict === "pass" &&
-    output.payload.findings.some(({ severity }) => severity === "high")
+    output.payload.findings.some(
+      (finding: { readonly severity: string }) => finding.severity === "high",
+    )
   ) {
     return "verdict-contradicts-findings";
   }
   if (
     output.agent === "acceptance" &&
     output.payload.criteria.some(
-      ({ criterionId }) => !isAcceptanceCriterionId(criterionId),
+      (criterion: { readonly criterionId: string }) =>
+        !isAcceptanceCriterionId(criterion.criterionId),
     )
   ) {
     return "invalid-criterion-id";
   }
   if (
     output.agent === "acceptance" &&
-    new Set(output.payload.criteria.map(({ criterionId }) => criterionId))
-      .size !== output.payload.criteria.length
+    new Set(
+      output.payload.criteria.map(
+        (criterion: { readonly criterionId: string }) => criterion.criterionId,
+      ),
+    ).size !== output.payload.criteria.length
   ) {
     return "duplicate-criterion-id";
   }
   if (
     output.agent === "acceptance" &&
     output.payload.verdict === "accepted" &&
-    output.payload.criteria.some(({ outcome }) => outcome !== "passed")
+    output.payload.criteria.some(
+      (criterion: { readonly outcome: string }) =>
+        criterion.outcome !== "passed",
+    )
   ) {
     return "verdict-contradicts-criteria";
   }

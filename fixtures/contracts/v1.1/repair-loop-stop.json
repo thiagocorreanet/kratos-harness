@@ -1,0 +1,12 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "stopId": "repair-stop-01",
+  "runId": "run-01",
+  "criterionId": "AC-1.1.1",
+  "attempt": 3,
+  "attemptCeiling": 3,
+  "classification": "code",
+  "diagnosis": "The implementation still violates the criterion.",
+  "recordedAt": "2026-08-30T00:03:00Z"
+}

@@ -2,13 +2,16 @@ import manifest from "../../../../contracts/catalogs/contract-families.v1.json" 
 import adapterMessageSchema from "../../../../../schemas/host/adapter-message.v1.schema.json" with { type: "json" };
 import adapterMessageV1_1Schema from "../../../../../schemas/host/adapter-message.v1.1.schema.json" with { type: "json" };
 import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schema.json" with { type: "json" };
+import agentOutputV1_1Schema from "../../../../../schemas/host/agent-output.v1.1.schema.json" with { type: "json" };
 import agentOutputV1_2Schema from "../../../../../schemas/host/agent-output.v1.2.schema.json" with { type: "json" };
+import agentOutputV1_3Schema from "../../../../../schemas/host/agent-output.v1.3.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import hookObservationSchema from "../../../../../schemas/host/hook-observation.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
 import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1.schema.json" with { type: "json" };
 import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2.schema.json" with { type: "json" };
 import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3.schema.json" with { type: "json" };
+import initAnswersV1_4Schema from "../../../../../schemas/host/init-answers.v1.4.schema.json" with { type: "json" };
 import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
@@ -16,6 +19,7 @@ import operationMessageSchema from "../../../../../schemas/host/operation-messag
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
 import phaseHandoffV1_2Schema from "../../../../../schemas/host/phase-handoff.v1.2.schema.json" with { type: "json" };
+import phaseHandoffV1_3Schema from "../../../../../schemas/host/phase-handoff.v1.3.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
 import acceptanceCriteriaSnapshotSchema from "../../../../../schemas/state/acceptance-criteria-snapshot.v1.schema.json" with { type: "json" };
@@ -25,6 +29,9 @@ import beatSchema from "../../../../../schemas/state/beat.v1.schema.json" with {
 import curatedMemorySchema from "../../../../../schemas/state/curated-memory.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
+import eventV1_2Schema from "../../../../../schemas/state/event.v1.2.schema.json" with { type: "json" };
+import eventV1_3Schema from "../../../../../schemas/state/event.v1.3.schema.json" with { type: "json" };
+import eventV1_4Schema from "../../../../../schemas/state/event.v1.4.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
 import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
@@ -40,7 +47,13 @@ import projectConfigSchema from "../../../../../schemas/state/project-config.v1.
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
 import projectConfigV1_3Schema from "../../../../../schemas/state/project-config.v1.3.schema.json" with { type: "json" };
+import projectConfigV1_4Schema from "../../../../../schemas/state/project-config.v1.4.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
+import repairLoopStopSchema from "../../../../../schemas/state/repair-loop-stop.v1.schema.json" with { type: "json" };
+import repairLoopStopV1_1Schema from "../../../../../schemas/state/repair-loop-stop.v1.1.schema.json" with { type: "json" };
+import repairResolutionSchema from "../../../../../schemas/state/repair-resolution.v1.schema.json" with { type: "json" };
+import repairResolutionV1_1Schema from "../../../../../schemas/state/repair-resolution.v1.1.schema.json" with { type: "json" };
+import repairRestartSchema from "../../../../../schemas/state/repair-restart.v1.schema.json" with { type: "json" };
 import runUsageSchema from "../../../../../schemas/state/run-usage.v1.schema.json" with { type: "json" };
 import sessionTelemetrySchema from "../../../../../schemas/state/session-telemetry.v1.schema.json" with { type: "json" };
 import snapshotSchema from "../../../../../schemas/state/snapshot.v1.schema.json" with { type: "json" };
@@ -88,9 +101,23 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
     {
       id: "host.agent-output",
       family: "host",
+      version: "1.1.0",
+      path: "schemas/host/agent-output.v1.1.schema.json",
+      schema: agentOutputV1_1Schema,
+    },
+    {
+      id: "host.agent-output",
+      family: "host",
       version: "1.2.0",
       path: "schemas/host/agent-output.v1.2.schema.json",
       schema: agentOutputV1_2Schema,
+    },
+    {
+      id: "host.agent-output",
+      family: "host",
+      version: "1.3.0",
+      path: "schemas/host/agent-output.v1.3.schema.json",
+      schema: agentOutputV1_3Schema,
     },
     {
       id: "host.gap-proposal",
@@ -135,6 +162,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: initAnswersV1_3Schema,
     },
     {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/init-answers.v1.4.schema.json",
+      schema: initAnswersV1_4Schema,
+    },
+    {
       id: "host.memory-capture",
       family: "host",
       version: "1.2.0",
@@ -175,6 +209,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.2.0",
       path: "schemas/host/phase-handoff.v1.2.schema.json",
       schema: phaseHandoffV1_2Schema,
+    },
+    {
+      id: "host.phase-handoff",
+      family: "host",
+      version: "1.3.0",
+      path: "schemas/host/phase-handoff.v1.3.schema.json",
+      schema: phaseHandoffV1_3Schema,
     },
     {
       id: "host.pre-tool-use",
@@ -231,6 +272,27 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.1.0",
       path: "schemas/state/event.v1.1.schema.json",
       schema: eventV1_1Schema,
+    },
+    {
+      id: "state.event",
+      family: "state",
+      version: "1.2.0",
+      path: "schemas/state/event.v1.2.schema.json",
+      schema: eventV1_2Schema,
+    },
+    {
+      id: "state.event",
+      family: "state",
+      version: "1.3.0",
+      path: "schemas/state/event.v1.3.schema.json",
+      schema: eventV1_3Schema,
+    },
+    {
+      id: "state.event",
+      family: "state",
+      version: "1.4.0",
+      path: "schemas/state/event.v1.4.schema.json",
+      schema: eventV1_4Schema,
     },
     {
       id: "state.evidence",
@@ -338,11 +400,53 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: projectConfigV1_3Schema,
     },
     {
+      id: "state.project-config",
+      family: "state",
+      version: "1.4.0",
+      path: "schemas/state/project-config.v1.4.schema.json",
+      schema: projectConfigV1_4Schema,
+    },
+    {
       id: "state.requirement-discovery",
       family: "state",
       version: "1.0.0",
       path: "schemas/state/requirement-discovery.v1.schema.json",
       schema: requirementDiscoverySchema,
+    },
+    {
+      id: "state.repair-loop-stop",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/repair-loop-stop.v1.schema.json",
+      schema: repairLoopStopSchema,
+    },
+    {
+      id: "state.repair-loop-stop",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/repair-loop-stop.v1.1.schema.json",
+      schema: repairLoopStopV1_1Schema,
+    },
+    {
+      id: "state.repair-resolution",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/repair-resolution.v1.schema.json",
+      schema: repairResolutionSchema,
+    },
+    {
+      id: "state.repair-resolution",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/repair-resolution.v1.1.schema.json",
+      schema: repairResolutionV1_1Schema,
+    },
+    {
+      id: "state.repair-restart",
+      family: "state",
+      version: "1.0.0",
+      path: "schemas/state/repair-restart.v1.schema.json",
+      schema: repairRestartSchema,
     },
     {
       id: "state.run-usage",
@@ -396,7 +500,9 @@ function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
         ? "1.1"
         : entry.version === "1.2.0"
           ? "1.2"
-          : "1.3";
+          : entry.version === "1.4.0"
+            ? "1.4"
+            : "1.3";
   return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
 }
 

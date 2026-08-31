@@ -9,4 +9,5 @@ export {
   type GateId,
   type GateMode,
   type LanguageObservationMetadata,
+  type RepeatedRejectionGateState,
 } from "./model.js";

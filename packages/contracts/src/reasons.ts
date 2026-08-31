@@ -1,4 +1,4 @@
-import reasonCatalog from "../catalogs/reason-codes.v1.10.json" with { type: "json" };
+import reasonCatalog from "../catalogs/reason-codes.v1.11.json" with { type: "json" };
 
 /** One catalog entry: the policy a result carrying this code must satisfy. */
 export interface ReasonPolicy {

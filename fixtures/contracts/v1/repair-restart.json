@@ -1,0 +1,12 @@
+{
+  "contractVersion": "1.0.0",
+  "stateContract": "1.0.0",
+  "ticketId": "restart-01",
+  "sourceRunId": "run-01",
+  "nextRunId": "run-02",
+  "resolutionRef": ".brain/runs/run-01/resolutions/resolution-01.json",
+  "resolutionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "retiredCriterionIds": ["AC-1.1.1"],
+  "startPhase": "spec",
+  "createdAt": "2026-08-30T00:04:00Z"
+}

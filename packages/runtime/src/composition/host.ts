@@ -22,6 +22,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import type { Observed } from "./init.js";
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeRunTokenCeiling } from "./workflow.js";
 import { readCandidates } from "./memory.js";
 
 export async function observeHostOperation(
@@ -134,7 +135,13 @@ async function observeHookContext(
     ports,
   );
   if (runId === null) return null;
-  const budget = await tokenBudget(feature, ports, registry);
+  const frozenBudget = await observeRunTokenCeiling(
+    feature,
+    runId,
+    ports,
+    registry,
+  );
+  if (frozenBudget.kind === "unreadable") return null;
   const usagePath = `.brain/02-features/${feature}/runs/${runId}/usage.json`;
   const usageEntry = await ports.durableFileSystem.inspect(usagePath);
   const usage = await stateRecord(
@@ -178,7 +185,7 @@ async function observeHookContext(
   return {
     feature,
     runId,
-    budget,
+    budget: frozenBudget.value,
     usage: usage ?? initialRunUsage(runId, hook.occurredAt),
     usageExpected: precondition(usageEntry),
     gates: gates ?? emptyGates(runId, hook.occurredAt),
@@ -225,31 +232,6 @@ async function firstLine(
     .split("\n")[0]
     ?.trim();
   return value === undefined || value.length === 0 ? null : value;
-}
-
-async function tokenBudget(
-  feature: string,
-  ports: RuntimePorts,
-  registry: SchemaRegistry,
-): Promise<number | null> {
-  const path = `.brain/02-features/${feature}/state.json`;
-  const entry = await ports.durableFileSystem.inspect(path);
-  if (entry.kind !== "file") return null;
-  try {
-    const prepared = registry.validate({
-      id: "state.feature",
-      version: "1.0.0",
-      value: JSON.parse(
-        await ports.durableFileSystem.readText(path),
-      ) as unknown,
-      structuralReasonCode: "runtime.state_corrupt",
-    });
-    return prepared.kind === "valid"
-      ? (prepared.value.objective.budget?.tokens ?? null)
-      : null;
-  } catch {
-    return null;
-  }
 }
 
 type StateRecord<I extends "state.run-usage" | "state.gates"> =

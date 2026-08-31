@@ -1,4 +1,4 @@
-import type { AgentOutputV1, AgentOutputV1_2 } from "@kratos/contracts";
+import type { AgentOutputV1_2, ReadableAgentOutput } from "@kratos/contracts";
 
 import {
   checkAgentOutput,
@@ -16,9 +16,15 @@ import {
 import { resultFor, type Result } from "../result/index.js";
 import {
   decideRecordFact,
+  WORKFLOW_POLICY_VERSION,
   workflowReducerRegistry,
   type WorkflowDecision,
 } from "../workflow/index.js";
+import type { CurrentEventDraft } from "../events/index.js";
+import {
+  buildAcceptanceDecisionMetadata,
+  type RepairLoopDecision,
+} from "../repair-loop/index.js";
 
 import { observingCommand } from "./observed.js";
 import type { CommandObservation, CommandSpec, Decision } from "./spec.js";
@@ -93,12 +99,26 @@ function decideRecord(observation: Observation): Decision {
     return invalidOutput(observed.ref, describeAgentOutputRefusal(refusal));
   }
 
+  if (
+    observed.value.agent === "acceptance" &&
+    observation.workflow.kind === "present" &&
+    observation.workflow.state.operations.includes(
+      acceptanceOperation(observation.correlationId),
+    )
+  ) {
+    return settled("The acceptance verdict was already recorded.", [
+      outputPath(observation, "acceptance"),
+    ]);
+  }
   if (observed.value.agent !== phase) {
     return invalidOutput(
       observed.ref,
       `The ${observed.value.agent} agent addressed a run in the ${phase ?? "unselected"} phase.`,
     );
   }
+
+  const observedMemory =
+    "memory" in observed.value ? observed.value.memory : null;
 
   if (phase === "code" || phase === "review") {
     const assigned =
@@ -110,12 +130,12 @@ function decideRecord(observation: Observation): Decision {
       assigned === null ||
       current === null ||
       "kind" in current ||
-      !sameMemory(observed.value.memory, assigned) ||
-      !sameMemory(observed.value.memory, current)
+      !sameMemory(observedMemory, assigned) ||
+      !sameMemory(observedMemory, current)
     ) {
       return phaseContextStale(observed.ref);
     }
-  } else if (observed.value.memory !== null) {
+  } else if (observedMemory !== null) {
     return phaseContextStale(observed.ref);
   }
 
@@ -146,7 +166,7 @@ function decideRecord(observation: Observation): Decision {
       ]),
     );
     const change = compareCriteriaSnapshot({
-      phase,
+      phase: observed.value.agent,
       frozen: criteria.snapshot.declarations,
       current: criteria.currentDeclarations,
       latestOutcomes,
@@ -165,6 +185,7 @@ function decideRecord(observation: Observation): Decision {
     (candidate) => candidate.agent === observed.value.agent,
   );
   if (
+    observed.value.agent !== "acceptance" &&
     recorded !== undefined &&
     serialize(recorded) === serialize(observed.value)
   ) {
@@ -221,7 +242,7 @@ function decideRecord(observation: Observation): Decision {
 
 function recordAcceptance(
   observation: Observation,
-  output: Extract<AgentOutputV1_2, { readonly agent: "acceptance" }>,
+  output: Extract<ReadableAgentOutput, { readonly agent: "acceptance" }>,
   outputRef: string,
 ): Decision {
   const criteria = observation.acceptanceCriteria;
@@ -318,7 +339,37 @@ function recordAcceptance(
     const prepared = preparedById.get(criterionId);
     return prepared === undefined ? [] : [prepared];
   });
+  const repairDecision = criteria.repairLoopDecision;
+  if (repairDecision === null || repairDecision.kind === "refused") {
+    return invalidOutput(
+      outputRef,
+      repairDecision === null
+        ? "The acceptance repair-loop decision could not be prepared."
+        : describeRepairLoopRefusal(repairDecision),
+    );
+  }
+  const preparedStops = criteria.preparedRepairStops;
+  if (
+    (repairDecision.kind === "stopped" &&
+      (preparedStops.length !== repairDecision.stops.length ||
+        preparedStops.some(
+          ({ value }, index) =>
+            value.criterionId !== repairDecision.stops[index]?.criterionId ||
+            value.attempt !== repairDecision.stops[index].attempt,
+        ))) ||
+    (repairDecision.kind !== "stopped" && preparedStops.length !== 0)
+  ) {
+    return invalidOutput(
+      outputRef,
+      "The repair-loop stop artifacts could not be prepared.",
+    );
+  }
   const verdictEffects: Effect[] = preparedVerdicts.map(({ value, ref }) => ({
+    kind: "write_file" as const,
+    path: ref,
+    content: serializeValue(value),
+  }));
+  const stopEffects: Effect[] = preparedStops.map(({ value, ref }) => ({
     kind: "write_file" as const,
     path: ref,
     content: serializeValue(value),
@@ -334,15 +385,33 @@ function recordAcceptance(
         },
       ]
     : [];
-  const verdictRefs = preparedVerdicts.flatMap(({ ref, digest }) => [
-    ref,
-    artifactDigestRef(ref, digest),
-  ]);
-  return commit(
+  const verdictRefs =
+    repairDecision.kind === "stopped"
+      ? preparedVerdicts.map(({ ref, digest }) =>
+          artifactDigestRef(ref, digest),
+        )
+      : preparedVerdicts.flatMap(({ ref, digest }) => [
+          ref,
+          artifactDigestRef(ref, digest),
+        ]);
+  const stopRefs = preparedStops.map(({ ref }) => ref);
+  const artifactRefs = [
+    outputRef,
+    criteria.documentRef,
+    ...(snapshotNeedsWrite
+      ? repairDecision.kind === "stopped"
+        ? [artifactDigestRef(snapshotRef, snapshotDigest)]
+        : [snapshotRef, artifactDigestRef(snapshotRef, snapshotDigest)]
+      : []),
+    ...verdictRefs,
+    ...stopRefs,
+  ];
+  return commitAcceptance(
     observation,
     [
       ...snapshotEffects,
       ...verdictEffects,
+      ...stopEffects,
       {
         kind: "write_file",
         path: criteria.documentRef,
@@ -353,20 +422,135 @@ function recordAcceptance(
       },
       { kind: "write_file", path: outputRef, content: serialize(output) },
     ],
+    repairDecision,
+    preparedStops.map(({ value, ref, digest }) => ({
+      criterionId: value.criterionId,
+      artifactRef: ref,
+      artifactDigest: digest,
+    })),
     `Recorded acceptance verdicts for ${String(verdict.criteria.length)} criteria.`,
-    [
-      outputRef,
-      criteria.documentRef,
-      ...(snapshotNeedsWrite
-        ? [snapshotRef, artifactDigestRef(snapshotRef, snapshotDigest)]
-        : []),
-      ...verdictRefs,
-    ],
+    artifactRefs,
+    [...new Set(preparedVerdicts.map(({ value }) => value.evidenceRef))],
   );
+}
+
+function describeRepairLoopRefusal(
+  refusal: Extract<RepairLoopDecision, { readonly kind: "refused" }>,
+): string {
+  const subject =
+    refusal.criterionId === undefined
+      ? "the acceptance verdict"
+      : `acceptance criterion ${refusal.criterionId}`;
+  switch (refusal.reason) {
+    case "missing-fault":
+      return `A classification and diagnosis are required for ${subject}.`;
+    case "unexpected-fault":
+      return `A fault report is not required for ${subject}.`;
+    case "invalid-fault":
+      return `The fault report for ${subject} is invalid.`;
+    case "active-stop":
+      return `An active repair stop already exists for ${subject}.`;
+    case "duplicate-criterion":
+      return `The repair-loop input repeats ${subject}.`;
+    case "invalid-attempt":
+    case "invalid-ceiling":
+    case "invalid-criterion":
+      return `The repair-loop context is invalid for ${subject}.`;
+  }
 }
 
 function artifactDigestRef(ref: string, digest: string): string {
   return `${ref}#sha256=${digest}`;
+}
+
+function acceptanceOperation(correlationId: string): string {
+  return `sdd.acceptance.record:${correlationId}`;
+}
+
+function commitAcceptance(
+  observation: Observation,
+  effects: readonly Effect[],
+  repairDecision: Exclude<RepairLoopDecision, { readonly kind: "refused" }>,
+  stopBindings: readonly {
+    readonly criterionId: string;
+    readonly artifactRef: string;
+    readonly artifactDigest: string;
+  }[],
+  summary: string,
+  artifactRefs: readonly string[],
+  evidenceRefs: readonly string[],
+): Decision {
+  if (
+    observation.workflow.kind !== "present" ||
+    observation.workflow.state.currentStep !== "acceptance" ||
+    observation.workflow.state.policyVersion !== WORKFLOW_POLICY_VERSION ||
+    observation.phaseAssignment.kind !== "resolved" ||
+    observation.phaseExecution === null
+  ) {
+    return decisionOf(
+      resultFor("trail.uso", {
+        why: ["The acceptance verdict cannot be bound to the active run."],
+        evidence: [],
+      }),
+    );
+  }
+  const execution = observation.phaseExecution;
+  const event: CurrentEventDraft = {
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
+    eventId: observation.eventId,
+    eventType: "decision",
+    occurredAt: observation.occurredAt,
+    operation: acceptanceOperation(observation.correlationId),
+    policyVersion: WORKFLOW_POLICY_VERSION,
+    priorRevision: observation.workflow.state.revision,
+    resultingRevision: observation.workflow.state.revision + 1,
+    reasonCode:
+      repairDecision.kind === "passed"
+        ? "run.acceptance.passed"
+        : repairDecision.kind === "repair"
+          ? "run.acceptance.repair_required"
+          : "run.stop_loss.repeated_rejection",
+    effect: "state-and-artifact",
+    artifactRefs: [...artifactRefs],
+    evidenceRefs: [...evidenceRefs],
+    observedIdentity:
+      execution.provenance === "host-reported"
+        ? {
+            host: observation.phaseAssignment.value.host,
+            model: execution.model,
+            effort: execution.effort,
+          }
+        : {
+            host: observation.phaseAssignment.value.host,
+            model: null,
+            effort: null,
+          },
+    acceptanceDecision: buildAcceptanceDecisionMetadata(
+      repairDecision,
+      stopBindings,
+    ),
+  };
+  return {
+    result: resultFor("trail.ok", {
+      summary,
+      stateChanged: true,
+      evidence: [
+        ...artifactRefs.map((ref) => ({ kind: "artifact" as const, ref })),
+        { kind: "event" as const, ref: `${runRoot(observation)}/events.jsonl` },
+      ],
+    }),
+    plan: planOf(...effects, {
+      kind: "append_event",
+      feature: observation.configuration.feature,
+      runId: observation.configuration.runId,
+      event,
+    }),
+    humanStdout: null,
+    payload: null,
+    eventReducers: workflowReducerRegistry(observation.configuration),
+    revalidatePhaseAssignmentDigest: execution.assignmentDigest,
+  };
 }
 
 /**
@@ -401,7 +585,7 @@ function refuseReply(
  * Persisted blocks are written exactly as validated, so reading one back
  * through the same contract yields the value the decision saw.
  */
-function serialize(value: AgentOutputV1 | AgentOutputV1_2): string {
+function serialize(value: ReadableAgentOutput): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 

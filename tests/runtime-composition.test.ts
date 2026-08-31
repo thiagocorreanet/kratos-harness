@@ -33,8 +33,8 @@ import { describe, expect, it, vi } from "vitest";
 
 function eventDraft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}`,
     eventType: "operation",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -591,6 +591,32 @@ describe("effect plan application", () => {
       );
     }
     expect(storage.calls()).toEqual([]);
+  });
+
+  it("accepts current 1.4 event drafts in managed append plans", async () => {
+    const { storage, ports } = fakeRuntime();
+    const currentEvent = {
+      ...eventDraft(1),
+      contractVersion: "1.4.0" as const,
+      stateContract: "1.4.0" as const,
+    };
+
+    await applyPlan(
+      planOf({
+        kind: "append_event",
+        feature: "sample-feature",
+        runId: "run-01",
+        event: currentEvent,
+      }),
+      ports,
+      { rootMode: "existing", eventReducers },
+    );
+
+    expect(
+      storage.snapshot().files[
+        ".brain/02-features/sample-feature/runs/run-01/events.jsonl"
+      ],
+    ).toContain('"stateContract":"1.4.0"');
   });
 
   it("emits nothing when publication does not commit", async () => {

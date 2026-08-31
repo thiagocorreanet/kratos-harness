@@ -1,4 +1,4 @@
-import type { EventV1, EventV1_1, LockLeaseV1 } from "@kratos/contracts";
+import type { EventV1, EventV1_2, LockLeaseV1 } from "@kratos/contracts";
 
 import {
   sealEvent,
@@ -30,7 +30,7 @@ export interface PrepareLeaseTransitionInput {
 }
 
 export interface PreparedLeaseTransition {
-  readonly event: EventV1_1;
+  readonly event: EventV1_2;
   readonly lease: LockLeaseV1;
   readonly leaseText: string;
   readonly eventsText: string;
@@ -216,8 +216,8 @@ export function prepareLeaseTransition(
   const digest = services.digests.sha256(leaseText);
   const fact = LOCK_EVENT_FACTS[input.action];
   const draft: CurrentEventDraft = {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: input.eventId,
     eventType: fact.eventType,
     occurredAt: input.occurredAt,
@@ -231,7 +231,7 @@ export function prepareLeaseTransition(
     evidenceRefs: [],
     observedIdentity: { ...input.observedIdentity, effort: null },
   };
-  let sealed: EventV1_1;
+  let sealed: EventV1_2;
   try {
     sealed = sealEvent(draft, prior.cursor, services);
   } catch {
