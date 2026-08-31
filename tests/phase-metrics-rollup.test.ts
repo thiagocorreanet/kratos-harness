@@ -213,8 +213,8 @@ async function result(
 function acceptedSpecEventBytes(run: Subject, occurredAt: string): string {
   const event = sealEvent(
     {
-      contractVersion: "1.1.0",
-      stateContract: "1.1.0",
+      contractVersion: "1.2.0",
+      stateContract: "1.2.0",
       eventId: `event-checkpointed-${occurredAt}`,
       eventType: "transition",
       occurredAt,
@@ -226,6 +226,7 @@ function acceptedSpecEventBytes(run: Subject, occurredAt: string): string {
       effect: "state",
       artifactRefs: [".brain/02-features/feature-b/01-design.md"],
       evidenceRefs: [".brain/evidence/spec.json"],
+      gateFailures: [],
       observedIdentity: {
         host: "codex",
         model: "planner-canonical",
@@ -431,8 +432,8 @@ describe("metrics refresh", () => {
     const run = subject({ [LOG]: renderPhaseMeasurementLog([record]) });
     const accepted = sealEvent(
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "event-accepted",
         eventType: "transition",
         occurredAt: "2026-08-30T12:03:00.000Z",
@@ -444,6 +445,7 @@ describe("metrics refresh", () => {
         effect: "state",
         artifactRefs: [".brain/02-features/feature-b/code-summary.md"],
         evidenceRefs: [".brain/evidence/code.json"],
+        gateFailures: [],
         observedIdentity: {
           host: "codex",
           model: "codex-implementation",
@@ -534,8 +536,8 @@ describe("metrics refresh", () => {
     });
     const accepted = sealEvent(
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "event-checkpointed-spec",
         eventType: "transition",
         occurredAt: "2026-08-30T12:04:45.000Z",
@@ -547,6 +549,7 @@ describe("metrics refresh", () => {
         effect: "state",
         artifactRefs: [".brain/02-features/feature-b/01-design.md"],
         evidenceRefs: [".brain/evidence/spec.json"],
+        gateFailures: [],
         observedIdentity: {
           host: "codex",
           model: "planner-canonical",

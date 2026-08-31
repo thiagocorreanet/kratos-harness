@@ -19,12 +19,21 @@ runtime. The active contract changes only after a verified commit.
 
 ### Project-configuration replacement
 
-A `state.project-config@1.0.0`, `1.1.0`, or `1.2.0` project returns
+A `state.project-config@1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` project returns
 `profile.config_migration_required` until it is explicitly upgraded.
 `kratos migrate config [--answers PATH]` previews its replacement with
-`state.project-config@1.3.0`. The `1.0.0` configuration does not record enabled
+`state.project-config@1.4.0`. The `1.0.0` configuration does not record enabled
 hosts, so the answers must confirm them; `.claude`, `.codex`, prompts,
 conversation, and agent output are observations, not migration authority.
+
+The adjacent `1.3.0` to `1.4.0` step changes only the configuration and state
+contract constants and adds `gateModes: {}`. It preserves `policyMode`, language
+policy, managed state, model roles, project profile, and every historical
+artifact. Older sources follow the declared upgrade chain through `1.3.0` and
+then this step. Resolving the legacy global `policyMode` and resolving the
+migrated empty override map yield byte-identical canonical gate decisions for
+equal facts: `standard` still warns and `strict` still blocks, with the same
+failure order, primary, reasons, evidence, and criteria.
 
 The preview is read-only. It renders every resolved `planner`, `implementer`,
 and `judge` assignment, including adapter-default markers, along with source,
@@ -49,9 +58,15 @@ One managed transaction replaces only `.brain/config.json` and creates the
 authorization, exact old-byte backup, rollback manifest, v1.1 receipt, and
 verification record beneath `.brain/migrations/<migration-id>/`. Event streams,
 snapshots, feature documents, approvals, evidence, and agent output retain their
-exact bytes. Historical `state.event@1.0.0` records remain in the same hash
-chain as later `state.event@1.1.0` records; migration never retrofits model
-metadata into old history.
+exact bytes. Historical `state.event@1.0.0` and `state.event@1.1.0` records
+remain in the same hash chain as new `state.event@1.2.0` records; migration
+never retrofits model metadata or gate failure modes into old history.
+
+Approval challenges remain compatible with `gateModes: {}` because the
+authorized gate inherits the same effective mode previously supplied by the
+global default. A later override change invalidates only an approval bound to
+that gate; an unrelated override does not change the challenge. Hosts and
+prompts cannot authorize a migration or override this binding.
 
 `kratos migrate rollback ID` validates the current destination, receipt,
 verification, rollback manifest, and backup digest before restoring the exact
@@ -107,6 +122,13 @@ explicit lossless mapping is reviewed and applied.
 divergence. `kratos repair` without `--apply` produces a closed-catalog repair
 plan. Application requires an authorization bound to the exact plan digest;
 changed preconditions invalidate it. Corrupted originals are preserved.
+
+Replay validates each event against its own revision. For current events it
+uses the effective `mode` stored on every `gateFailures` entry instead of
+re-resolving history from today's project policy. Duplicate or misordered
+failures, incorrect priority or reason pairing, and hash drift fail closed as
+corrupt state; recovery never rewrites a historical event to make it fit the
+current `gateModes` map.
 
 Rollback validates the receipt, backup digest, current target, and unchanged
 files. It refuses rather than deleting the only known-good copy.

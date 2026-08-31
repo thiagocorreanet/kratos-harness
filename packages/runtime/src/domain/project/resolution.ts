@@ -1,4 +1,4 @@
-import type { ProjectConfigV1_3 } from "@kratos/contracts";
+import type { ProjectConfigV1_4 } from "@kratos/contracts";
 
 interface Rooted {
   /** Internal absolute path. It must never be copied to public output. */
@@ -8,7 +8,7 @@ interface Rooted {
 export type ProjectResolution =
   | (Rooted & {
       readonly kind: "initialized";
-      readonly configuration: ProjectConfigV1_3;
+      readonly configuration: ProjectConfigV1_4;
     })
   | (Rooted & { readonly kind: "root-only" })
   | (Rooted & {

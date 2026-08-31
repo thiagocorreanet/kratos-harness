@@ -102,6 +102,64 @@ function contractAjv(): Ajv2020 {
 }
 
 describe("versioned state and host schemas", () => {
+  it("requires a closed partial gate-mode override map in project config v1.4", async () => {
+    const schema = await readJson(
+      join(schemaRoot, "state/project-config.v1.4.schema.json"),
+    );
+    const validate = contractAjv().compile(schema);
+    const project = {
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      pluginVersion: "0.0.0-development",
+      hostContract: "1.3.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: {} },
+      projectProfile: {
+        commands: {
+          test: { status: "unresolved" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+    };
+
+    expect(
+      validate({ ...project, gateModes: { "gaps-closed": "shadow" } }),
+    ).toBe(true);
+    expect(validate({ ...project, gateModes: { unknown: "shadow" } })).toBe(
+      false,
+    );
+    expect(
+      validate({ ...project, gateModes: { "gaps-closed": "observe" } }),
+    ).toBe(false);
+    expect(validate({ ...project, gateModes: undefined })).toBe(false);
+  });
+
   it("validates the closed v1.3 project profile leaves and their limits", async () => {
     const [initSchema, projectSchema] = await Promise.all([
       readJson(join(schemaRoot, "host/init-answers.v1.3.schema.json")),

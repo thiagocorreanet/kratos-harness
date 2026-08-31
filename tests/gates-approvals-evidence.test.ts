@@ -10,7 +10,12 @@ import {
   recordEvidence,
   verifyEvidence,
 } from "@kratos/runtime/domain/evidence";
-import { evaluateGates } from "@kratos/runtime/domain/gates";
+import {
+  approvalModeFor,
+  evaluateGates,
+  resolveGateModes,
+  type GateMode,
+} from "@kratos/runtime/domain/gates";
 import { describe, expect, it } from "vitest";
 
 const digests = {
@@ -84,11 +89,62 @@ describe("content-bound approvals", () => {
       ),
     ).toEqual({ kind: "replayed" });
   });
+
+  it("binds a spec challenge only to the spec-approved policy mode", () => {
+    const inherited = resolveGateModes("standard", {});
+    const unrelatedOverride = resolveGateModes("standard", {
+      "gaps-closed": "shadow",
+    });
+    const authorizedOverride = resolveGateModes("standard", {
+      "spec-approved": "enforce",
+    });
+    const challengeFor = (
+      gateModes: ReturnType<typeof resolveGateModes>,
+    ): string =>
+      approvalChallenge(
+        {
+          ...binding,
+          policyMode: approvalModeFor("spec", "warn", gateModes),
+        },
+        digests,
+      );
+
+    expect(challengeFor(unrelatedOverride)).toBe(challengeFor(inherited));
+    expect(challengeFor(authorizedOverride)).not.toBe(challengeFor(inherited));
+  });
+
+  it("uses the authorized gate mode and project default for other targets", () => {
+    const gateModes = resolveGateModes("standard", {
+      "final-acceptance": "shadow",
+      "partition-approved": "enforce",
+    });
+
+    expect(approvalModeFor("final-acceptance", "warn", gateModes)).toBe(
+      "shadow",
+    );
+    expect(approvalModeFor("partition-approved", "warn", gateModes)).toBe(
+      "enforce",
+    );
+    expect(approvalModeFor("custom-review", "warn", gateModes)).toBe("warn");
+  });
 });
 
 describe("deterministic gates", () => {
+  function gateModes(mode: GateMode) {
+    return resolveGateModes("standard", {
+      "context-readable": mode,
+      "stop-loss": mode,
+      "prd-present": mode,
+      "spec-approved": mode,
+      "gaps-closed": mode,
+      "partition-approved": mode,
+      "acceptance-criteria": mode,
+      "final-acceptance": mode,
+    });
+  }
+
   const context = {
-    mode: "enforce" as const,
+    gateModes: gateModes("enforce"),
     phase: "acceptance" as const,
     contextReadable: true,
     stopLoss: { tripped: false, exhausted: false },
@@ -114,14 +170,40 @@ describe("deterministic gates", () => {
     expect(decision.primary?.reasonCode).toBe("gate.aprovacao_spec");
   });
 
+  it("uses the enforcing failure as primary in a mixed decision", () => {
+    const mixed = evaluateGates({
+      ...context,
+      phase: "plan",
+      gateModes: resolveGateModes("standard", {
+        "spec-approved": "enforce",
+        "gaps-closed": "shadow",
+      }),
+      partitionRequired: false,
+    });
+
+    expect(mixed.outcome).toBe("block");
+    expect(mixed.primary?.gateId).toBe("spec-approved");
+    expect(mixed.failures.map(({ mode }) => mode)).toEqual([
+      "enforce",
+      "shadow",
+    ]);
+  });
+
   it("keeps the same findings in warn and shadow modes", () => {
     const enforce = evaluateGates(context);
-    const warn = evaluateGates({ ...context, mode: "warn" });
-    const shadow = evaluateGates({ ...context, mode: "shadow" });
+    const warn = evaluateGates({ ...context, gateModes: gateModes("warn") });
+    const shadow = evaluateGates({
+      ...context,
+      gateModes: gateModes("shadow"),
+    });
     expect(warn.outcome).toBe("warn");
     expect(shadow.outcome).toBe("pass");
-    expect(warn.failures).toEqual(enforce.failures);
-    expect(shadow.failures).toEqual(enforce.failures);
+    expect(warn.failures.map(({ gateId }) => gateId)).toEqual(
+      enforce.failures.map(({ gateId }) => gateId),
+    );
+    expect(shadow.failures.map(({ gateId }) => gateId)).toEqual(
+      enforce.failures.map(({ gateId }) => gateId),
+    );
   });
 
   it("reports partial acceptance in task-document order", () => {

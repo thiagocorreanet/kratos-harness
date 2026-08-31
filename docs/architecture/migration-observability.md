@@ -16,10 +16,11 @@ versions are never guessed or skipped.
 
 ## Project-configuration replacement
 
-`kratos migrate config` explicitly replaces a `1.0.0`, `1.1.0`, or `1.2.0`
-project configuration with current `1.3.0` state. The declared chain adds
-canonical model roles, granular language policy, and the typed project profile
-without skipping an intermediate revision. A `1.0.0` configuration does not
+`kratos migrate config` explicitly replaces a `1.0.0`, `1.1.0`, `1.2.0`, or
+`1.3.0` project configuration with current `1.4.0` state. The declared chain
+adds canonical model roles, granular language policy, the typed project
+profile, and finally the empty `gateModes` override map without skipping an
+intermediate revision. A `1.0.0` configuration does not
 record enabled hosts, so an answers document must confirm them; `.claude`,
 `.codex`, and conversational context are observations only and never grant
 authority. Role maps use the same resolution as initialization: explicit
@@ -35,7 +36,9 @@ and the exact six-file write list with one SHA-256 per final content byte
 sequence, without mutating the project. Control-bearing profile values are
 visibly encoded, and values rejected by the public terminal-text policy use a
 chunked UTF-16 hexadecimal representation. It also prints the complete apply
-command.
+command. A `1.3.0` source already carries the required model and profile
+authority, so its adjacent migration requires no answers document and adds
+only `gateModes: {}` plus the current configuration/state version constants.
 
 Apply requires `--yes`, the caller-carried `--plan-digest`, and the preview's
 `--plan-time`; `--yes` alone grants no authority. Re-observation rebuilds all
@@ -53,7 +56,7 @@ events, snapshots, documents, approvals, and evidence are not rewritten. A
 current configuration is a no-op.
 
 This boundary is security-sensitive: ordinary operations return
-`profile.config_migration_required` while a pre-`1.3.0` configuration is
+`profile.config_migration_required` while a pre-`1.4.0` configuration is
 active; prompts, host files, and conversation cannot confirm enabled hosts or
 profile values; and implementer/judge canonical equality is a strict refusal
 rather than a warning. Applied role assignments are complete canonical

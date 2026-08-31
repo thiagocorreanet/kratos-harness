@@ -1,19 +1,41 @@
 import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { build } from "esbuild";
 
 const root = dirname(
   fileURLToPath(new URL("../package.json", import.meta.url)),
 );
-const source = await readFile(
-  join(root, "packages/runtime/src/domain/gates/evaluate.ts"),
-  "utf8",
-);
-const javascript = stripTypeScriptTypes(source, { mode: "transform" });
+const gatesRoot = join(root, "packages/runtime/src/domain/gates");
+const evaluatePath = join(gatesRoot, "evaluate.ts");
+const policyPath = join(gatesRoot, "policy.ts");
+const [evaluateSource, policySource] = await Promise.all([
+  readFile(evaluatePath, "utf8"),
+  readFile(policyPath, "utf8"),
+]);
+
+const GATE_IDS = [
+  "context-readable",
+  "stop-loss",
+  "prd-present",
+  "spec-approved",
+  "gaps-closed",
+  "partition-approved",
+  "acceptance-criteria",
+  "final-acceptance",
+];
+
+function gateModes(mode, overrides = {}) {
+  return Object.freeze(
+    Object.fromEntries(
+      GATE_IDS.map((gateId) => [gateId, overrides[gateId] ?? mode]),
+    ),
+  );
+}
 
 const base = {
-  mode: "enforce",
+  gateModes: gateModes("enforce", { "gaps-closed": "shadow" }),
   phase: "acceptance",
   contextReadable: true,
   stopLoss: { tripped: false, exhausted: false },
@@ -30,25 +52,64 @@ const scenarios = [
   base,
   {
     ...base,
-    mode: "shadow",
+    gateModes: gateModes("shadow"),
     phase: "prd",
-    approvals: [],
-    openGaps: 0,
+    openGaps: 1,
     finalAcceptance: true,
   },
   {
     ...base,
-    mode: "warn",
+    gateModes: gateModes("warn"),
     phase: "prd",
-    approvals: [],
+    openGaps: 1,
+    finalAcceptance: true,
+  },
+  {
+    ...base,
+    gateModes: gateModes("enforce"),
+    phase: "prd",
     openGaps: 0,
     finalAcceptance: true,
   },
 ];
 
-async function load(code, name) {
+async function bundle(sources) {
+  const result = await build({
+    entryPoints: [evaluatePath],
+    bundle: true,
+    format: "esm",
+    logLevel: "silent",
+    platform: "node",
+    target: "node24",
+    write: false,
+    plugins: [
+      {
+        name: "mutation-sources",
+        setup(context) {
+          context.onLoad({ filter: /.*/ }, (args) => {
+            if (args.path === evaluatePath) {
+              return { contents: sources.evaluate, loader: "ts" };
+            }
+            if (args.path === policyPath) {
+              return { contents: sources.policy, loader: "ts" };
+            }
+            return undefined;
+          });
+        },
+      },
+    ],
+  });
+  const output = result.outputFiles[0];
+  if (output === undefined || result.outputFiles.length !== 1) {
+    throw new Error("Mutation bundle must produce exactly one module");
+  }
+  return output.text;
+}
+
+async function load(sources, name) {
+  const javascript = await bundle(sources);
   return import(
-    `data:text/javascript;base64,${Buffer.from(`${code}\n// ${name}`).toString("base64")}`
+    `data:text/javascript;base64,${Buffer.from(`${javascript}\n// ${name}`).toString("base64")}`
   );
 }
 
@@ -56,19 +117,51 @@ function observations(evaluate) {
   return scenarios.map((scenario) => evaluate(scenario));
 }
 
-const original = await load(javascript, "original");
+function replaceAnchor(source, name, before, after) {
+  const first = source.indexOf(before);
+  if (first === -1) throw new Error(`Mutation anchor ${name} drifted`);
+  if (source.indexOf(before, first + before.length) !== -1) {
+    throw new Error(`Mutation anchor ${name} is ambiguous`);
+  }
+  return source.replace(before, after);
+}
+
+const originalSources = { evaluate: evaluateSource, policy: policySource };
+const original = await load(originalSources, "original");
 const expected = JSON.stringify(observations(original.evaluateGates));
 const mutations = [
-  ["enforce-mode", 'context.mode === "enforce"', 'context.mode === "shadow"'],
-  ["open-gaps", "context.openGaps > 0", "context.openGaps < 0"],
-  ["empty-failures", "failures.length === 0", "failures.length !== 0"],
+  {
+    name: "effective-gate-mode",
+    target: "evaluate",
+    before: "mode: context.gateModes[gateId]",
+    after: 'mode: context.gateModes["gaps-closed"]',
+  },
+  {
+    name: "open-gaps",
+    target: "evaluate",
+    before: "context.openGaps > 0",
+    after: "context.openGaps < 0",
+  },
+  {
+    name: "outcome-severity",
+    target: "policy",
+    before: "block: 0",
+    after: "block: 3",
+  },
+  {
+    name: "empty-outcome",
+    target: "policy",
+    before: 'failures[0] === undefined ? "pass"',
+    after: 'failures[0] === undefined ? "warn"',
+  },
 ];
 let killed = 0;
-for (const [name, before, after] of mutations) {
-  if (!javascript.includes(before)) {
-    throw new Error(`Mutation anchor ${name} drifted`);
-  }
-  const mutant = await load(javascript.replace(before, after), name);
+for (const { name, target, before, after } of mutations) {
+  const sources = {
+    ...originalSources,
+    [target]: replaceAnchor(originalSources[target], name, before, after),
+  };
+  const mutant = await load(sources, name);
   if (JSON.stringify(observations(mutant.evaluateGates)) !== expected) {
     killed += 1;
   } else {

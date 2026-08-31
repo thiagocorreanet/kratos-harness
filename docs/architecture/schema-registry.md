@@ -26,14 +26,14 @@ shows the foundational payloads used throughout this boundary.
 | `host.init-answers` | host | `1.3.0` | `InitAnswersV1_3` |
 | `host.operation-message` | host | `1.0.0` | `HostOperationMessageV1` |
 | `state.approval` | state | `1.0.0` | `ApprovalV1` |
-| `state.event` | state | `1.1.0` | `EventV1_1` |
+| `state.event` | state | `1.2.0` | `EventV1_2` |
 | `state.evidence` | state | `1.0.0` | `EvidenceV1` |
 | `state.feature` | state | `1.0.0` | `FeatureStateV1` |
 | `state.gap` | state | `1.0.0` | `GapRecordV1` |
 | `state.gates` | state | `1.0.0` | `GateFactsV1` |
 | `state.lock` | state | `1.0.0` | `LockLeaseV1` |
 | `state.migration` | state | `1.1.0` | `MigrationV1_1` |
-| `state.project-config` | state | `1.3.0` | `ProjectConfigV1_3` |
+| `state.project-config` | state | `1.4.0` | `ProjectConfigV1_4` |
 | `state.requirement-discovery` | state | `1.0.0` | `RequirementDiscoveryV1` |
 | `state.snapshot` | state | `1.0.0` | `SnapshotV1` |
 | `state.transaction-manifest` | state | `1.0.0` | `TransactionManifestV1` |
@@ -58,7 +58,7 @@ The registry processes a request in a fixed order:
 
 Ajv never sees a payload whose version is invalid, unsupported, future, or
 migration-only. Version failures use the registered compatibility reason and a
-`version` keyword diagnostic. A pre-`1.3.0` project configuration remains
+`version` keyword diagnostic. A pre-`1.4.0` project configuration remains
 selectable only by the explicit migration path; ordinary operations report
 `profile.config_migration_required` instead of treating it as current state.
 

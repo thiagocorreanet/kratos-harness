@@ -31,7 +31,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | `memory merge PROPOSAL` | Preview or apply a lossless lesson merge | Conditional |
 | `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
-| `migrate config` | Preview or authorize replacement of pre-`1.3.0` configuration with current state | Conditional |
+| `migrate config` | Preview or authorize replacement of pre-`1.4.0` configuration with current state | Conditional |
 | `migrate memory MAPPING` | Preview or losslessly adopt legacy Gotchas | Conditional |
 | `migrate rollback ID` | Restore files from a verified migration receipt | Yes |
 | `audit` | Replay and compare materialized state | No |
@@ -56,9 +56,9 @@ The same answers document may carry a partial typed `projectProfile` for the
 project's exact root commands; source, test, and configuration paths; directory
 and naming conventions; and implementation languages. Every leaf is explicitly
 resolved, not applicable with a reason, or unresolved. Omitted leaves preserve
-current `1.3.0` state during reinitialization; explicit unresolved leaves clear
-it. Initialization never infers these values from stack markers and never
-executes a configured command.
+current `1.4.0` project configuration state during reinitialization; explicit
+unresolved leaves clear it. Initialization never infers these values from stack
+markers and never executes a configured command.
 
 `kratos init` creates the raw phase log and tracked phase report only when each
 path is absent. Reinitialization preserves the exact existing bytes of both
@@ -216,11 +216,16 @@ local candidate.
 
 ## Configuration migration commands
 
-Preview a pre-`1.3.0` configuration with current answers from a file:
+Preview a pre-`1.4.0` configuration with current answers from a file:
 
 ```bash
 kratos migrate config --answers model-roles.json --root PATH
 ```
+
+Sources through `1.2.0` use the answers document to supply missing authority.
+A `1.3.0` source already contains that authority, so its adjacent upgrade to
+current `1.4.0` state may omit `--answers` and adds only `gateModes: {}` plus
+the current configuration/state version constants.
 
 The preview performs no writes and prints the source, destination, answers,
 catalog, and plan digests; confirmed hosts; every canonical assignment and

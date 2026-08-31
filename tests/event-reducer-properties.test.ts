@@ -1,6 +1,6 @@
 import { types } from "node:util";
 
-import type { EventV1_1, ReadableEvent, SnapshotV1 } from "@kratos/contracts";
+import type { EventV1_2, ReadableEvent, SnapshotV1 } from "@kratos/contracts";
 import {
   EventIntegrityError,
   replayEventStream,
@@ -56,8 +56,8 @@ function generator(seedValue: number): () => number {
 function draft(index: number, random: () => number): CurrentEventDraft {
   const suffix = String(random());
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}-${suffix}`,
     eventType: "transition",
     occurredAt: "2026-08-10T00:01:00Z",
@@ -69,6 +69,7 @@ function draft(index: number, random: () => number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/${suffix}.md`],
     evidenceRefs: [`.brain/evidence/${suffix}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     resolvedAssignment: {
       phase: "code",
@@ -81,7 +82,7 @@ function draft(index: number, random: () => number): CurrentEventDraft {
 
 function stream(count: number, random: () => number) {
   let cursor = { revision: 0, hash: null as string | null };
-  const events: EventV1_1[] = [];
+  const events: EventV1_2[] = [];
   for (let index = 1; index <= count; index += 1) {
     const event = sealEvent(draft(index, random), cursor, services);
     events.push(event);

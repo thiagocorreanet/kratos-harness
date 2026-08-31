@@ -429,7 +429,7 @@ Key operational outcomes:
 - `runtime.lease_conflict`: another valid lease owns the resource.
 - `guard.outside_allow`: requested mutation crosses a managed boundary.
 - `runtime.internal_failure`: sanitized unexpected failure with no internal data.
-- `profile.config_migration_required`: current execution requires a `1.3.0`
+- `profile.config_migration_required`: current execution requires a `1.4.0`
   project configuration with typed profile state.
 - `model.independence_violation`: implementer and judge share one canonical
   identity; strict refusal replaced the contradictory warning proposal.

@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ProjectConfigV1_3 } from "@kratos/contracts";
-import projectConfig from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
+import type { ProjectConfigV1_4 } from "@kratos/contracts";
+import projectConfig from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 import {
   createDiscoveryPorts,
   createRuntimeAt,
@@ -14,9 +14,9 @@ import { fixedEnvironment, memoryWorkspace } from "@kratos/runtime/infra/fake";
 import type { Workspace } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
-const configuration: ProjectConfigV1_3 = {
-  contractVersion: "1.3.0",
-  stateContract: "1.3.0",
+const configuration: ProjectConfigV1_4 = {
+  contractVersion: "1.4.0",
+  stateContract: "1.4.0",
   pluginVersion: "0.0.0-development",
   hostContract: "1.3.0",
   language: {
@@ -29,6 +29,7 @@ const configuration: ProjectConfigV1_3 = {
     enforcement: "advisory",
   },
   policyMode: "standard",
+  gateModes: {},
   managedState: {
     directory: ".brain",
     eventLog: "events.jsonl",
@@ -43,7 +44,7 @@ const configuration: ProjectConfigV1_3 = {
   },
   projectProfile: structuredClone(
     projectConfig.projectProfile,
-  ) as ProjectConfigV1_3["projectProfile"],
+  ) as ProjectConfigV1_4["projectProfile"],
 };
 
 const validator = () => ({ kind: "valid", value: configuration }) as const;
@@ -232,7 +233,7 @@ describe("project discovery composition", () => {
       workspace: memoryWorkspace({
         directories: [root, `${root}/.brain`],
         files: {
-          [`${root}/.brain/config.json`]: '{"stateContract":"1.3.0"}',
+          [`${root}/.brain/config.json`]: '{"stateContract":"1.4.0"}',
         },
       }),
       environment: fixedEnvironment({}, root),

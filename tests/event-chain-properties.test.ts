@@ -1,6 +1,6 @@
 import { types } from "node:util";
 
-import type { EventV1, EventV1_1, ReadableEvent } from "@kratos/contracts";
+import type { EventV1, EventV1_2, ReadableEvent } from "@kratos/contracts";
 import {
   EventIntegrityError,
   verifyEventStream,
@@ -30,8 +30,8 @@ function generator(seed: number): () => number {
 function draft(index: number, random: () => number): CurrentEventDraft {
   const suffix = String(random());
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}-${suffix}`,
     eventType: "transition",
     occurredAt: "2026-08-10T00:01:00Z",
@@ -43,6 +43,16 @@ function draft(index: number, random: () => number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/${suffix}.md`],
     evidenceRefs: [`.brain/evidence/${suffix}.json`],
+    gateFailures: [
+      {
+        gateId: "stop-loss",
+        reasonCode: "blocked.stop_loss_flag",
+        mode: "enforce",
+        priority: 20,
+        evidenceRefs: [`.brain/evidence/gate-${suffix}.json`],
+        detail: `trace-${suffix}`,
+      },
+    ],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     resolvedAssignment: {
       phase: "code",
@@ -53,8 +63,8 @@ function draft(index: number, random: () => number): CurrentEventDraft {
   };
 }
 
-function makeStream(count: number, random: () => number): readonly EventV1_1[] {
-  const events: EventV1_1[] = [];
+function makeStream(count: number, random: () => number): readonly EventV1_2[] {
+  const events: EventV1_2[] = [];
   let cursor = { revision: 0, hash: null as string | null };
   for (let index = 1; index <= count; index += 1) {
     const event = sealEvent(draft(index, random), cursor, services);
@@ -130,7 +140,7 @@ function protectedScalars(
     ["stateContract", event.stateContract, "stateContract"],
   ];
 
-  if (event.stateContract === "1.1.0") {
+  if (event.stateContract === "1.1.0" || event.stateContract === "1.2.0") {
     values.push([
       "observedIdentity.effort",
       event.observedIdentity.effort,
@@ -160,6 +170,22 @@ function protectedScalars(
         ],
       );
     }
+  }
+
+  if (event.stateContract === "1.2.0") {
+    const failure = required(event.gateFailures[0]);
+    values.push(
+      ["gateFailures[0].gateId", failure.gateId, "gateFailures"],
+      ["gateFailures[0].reasonCode", failure.reasonCode, "gateFailures"],
+      ["gateFailures[0].mode", failure.mode, "gateFailures"],
+      ["gateFailures[0].priority", failure.priority, "gateFailures"],
+      [
+        "gateFailures[0].evidenceRefs[0]",
+        required(failure.evidenceRefs[0]),
+        "gateFailures",
+      ],
+      ["gateFailures[0].detail", failure.detail, "gateFailures"],
+    );
   }
 
   return values.map(([field, value, container]) => {
@@ -284,15 +310,16 @@ describe("event hash-chain generated corruption cases", () => {
             eventHash: services.digests.sha256(canonicalizeJson(unsigned)),
           };
         } else {
-          const draft: Omit<EventV1_1, "previousHash" | "eventHash"> = {
+          const draft: Omit<EventV1_2, "previousHash" | "eventHash"> = {
             ...common,
-            contractVersion: "1.1.0",
-            stateContract: "1.1.0",
+            contractVersion: "1.2.0",
+            stateContract: "1.2.0",
             observedIdentity: {
               host: "codex",
               model: "gpt-5",
               effort: "medium",
             },
+            gateFailures: [],
             resolvedAssignment: {
               phase: "code",
               role: "implementer",
@@ -310,7 +337,7 @@ describe("event hash-chain generated corruption cases", () => {
         events,
       );
       expect(new Set(events.map((event) => event.stateContract))).toEqual(
-        new Set(["1.0.0", "1.1.0"]),
+        new Set(["1.0.0", "1.2.0"]),
       );
     }
   });

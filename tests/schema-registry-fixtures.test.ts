@@ -17,6 +17,7 @@ import acceptanceVerdict from "../fixtures/contracts/v1/acceptance-verdict.json"
 import approval from "../fixtures/contracts/v1/approval.json" with { type: "json" };
 import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
+import eventV1_2 from "../fixtures/contracts/v1.2/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
 import curatedMemory from "../fixtures/contracts/v1/curated-memory.json" with { type: "json" };
@@ -40,6 +41,7 @@ import projectConfig from "../fixtures/contracts/v1/project-config.json" with { 
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
+import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
@@ -78,7 +80,7 @@ const narration = {
 
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0";
+  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0";
   readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
@@ -301,6 +303,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.event",
+    version: "1.2.0",
+    versionField: "stateContract",
+    requiredField: "gateFailures",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: eventV1_2,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.evidence",
     version: "1.0.0",
     versionField: "stateContract",
@@ -497,6 +509,16 @@ const fixtures = [
     requiredField: "projectProfile",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfigV1_3,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.project-config",
+    version: "1.4.0",
+    versionField: "stateContract",
+    requiredField: "gateModes",
+    structuralReasonCode: "guard.config_corrupt",
+    fixture: projectConfigV1_4,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

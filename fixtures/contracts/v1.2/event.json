@@ -1,0 +1,19 @@
+{
+  "contractVersion": "1.2.0",
+  "stateContract": "1.2.0",
+  "eventId": "event-01",
+  "eventType": "transition",
+  "occurredAt": "2026-08-30T00:00:00Z",
+  "operation": "sdd.continue:gate-failures-01",
+  "policyVersion": "policy-01",
+  "priorRevision": 0,
+  "resultingRevision": 1,
+  "reasonCode": "run.transition.accepted",
+  "effect": "state",
+  "artifactRefs": [],
+  "evidenceRefs": [],
+  "observedIdentity": { "host": "codex", "model": "gpt-5", "effort": "medium" },
+  "gateFailures": [],
+  "previousHash": null,
+  "eventHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

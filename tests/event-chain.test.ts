@@ -1,8 +1,8 @@
 import { types } from "node:util";
 
-import type { EventV1, EventV1_1 } from "@kratos/contracts";
+import type { EventV1, EventV1_2 } from "@kratos/contracts";
 import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json" };
-import goldenV1_1 from "./fixtures/events/golden-event-v1.1.json" with { type: "json" };
+import goldenV1_2 from "./fixtures/events/golden-event-v1.2.json" with { type: "json" };
 import {
   EVENT_RECORD_BYTES,
   EVENT_STREAM_BYTES,
@@ -27,7 +27,7 @@ const services = {
   schemaRegistry: createSchemaRegistry(),
 };
 
-type CurrentEventDraft = Omit<EventV1_1, "previousHash" | "eventHash">;
+type CurrentEventDraft = Omit<EventV1_2, "previousHash" | "eventHash">;
 
 function sealedV1Event(): EventV1 {
   return {
@@ -38,7 +38,7 @@ function sealedV1Event(): EventV1 {
 
 function currentDraft(revision: number): CurrentEventDraft {
   return {
-    ...(structuredClone(goldenV1_1.draft) as CurrentEventDraft),
+    ...(structuredClone(goldenV1_2.draft) as CurrentEventDraft),
     eventId: `event-${String(revision).padStart(2, "0")}`,
     priorRevision: revision - 1,
     resultingRevision: revision,
@@ -47,8 +47,8 @@ function currentDraft(revision: number): CurrentEventDraft {
 
 function draft(index: number): CurrentEventDraft {
   return {
-    contractVersion: "1.1.0",
-    stateContract: "1.1.0",
+    contractVersion: "1.2.0",
+    stateContract: "1.2.0",
     eventId: `event-${String(index)}`,
     eventType: "transition",
     occurredAt: `2026-08-10T00:0${String(index)}:00Z`,
@@ -60,6 +60,7 @@ function draft(index: number): CurrentEventDraft {
     effect: "state",
     artifactRefs: [`.brain/features/feature-01/${String(index)}.md`],
     evidenceRefs: [`.brain/evidence/event-${String(index)}.json`],
+    gateFailures: [],
     observedIdentity: { host: "codex", model: "gpt-5", effort: "medium" },
     resolvedAssignment: {
       phase: "code",
@@ -70,7 +71,7 @@ function draft(index: number): CurrentEventDraft {
   };
 }
 
-function stream(): readonly [EventV1_1, EventV1_1] {
+function stream(): readonly [EventV1_2, EventV1_2] {
   const first = sealEvent(draft(1), { revision: 0, hash: null }, services);
   const second = sealEvent(
     draft(2),
@@ -84,7 +85,7 @@ function textOf(events: readonly ReadableEvent[]): string {
   return `${events.map(canonicalizeJson).join("\n")}\n`;
 }
 
-function withHash(event: Omit<EventV1_1, "eventHash">): EventV1_1 {
+function withHash(event: Omit<EventV1_2, "eventHash">): EventV1_2 {
   return {
     ...event,
     eventHash: services.digests.sha256(canonicalizeJson(event)),
@@ -116,7 +117,7 @@ interface VersionCase {
 }
 
 describe("event hash-chain verification", () => {
-  it("verifies one hash chain across 1.0.0 and 1.1.0 events", () => {
+  it("verifies one hash chain across 1.0.0 and 1.2.0 events", () => {
     const oldEvent = sealedV1Event();
     const currentEvent = sealEvent(
       currentDraft(2),
@@ -141,7 +142,7 @@ describe("event hash-chain verification", () => {
     if (event.resolvedAssignment === undefined) {
       throw new Error("missing resolved assignment");
     }
-    const tampered: EventV1_1 = {
+    const tampered: EventV1_2 = {
       ...event,
       resolvedAssignment: {
         ...event.resolvedAssignment,
@@ -206,7 +207,7 @@ describe("event hash-chain verification", () => {
       schemaRegistry,
     );
 
-    expect(versions).toEqual(["1.0.0", "1.1.0"]);
+    expect(versions).toEqual(["1.0.0", "1.2.0"]);
   });
 
   it.each([
@@ -218,7 +219,7 @@ describe("event hash-chain verification", () => {
       },
     ],
     [
-      "a 1.1 declaration carrying a legacy observed identity",
+      "a 1.2 declaration carrying a legacy observed identity",
       (() => {
         const event = sealEvent(
           currentDraft(1),

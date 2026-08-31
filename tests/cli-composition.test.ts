@@ -366,8 +366,8 @@ describe("composed command line", () => {
             feature: "sample-feature",
             runId: "run-01",
             event: {
-              contractVersion: "1.1.0",
-              stateContract: "1.1.0",
+              contractVersion: "1.2.0",
+              stateContract: "1.2.0",
               eventId: "private-event-id",
               eventType: "operation",
               occurredAt: "2026-08-10T00:01:00Z",
@@ -379,6 +379,7 @@ describe("composed command line", () => {
               effect: "state",
               artifactRefs: [".brain/features/feature-1.md"],
               evidenceRefs: [".brain/evidence/private-event.json"],
+              gateFailures: [],
               observedIdentity: {
                 host: "codex",
                 model: "gpt-5",

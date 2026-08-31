@@ -13,8 +13,8 @@ describe("projectNarration", () => {
   it("projects milestone beats from workflow phase completed events", () => {
     const events: readonly ReadableEvent[] = [
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "evt-1",
         eventType: "transition",
         occurredAt: "2026-08-29T10:00:00.000Z",
@@ -26,6 +26,7 @@ describe("projectNarration", () => {
         effect: "state",
         artifactRefs: [],
         evidenceRefs: ["docs/specs/spec.md"],
+        gateFailures: [],
         observedIdentity: { host: "cli", model: null, effort: null },
         previousHash: null,
         eventHash: "a".repeat(64),
@@ -46,8 +47,8 @@ describe("projectNarration", () => {
   it("handles unrecognized reason codes gracefully without throwing", () => {
     const events: readonly ReadableEvent[] = [
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "evt-2",
         eventType: "decision",
         occurredAt: "2026-08-29T10:05:00.000Z",
@@ -59,6 +60,7 @@ describe("projectNarration", () => {
         effect: "none",
         artifactRefs: [],
         evidenceRefs: ["evidence.json"],
+        gateFailures: [],
         observedIdentity: { host: "cli", model: null, effort: null },
         previousHash: "a".repeat(64),
         eventHash: "b".repeat(64),
@@ -80,8 +82,8 @@ describe("projectNarration", () => {
   it("projects clock-derived progress for in-flight operations with asOf", () => {
     const events: readonly ReadableEvent[] = [
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "evt-work-1",
         eventType: "operation",
         occurredAt: "2026-08-29T10:00:00.000Z",
@@ -93,6 +95,7 @@ describe("projectNarration", () => {
         effect: "state",
         artifactRefs: [],
         evidenceRefs: [],
+        gateFailures: [],
         observedIdentity: { host: "cli", model: null, effort: null },
         previousHash: null,
         eventHash: "c".repeat(64),
@@ -123,8 +126,8 @@ describe("projectNarration", () => {
   it("attaches evidenceRefs on waiting and stop beats", () => {
     const events: readonly ReadableEvent[] = [
       {
-        contractVersion: "1.1.0",
-        stateContract: "1.1.0",
+        contractVersion: "1.2.0",
+        stateContract: "1.2.0",
         eventId: "evt-wait-1",
         eventType: "decision",
         occurredAt: "2026-08-29T10:10:00.000Z",
@@ -136,6 +139,7 @@ describe("projectNarration", () => {
         effect: "none",
         artifactRefs: [],
         evidenceRefs: ["evidence/approval-prompt.json"],
+        gateFailures: [],
         observedIdentity: { host: "cli", model: null, effort: null },
         previousHash: null,
         eventHash: "d".repeat(64),

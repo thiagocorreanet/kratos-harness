@@ -26,6 +26,7 @@ import beatSchema from "../../../../../schemas/state/beat.v1.schema.json" with {
 import curatedMemorySchema from "../../../../../schemas/state/curated-memory.v1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
+import eventV1_2Schema from "../../../../../schemas/state/event.v1.2.schema.json" with { type: "json" };
 import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" with { type: "json" };
 import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
@@ -42,6 +43,7 @@ import projectConfigSchema from "../../../../../schemas/state/project-config.v1.
 import projectConfigV1_1Schema from "../../../../../schemas/state/project-config.v1.1.schema.json" with { type: "json" };
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
 import projectConfigV1_3Schema from "../../../../../schemas/state/project-config.v1.3.schema.json" with { type: "json" };
+import projectConfigV1_4Schema from "../../../../../schemas/state/project-config.v1.4.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
 import runUsageSchema from "../../../../../schemas/state/run-usage.v1.schema.json" with { type: "json" };
 import sessionTelemetrySchema from "../../../../../schemas/state/session-telemetry.v1.schema.json" with { type: "json" };
@@ -242,6 +244,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: eventV1_1Schema,
     },
     {
+      id: "state.event",
+      family: "state",
+      version: "1.2.0",
+      path: "schemas/state/event.v1.2.schema.json",
+      schema: eventV1_2Schema,
+    },
+    {
       id: "state.evidence",
       family: "state",
       version: "1.0.0",
@@ -354,6 +363,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: projectConfigV1_3Schema,
     },
     {
+      id: "state.project-config",
+      family: "state",
+      version: "1.4.0",
+      path: "schemas/state/project-config.v1.4.schema.json",
+      schema: projectConfigV1_4Schema,
+    },
+    {
       id: "state.requirement-discovery",
       family: "state",
       version: "1.0.0",
@@ -412,7 +428,9 @@ function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
         ? "1.1"
         : entry.version === "1.2.0"
           ? "1.2"
-          : "1.3";
+          : entry.version === "1.3.0"
+            ? "1.3"
+            : "1.4";
   return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
 }
 
