@@ -45,7 +45,11 @@ beforeAll(async () => {
     // owns that lifecycle, not to initialization.
     .filter((name) => !name.includes("<"))
     .sort();
-  expectedSurface = [".brain/.gitignore", ...frozen].sort();
+  expectedSurface = [
+    ".brain/.gitignore",
+    ".brain/03-memory/curated-memory.json",
+    ...frozen,
+  ].sort();
 });
 
 const registry = createSchemaRegistry();
@@ -144,6 +148,7 @@ describe("the generated skeleton", () => {
         "# Volatile telemetry and run event streams are not tracked.",
         "03-memory/task_log.jsonl",
         "03-memory/.cache/",
+        "03-memory/candidates/",
         "02-features/*/runs/*/events.jsonl",
         "events.jsonl",
         "*.trace",
@@ -175,6 +180,7 @@ describe("the generated skeleton", () => {
       ".brain/02-features/_template/state.json",
       ".brain/02-features/active",
       ".brain/03-memory/decisions.log",
+      ".brain/03-memory/curated-memory.json",
       ".brain/03-memory/gotchas.md",
       ".brain/03-memory/task_metrics.md",
       ".brain/config.json",
@@ -329,6 +335,45 @@ describe("the generated skeleton", () => {
         structuralReasonCode: "guard.config_corrupt",
       }).kind,
     ).toBe("valid");
+  });
+
+  it("writes the empty curated ledger and its deterministic two-section projection", () => {
+    const generated = skeletonEffects(answers(), nodeProject);
+    const ledger: unknown = JSON.parse(
+      contentAt(generated, ".brain/03-memory/curated-memory.json"),
+    );
+
+    expect(ledger).toEqual({
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      revision: 0,
+      projectionDigest:
+        "09b049b364f55134c3b4942b653a7b677f7775fb67de8321064e6237da852e83",
+      updatedAt: "1970-01-01T00:00:00Z",
+      confirmed: [],
+      archive: [],
+    });
+    expect(
+      registry.validate({
+        id: "state.curated-memory",
+        version: "1.0.0",
+        value: ledger,
+        structuralReasonCode: "runtime.state_corrupt",
+      }).kind,
+    ).toBe("valid");
+    expect(contentAt(generated, ".brain/03-memory/gotchas.md")).toBe(
+      [
+        "# Gotchas",
+        "",
+        "## Confirmed lessons",
+        "",
+        "No confirmed lessons.",
+        "",
+        "## Archived lessons",
+        "",
+        "No archived lessons.",
+      ].join("\n") + "\n",
+    );
   });
 
   it("records the policy mode the answers chose in the guardrails", () => {

@@ -59,6 +59,48 @@ original configuration bytes. Drift or corruption refuses without changing
 either file. A later retry receives a new contiguous attempt ID and preserves
 the earlier audit bundle; it never overwrites prior recovery evidence.
 
+### Curated-memory adoption
+
+Existing free-form `.brain/03-memory/gotchas.md` is never interpreted as
+Markdown lessons. `kratos migrate memory mapping.json` accepts a closed
+`host.memory-migration@1.2.0` mapping with the source SHA-256, reviewer, lesson
+title/why/apply values, and one-based source ranges. Every non-blank,
+non-template legacy line must occur in exactly one ordered range; overlaps,
+gaps, out-of-bounds ranges, and changed source bytes are refused.
+
+The first invocation is read-only and prints proposal, source, plan, and time
+digests plus canonical JSON `Apply argv`. That array is shell-neutral authority;
+the adjacent POSIX and PowerShell commands are derived displays, and the legacy
+`Apply command` field remains a POSIX compatibility rendering. Apply requires
+`--yes` and those exact three caller-carried values. It atomically writes the structured ledger and
+rendered projection, preserves the original `gotchas.md` bytes beneath
+`.brain/migrations/<id>/backup/`, and writes authorization, receipt, rollback,
+and verification records. `kratos migrate rollback ID` restores those exact
+legacy bytes and removes the migrated ledger after validating the receipt and
+current projection.
+
+The exact preview and apply grammar is:
+
+```bash
+kratos migrate memory --root PATH mapping.json
+kratos migrate memory --root PATH mapping.json \
+  --yes --proposal-digest SHA256 --plan-digest SHA256 --plan-time INSTANT
+kratos migrate rollback MIGRATION_ID --root PATH
+```
+
+The preview prints the source SHA-256 as well as the proposal, plan, and time
+values. The mapping's `sourceDigest` must name those exact legacy bytes.
+`--yes` without all three preview values, changed source or mapping bytes, an
+overlap, a gap, or an out-of-bounds range refuses instead of creating a new
+plan. Rollback verifies the receipt, backup digest, current ledger, and
+current projection before restoring the original Gotchas bytes. A refusal
+preserves the known-good copy and its recovery records.
+
+Fresh structured memory is already adopted. A missing ledger paired with the
+exact stock empty Gotchas template is safely adoptable; any other free-form
+Gotchas document blocks memory use with `memory.migration_required` until an
+explicit lossless mapping is reviewed and applied.
+
 ## Replay and repair
 
 `kratos audit` replays the event log and identifies the earliest known

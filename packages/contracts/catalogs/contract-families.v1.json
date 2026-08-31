@@ -38,6 +38,14 @@
       "typeName": "AgentOutputV1"
     },
     {
+      "id": "host.agent-output",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/agent-output.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "AgentOutputV1_2"
+    },
+    {
       "id": "host.gap-proposal",
       "family": "host",
       "version": "1.0.0",
@@ -86,6 +94,30 @@
       "typeName": "InitAnswersV1_3"
     },
     {
+      "id": "host.memory-capture",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-capture.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryCaptureV1_2"
+    },
+    {
+      "id": "host.memory-change",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-change.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryChangeV1_2"
+    },
+    {
+      "id": "host.memory-migration",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/memory-migration.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryMigrationV1_2"
+    },
+    {
       "id": "host.operation-message",
       "family": "host",
       "version": "1.0.0",
@@ -108,6 +140,14 @@
       "path": "schemas/host/phase-handoff.v1.1.schema.json",
       "boundary": "cross-process",
       "typeName": "PhaseHandoffV1_1"
+    },
+    {
+      "id": "host.phase-handoff",
+      "family": "host",
+      "version": "1.2.0",
+      "path": "schemas/host/phase-handoff.v1.2.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PhaseHandoffV1_2"
     },
     {
       "id": "host.pre-tool-use",
@@ -148,6 +188,14 @@
       "path": "schemas/state/beat.v1.schema.json",
       "boundary": "persisted",
       "typeName": "BeatV1"
+    },
+    {
+      "id": "state.curated-memory",
+      "family": "state",
+      "version": "1.0.0",
+      "path": "schemas/state/curated-memory.v1.schema.json",
+      "boundary": "persisted",
+      "typeName": "CuratedMemoryV1"
     },
     {
       "id": "state.event",

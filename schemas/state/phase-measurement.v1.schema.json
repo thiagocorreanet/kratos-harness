@@ -150,7 +150,7 @@
       "additionalProperties": false,
       "required": ["host", "role", "model", "effort"],
       "properties": {
-        "host": { "enum": ["claude", "codex"] },
+        "host": { "enum": ["claude", "codex", "antigravity"] },
         "role": { "enum": ["planner", "implementer", "judge"] },
         "model": { "$ref": "#/$defs/id" },
         "effort": { "$ref": "#/$defs/id" }

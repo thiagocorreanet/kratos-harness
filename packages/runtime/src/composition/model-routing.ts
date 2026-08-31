@@ -7,7 +7,7 @@ import type { ModelRouting } from "../ports/index.js";
 /** Capture one inert catalog snapshot at the host/runtime composition edge. */
 export async function observeModelCatalog(
   routing: ModelRouting,
-  host: "claude" | "codex",
+  host: "claude" | "codex" | "antigravity",
 ): Promise<HostModelCatalog | null> {
   try {
     return snapshotHostModelCatalog(await routing.observe(host), host);

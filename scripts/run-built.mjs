@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
 const host = process.env.KRATOS_HOST ?? "codex";
-if (host !== "codex" && host !== "claude-code") {
-  throw new Error("KRATOS_HOST must be codex or claude-code");
+if (host !== "codex" && host !== "claude-code" && host !== "antigravity") {
+  throw new Error("KRATOS_HOST must be codex, claude-code, or antigravity");
 }
 
 const requested =

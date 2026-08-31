@@ -22,6 +22,7 @@ the metadata-only Go v3 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
+| Contract-manifest schema | `v1.5` | Contract-family manifest format |
 | `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
 | `stateContract` | `1.3.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.3.0` | Cross-process adapter request and response messages |
@@ -46,6 +47,8 @@ payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
   introduced in `1.3.0`.
 - Role-aware `state.event` and `state.migration` payloads continue to write
   their registered `1.1.0` revisions.
+- `state.curated-memory`, `state.beat`, and `state.narration` write their
+  additive registered `1.0.0` revisions.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
   `state.acceptance-verdict`, `state.approval`, `state.evidence`,
   `state.failure-candidate`, `state.feature`, `state.feature-scope`,
@@ -68,18 +71,21 @@ through `1.3.0` accepted for their registered payloads. Exact writes again
 follow `CONTRACT_VERSIONS`:
 
 - Current `host.init-answers` writes `1.3.0` with optional partial
-  `projectProfile` answers. `host.adapter-message` and `host.phase-handoff`
-  continue to write their registered `1.1.0` revisions.
-- Unchanged host payloads `host.agent-output`, `host.gap-proposal`,
+  `projectProfile` answers. `host.adapter-message` continues to write its
+  registered `1.1.0` revision.
+- Memory-aware `host.phase-handoff`, `host.agent-output`,
+  `host.memory-capture`, `host.memory-change`, and `host.memory-migration`
+  write their registered `1.2.0` revisions.
+- Unchanged host payloads `host.gap-proposal`,
   `host.hook-observation`, `host.operation-message`, `host.phase-lifecycle`, and
   `host.pre-tool-use`
   continue to write their registered `1.0.0` revision.
 
-Model routing, handoff, execution observation, and initialization therefore
-select the exact registered payload revision, not a forced revision change to
-unrelated contracts. Host `0.9.0`, unknown earlier versions, and future
-versions require an adapter upgrade. Host compatibility is not inferred from
-a shared major version.
+Model routing, memory-aware handoff/output, execution observation, and
+initialization therefore select the exact registered payload revision, not a
+forced revision change to unrelated contracts. Host `0.9.0`, unknown earlier
+versions, and future versions require an adapter upgrade. Host compatibility
+is not inferred from a shared major version.
 
 For all three families, classification happens before payload validation or
 mutation. Missing, non-string, malformed, and untrimmed values are `invalid`.
@@ -184,6 +190,24 @@ outcomes in
 Strict refusal replaces the earlier contradictory one-time-warning proposal by
 owner decision. No warning receipt or warning state exists.
 
+Revision `1.10.0` preserves every `1.9.0` entry and appends the curated-memory
+outcomes below. `state.curated-memory@1.0.0`,
+`host.memory-capture@1.2.0`, `host.memory-change@1.2.0`, and
+`host.memory-migration@1.2.0` are additive. `host.phase-handoff@1.2.0` and
+`host.agent-output@1.2.0` add a phase-constrained memory observation. Existing
+schema and catalogue bytes remain unchanged; writers select the explicit
+version rather than widening an old contract.
+
+| Reason | Exit | Meaning |
+| --- | ---: | --- |
+| `memory.lesson_incomplete` | 2 | A promotion lacks required causal or application guidance |
+| `memory.curation_required` | 3 | The active confirmed surface exceeds its readability limits |
+| `memory.candidate_missing` | 2 | A requested local candidate no longer exists |
+| `memory.projection_drift` | 4 | The committed ledger and Markdown projection disagree |
+| `memory.confirmation_stale` | 3 | The preview values no longer authorize the requested apply |
+| `memory.phase_context_stale` | 3 | A code/review acknowledgement differs from its handoff |
+| `memory.migration_required` | 4 | Legacy Gotchas require explicit lossless adoption |
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied
@@ -208,7 +232,9 @@ project profile. A mixed event stream is valid: each line selects its exact
 registered schema before the continuous revision and hash chain is verified.
 Migration changes only `.brain/config.json` and its audit bundle; it does not
 rewrite historical `1.0.0` events, snapshots, documents, approvals, or
-evidence.
+evidence. The memory contracts independently use their registered `1.0.0` and
+`1.2.0` payload revisions; their addition does not rewrite existing
+configuration or event history.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.

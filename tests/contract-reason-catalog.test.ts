@@ -410,14 +410,24 @@ describe("contract reason catalog revision", () => {
     });
   });
 
-  it("preserves revision 1.9 and appends the phase measurement reasons", () => {
-    const additions = [
+  it("preserves revision 1.9 and appends memory and measurement reasons", () => {
+    const metricsAdditions = [
       "metrics.phase_not_started",
       "metrics.phase_assignment_conflict",
       "metrics.log_invalid",
       "metrics.refresh_ok",
       "metrics.calibration_insufficient",
     ];
+    const policies = new Map([
+      ["memory.lesson_incomplete", ["failure", 2, "optional", false]],
+      ["memory.curation_required", ["blocked", 3, "required", true]],
+      ["memory.candidate_missing", ["failure", 2, "required", true]],
+      ["memory.projection_drift", ["blocked", 4, "required", true]],
+      ["memory.confirmation_stale", ["blocked", 3, "required", true]],
+      ["memory.phase_context_stale", ["blocked", 3, "required", true]],
+      ["memory.migration_required", ["blocked", 4, "required", true]],
+    ] as const);
+    expect(catalogV110.contractVersion).toBe("1.0.0");
     expect(catalogV110.reasons.slice(0, catalogV19.reasons.length)).toEqual(
       catalogV19.reasons,
     );
@@ -425,8 +435,8 @@ describe("contract reason catalog revision", () => {
       catalogV110.reasons
         .slice(catalogV19.reasons.length)
         .map(({ code }) => code),
-    ).toEqual(additions);
-    expect(catalogV110.reasons).toHaveLength(115);
+    ).toEqual([...policies.keys(), ...metricsAdditions]);
+    expect(catalogV110.reasons).toHaveLength(122);
     expect(
       catalogV110.reasons.find(
         ({ code }) => code === "metrics.calibration_insufficient",
@@ -438,6 +448,17 @@ describe("contract reason catalog revision", () => {
       stateChanged: true,
       retryable: false,
     });
+    for (const [code, [status, exitCode, evidence, retryable]] of policies) {
+      expect(
+        catalogV110.reasons.find((reason) => reason.code === code),
+      ).toMatchObject({
+        status,
+        exitCode,
+        evidence,
+        stateChanged: false,
+        retryable,
+      });
+    }
   });
 
   it("defines safe fail-closed policy for every new reason", () => {

@@ -1,11 +1,12 @@
 import type {
   GateFactsV1,
   OperationResultV1,
-  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
   RunUsageV1,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import type { PhaseMeasurement } from "@kratos/runtime/domain/measurements";
+import { STOCK_GOTCHAS_TEMPLATE } from "@kratos/runtime/domain/memory";
 import {
   fixedClock,
   fixedEnvironment,
@@ -125,6 +126,7 @@ function subject(): RuntimeSubject {
   };
   const storage = memoryTransactionStorage({
     files: {
+      ".brain/03-memory/gotchas.md": STOCK_GOTCHAS_TEMPLATE,
       ".brain/config.json": JSON.stringify({
         ...roleConfig("codex", {
           planner: "planner-alias",
@@ -208,10 +210,13 @@ async function started(): Promise<RuntimeSubject> {
 async function handoff(
   run: RuntimeSubject,
   ports: RuntimePorts = run.ports,
-): Promise<PhaseHandoffV1_1> {
+): Promise<PhaseHandoffV1_2> {
   clearOutput(run);
-  expect(await runCommandLine(["--json", "handoff"], ports)).toBe(0);
-  return JSON.parse(run.output.structured_.join("")) as PhaseHandoffV1_1;
+  expect(
+    await runCommandLine(["--json", "handoff"], ports),
+    `${run.output.human_.join("")} ${run.output.structured_.join("")}`,
+  ).toBe(0);
+  return JSON.parse(run.output.structured_.join("")) as PhaseHandoffV1_2;
 }
 
 async function relay(
@@ -502,8 +507,8 @@ effort: low
 ===KRATOS-AGENT-OUTPUT-V1===
 ${JSON.stringify(
   {
-    contractVersion: "1.0.0",
-    hostContract: "1.0.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     agent: "code",
     outcome: {
       status: "completed",
@@ -513,6 +518,7 @@ ${JSON.stringify(
     },
     artifacts: [],
     changedFiles: [],
+    memory: current.memory,
     payload: { stepId: "measure-phases", testsAdded: 7, testsPassed: true },
   },
   null,
@@ -535,7 +541,7 @@ ${JSON.stringify(
       model: "codex-implementation",
       effort: "high",
     },
-    payloadContract: "host.agent-output@1.0.0",
+    payloadContract: "host.agent-output@1.2.0",
     payload: { ref, sha256: run.ports.digests.sha256(reply) },
     phaseExecution: {
       assignmentDigest: current.assignmentDigest,

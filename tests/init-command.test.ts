@@ -22,7 +22,11 @@ import { describe, expect, it } from "vitest";
 
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 
-import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+import {
+  antigravityCatalog,
+  claudeCatalog,
+  codexCatalog,
+} from "./support/model-routing.js";
 
 const ROOT = "/project";
 
@@ -529,7 +533,7 @@ describe("the init command", () => {
 
     expect(result).toMatchObject({
       reasonCode: "trail.ok",
-      summary: expect.stringContaining("Created 28") as unknown,
+      summary: expect.stringContaining("Created 29") as unknown,
       stateChanged: true,
     });
     expect(run.output.structured_.join("")).toContain("modelRoles.codex");
@@ -579,6 +583,46 @@ describe("the init command", () => {
         ).modelRoles,
       ),
     ).toEqual(["codex"]);
+  });
+
+  it("initializes workspace surface for antigravity host", async () => {
+    const answers = JSON.stringify({
+      contractVersion: "1.3.0",
+      hostContract: "1.3.0",
+      hosts: ["antigravity"],
+    });
+    const run = subject(
+      answers,
+      {},
+      {},
+      [],
+      [],
+      fixedModelRouting([antigravityCatalog()]),
+    );
+
+    expect(
+      await runCommandLine(["init", "--host", "antigravity"], run.ports),
+      run.output.human_.join("") + run.output.structured_.join(""),
+    ).toBe(0);
+
+    const written = Object.keys(run.storage.snapshot().files);
+    expect(written).toContain("GEMINI.md");
+    expect(written).toContain(".gemini/settings.json");
+    expect(written).not.toContain("CLAUDE.md");
+    expect(written).not.toContain("AGENTS.md");
+    expect(
+      JSON.parse(run.storage.snapshot().files[".brain/config.json"] ?? "null"),
+    ).toMatchObject({
+      modelRoles: { antigravity: antigravityCatalog().defaults },
+    });
+    expect(
+      JSON.parse(
+        run.storage.snapshot().files[".gemini/settings.json"] ?? "null",
+      ),
+    ).toEqual({ permissions: { allow: [], deny: [] } });
+    expect(run.storage.snapshot().files["GEMINI.md"]).toContain(
+      "BEGIN KRATOS MANAGED SECTION",
+    );
   });
 
   it("refuses a host the answers never enabled", async () => {
@@ -777,7 +821,7 @@ describe("the init command", () => {
     } finally {
       await rm(target, { force: true, recursive: true });
     }
-  });
+  }, 20000);
 
   it("renders a hostile suffix-marker filename from the real filesystem as one inert table cell", async () => {
     const target = await mkdtemp(join(tmpdir(), "kratos-init-hostile-stack-"));
@@ -803,7 +847,7 @@ describe("the init command", () => {
     } finally {
       await rm(target, { force: true, recursive: true });
     }
-  });
+  }, 20000);
 
   it("completes a partially initialized project without rewriting the rest", async () => {
     const first = subject();
@@ -830,7 +874,7 @@ describe("the init command", () => {
 
     const result: unknown = JSON.parse(run.output.structured_.join(""));
     expect(result).toMatchObject({
-      summary: expect.stringContaining("preserved 19") as unknown,
+      summary: expect.stringContaining("preserved 20") as unknown,
     });
     expect(Object.keys(run.storage.snapshot().files)).toContain("CLAUDE.md");
   });

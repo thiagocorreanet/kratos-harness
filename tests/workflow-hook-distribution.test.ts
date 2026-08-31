@@ -197,7 +197,7 @@ describe("workflow hook distribution", () => {
     }
   });
 
-  it("renders both host manifests from the shared declarative definition", async () => {
+  it("renders all host manifests from the shared declarative definition", async () => {
     const renderer = (await import(
       new URL("../scripts/render-hooks.mjs", import.meta.url).href
     )) as {
@@ -205,7 +205,7 @@ describe("workflow hook distribution", () => {
       renderHooks(definition: Definition, host: string): string;
     };
     const definition = await renderer.hookDefinition();
-    for (const host of ["claude-code", "codex"]) {
+    for (const host of ["claude-code", "codex", "antigravity"]) {
       const committed = await readFile(
         join(root, "distribution", host, "hooks/hooks.json"),
         "utf8",
@@ -254,6 +254,10 @@ describe("workflow hook distribution", () => {
         ),
         "utf8",
       ),
+      readFile(
+        join(root, "distribution/antigravity/hooks/workflow-hook.mjs"),
+        "utf8",
+      ),
     ]);
     const joined = sources.join("\n");
     expect(joined).not.toMatch(
@@ -271,6 +275,10 @@ describe("workflow hook distribution", () => {
     ["codex", "tool.failed"],
     ["codex", "session.sample"],
     ["codex", "session.end"],
+    ["antigravity", "tool.before"],
+    ["antigravity", "tool.failed"],
+    ["antigravity", "session.sample"],
+    ["antigravity", "session.end"],
   ] as const)(
     "runs %s %s inertly without state and relays with state",
     async (host, kind) => {

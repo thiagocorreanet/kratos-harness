@@ -68,7 +68,7 @@
         "hostContract": { "const": "1.1.0" },
         "messageId": { "$ref": "#/$defs/id" },
         "messageType": { "type": "string" },
-        "host": { "enum": ["claude", "codex"] },
+        "host": { "enum": ["claude", "codex", "antigravity"] },
         "operation": { "$ref": "#/$defs/id" },
         "capabilities": {
           "type": "array",

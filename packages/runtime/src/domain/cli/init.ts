@@ -20,7 +20,7 @@ type Observation = Extract<
   { readonly kind: "initialization" }
 >;
 
-const HOSTS: readonly Host[] = ["claude", "codex"];
+const HOSTS: readonly Host[] = ["claude", "codex", "antigravity"];
 const CREATE_ONCE_DESTINATIONS: readonly string[] = [
   ".brain/03-memory/task_log.jsonl",
   ".brain/03-memory/task_metrics.md",
@@ -179,7 +179,7 @@ function decide(
 
 function modelRefusal(
   reasonCode: ModelRoleRefusal,
-  subject: { readonly host: "claude" | "codex"; readonly role?: string },
+  subject: { readonly host: Host; readonly role?: string },
 ): Decision {
   const role = subject.role;
   const why =

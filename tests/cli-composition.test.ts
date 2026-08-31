@@ -15,7 +15,11 @@ import {
   usageFailure,
   USAGE_WHY,
 } from "@kratos/runtime/domain/result";
-import type { SchemaRegistry } from "@kratos/runtime/domain/schema";
+import type {
+  ContractId,
+  ContractRequest,
+  SchemaRegistry,
+} from "@kratos/runtime/domain/schema";
 import {
   fixedClock,
   memoryFileSystem,
@@ -25,6 +29,20 @@ import {
 } from "@kratos/runtime/infra/fake";
 import type { EvidenceRef } from "@kratos/runtime/domain/result";
 import type { DurableFileSystem } from "@kratos/runtime/ports";
+
+function trackingSchemaRegistry(
+  registry: SchemaRegistry,
+  onValidate: (request: ContractRequest<ContractId>) => void,
+): SchemaRegistry {
+  const rawValidate = registry.validate.bind(registry) as (
+    request: ContractRequest<ContractId>,
+  ) => unknown;
+  const validate = (request: ContractRequest<ContractId>): unknown => {
+    onValidate(request);
+    return rawValidate(request);
+  };
+  return { validate } as SchemaRegistry;
+}
 
 async function run(argv: readonly string[]) {
   const output = recordingOutput();
@@ -825,14 +843,12 @@ describe("composed command line", () => {
       const { payload, wasAccessed } = hostile();
       const validationRequests: unknown[] = [];
       const productionRegistry = createSchemaRegistry();
-      const validate = (request: unknown): unknown =>
-        productionRegistry.validate(request as never);
-      const schemaRegistry: SchemaRegistry = {
-        validate: ((request: unknown) => {
+      const schemaRegistry = trackingSchemaRegistry(
+        productionRegistry,
+        (request) => {
           validationRequests.push(request);
-          return validate(request);
-        }) as SchemaRegistry["validate"],
-      };
+        },
+      );
       const hostileAdapter = [
         {
           path: ["hostile-adapter"],
@@ -882,14 +898,9 @@ describe("composed command line", () => {
       directories: [".brain", ".brain/transactions"],
     });
     const productionRegistry = createSchemaRegistry();
-    const validate = (request: unknown): unknown =>
-      productionRegistry.validate(request as never);
-    const schemaRegistry: SchemaRegistry = {
-      validate: ((request: unknown) => {
-        events.push("validate");
-        return validate(request);
-      }) as SchemaRegistry["validate"],
-    };
+    const schemaRegistry = trackingSchemaRegistry(productionRegistry, () => {
+      events.push("validate");
+    });
     const ordered = [
       {
         path: ["ordered-adapter"],

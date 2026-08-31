@@ -382,7 +382,7 @@ const phaseAgentModule = await import(
 );
 runtimeMetadata.phaseAgents = phaseAgentModule.PHASE_AGENT_PROMPTS;
 const artifacts = await Promise.all(
-  ["claude-code", "codex"].map((host) =>
+  ["claude-code", "codex", "antigravity"].map((host) =>
     buildHost(output, host, runtimeTemplate, runtimeMetadata),
   ),
 );

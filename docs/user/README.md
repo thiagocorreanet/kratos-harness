@@ -10,7 +10,7 @@ Read the guides in this order:
 2. [Concepts and architecture](concepts.md)
 3. [Commands](commands.md)
 4. [Configuration and `.brain`](configuration-and-state.md)
-5. [Claude Code and Codex](hosts.md)
+5. [Claude Code, Codex, and Google Antigravity](hosts.md)
 6. [Migration, upgrades, and recovery](migration-and-recovery.md)
 7. [Security and troubleshooting](security-and-troubleshooting.md)
 8. [Uninstall and state preservation](uninstall.md)

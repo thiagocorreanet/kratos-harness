@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 
-import type { AdapterMessageV1_1, PhaseHandoffV1_1 } from "@kratos/contracts";
+import type { AdapterMessageV1_1, PhaseHandoffV1_2 } from "@kratos/contracts";
 import {
   relaySelectedPhase as relayThroughAdapter,
   type HostModelCatalog,
@@ -13,9 +13,13 @@ import { ajvSchemaRegistry } from "@kratos/runtime/infra/schema";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildPlugin, hostPackage } from "./support/built-plugin.js";
-import { claudeCatalog, codexCatalog } from "./support/model-routing.js";
+import {
+  antigravityCatalog,
+  claudeCatalog,
+  codexCatalog,
+} from "./support/model-routing.js";
 
-type PackageHost = "claude-code" | "codex";
+type PackageHost = "claude-code" | "codex" | "antigravity";
 
 interface PackagedPhaseRelay {
   readonly host: PackageHost;
@@ -45,6 +49,11 @@ interface PackagedPhaseRelay {
         readonly role: string;
         readonly model: string;
         readonly effort: string;
+        readonly memory: null | {
+          readonly ref: ".brain/03-memory/gotchas.md";
+          readonly sha256: string;
+          readonly lessonIds: readonly string[];
+        };
       }): Promise<{
         readonly payload: { readonly ref: string; readonly sha256: string };
         readonly observedIdentity: {
@@ -70,10 +79,10 @@ interface PackagedPhaseRelay {
   >;
 }
 
-function handoff(host: "claude" | "codex"): PhaseHandoffV1_1 {
+function handoff(host: "claude" | "codex" | "antigravity"): PhaseHandoffV1_2 {
   return {
-    contractVersion: "1.1.0",
-    hostContract: "1.1.0",
+    contractVersion: "1.2.0",
+    hostContract: "1.2.0",
     feature: "relay-feature",
     runId: "run-01",
     revision: 7,
@@ -92,6 +101,11 @@ function handoff(host: "claude" | "codex"): PhaseHandoffV1_1 {
     blockers: [],
     openGaps: 0,
     nextAction: "Complete the selected phase.",
+    memory: {
+      ref: ".brain/03-memory/gotchas.md",
+      sha256: "d".repeat(64),
+      lessonIds: ["e".repeat(64)],
+    },
   };
 }
 
@@ -239,6 +253,7 @@ describe("packaged phase-agent relay", () => {
   it.each([
     ["codex", "codex", codexCatalog()],
     ["claude-code", "claude", claudeCatalog()],
+    ["antigravity", "antigravity", antigravityCatalog()],
   ] as const)(
     "binds the %s launch and agent record request to the runtime handoff",
     async (packageHost, configurationHost, modelRouting) => {
@@ -308,6 +323,11 @@ describe("packaged phase-agent relay", () => {
           role: "judge",
           model: "judge-canonical",
           effort: "high",
+          memory: {
+            ref: ".brain/03-memory/gotchas.md",
+            sha256: "d".repeat(64),
+            lessonIds: ["e".repeat(64)],
+          },
         },
       ]);
       expect(runtimeCalls).toHaveLength(3);
@@ -391,7 +411,7 @@ describe("packaged phase-agent relay", () => {
         messageType: "request",
         host: configurationHost,
         operation: "sdd.agent.record:phase-result-01",
-        payloadContract: "host.agent-output@1.0.0",
+        payloadContract: "host.agent-output@1.2.0",
         payload: {
           ref: ".brain/agent-replies/review.md",
           sha256: "c".repeat(64),
@@ -621,6 +641,8 @@ describe("packaged phase-agent relay", () => {
     ["codex", "effort", "codex", codexCatalog(), true, false],
     ["claude-code", "model", "claude", claudeCatalog(), false, true],
     ["claude-code", "effort", "claude", claudeCatalog(), true, false],
+    ["antigravity", "model", "antigravity", antigravityCatalog(), false, true],
+    ["antigravity", "effort", "antigravity", antigravityCatalog(), true, false],
   ] as const)(
     "refuses %s before phase work when exact %s selection is unavailable",
     async (
@@ -670,6 +692,7 @@ describe("packaged phase-agent relay", () => {
   it.each([
     ["codex", codexCatalog()],
     ["claude-code", claudeCatalog()],
+    ["antigravity", antigravityCatalog()],
   ] as const)(
     "relays a %s runtime handoff refusal without phase work",
     async (packageHost, modelRouting) => {

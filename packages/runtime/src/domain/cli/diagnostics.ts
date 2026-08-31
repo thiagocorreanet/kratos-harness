@@ -359,7 +359,7 @@ function observed(
       summary: `${name === "doctor" ? "Diagnose" : "Report"} ${name === "doctor" ? "managed state integrity" : `the active run ${name}`} without mutation.`,
       flags: ROOT_FLAG,
       positionals: { min: 0, max: 0 },
-      jsonContract: name === "handoff" ? "phase-handoff@1.1.0" : "result@1.0.0",
+      jsonContract: name === "handoff" ? "phase-handoff@1.2.0" : "result@1.0.0",
     },
     (_invocation, observation) => handler(observation),
   );
@@ -386,6 +386,46 @@ function absentOrCorrupt(observation: Observation): Decision {
 }
 
 function handoffRefusal(reasonCode: string, subject: string): Decision {
+  if (reasonCode === "memory.migration_required") {
+    return {
+      result: resultFor(reasonCode, {
+        why: [
+          "Custom legacy memory must be explicitly adopted before code or review handoff.",
+        ],
+        evidence: [{ kind: "artifact", ref: subject }],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
+  if (reasonCode === "memory.projection_drift") {
+    return {
+      result: resultFor(reasonCode, {
+        why: [
+          "The rendered curated-memory projection does not match its ledger.",
+        ],
+        evidence: [
+          { kind: "artifact", ref: ".brain/03-memory/curated-memory.json" },
+          { kind: "artifact", ref: ".brain/03-memory/gotchas.md" },
+        ],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
+  if (reasonCode === "runtime.state_corrupt") {
+    return {
+      result: resultFor(reasonCode, {
+        why: ["The curated-memory state could not be read safely."],
+        evidence: [{ kind: "artifact", ref: subject }],
+      }),
+      plan: planOf(),
+      humanStdout: null,
+      payload: null,
+    };
+  }
   if (subject === "launcher:absent" || subject === "launcher:unsupported") {
     const missing = subject === "launcher:absent";
     return {

@@ -24,6 +24,7 @@ function subject(
   files: Readonly<Record<string, string>> = {},
   directories: readonly string[] = [".brain", ".brain/transactions"],
   piped: string | null = null,
+  localFiles: Readonly<Record<string, string>> = {},
 ) {
   const storage = memoryTransactionStorage({ files, directories });
   return {
@@ -33,7 +34,7 @@ function subject(
       ids: sequentialIds("id"),
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
-      fileSystem: memoryFileSystem({}),
+      fileSystem: memoryFileSystem(localFiles),
       environment: fixedEnvironment({}, ROOT),
       git: stubGit(),
       modelRouting: fixedModelRouting([claudeCatalog()]),
@@ -256,7 +257,8 @@ describe("workflow hook runtime", () => {
       toolFamily: "shell",
       failureClass: "nonzero_exit",
       exitCode: 1,
-      diagnostic: "failed at /project/src/file.ts",
+      diagnostic:
+        "\u001b[31mfailed at /project/src/file.ts on 2026-08-28T12:00:00.000Z\u001b[0m",
       usage: null,
     };
     const first = hookRun(
@@ -271,7 +273,11 @@ describe("workflow hook runtime", () => {
     const second = hookRun(
       settled(first),
       first.storage.snapshot().directories,
-      failure,
+      {
+        ...failure,
+        diagnostic:
+          "failed at /project/src/file.ts on 2026-08-28T12:01:00.000Z",
+      },
       "failure-two",
     );
     expect(
@@ -281,6 +287,176 @@ describe("workflow hook runtime", () => {
       path.startsWith(".brain/03-memory/candidates/"),
     );
     expect(candidates).toHaveLength(1);
+  });
+
+  it("captures a manual proposal once without changing curated memory", async () => {
+    const base = await started();
+    const proposal = `${JSON.stringify({
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
+      observation: "Deploy command failed at 2026-08-28T12:00:00.000Z",
+    })}\n`;
+    const first = subject(
+      settled(base),
+      base.storage.snapshot().directories,
+      null,
+      { "proposal.json": proposal },
+    );
+    expect(
+      await runCommandLine(["memory", "capture", "proposal.json"], first.ports),
+    ).toBe(0);
+
+    const second = subject(
+      settled(first),
+      first.storage.snapshot().directories,
+      null,
+      { "proposal.json": proposal },
+    );
+    expect(
+      await runCommandLine(
+        ["memory", "capture", "proposal.json"],
+        second.ports,
+      ),
+    ).toBe(0);
+
+    const files = settled(second);
+    expect(
+      Object.keys(files).filter((path) =>
+        path.startsWith(".brain/03-memory/candidates/"),
+      ),
+    ).toHaveLength(1);
+    expect(files[".brain/03-memory/curated-memory.json"]).toBeDefined();
+    expect(files[".brain/03-memory/gotchas.md"]).toBeDefined();
+    expect(
+      (
+        JSON.parse(files[".brain/03-memory/curated-memory.json"] ?? "") as {
+          confirmed: unknown[];
+        }
+      ).confirmed,
+    ).toEqual([]);
+
+    const listed = subject(files, second.storage.snapshot().directories);
+    expect(await runCommandLine(["memory", "list"], listed.ports)).toBe(0);
+    expect(settled(listed)).toEqual(files);
+  });
+
+  it("bounds automatic and manual candidate diagnostics by UTF-8 bytes", async () => {
+    const base = await started();
+    const diagnostic = "😀".repeat(1024);
+    const automatic = hookRun(
+      settled(base),
+      base.storage.snapshot().directories,
+      {
+        contractVersion: "1.0.0",
+        hostContract: "1.0.0",
+        kind: "tool.failed",
+        sessionId: "session-a",
+        occurredAt: NOW,
+        toolUseId: "tool-unicode",
+        toolFamily: "shell",
+        failureClass: "nonzero_exit",
+        exitCode: 1,
+        diagnostic,
+        usage: null,
+      },
+      "unicode",
+    );
+    expect(
+      await runCommandLine(["hook", "--host", "claude-code"], automatic.ports),
+    ).toBe(0);
+    const automaticCandidate = Object.entries(settled(automatic)).find(
+      ([path]) => path.startsWith(".brain/03-memory/candidates/"),
+    );
+    expect(automaticCandidate).toBeDefined();
+    expect(
+      Buffer.byteLength(
+        (JSON.parse(automaticCandidate?.[1] ?? "") as { diagnostic: string })
+          .diagnostic,
+        "utf8",
+      ),
+    ).toBeLessThanOrEqual(2048);
+
+    const manual = subject(
+      settled(automatic),
+      automatic.storage.snapshot().directories,
+      null,
+      {
+        "proposal.json": `${JSON.stringify({
+          contractVersion: "1.2.0",
+          hostContract: "1.2.0",
+          observation: diagnostic,
+        })}\n`,
+      },
+    );
+    expect(
+      await runCommandLine(
+        ["memory", "capture", "proposal.json"],
+        manual.ports,
+      ),
+    ).toBe(0);
+    const manualCandidate = Object.entries(settled(manual)).find(
+      ([path, text]) =>
+        path.startsWith(".brain/03-memory/candidates/") &&
+        (JSON.parse(text) as { toolFamily: string }).toolFamily === "other",
+    );
+    expect(
+      Buffer.byteLength(
+        (JSON.parse(manualCandidate?.[1] ?? "") as { diagnostic: string })
+          .diagnostic,
+        "utf8",
+      ),
+    ).toBeLessThanOrEqual(2048);
+  });
+
+  it("rejects invalid manual proposals without promotion", async () => {
+    const base = await started();
+    const invalid = subject(
+      settled(base),
+      base.storage.snapshot().directories,
+      null,
+      { "proposal.json": "{}\n" },
+    );
+    expect(
+      await runCommandLine(
+        ["memory", "capture", "proposal.json"],
+        invalid.ports,
+      ),
+    ).toBe(2);
+    expect(settled(invalid)).toEqual(settled(base));
+  });
+
+  it("matches a readable legacy candidate whose ID differs from normalized identity", async () => {
+    const base = await started();
+    const files = settled(base);
+    const legacyPath = `.brain/03-memory/candidates/${"a".repeat(64)}.json`;
+    files[legacyPath] = `${JSON.stringify({
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      candidateId: "a".repeat(64),
+      toolFamily: "other",
+      failureClass: "unknown",
+      exitCode: null,
+      diagnostic: "Deploy failed at 2026-08-28T12:00:00.000+03:00",
+      firstObservedAt: NOW,
+    })}\n`;
+    const manual = subject(files, base.storage.snapshot().directories, null, {
+      "proposal.json": `${JSON.stringify({
+        contractVersion: "1.2.0",
+        hostContract: "1.2.0",
+        observation: "Deploy failed at 2026-08-28T12:01:00.000+03:00",
+      })}\n`,
+    });
+
+    expect(
+      await runCommandLine(
+        ["memory", "capture", "proposal.json"],
+        manual.ports,
+      ),
+    ).toBe(0);
+    const candidates = Object.keys(settled(manual)).filter((path) =>
+      path.startsWith(".brain/03-memory/candidates/"),
+    );
+    expect(candidates).toEqual([legacyPath]);
   });
 
   it("finalizes session telemetry and clears transient files", async () => {

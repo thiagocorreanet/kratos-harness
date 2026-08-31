@@ -197,11 +197,11 @@ function decide(
   };
 
   if (hook.kind === "tool.failed") {
-    if (context.candidate !== null && !context.candidateExists) {
+    if (context.capture?.write === true) {
       effects.push(
         write(
-          `.brain/03-memory/candidates/${context.candidate.candidateId}.json`,
-          context.candidate,
+          `.brain/03-memory/candidates/${context.capture.candidate.candidateId}.json`,
+          context.capture.candidate,
           { kind: "missing" },
         ),
       );

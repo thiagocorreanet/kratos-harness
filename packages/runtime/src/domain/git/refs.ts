@@ -4,21 +4,28 @@ export interface RevParseFacts {
   readonly insideWorkTree: boolean;
   readonly gitDir: string;
   readonly gitCommonDir: string;
+  readonly worktreePrefix: string;
 }
 
-function isTriple(
+function isQuadruple(
   lines: readonly string[],
-): lines is readonly [string, string, string] {
-  return lines.length === 3;
+): lines is readonly [string, string, string, string] {
+  return lines.length === 4;
 }
 
-/** Read the three fields `rev-parse` emits, one per line, in argument order. */
+/** Read the four fields `rev-parse` emits, one per line, in argument order. */
 export function parseRevParse(stdout: string): RevParseFacts | null {
-  const lines = stdout.split("\n").filter((line) => line.length > 0);
-  if (!isTriple(lines)) return null;
-  const [worktree, gitDir, gitCommonDir] = lines;
+  const lines = stdout.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  if (!isQuadruple(lines)) return null;
+  const [worktree, gitDir, gitCommonDir, worktreePrefix] = lines;
   if (worktree !== "true" && worktree !== "false") return null;
-  return { insideWorkTree: worktree === "true", gitDir, gitCommonDir };
+  return {
+    insideWorkTree: worktree === "true",
+    gitDir,
+    gitCommonDir,
+    worktreePrefix,
+  };
 }
 
 /** A linked worktree is exactly a git dir that differs from the common dir. */

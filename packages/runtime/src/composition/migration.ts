@@ -3,6 +3,7 @@ import { basename, dirname, join } from "node:path";
 import type {
   MigrationV1,
   MigrationV1_1,
+  MemoryMigrationV1_2,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
@@ -17,12 +18,20 @@ import {
   migrateLegacyLanguage,
   planBrainMigration,
   plannedConfigMigration,
+  plannedMemoryMigrationWrites,
   rollBackConfigMigration,
   type MigrationEntry,
   upgradeProjectConfiguration,
   upgradeProjectConfigurationV1_2,
   upgradeProjectConfigurationV1_3,
 } from "../domain/migration/index.js";
+import {
+  classifyLegacyMemory,
+  projectCuratedMemory,
+  reduceLegacyMemoryMigration,
+  validatesCuratedMemorySemantics,
+  validateCuratedMemoryProjection,
+} from "../domain/memory/index.js";
 import type { Result } from "../domain/result/index.js";
 import type { HostModelCatalog } from "../domain/model-roles/index.js";
 import { resultFor, usageFailure, USAGE_WHY } from "../domain/result/index.js";
@@ -68,6 +77,9 @@ export async function observeMigration(
   }
   if (command === "migrate config") {
     return observeConfig(invocation, destination, registry);
+  }
+  if (command === "migrate memory") {
+    return observeMemoryMigration(invocation, destination, registry);
   }
   const sourceRoot = join(dirname(target), `${basename(target)}-brain`);
   const canonicalSource = await ports.workspace.canonicalize(
@@ -116,7 +128,225 @@ export async function observeMigration(
 }
 
 const CONFIG_REF = ".brain/config.json";
+const MEMORY_LEDGER_REF = ".brain/03-memory/curated-memory.json";
+const MEMORY_GOTCHAS_REF = ".brain/03-memory/gotchas.md";
 const encoder = new TextEncoder();
+
+async function observeMemoryMigration(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<ObservedMigration> {
+  const requestedDigest = invocation.flags.get("--plan-digest");
+  const requestedTime = invocation.flags.get("--plan-time");
+  const authorized = invocation.flags.get("--yes") === true;
+  if (
+    (authorized &&
+      (typeof invocation.flags.get("--proposal-digest") !== "string" ||
+        typeof requestedDigest !== "string" ||
+        typeof requestedTime !== "string")) ||
+    (!authorized &&
+      (requestedDigest !== undefined ||
+        requestedTime !== undefined ||
+        invocation.flags.get("--proposal-digest") !== undefined)) ||
+    (typeof requestedTime === "string" && !isCanonicalInstant(requestedTime))
+  )
+    return { kind: "failure", result: usageFailure(USAGE_WHY.missingValue) };
+  const [ledger, gotchas] = await Promise.all([
+    readStableFile(MEMORY_LEDGER_REF, ports),
+    readStableFile(MEMORY_GOTCHAS_REF, ports),
+  ]);
+  if (
+    ledger.kind === "revision-conflict" ||
+    gotchas.kind === "revision-conflict"
+  )
+    return resultFailure("runtime.revision_conflict", MEMORY_GOTCHAS_REF);
+  const classification = classifyLegacyMemory({
+    ledger:
+      ledger.kind === "file"
+        ? "present"
+        : ledger.kind === "missing"
+          ? "missing"
+          : "other",
+    gotchas: gotchas.kind === "file" ? gotchas.content : null,
+  });
+  if (classification === "adopted") {
+    if (
+      ledger.kind !== "file" ||
+      gotchas.kind !== "file" ||
+      !validCurrentCuratedMemory(
+        ledger.content,
+        gotchas.content,
+        ports,
+        registry,
+      )
+    )
+      return resultFailure("runtime.state_corrupt", MEMORY_LEDGER_REF);
+    if (authorized)
+      return resultFailure("runtime.revision_conflict", MEMORY_LEDGER_REF);
+    return {
+      kind: "observed",
+      ports,
+      observation: { kind: "migration", operation: { kind: "memory-current" } },
+    };
+  }
+  if (classification === "corrupt" || gotchas.kind !== "file")
+    return resultFailure(
+      authorized ? "runtime.revision_conflict" : "runtime.state_corrupt",
+      MEMORY_GOTCHAS_REF,
+    );
+  const proposal = await readMemoryMigrationProposal(
+    invocation.positionals[0] ?? "",
+    ports,
+    registry,
+  );
+  if (proposal.kind === "failure") return proposal;
+  const now =
+    typeof requestedTime === "string"
+      ? requestedTime
+      : ports.clock.now().toISOString();
+  const reduction = reduceLegacyMemoryMigration(
+    gotchas.content,
+    proposal.value,
+    now,
+    (value) => ports.digests.sha256(value),
+  );
+  if (reduction.kind !== "ready")
+    return resultFailure(
+      authorized ? "runtime.revision_conflict" : "trail.uso",
+      MEMORY_GOTCHAS_REF,
+    );
+  const projection = projectCuratedMemory(reduction.ledger, (value) =>
+    ports.digests.sha256(value),
+  );
+  const proposalDigest = ports.digests.sha256(canonicalizeJson(proposal.value));
+  const migrationId = `memory-${ports.digests
+    .sha256(
+      canonicalizeJson({
+        proposalDigest,
+        sourceDigest: gotchas.entry.sha256,
+        planTime: now,
+      }),
+    )
+    .slice(0, 32)}`;
+  const ledgerContent = `${JSON.stringify(reduction.ledger, null, 2)}\n`;
+  const receiptPlanDigest = ports.digests.sha256(
+    canonicalizeJson({
+      migrationId,
+      proposalDigest,
+      sourceDigest: gotchas.entry.sha256,
+      planTime: now,
+      projectionDigest: projection.projectionDigest,
+    }),
+  );
+  const writes = plannedMemoryMigrationWrites({
+    migrationId,
+    receiptPlanDigest,
+    proposalDigest,
+    source: { content: gotchas.content, sha256: gotchas.entry.sha256 },
+    ledgerContent,
+    ledgerDigest: ports.digests.sha256(ledgerContent),
+    projection: projection.content,
+    projectionDigest: projection.projectionDigest,
+    now,
+  });
+  const planDigest = ports.digests.sha256(
+    canonicalizeJson({
+      kind: "legacy-memory-replacement",
+      migrationId,
+      planTime: now,
+      proposalDigest,
+      source: { ref: MEMORY_GOTCHAS_REF, sha256: gotchas.entry.sha256 },
+      writes: writes.map(({ path, content }) => ({
+        path,
+        sha256: ports.digests.sha256(content),
+      })),
+    }),
+  );
+  if (typeof requestedDigest === "string" && requestedDigest !== planDigest)
+    return resultFailure("runtime.revision_conflict", MEMORY_GOTCHAS_REF);
+  return {
+    kind: "observed",
+    ports,
+    observation: {
+      kind: "migration",
+      operation: {
+        kind: "memory",
+        migrationId,
+        now,
+        source: { content: gotchas.content, sha256: gotchas.entry.sha256 },
+        proposal: proposal.value,
+        proposalDigest,
+        planDigest,
+        ledger: reduction.ledger,
+        projection: projection.content,
+        projectionDigest: projection.projectionDigest,
+        gotchasExpected: {
+          kind: "file",
+          size: gotchas.entry.size,
+          sha256: gotchas.entry.sha256,
+        },
+        writes,
+      },
+    },
+  };
+}
+
+function validCurrentCuratedMemory(
+  ledger: string,
+  projection: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): boolean {
+  try {
+    const validated = registry.validate({
+      id: "state.curated-memory",
+      version: "1.0.0",
+      value: JSON.parse(ledger) as unknown,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+    return (
+      validated.kind === "valid" &&
+      validatesCuratedMemorySemantics(validated.value, (value) =>
+        ports.digests.sha256(value),
+      ) &&
+      validateCuratedMemoryProjection(validated.value, projection, (value) =>
+        ports.digests.sha256(value),
+      ).kind === "valid"
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function readMemoryMigrationProposal(
+  path: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | { readonly kind: "value"; readonly value: MemoryMigrationV1_2 }
+  | Extract<ObservedMigration, { readonly kind: "failure" }>
+> {
+  try {
+    const validated = registry.validate({
+      id: "host.memory-migration",
+      version: "1.2.0",
+      value: JSON.parse(await ports.fileSystem.read(path)) as unknown,
+      structuralReasonCode: "trail.uso",
+    });
+    return validated.kind === "valid"
+      ? { kind: "value", value: validated.value }
+      : {
+          kind: "failure",
+          result: usageFailure("The memory migration mapping is invalid."),
+        };
+  } catch {
+    return {
+      kind: "failure",
+      result: usageFailure("The memory migration mapping is unreadable."),
+    };
+  }
+}
 
 async function observeConfig(
   invocation: Invocation,
@@ -216,11 +446,11 @@ async function observeConfig(
   }
 
   let destination: ProjectConfigV1_3;
-  let hosts: readonly ("claude" | "codex")[];
+  let hosts: readonly ("claude" | "codex" | "antigravity")[];
   let answersAuthority: { readonly ref: string; readonly sha256: string };
   let defaulted: readonly string[];
   const observedCatalogs = new Map<
-    "claude" | "codex",
+    "claude" | "codex" | "antigravity",
     HostModelCatalog | null
   >();
 
@@ -421,7 +651,7 @@ async function observeConfig(
           ? resultFailure("runtime.revision_conflict", CONFIG_REF)
           : document;
       }
-      hosts = (["claude", "codex"] as const).filter(
+      hosts = (["claude", "codex", "antigravity"] as const).filter(
         (host) => legacy.modelRoles[host] !== undefined,
       );
       answersAuthority = { ref: "config", sha256: entry.sha256 };
@@ -674,10 +904,10 @@ async function readStableFile(
 interface ConfigLineageContext {
   readonly source: { readonly content: string; readonly sha256: string };
   readonly destinationDigest: string;
-  readonly hosts: readonly ("claude" | "codex")[];
+  readonly hosts: readonly ("claude" | "codex" | "antigravity")[];
   readonly answers: { readonly ref: string; readonly sha256: string };
   readonly catalogs: readonly {
-    readonly host: "claude" | "codex";
+    readonly host: "claude" | "codex" | "antigravity";
     readonly sha256: string;
   }[];
   readonly modelRoles: ProjectConfigV1_3["modelRoles"];
@@ -1045,7 +1275,11 @@ function supplementLegacyDefaults(
 
 function migrationAnswerFailure(
   subject:
-    { readonly host: "claude" | "codex"; readonly role?: string } | undefined,
+    | {
+        readonly host: "claude" | "codex" | "antigravity";
+        readonly role?: string;
+      }
+    | undefined,
 ): string {
   if (subject === undefined) {
     return "The migration answers do not satisfy their contract.";
@@ -1071,8 +1305,8 @@ function hasOwn(value: unknown, key: string): boolean {
 
 function configuredHosts(
   modelRoles: ProjectConfigV1_3["modelRoles"],
-): readonly ("claude" | "codex")[] {
-  return (["claude", "codex"] as const).filter(
+): readonly ("claude" | "codex" | "antigravity")[] {
+  return (["claude", "codex", "antigravity"] as const).filter(
     (host) => modelRoles[host] !== undefined,
   );
 }
@@ -1094,10 +1328,15 @@ function mergeExplicitModelRoles(
     supplied !== undefined && hasOwn(supplied, "codex")
       ? resolved.codex
       : undefined;
+  const antigravity =
+    supplied !== undefined && hasOwn(supplied, "antigravity")
+      ? resolved.antigravity
+      : undefined;
   return {
     ...persisted,
     ...(claude === undefined ? {} : { claude }),
     ...(codex === undefined ? {} : { codex }),
+    ...(antigravity === undefined ? {} : { antigravity }),
   };
 }
 
@@ -1194,17 +1433,31 @@ async function observeRollback(
           validated.kind === "valid" &&
           validated.value.stateContract === "1.1.0"
         ) {
-          const observed = await observeConfigReplacement(
-            validated.value,
-            rollback,
-            migrationId,
-            root,
-            ports,
-            receiptFile,
-            rollbackFile,
-          );
+          const memoryRollback = isMemoryRollbackManifest(rollback);
+          const observed = await (memoryRollback
+            ? observeMemoryReplacement(
+                validated.value,
+                rollback,
+                migrationId,
+                root,
+                ports,
+                receiptFile,
+                rollbackFile,
+              )
+            : observeConfigReplacement(
+                validated.value,
+                rollback,
+                migrationId,
+                root,
+                ports,
+                receiptFile,
+                rollbackFile,
+              ));
           if (observed.kind === "revision-conflict") {
-            return resultFailure("runtime.revision_conflict", CONFIG_REF);
+            return resultFailure(
+              "runtime.revision_conflict",
+              memoryRollback ? MEMORY_GOTCHAS_REF : CONFIG_REF,
+            );
           }
           if (observed.kind === "ready") {
             receipt = validated.value;
@@ -1230,6 +1483,129 @@ async function observeRollback(
         replacement,
         now: ports.clock.now().toISOString(),
       },
+    },
+  };
+}
+
+interface MemoryRollbackManifest {
+  readonly kind: "memory-replace";
+  readonly migrationId: string;
+  readonly backupRef: string;
+  readonly backupDigest: string;
+  readonly destinationRef: string;
+  readonly destinationDigest: string;
+  readonly removeTargets: readonly [string];
+}
+
+function isMemoryRollbackManifest(
+  value: unknown,
+): value is MemoryRollbackManifest {
+  return isRecord(value) && value.kind === "memory-replace";
+}
+
+async function observeMemoryReplacement(
+  receipt: MigrationV1_1,
+  rollback: MemoryRollbackManifest,
+  migrationId: string,
+  root: string,
+  ports: RuntimePorts,
+  receiptFile: Extract<StableFileObservation, { readonly kind: "file" }>,
+  rollbackFile: Extract<StableFileObservation, { readonly kind: "file" }>,
+): Promise<ConfigReplacementObservation> {
+  const backupRef = `${root}/backup/gotchas.md`;
+  const destinationRef = MEMORY_GOTCHAS_REF;
+  const removeTarget = MEMORY_LEDGER_REF;
+  if (
+    receipt.migrationId !== migrationId ||
+    receipt.status !== "completed" ||
+    receipt.authorizationRef !== `${root}/authorization.json` ||
+    receipt.rollback.kind !== "replace" ||
+    receipt.rollback.backupRef !== backupRef ||
+    receipt.rollback.destinationRef !== destinationRef ||
+    receipt.rollback.backupDigest !== rollback.backupDigest ||
+    receipt.rollback.destinationDigest !== rollback.destinationDigest ||
+    receipt.conversions.length !== 1 ||
+    receipt.conversions[0].payloadContract !== "state.curated-memory" ||
+    receipt.conversions[0].sourceDigest !== receipt.rollback.backupDigest ||
+    receipt.conversions[0].destinationDigest !==
+      receipt.rollback.destinationDigest ||
+    rollback.migrationId !== migrationId ||
+    rollback.backupRef !== backupRef ||
+    rollback.destinationRef !== destinationRef ||
+    rollback.removeTargets[0] !== removeTarget ||
+    !sameJson(rollback, {
+      kind: "memory-replace",
+      migrationId,
+      backupRef,
+      backupDigest: receipt.rollback.backupDigest,
+      destinationRef,
+      destinationDigest: receipt.rollback.destinationDigest,
+      removeTargets: [removeTarget],
+    })
+  )
+    return { kind: "corrupt" };
+  const [backup, destination, ledger, verification] = await Promise.all([
+    readStableFile(backupRef, ports),
+    readStableFile(destinationRef, ports),
+    readStableFile(removeTarget, ports),
+    readStableFile(`${root}/verification.json`, ports),
+  ]);
+  if (
+    [backup, destination, ledger, verification].some(
+      (file) => file.kind === "revision-conflict",
+    )
+  )
+    return { kind: "revision-conflict" };
+  if (
+    backup.kind !== "file" ||
+    destination.kind !== "file" ||
+    ledger.kind !== "file" ||
+    verification.kind !== "file"
+  )
+    return { kind: "corrupt" };
+  if (destination.entry.sha256 !== receipt.rollback.destinationDigest)
+    return { kind: "revision-conflict" };
+  if (
+    backup.entry.sha256 !== receipt.rollback.backupDigest ||
+    ports.digests.sha256(backup.content) !== receipt.rollback.backupDigest ||
+    !sameJson(JSON.parse(verification.content) as unknown, {
+      migrationId,
+      destinationDigest: receipt.rollback.destinationDigest,
+      ledgerDigest: ledger.entry.sha256,
+      verifiedAt: receipt.updatedAt,
+    })
+  )
+    return { kind: "corrupt" };
+  return {
+    kind: "ready",
+    value: {
+      destinationRef,
+      content: backup.content,
+      expected: expectedFile(destination),
+      backupRef,
+      backupExpected: expectedFile(backup),
+      receiptExpected: expectedFile(receiptFile),
+      guards: [
+        {
+          path: backupRef,
+          content: backup.content,
+          expected: expectedFile(backup),
+        },
+        {
+          path: `${root}/rollback.json`,
+          content: rollbackFile.content,
+          expected: expectedFile(rollbackFile),
+        },
+        {
+          path: `${root}/verification.json`,
+          content: verification.content,
+          expected: expectedFile(verification),
+        },
+      ],
+      backupDigest: receipt.rollback.backupDigest,
+      destinationDigest: receipt.rollback.destinationDigest,
+      removeTargets: [removeTarget],
+      removeExpected: new Map([[removeTarget, expectedFile(ledger)]]),
     },
   };
 }

@@ -20,6 +20,9 @@ import type { CommandObservation, CommandSpec, Decision } from "./spec.js";
 
 type Observation = Extract<CommandObservation, { readonly kind: "workflow" }>;
 
+const EMPTY_DIGEST =
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
 const SHARED_FLAGS: CommandSpec["flags"] = [
   {
     name: "--correlation-id",
@@ -56,6 +59,18 @@ function currentPhaseExecution(observation: Observation) {
         execution: observation.phaseExecution,
       }
     : null;
+}
+
+function lineageParents(
+  artifactDigest: string,
+  observedLineage: Observation["observedLineage"],
+): readonly string[] {
+  return [observedLineage.prdDigest, observedLineage.specDigest].filter(
+    (digest, index, values) =>
+      digest !== EMPTY_DIGEST &&
+      digest !== artifactDigest &&
+      values.indexOf(digest) === index,
+  );
 }
 
 export const startCommand: CommandSpec = observingCommand(
@@ -395,10 +410,10 @@ export const doneCommand: CommandSpec = observingCommand(
               artifactId: `artifact:${artifactObservation.sha256.slice(0, 24)}`,
               artifactRef: artifactObservation.ref,
               artifactDigest: artifactObservation.sha256,
-              parentDigests: [
-                observation.observedLineage.prdDigest,
-                observation.observedLineage.specDigest,
-              ],
+              parentDigests: lineageParents(
+                artifactObservation.sha256,
+                observation.observedLineage,
+              ),
               runId: observation.configuration.runId,
               phase: "acceptance",
               policyMode: observation.policyMode,
@@ -555,10 +570,10 @@ function workflowDecision(
           artifactId: `artifact:${artifact.sha256.slice(0, 24)}`,
           artifactRef: artifact.ref,
           artifactDigest: artifact.sha256,
-          parentDigests: [
-            observation.observedLineage.prdDigest,
-            observation.observedLineage.specDigest,
-          ].filter((digest, index, values) => values.indexOf(digest) === index),
+          parentDigests: lineageParents(
+            artifact.sha256,
+            observation.observedLineage,
+          ),
           runId: observation.configuration.runId,
           phase:
             observation.workflow.kind === "present"

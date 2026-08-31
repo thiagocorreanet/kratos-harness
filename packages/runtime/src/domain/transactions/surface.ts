@@ -9,6 +9,7 @@ const MANAGED_DIRECTORY_ROOTS: readonly string[] = [
   ".brain",
   ".claude",
   ".codex",
+  ".gemini",
 ];
 
 /**
@@ -17,7 +18,11 @@ const MANAGED_DIRECTORY_ROOTS: readonly string[] = [
  * A pattern over the root -- any `*.md`, say -- would accept files this runtime
  * has no business writing. The inventory names exactly these two.
  */
-const MANAGED_ROOT_FILES: readonly string[] = ["AGENTS.md", "CLAUDE.md"];
+const MANAGED_ROOT_FILES: readonly string[] = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "GEMINI.md",
+];
 
 /** The transaction manager's own namespace, matched without regard to case. */
 const RESERVED_STATE_NAMESPACE = "transactions";

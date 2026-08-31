@@ -42,6 +42,27 @@ describe("phase measurement contract", () => {
     expect(result).toEqual({ kind: "valid", value: measurement });
   });
 
+  it("accepts an Antigravity phase measurement assignment", () => {
+    const antigravityMeasurement = {
+      ...measurement,
+      resolvedAssignment: {
+        ...measurement.resolvedAssignment,
+        host: "antigravity",
+      },
+    } as const;
+    const result = ajvSchemaRegistry().validate({
+      id: "state.phase-measurement",
+      version: antigravityMeasurement.stateContract,
+      value: antigravityMeasurement,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+
+    expect(result).toEqual({
+      kind: "valid",
+      value: antigravityMeasurement,
+    });
+  });
+
   it("rejects closed-state nullability that conflicts with completed status", () => {
     const result = ajvSchemaRegistry().validate({
       id: "state.phase-measurement",

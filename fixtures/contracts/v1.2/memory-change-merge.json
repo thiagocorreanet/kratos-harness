@@ -1,0 +1,11 @@
+{
+  "contractVersion": "1.2.0",
+  "hostContract": "1.2.0",
+  "operation": "merge",
+  "reviewer": "memory-reviewer",
+  "lessonIds": [
+    "2222222222222222222222222222222222222222222222222222222222222222",
+    "3333333333333333333333333333333333333333333333333333333333333333"
+  ],
+  "title": "Verify all deployment prerequisites"
+}

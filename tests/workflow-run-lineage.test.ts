@@ -1,13 +1,15 @@
 import type {
-  AgentOutputV1,
+  AgentOutputV1_2,
   EventV1,
-  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
 } from "@kratos/contracts";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
   AGENT_BLOCK_CLOSE,
   AGENT_BLOCK_OPEN,
 } from "@kratos/runtime/domain/agent";
+import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
+import { STOCK_GOTCHAS_TEMPLATE } from "@kratos/runtime/domain/memory";
 import {
   fixedClock,
   fixedEnvironment,
@@ -61,24 +63,29 @@ const TASK_DOCUMENT = [
   "- Prompt wording.",
   "",
 ].join("\n");
-const ANSWERS = JSON.stringify({
-  contractVersion: "1.3.0",
-  hostContract: "1.3.0",
-  hosts: ["claude"],
-  language: {
-    conversation: "en",
-    documentation: "en",
-    comments: "en",
-    identifiers: "en",
-    commits: "en",
-    preserveConventions: true,
-    enforcement: "advisory",
-  },
-  policyMode: "standard",
-  snapshots: true,
-});
+function answers(policyMode: "standard" | "strict"): string {
+  return JSON.stringify({
+    contractVersion: "1.3.0",
+    hostContract: "1.3.0",
+    hosts: ["claude"],
+    language: {
+      conversation: "en",
+      documentation: "en",
+      comments: "en",
+      identifiers: "en",
+      commits: "en",
+      preserveConventions: true,
+      enforcement: "advisory",
+    },
+    policyMode,
+    snapshots: true,
+  });
+}
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const STRICT_PRD = `# Requirements\n\n${PRD_DOCUMENT.requiredSections
+  .map((section) => `## ${section}\n\nCompleted ${section}.`)
+  .join("\n\n")}\n`;
 
 interface Subject {
   readonly ports: RuntimePorts;
@@ -145,8 +152,14 @@ function next(
 }
 
 /** A project initialized, given an objective, and started on the `prd` phase. */
-async function startedRun(): Promise<Subject> {
-  const initialized = subject({}, [".brain", ".brain/transactions"], ANSWERS);
+async function startedRun(
+  policyMode: "standard" | "strict" = "standard",
+): Promise<Subject> {
+  const initialized = subject(
+    {},
+    [".brain", ".brain/transactions"],
+    answers(policyMode),
+  );
   expect(await runCommandLine(["init"], initialized.ports)).toBe(0);
   const objective = next(initialized);
   expect(await runCommandLine(["objective", TEXT], objective.ports)).toBe(0);
@@ -186,7 +199,7 @@ async function startCurrentPhase(
   expect(await runCommandLine(["--json", "handoff"], run.ports)).toBe(0);
   const handoff = JSON.parse(
     run.output.structured_.join(""),
-  ) as PhaseHandoffV1_1;
+  ) as PhaseHandoffV1_2;
   const sessionId = `session-${correlationId}`;
   const lifecycle = {
     contractVersion: "1.0.0",
@@ -263,7 +276,7 @@ function snapshotOf(run: Subject): {
   >;
 }
 
-function agentReply(output: AgentOutputV1): string {
+function agentReply(output: AgentOutputV1_2): string {
   return `${AGENT_BLOCK_OPEN}\n${JSON.stringify(output, null, 2)}\n${AGENT_BLOCK_CLOSE}\n`;
 }
 
@@ -276,6 +289,29 @@ function eventValues(run: Subject): readonly EventV1[] {
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line) as EventV1);
+}
+
+interface LineageValue {
+  readonly artifactDigest: string;
+  readonly artifactRef: string;
+  readonly parentDigests: readonly string[];
+}
+
+function lineageEntries(
+  run: Subject,
+): readonly { readonly path: string; readonly value: LineageValue }[] {
+  return Object.entries(settled(run).files)
+    .filter(([path]) => path.includes("/lineage/") && path.endsWith(".json"))
+    .map(([path, content]) => ({
+      path,
+      value: JSON.parse(content) as LineageValue,
+    }));
+}
+
+async function handoffOutput(run: Subject): Promise<string> {
+  const view = next(run);
+  expect(await runCommandLine(["handoff"], view.ports)).toBe(0);
+  return `${view.output.structured_.join("")}${view.output.human_.join("")}`;
 }
 
 /**
@@ -364,6 +400,105 @@ describe("a run whose phases write the lineage files", () => {
     expect(run.output.human_.join("")).not.toContain("runtime.state_corrupt");
     expect(code).toBe(0);
     expect(snapshotOf(run).currentStep).toBe("plan");
+  });
+
+  it("advances to plan under strict policy after the design appears", async () => {
+    const started = await startedRun("strict");
+    const prd = await recordEvidence(
+      next(started, { [PRD]: STRICT_PRD }),
+      PRD,
+      "strict-evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "strict-complete-prd")).toBe(0);
+    const withDesign = next(prd, {
+      [SPEC]: "# Design\n\nOne pipeline.\n",
+    });
+
+    expect(await handoffOutput(withDesign)).not.toContain("context-readable");
+
+    const spec = await recordEvidence(withDesign, SPEC, "strict-evidence-spec");
+    expect(await completePhase(spec, SPEC, "strict-complete-spec")).toBe(0);
+    expect(snapshotOf(spec).currentStep).toBe("plan");
+  });
+
+  it("records only real parent artifacts in new lineage nodes", async () => {
+    const started = await startedRun();
+    const prd = await recordEvidence(
+      next(started, { [PRD]: "# PRD\n\nShip the export pipeline.\n" }),
+      PRD,
+      "parents-evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "parents-complete-prd")).toBe(0);
+
+    const [prdLineage] = lineageEntries(prd);
+    expect(prdLineage).toMatchObject({
+      value: { artifactRef: PRD, parentDigests: [] },
+    });
+    if (prdLineage === undefined) throw new Error("the PRD wrote no lineage");
+
+    const spec = await recordEvidence(
+      next(prd, { [SPEC]: "# Design\n\nOne pipeline.\n" }),
+      SPEC,
+      "parents-evidence-spec",
+    );
+    expect(await completePhase(spec, SPEC, "parents-complete-spec")).toBe(0);
+    const entries = lineageEntries(spec);
+    const specEntry = entries.find(({ value }) => value.artifactRef === SPEC);
+
+    expect(specEntry?.value.parentDigests).toEqual([
+      prdLineage.value.artifactDigest,
+    ]);
+  });
+
+  it("reads legacy synthetic parents after the source documents change", async () => {
+    const started = await startedRun("strict");
+    const prd = await recordEvidence(
+      next(started, { [PRD]: STRICT_PRD }),
+      PRD,
+      "legacy-evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "legacy-complete-prd")).toBe(0);
+    const [entry] = lineageEntries(prd);
+    if (entry === undefined) throw new Error("the PRD wrote no lineage node");
+    const legacy = next(prd, {
+      [entry.path]: `${JSON.stringify(
+        {
+          ...JSON.parse(settled(prd).files[entry.path] ?? "{}"),
+          parentDigests: [entry.value.artifactDigest, EMPTY_DIGEST],
+        },
+        null,
+        2,
+      )}\n`,
+      [PRD]: `${STRICT_PRD}\nRevised.\n`,
+      [SPEC]: "# Design\n\nOne pipeline.\n",
+    });
+
+    expect(await handoffOutput(legacy)).not.toContain("context-readable");
+  });
+
+  it("rejects an empty parent that is not part of a legacy self-reference", async () => {
+    const started = await startedRun("strict");
+    const prd = await recordEvidence(
+      next(started, { [PRD]: STRICT_PRD }),
+      PRD,
+      "invalid-empty-evidence-prd",
+    );
+    expect(await completePhase(prd, PRD, "invalid-empty-complete-prd")).toBe(0);
+    const [entry] = lineageEntries(prd);
+    if (entry === undefined) throw new Error("the PRD wrote no lineage node");
+    const invalid = next(prd, {
+      [entry.path]: `${JSON.stringify(
+        {
+          ...JSON.parse(settled(prd).files[entry.path] ?? "{}"),
+          parentDigests: [EMPTY_DIGEST],
+        },
+        null,
+        2,
+      )}\n`,
+      [SPEC]: "# Design\n\nOne pipeline.\n",
+    });
+
+    expect(await handoffOutput(invalid)).toContain("context-readable");
   });
 
   it("freezes identified criteria in the event that completes planning", async () => {
@@ -486,9 +621,9 @@ describe("a run whose phases write the lineage files", () => {
       ACCEPTANCE_EVIDENCE,
       "evidence-acceptance",
     );
-    const output: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const output: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -498,6 +633,7 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: null,
       payload: {
         verdict: "rejected",
         criteria: [
@@ -690,9 +826,9 @@ describe("a run whose phases write the lineage files", () => {
     }));
     const firstCriterionReport = criterionReports[0];
     if (firstCriterionReport === undefined) throw new Error("no criteria");
-    const output: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const output: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "acceptance",
       outcome: {
         status: "completed",
@@ -702,6 +838,7 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: null,
       payload: {
         verdict: "accepted",
         criteria: [firstCriterionReport, ...criterionReports.slice(1)],
@@ -763,9 +900,9 @@ describe("a run whose phases write the lineage files", () => {
       await completePhase(changed, CODE_SUMMARY, "complete-code-with-flip"),
     ).toBe(3);
     expect(snapshotOf(changed).currentStep).toBe("code");
-    const codeOutput: AgentOutputV1 = {
-      contractVersion: "1.0.0",
-      hostContract: "1.0.0",
+    const codeOutput: AgentOutputV1_2 = {
+      contractVersion: "1.2.0",
+      hostContract: "1.2.0",
       agent: "code",
       outcome: {
         status: "completed",
@@ -775,6 +912,11 @@ describe("a run whose phases write the lineage files", () => {
       },
       artifacts: [],
       changedFiles: [],
+      memory: {
+        ref: ".brain/03-memory/gotchas.md",
+        sha256: changed.ports.digests.sha256(STOCK_GOTCHAS_TEMPLATE),
+        lessonIds: [],
+      },
       payload: { stepId: "step-1", testsAdded: 1, testsPassed: true },
     };
     const recording = next(changed, {

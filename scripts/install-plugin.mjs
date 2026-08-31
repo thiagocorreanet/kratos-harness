@@ -31,8 +31,8 @@ function option(name) {
 
 function hostOption() {
   const host = option("--host");
-  if (host !== "codex" && host !== "claude-code") {
-    fail("--host must be codex or claude-code");
+  if (host !== "codex" && host !== "claude-code" && host !== "antigravity") {
+    fail("--host must be codex, claude-code, or antigravity");
   }
   return host;
 }

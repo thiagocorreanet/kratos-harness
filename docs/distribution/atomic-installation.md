@@ -28,7 +28,7 @@ node scripts/install-plugin.mjs uninstall \
   --target /absolute/host/plugin/directory/kratos
 ```
 
-The `--source` directory contains the `codex/` and `claude-code/` packages;
+The `--source` directory contains the `codex/`, `claude-code/`, and `antigravity/` packages;
 only the package selected by `--host` is installed. An update refuses while an
 earlier rollback backup exists. `commit` removes that backup only after the
 operator accepts the installed version. `rollback` keeps the rejected version

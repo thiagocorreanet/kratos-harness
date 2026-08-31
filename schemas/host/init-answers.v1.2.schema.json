@@ -12,7 +12,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["claude", "codex"] }
+      "items": { "enum": ["claude", "codex", "antigravity"] }
     },
     "language": { "$ref": "#/$defs/languagePolicy" },
     "policyMode": { "enum": ["standard", "strict"] },
@@ -79,7 +79,8 @@
       "minProperties": 1,
       "properties": {
         "claude": { "$ref": "#/$defs/roleMap" },
-        "codex": { "$ref": "#/$defs/roleMap" }
+        "codex": { "$ref": "#/$defs/roleMap" },
+        "antigravity": { "$ref": "#/$defs/roleMap" }
       }
     }
   }

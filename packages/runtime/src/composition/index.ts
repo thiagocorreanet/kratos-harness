@@ -198,7 +198,8 @@ export async function applyPlan<State = JsonState>(
   },
 ): Promise<ApplyPlanOutcome> {
   const decided = await decideMutation(plan, ports, options, "commit");
-  const { frozenOptions, services, prepared, normalized, emits } = decided;
+  const { frozenOptions, guards, services, prepared, normalized, emits } =
+    decided;
   assertPreviewStillHolds(options.expectPreview, normalized, ports);
 
   let outcome: ApplyPlanOutcome;
@@ -208,7 +209,9 @@ export async function applyPlan<State = JsonState>(
     const receipt = await executeManagedMutation(
       normalized.plan,
       prepared === undefined
-        ? frozenOptions
+        ? guards.length === 0
+          ? frozenOptions
+          : { ...frozenOptions, guardPreconditions: guards }
         : {
             ...frozenOptions,
             eventStorePreconditions: [
@@ -224,6 +227,7 @@ export async function applyPlan<State = JsonState>(
                 ),
               },
             ],
+            ...(guards.length === 0 ? {} : { guardPreconditions: guards }),
           },
       services,
     );
@@ -252,6 +256,10 @@ type DecisionMode = "commit" | "preview";
 
 interface DecidedMutation {
   readonly frozenOptions: { readonly rootMode: "existing" | "initialize" };
+  readonly guards: readonly {
+    readonly path: string;
+    readonly expected: Extract<PathFingerprint, { readonly kind: "file" }>;
+  }[];
   readonly services: TransactionServices;
   readonly prepared: PreparedEventAppend | undefined;
   readonly normalized: ReturnType<typeof normalizeManagedMutationPlan>;
@@ -320,6 +328,12 @@ async function decideMutation<State = JsonState>(
     prepared?.expected,
   );
   assertWritePreconditions(expandedPlan, observations);
+  const guards = expandedPlan.effects
+    .filter(
+      (effect): effect is Extract<Effect, { readonly kind: "assert_file" }> =>
+        effect.kind === "assert_file",
+    )
+    .map(({ path, expected }) => ({ path, expected }));
   let normalized: ReturnType<typeof normalizeManagedMutationPlan>;
   try {
     normalized = normalizeManagedMutationPlan(
@@ -342,7 +356,7 @@ async function decideMutation<State = JsonState>(
   if (prepared !== undefined)
     await assertPreparedAppendIsFresh(prepared, ports);
 
-  return { frozenOptions, services, prepared, normalized, emits };
+  return { frozenOptions, guards, services, prepared, normalized, emits };
 }
 
 /**
@@ -560,7 +574,20 @@ function snapshotEffect(value: unknown): EffectPlan["effects"][number] {
         ? { kind, path, content }
         : { kind, path, content, expected };
     }
-    case "delete_file":
+    case "assert_file": {
+      const path = ownData(value, "path");
+      if (typeof path !== "string") throw invalidApplyInput();
+      const expected = snapshotWritePrecondition(value);
+      if (expected?.kind !== "file") throw invalidApplyInput();
+      return { kind, path, expected };
+    }
+    case "delete_file": {
+      const path = ownData(value, "path");
+      if (typeof path !== "string") throw invalidApplyInput();
+      const expected = snapshotWritePrecondition(value);
+      if (expected?.kind === "missing") throw invalidApplyInput();
+      return expected === undefined ? { kind, path } : { kind, path, expected };
+    }
     case "create_directory": {
       const path = ownData(value, "path");
       if (typeof path !== "string") throw invalidApplyInput();
@@ -724,6 +751,7 @@ function selectEmitEffects(
   for (const effect of plan.effects) {
     switch (effect.kind) {
       case "append_event":
+      case "assert_file":
       case "create_directory":
       case "delete_file":
       case "write_file":
@@ -748,6 +776,7 @@ function hasManagedEffects(plan: EffectPlan): boolean {
       kind === "create_directory" ||
       kind === "delete_file" ||
       kind === "write_file" ||
+      kind === "assert_file" ||
       kind === "append_event",
   );
 }
@@ -884,7 +913,13 @@ function assertWritePreconditions(
   observations: ReadonlyMap<string, PathFingerprint>,
 ): void {
   for (const effect of plan.effects) {
-    if (effect.kind !== "write_file" || effect.expected === undefined) continue;
+    if (
+      (effect.kind !== "write_file" &&
+        effect.kind !== "delete_file" &&
+        effect.kind !== "assert_file") ||
+      effect.expected === undefined
+    )
+      continue;
     const observed = observations.get(effect.path);
     if (observed === undefined || !sameFingerprint(effect.expected, observed)) {
       throw new TransactionFailure("runtime.revision_conflict", [

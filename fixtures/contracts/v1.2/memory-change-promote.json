@@ -1,0 +1,12 @@
+{
+  "contractVersion": "1.2.0",
+  "hostContract": "1.2.0",
+  "operation": "promote",
+  "reviewer": "memory-reviewer",
+  "candidateIds": [
+    "1111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "title": "Verify the artifact before deployment",
+  "why": ["The deployment command rejects an absent artifact."],
+  "apply": ["Build and verify the artifact before invoking deployment."]
+}

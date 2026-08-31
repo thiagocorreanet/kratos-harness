@@ -92,7 +92,8 @@
       "minProperties": 1,
       "properties": {
         "claude": { "$ref": "#/$defs/roleMap" },
-        "codex": { "$ref": "#/$defs/roleMap" }
+        "codex": { "$ref": "#/$defs/roleMap" },
+        "antigravity": { "$ref": "#/$defs/roleMap" }
       }
     },
     "command": {

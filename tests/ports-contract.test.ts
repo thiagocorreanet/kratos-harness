@@ -318,6 +318,7 @@ describe("deterministic fakes", () => {
           upstream: null,
         },
         worktree: "principal",
+        worktreePrefix: "",
         operation: "none",
         changes: [],
       },

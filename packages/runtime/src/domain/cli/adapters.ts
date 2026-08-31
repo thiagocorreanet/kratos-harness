@@ -3,8 +3,8 @@ import { resultFor } from "../result/index.js";
 
 import type { CommandSpec, Decision, Invocation } from "./spec.js";
 
-type SupportedHost = "claude-code" | "codex";
-const HOSTS: readonly SupportedHost[] = ["claude-code", "codex"];
+type SupportedHost = "claude-code" | "codex" | "antigravity";
+const HOSTS: readonly SupportedHost[] = ["claude-code", "codex", "antigravity"];
 const CAPABILITIES = [
   "interaction.approval",
   "lifecycle.cancellation",

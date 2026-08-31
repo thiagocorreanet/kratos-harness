@@ -2,22 +2,28 @@
 // dependency: https://kratos.dev/schemas/result/v1 sha256:6ad1a8b5f56b324184f7cb3b760ed7d6a921fef98f4857130e15a6c0825236b9
 // dependency: https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1 sha256:0e18ccda744e941e58650358e828dd89e7cee0f064bc661be058df039b8ec1c7
 // source: https://kratos.dev/schemas/host/adapter-message/v1 sha256:40e9d8e3bc053fe706ff7b92743370bf892522d267eca1f2cbc12e4c808bfecd
-// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:f0f12ebb6eff580ba0c9700cebad52a0cb3be13b99a1c8c324d10a363ac941e8
+// source: https://kratos.dev/schemas/host/adapter-message/v1.1 sha256:5618d8b287ffcd797772334da37ceee406ca26330f9d1055872ecf7ab0fd02c7
 // source: https://kratos.dev/schemas/host/agent-output/v1 sha256:7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a
+// source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
 // source: https://kratos.dev/schemas/host/init-answers/v1.1 sha256:802ca7c61c581832106e17364d6cbb1c1676fb6bb43706377aee235623640461
-// source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:4288fe278a7f75fcb492a0af257fa589db42cb228af472ceac2894d13866032e
-// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:9ecd069b9c53c8bb9d6ebcbbf8e0fad42226fd040eb563d80a09d09644f62329
-// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8c31f1bc77a84c5a7e0955bff0931c5ceab9588c9aa2229502370ef2ba7205c4
+// source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:81afcd81cd829a8c66c6e2d2cf704e76ed6a818ab873b5534f5265ad2c099112
+// source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7
+// source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
+// source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
+// source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
+// source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
 // source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
-// source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:b9c65a4852253487c65e7b41a1203c2ea3937c77248523cc1510c508aa92a557
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/beat/v1 sha256:e6bf3425c5fd36c5955c7941fdf575efd3fa1f8bba0565d0d8f5ec6ab49a8c25
+// source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
@@ -30,12 +36,12 @@
 // source: https://kratos.dev/schemas/state/lock/v1 sha256:67bdc8eae594bae0df25dd61df39081dfbe77d96514a0bf24fecf4af20859a55
 // source: https://kratos.dev/schemas/state/migration/v1 sha256:6251345514f7cee7fd512b79758f71c41c6abc440be786eae035331e131b003e
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
-// source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:b74276c6ecf1df960cc7ff362a31e171e929c9329c5686c836e21aee833e3787
+// source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:c783ccba225a9cd283460d11f9f1b590195c70ddcc8af28bf2bd891014888548
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
 // source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
-// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:bb0a83ccdecb257dcef34c2dbe24f3db5077b65121af26f34f8142b96451fb48
-// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:9ee6051e8bff34581aca4529045c45f549f3f4d65f885b36e3916138f76ede0d
+// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/run-usage/v1 sha256:f98d473fde8b9ff3fdcb3e885cec0586e23f71f6fa30b9395439781c1eef7bcb
 // source: https://kratos.dev/schemas/state/session-telemetry/v1 sha256:d31fc5b00ca6224a7f1443df00cba74c1c741c4617192e9b175e33d73da494ed
@@ -142,7 +148,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "request";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -156,7 +162,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "response";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -169,7 +175,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "model-catalog";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -182,7 +188,7 @@ export namespace AdapterMessageV1_1Contract {
         hostContract: "1.1.0";
         messageId: Id;
         messageType: "phase-execution";
-        host: "claude" | "codex";
+        host: "claude" | "codex" | "antigravity";
         operation: Id;
         capabilities: Id[];
         observedIdentity: ObservedIdentity;
@@ -473,6 +479,205 @@ export namespace AgentOutputV1Contract {
   }
 }
 export type AgentOutputV1 = AgentOutputV1Contract.AgentOutputV1;
+export namespace AgentOutputV1_2Contract {
+  export type AgentOutputV1_2 =
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "prd";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PrdPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "spec";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: SpecPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "plan";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: PlanPayload;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "code";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: CodePayload;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "review";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: ReviewPayload;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        agent: "acceptance";
+        outcome: Outcome;
+        artifacts: Artifacts;
+        changedFiles: ChangedFiles;
+        payload: AcceptancePayload;
+        memory: null & (null | MemoryObservation);
+      };
+  export type Outcome = {
+    [k: string]: unknown | undefined;
+  } & {
+    status: "completed" | "awaiting-input" | "blocked";
+    next: "proceed" | "wait" | "retry" | "finish" | "stop";
+    /**
+     * @maxItems 64
+     */
+    questions: Question[];
+    /**
+     * @maxItems 64
+     */
+    blockers: Text[];
+  };
+  export type Question = {
+    [k: string]: unknown | undefined;
+  } & {
+    questionId: Id;
+    prompt: Text;
+    kind: "free-text" | "single-choice" | "multiple-choice";
+    /**
+     * @maxItems 32
+     */
+    options: Option[];
+  };
+  export type Id = string;
+  export type Text = string;
+  export type Reference = string;
+  /**
+   * @maxItems 64
+   */
+  export type Artifacts = Reference[];
+  /**
+   * @maxItems 256
+   */
+  export type ChangedFiles = {
+    ref: Reference;
+    change: "added" | "modified" | "deleted";
+  }[];
+  export type Sha256 = string;
+
+  export interface Option {
+    optionId: Id;
+    label: Text;
+  }
+  export interface PrdPayload {
+    objective: Text;
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+  export interface SpecPayload {
+    /**
+     * @maxItems 256
+     */
+    requirementIds: Id[];
+    /**
+     * @maxItems 64
+     */
+    gapIds: Id[];
+    approvalRequired: boolean;
+  }
+  export interface PlanPayload {
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    steps: [
+      {
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      },
+      ...{
+        stepId: Id;
+        summary: Text;
+        /**
+         * @maxItems 64
+         */
+        dependsOn: Id[];
+      }[],
+    ];
+  }
+  export interface CodePayload {
+    stepId: Id;
+    testsAdded: number;
+    testsPassed: boolean;
+  }
+  export interface ReviewPayload {
+    verdict: "pass" | "changes-requested" | "fail";
+    /**
+     * @maxItems 128
+     */
+    findings: {
+      findingId: Id;
+      severity: "high" | "medium" | "low";
+      summary: Text;
+      ref: Reference;
+    }[];
+  }
+  export interface AcceptancePayload {
+    verdict: "accepted" | "rejected";
+    /**
+     * @minItems 1
+     * @maxItems 256
+     */
+    criteria: [
+      {
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      },
+      ...{
+        criterionId: Id;
+        outcome: "passed" | "failed" | "not-run";
+        evidenceRef: Reference;
+      }[],
+    ];
+  }
+}
+export type AgentOutputV1_2 = AgentOutputV1_2Contract.AgentOutputV1_2;
 export namespace GapProposalV1Contract {
   export type Id = string;
   export type Text = string;
@@ -626,7 +831,10 @@ export namespace InitAnswersV1_2Contract {
     /**
      * @minItems 1
      */
-    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
     language?: LanguagePolicy;
     policyMode?: "standard" | "strict";
     snapshots?: boolean;
@@ -644,6 +852,7 @@ export namespace InitAnswersV1_2Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner: Assignment;
@@ -678,7 +887,10 @@ export namespace InitAnswersV1_3Contract {
     /**
      * @minItems 1
      */
-    hosts: ["claude" | "codex", ...("claude" | "codex")[]];
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
     language?: LanguagePolicy;
     policyMode?: "standard" | "strict";
     snapshots?: boolean;
@@ -697,6 +909,7 @@ export namespace InitAnswersV1_3Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner: Assignment;
@@ -755,6 +968,76 @@ export namespace InitAnswersV1_3Contract {
   }
 }
 export type InitAnswersV1_3 = InitAnswersV1_3Contract.InitAnswersV1_3;
+export namespace MemoryCaptureV1_2Contract {
+  export interface MemoryCaptureV1_2 {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    observation: string;
+  }
+}
+export type MemoryCaptureV1_2 = MemoryCaptureV1_2Contract.MemoryCaptureV1_2;
+export namespace MemoryChangeV1_2Contract {
+  export type MemoryChangeV1_2 = Promote | Merge | Archive;
+  export type Id = string;
+  export type Sha256 = string;
+  export type Title = string;
+  export type Text = string;
+
+  export interface Promote {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "promote";
+    reviewer: Id;
+    candidateIds: Sha256[];
+    title: Title;
+    why: Text[];
+    apply: Text[];
+  }
+  export interface Merge {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "merge";
+    reviewer: Id;
+    lessonIds: Sha256[];
+    title: Title;
+  }
+  export interface Archive {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    operation: "archive";
+    reviewer: Id;
+    lessonId: Sha256;
+    reason: Text;
+  }
+}
+export type MemoryChangeV1_2 = MemoryChangeV1_2Contract.MemoryChangeV1_2;
+export namespace MemoryMigrationV1_2Contract {
+  export type Sha256 = string;
+  export type Id = string;
+  export type Title = string;
+  export type Text = string;
+  export type PositiveInteger = number;
+
+  export interface MemoryMigrationV1_2 {
+    contractVersion: "1.2.0";
+    hostContract: "1.2.0";
+    sourceDigest: Sha256;
+    reviewer: Id;
+    lessons: Lesson[];
+  }
+  export interface Lesson {
+    title: Title;
+    why: Text[];
+    apply: Text[];
+    sourceRanges: SourceRange[];
+  }
+  export interface SourceRange {
+    startLine: PositiveInteger;
+    endLine: PositiveInteger;
+  }
+}
+export type MemoryMigrationV1_2 =
+  MemoryMigrationV1_2Contract.MemoryMigrationV1_2;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage
@@ -806,7 +1089,7 @@ export namespace HostOperationMessageV1Contract {
     occurredAt: string;
     kind: "hook";
     payload: {
-      host: "claude-code" | "codex";
+      host: "claude-code" | "codex" | "antigravity";
       hook: Id;
       phase: "before" | "after";
       artifact: Artifact;
@@ -888,7 +1171,7 @@ export namespace PhaseHandoffV1_1Contract {
     runId: Id;
     revision: number;
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
-    host: "claude" | "codex";
+    host: "claude" | "codex" | "antigravity";
     assignment: Assignment;
     assignmentDigest: Sha256;
     objectiveDigest: Sha256;
@@ -906,6 +1189,135 @@ export namespace PhaseHandoffV1_1Contract {
   }
 }
 export type PhaseHandoffV1_1 = PhaseHandoffV1_1Contract.PhaseHandoffV1_1;
+export namespace PhaseHandoffV1_2Contract {
+  export type PhaseHandoffV1_2 =
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "prd";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "spec";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "plan";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "code";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "review";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.2.0";
+        hostContract: "1.2.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "acceptance";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        memory: null & (null | MemoryObservation);
+      };
+  export type Id = string;
+  export type Sha256 = string;
+
+  export interface Assignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+}
+export type PhaseHandoffV1_2 = PhaseHandoffV1_2Contract.PhaseHandoffV1_2;
 export namespace PreToolUseV1Contract {
   export type Mutation =
     CreateMutation | UpdateMutation | DeleteMutation | MoveMutation;
@@ -1043,6 +1455,43 @@ export namespace BeatV1Contract {
   }
 }
 export type BeatV1 = BeatV1Contract.BeatV1;
+export namespace CuratedMemoryV1Contract {
+  export type NonnegativeInteger = number;
+  export type Sha256 = string;
+  export type Timestamp = string;
+  export type Title = string;
+  export type Text = string;
+  export type Id = string;
+
+  export interface CuratedMemoryV1 {
+    contractVersion: "1.0.0";
+    stateContract: "1.0.0";
+    revision: NonnegativeInteger;
+    projectionDigest: Sha256;
+    updatedAt: Timestamp;
+    confirmed: ConfirmedLesson[];
+    archive: ArchiveTombstone[];
+  }
+  export interface ConfirmedLesson {
+    lessonId: Sha256;
+    title: Title;
+    why: Text[];
+    apply: Text[];
+    candidateIds: Sha256[];
+    reviewer: Id;
+    confirmedAt: Timestamp;
+  }
+  export interface ArchiveTombstone {
+    lessonId: Sha256;
+    title: Title;
+    candidateIds: Sha256[];
+    reviewer: Id;
+    archivedAt: Timestamp;
+    reason: Text;
+    replacementLessonId: Sha256 | null;
+  }
+}
+export type CuratedMemoryV1 = CuratedMemoryV1Contract.CuratedMemoryV1;
 export namespace EventV1Contract {
   export type Id = string;
   export type Timestamp = string;
@@ -1481,7 +1930,7 @@ export namespace PhaseMeasurementV1Contract {
   export type Sha256 = string;
 
   export interface ResolvedAssignment {
-    host: "claude" | "codex";
+    host: "claude" | "codex" | "antigravity";
     role: "planner" | "implementer" | "judge";
     model: Id;
     effort: Id;
@@ -1615,6 +2064,7 @@ export namespace ProjectConfigV1_2Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner?: Assignment;
@@ -1670,6 +2120,7 @@ export namespace ProjectConfigV1_3Contract {
   export interface ModelRoles {
     claude?: RoleMap;
     codex?: RoleMap;
+    antigravity?: RoleMap;
   }
   export interface RoleMap {
     planner?: Assignment;

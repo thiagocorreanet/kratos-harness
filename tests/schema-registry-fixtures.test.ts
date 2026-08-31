@@ -3,6 +3,7 @@ import versionCases from "../fixtures/contracts/v1/version-cases.json" with { ty
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import adapterMessageV1_1 from "../fixtures/contracts/v1.1/adapter-message.json" with { type: "json" };
 import agentOutput from "../fixtures/contracts/v1/agent-output.json" with { type: "json" };
+import agentOutputV1_2 from "../fixtures/contracts/v1.2/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
@@ -18,6 +19,7 @@ import event from "../fixtures/contracts/v1/event.json" with { type: "json" };
 import eventV1_1 from "../fixtures/contracts/v1.1/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
+import curatedMemory from "../fixtures/contracts/v1/curated-memory.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
 import featureScope from "../fixtures/contracts/v1/feature-scope.json" with { type: "json" };
 import gap from "../fixtures/contracts/v1/gap.json" with { type: "json" };
@@ -28,6 +30,12 @@ import migration from "../fixtures/contracts/v1/migration.json" with { type: "js
 import migrationV1_1 from "../fixtures/contracts/v1.1/migration.json" with { type: "json" };
 import phaseMeasurement from "../fixtures/contracts/v1/phase-measurement.json" with { type: "json" };
 import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
+import phaseHandoffV1_2 from "../fixtures/contracts/v1.2/phase-handoff.json" with { type: "json" };
+import memoryCapture from "../fixtures/contracts/v1.2/memory-capture.json" with { type: "json" };
+import memoryChangePromote from "../fixtures/contracts/v1.2/memory-change-promote.json" with { type: "json" };
+import memoryChangeMerge from "../fixtures/contracts/v1.2/memory-change-merge.json" with { type: "json" };
+import memoryChangeArchive from "../fixtures/contracts/v1.2/memory-change-archive.json" with { type: "json" };
+import memoryMigration from "../fixtures/contracts/v1.2/memory-migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
@@ -113,6 +121,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.agent-output",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "memory",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: agentOutputV1_2,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "host.gap-proposal",
     version: "1.0.0",
     versionField: "hostContract",
@@ -189,6 +207,16 @@ const fixtures = [
     requiredField: "runId",
     structuralReasonCode: "trail.output_invalido",
     fixture: phaseHandoffV1_1,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-handoff",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "memory",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseHandoffV1_2,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -291,6 +319,46 @@ const fixtures = [
     fixture: failureCandidate,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.curated-memory",
+    version: "1.0.0",
+    versionField: "stateContract",
+    requiredField: "confirmed",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: curatedMemory,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "host.memory-capture",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "observation",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryCapture,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.memory-change",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "operation",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryChangePromote,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.memory-migration",
+    version: "1.2.0",
+    versionField: "hostContract",
+    requiredField: "lessons",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryMigration,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
     id: "state.feature",
@@ -498,6 +566,11 @@ const registry = ajvSchemaRegistry();
 const registryVersionCases = versionCases.filter(
   ({ family }) => family !== "plugin",
 );
+const memoryChangeProposals = [
+  memoryChangePromote,
+  memoryChangeMerge,
+  memoryChangeArchive,
+] as const;
 
 function mutableFixture(fixture: object): Record<string, unknown> {
   return structuredClone(fixture) as Record<string, unknown>;
@@ -572,6 +645,20 @@ describe("compiled schema registry fixtures", () => {
     expect(result).toEqual({ kind: "valid", value: fixture.fixture });
     if (result.kind === "valid") expect(result.value).toBe(fixture.fixture);
   });
+
+  it.each(memoryChangeProposals)(
+    "accepts every closed memory-change proposal operation",
+    (proposal) => {
+      expect(
+        registry.validate({
+          id: "host.memory-change",
+          version: "1.2.0",
+          value: proposal,
+          structuralReasonCode: "trail.output_invalido",
+        }),
+      ).toEqual({ kind: "valid", value: proposal });
+    },
+  );
 
   it.each(fixtures)("rejects missing $id family versions first", (fixture) => {
     const candidate = mutableFixture(fixture.fixture);

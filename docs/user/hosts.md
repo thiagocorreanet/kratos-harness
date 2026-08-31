@@ -1,14 +1,15 @@
-# Claude Code and Codex
+# Claude Code, Codex, and Google Antigravity
 
-Both host packages invoke the same embedded runtime by a package-relative path
-and negotiate the same host contract. Neither requires a global legacy binary
+All host packages invoke the same embedded runtime by a package-relative path
+and negotiate the same host contract. None requires a global legacy binary
 or project `node_modules`.
 
 ## Pre-write relay boundary
 
 Each package installs a synchronous `PreToolUse` relay for structured file
 mutation only. Claude Code normalizes `Write`, `Edit`, and legacy `MultiEdit`;
-Codex normalizes `apply_patch`. Both adapters produce the same
+Codex normalizes `apply_patch`; Antigravity normalizes `write_to_file` and
+`replace_file_content`. All adapters produce the same
 `host.pre-tool-use@1.0.0` request (`create`, `update`, `delete`, or ordered
 `move` endpoints). It is a closed record with `contractVersion`, `hostContract`,
 and an ordered `mutations` array; version 1 accepts 1–256 mutations. The
@@ -39,7 +40,7 @@ targets; it is not a transaction or a filesystem lock around the host.
 
 ## Workflow observations
 
-Both packages render four logical hooks from
+All packages render four logical hooks from
 `distribution/shared/hooks.v1.json`: `tool.before`, `tool.failed`,
 `session.sample`, and `session.end`. A native event is normalized into
 `host.hook-observation@1.0.0`, staged beneath the session cache, and referenced
@@ -73,6 +74,18 @@ do not duplicate it. `session.end` publishes the final session telemetry and
 clears its transient files in one managed transaction. Candidate promotion is
 not performed by hooks.
 
+The same runtime curation contract runs for Claude Code and Codex. Each host
+can relay capture and the exact `memory` field in a v1.2 phase handoff, but
+neither host selects a lesson, changes a digest, or promotes a candidate.
+For `code` and `review`, the handoff and returned agent output must carry the
+same `{ ref: ".brain/03-memory/gotchas.md", sha256, lessonIds }` observation.
+For `prd`, `spec`, `plan`, and `acceptance`, the field is exactly `null`.
+`agent record` rejects missing, mismatched, or stale code/review acknowledgement
+with `memory.phase_context_stale` only when the v1.2 envelope is otherwise
+valid and the acknowledgement is the sole relevant defect. A malformed wire
+envelope remains `trail.output_invalido`; legacy free-form memory blocks those
+phases with `memory.migration_required`.
+
 Every hook exits zero outside initialized Kratos projects and creates nothing.
 Observation hooks are fail-open for the host action; the synchronous structured
 write guard remains fail-closed. Hook code calls neither a model nor the
@@ -94,7 +107,15 @@ runtime bytes. Project initialization renders five `.codex/agents/*.toml`
 definitions from the same canonical prompt catalog used by Claude Code.
 Generated instructions use managed sections so repeated setup is idempotent.
 
-Both hosts install a researcher, planner, reviewer, implementer, and evaluator.
+## Google Antigravity
+
+The Antigravity package contains plugin metadata, the Kratos skill, project
+instructions (`GEMINI.md`), hooks, templates, schemas, and the shared runtime.
+Project initialization reconciles managed sections in `GEMINI.md` alongside
+`.brain/config.json`. Default model routing leverages `gemini-2.5-flash` for
+the implementer role and `gemini-2.5-pro` for planner and judge roles.
+
+All hosts install a researcher, planner, reviewer, implementer, and evaluator.
 Their shared instructions require unanswered blocking questions to stop before
 any write. The implementer cannot mark acceptance criteria complete, and the
 evaluator must cite file-and-line or named-test evidence for every judgment.

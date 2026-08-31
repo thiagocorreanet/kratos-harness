@@ -32,9 +32,11 @@ import { observeObjective } from "./objective.js";
 import { observeWorkflow } from "./workflow.js";
 import { observeMetricsRefresh } from "./measurements.js";
 import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
+import { planOf } from "../domain/effects.js";
 import { createSchemaRegistry } from "./schema.js";
 import { TransactionFailure } from "./transactions.js";
 import { observeGuardWrite, observeScopeRecord } from "./write-guard.js";
+import { observeMemory } from "./memory.js";
 
 function write(
   text: string,
@@ -141,20 +143,16 @@ export async function runCommandLine(
               ? await observeGuardWrite(invocation, ports, schemaRegistry)
               : invocation.command.prerequisite === "scope-record"
                 ? await observeScopeRecord(invocation, ports, schemaRegistry)
-                : invocation.command.prerequisite === "host-operation"
-                  ? await observeHostOperation(
-                      invocation,
-                      ports,
-                      schemaRegistry,
-                    )
-                  : invocation.command.prerequisite === "stop-loss-unlock"
-                    ? await observeStopLossUnlock(
+                : invocation.command.prerequisite === "memory"
+                  ? await observeMemory(invocation, ports, schemaRegistry)
+                  : invocation.command.prerequisite === "host-operation"
+                    ? await observeHostOperation(
                         invocation,
                         ports,
                         schemaRegistry,
                       )
-                    : invocation.command.prerequisite === "migration"
-                      ? await observeMigration(
+                    : invocation.command.prerequisite === "stop-loss-unlock"
+                      ? await observeStopLossUnlock(
                           invocation,
                           ports,
                           schemaRegistry,
@@ -165,11 +163,17 @@ export async function runCommandLine(
                             ports,
                             schemaRegistry,
                           )
-                        : await observeWorkflow(
-                            invocation,
-                            ports,
-                            schemaRegistry,
-                          );
+                        : invocation.command.prerequisite === "migration"
+                          ? await observeMigration(
+                              invocation,
+                              ports,
+                              schemaRegistry,
+                            )
+                          : await observeWorkflow(
+                              invocation,
+                              ports,
+                              schemaRegistry,
+                            );
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }
@@ -189,7 +193,7 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (invocation.command.jsonContract === "phase-handoff@1.1.0") {
+    } else if (invocation.command.jsonContract === "phase-handoff@1.2.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
@@ -277,6 +281,26 @@ export async function runCommandLine(
             eventReducers: decision.eventReducers,
           },
     );
+    if (
+      outcome.kind === "committed" &&
+      decision.cleanupCandidates !== undefined
+    ) {
+      for (const candidate of decision.cleanupCandidates) {
+        try {
+          await applyPlan(
+            planOf({
+              kind: "delete_file",
+              path: candidate.path,
+              expected: candidate.expected,
+            }),
+            applyPorts,
+            { rootMode: "existing" },
+          );
+        } catch {
+          // Candidate cleanup is deliberately best effort after authority commits.
+        }
+      }
+    }
     const result =
       outcome.kind === "noop" && decision.result.stateChanged
         ? { ...decision.result, stateChanged: false }

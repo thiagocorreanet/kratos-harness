@@ -1,6 +1,7 @@
 import type {
   AdapterMessageV1_1,
   AgentOutputV1,
+  AgentOutputV1_2,
   AcceptanceCriteriaSnapshotV1,
   AcceptanceVerdictV1,
   ApprovalV1,
@@ -10,7 +11,7 @@ import type {
   ProjectConfigV1_3,
   SnapshotV1,
 } from "@kratos/contracts";
-import { CONTRACT_VERSIONS, type PhaseHandoffV1_1 } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type PhaseHandoffV1_2 } from "@kratos/contracts";
 
 import {
   validateLineageDag,
@@ -90,6 +91,8 @@ import {
   observeValidatedRunUsage,
 } from "./measurements.js";
 import { configurationValidator } from "./schema.js";
+import { observePhaseMemoryBinding } from "./memory.js";
+import { declaredContractVersion } from "./contract-version.js";
 
 const EMPTY_DIGEST =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -287,6 +290,7 @@ export async function observeWorkflow(
   const referencedFiles = await observeReferencedFiles(invocation, anchored);
   const artifactLineage = await observeArtifactLineage(
     configuration,
+    configuration.lineage,
     observedLineage,
     anchored,
   );
@@ -416,6 +420,17 @@ export async function observeWorkflow(
     ports: anchored,
     registry,
   });
+  const currentPhaseMemory = await observePhaseMemoryBinding(
+    phase,
+    anchored,
+    registry,
+  );
+  const classifiedAgentOutput = classifyMissingMemoryAcknowledgement(
+    agentOutput,
+    phase,
+    phaseAssignment,
+    registry,
+  );
   const preparedPhaseExecution = phaseExecutionFor(
     phaseResultRequest,
     phaseAssignment,
@@ -476,6 +491,10 @@ export async function observeWorkflow(
       configuration,
       observedLineage,
       phaseAssignment,
+      currentPhaseMemory:
+        currentPhaseMemory.kind === "value"
+          ? currentPhaseMemory.value
+          : { kind: "unreadable" },
       phaseExecution: preparedPhaseExecution.value,
       usage,
       tokenUsage: observedUsage.tokenUsage,
@@ -504,7 +523,7 @@ export async function observeWorkflow(
       gaps: gaps.values,
       gapsReadable: gaps.readable,
       gapProposal,
-      agentOutput,
+      agentOutput: classifiedAgentOutput,
       agentOutputs: agentOutputs.values,
       agentOutputsReadable: agentOutputs.readable,
       acceptanceCriteria,
@@ -564,6 +583,7 @@ type ArtifactLineageCandidate = Omit<
 
 async function observeArtifactLineage(
   configuration: RunReference,
+  recordedLineage: RunLineage,
   observedLineage: RunLineage,
   ports: RuntimePorts,
 ): Promise<{
@@ -612,11 +632,35 @@ async function observeArtifactLineage(
       }
       values.push(parsed as ArtifactLineage);
     }
-    // Lineage files record the digests observed when their artifact was
-    // produced, so the roots they may descend from are the ones on disk.
+    // Older writers included both the artifact itself and a missing document
+    // as parents. Ignore that exact legacy shape while retaining cycle and
+    // missing-parent detection for every other edge.
+    const validationValues = values.map((value) => {
+      const hasLegacySelfReference = value.parentDigests.includes(
+        value.artifactDigest,
+      );
+      return {
+        ...value,
+        parentDigests: value.parentDigests.filter(
+          (parent) =>
+            parent !== value.artifactDigest &&
+            !(hasLegacySelfReference && parent === EMPTY_DIGEST),
+        ),
+      };
+    });
+    // A run validates history against both the roots it sealed and the live
+    // documents. A missing document is not a parent, so its placeholder is
+    // never admitted as a root for newly forged or corrupted records.
     const validation = validateLineageDag(
-      values,
-      new Set([observedLineage.prdDigest, observedLineage.specDigest]),
+      validationValues,
+      new Set(
+        [
+          recordedLineage.prdDigest,
+          recordedLineage.specDigest,
+          observedLineage.prdDigest,
+          observedLineage.specDigest,
+        ].filter((digest) => digest !== EMPTY_DIGEST),
+      ),
     );
     return validation.kind === "valid"
       ? { readable: true, values }
@@ -819,7 +863,7 @@ async function observePhaseResultRequest(
   if (
     message.messageType !== "request" ||
     message.phaseExecution === undefined ||
-    message.payloadContract !== "host.agent-output@1.0.0" ||
+    message.payloadContract !== "host.agent-output@1.2.0" ||
     ref === undefined ||
     message.payload.ref !== ref ||
     typeof correlationId !== "string" ||
@@ -895,13 +939,64 @@ async function observeAgentReply(
   }
   const validated = registry.validate({
     id: "host.agent-output",
-    version: "1.0.0",
+    version: "1.2.0",
     value: extracted.value,
     structuralReasonCode: "trail.output_invalido",
   });
   return validated.kind === "valid"
     ? { kind: "valid", ref, value: validated.value }
-    : { kind: "invalid", ref, diagnostics: validated.diagnostics };
+    : {
+        kind: "invalid",
+        ref,
+        diagnostics: validated.diagnostics,
+        value: extracted.value,
+      };
+}
+
+/**
+ * Preserve structural refusal unless the memory field is the only relevant
+ * defect. The assigned binding is substituted into a copy and passed through
+ * the same v1.2 validator; a wrong version, agent, payload, or extra field
+ * therefore stays `trail.output_invalido` rather than masquerading as stale
+ * phase context.
+ */
+function classifyMissingMemoryAcknowledgement(
+  observation: AgentOutputObservation,
+  phase: string,
+  assignment: PhaseAssignmentObservation,
+  registry: SchemaRegistry,
+): AgentOutputObservation {
+  if (
+    observation.kind !== "invalid" ||
+    (phase !== "code" && phase !== "review") ||
+    assignment.kind !== "resolved" ||
+    assignment.value.memory === null ||
+    typeof observation.value !== "object" ||
+    observation.value === null ||
+    Array.isArray(observation.value)
+  ) {
+    return observation;
+  }
+  const candidate = observation.value as Record<string, unknown>;
+  const agent = Object.getOwnPropertyDescriptor(candidate, "agent");
+  const memory = Object.getOwnPropertyDescriptor(candidate, "memory");
+  if (
+    agent === undefined ||
+    !("value" in agent) ||
+    agent.value !== phase ||
+    (memory !== undefined && (!("value" in memory) || memory.value !== null))
+  ) {
+    return observation;
+  }
+  const validated = registry.validate({
+    id: "host.agent-output",
+    version: "1.2.0",
+    value: { ...candidate, memory: assignment.value.memory },
+    structuralReasonCode: "trail.output_invalido",
+  });
+  return validated.kind === "valid"
+    ? { ...observation, missingMemoryAcknowledgement: true }
+    : observation;
 }
 
 /**
@@ -917,25 +1012,34 @@ async function observeAgentOutputs(
   registry: SchemaRegistry,
 ): Promise<{
   readonly readable: boolean;
-  readonly values: readonly AgentOutputV1[];
+  readonly values: readonly (AgentOutputV1 | AgentOutputV1_2)[];
 }> {
   const root = `${runRoot(configuration)}/agent-output`;
   const entry = await ports.durableFileSystem.inspect(root);
   if (entry.kind === "missing") return { readable: true, values: [] };
   if (entry.kind !== "directory") return { readable: false, values: [] };
   try {
-    const values: AgentOutputV1[] = [];
+    const values: (AgentOutputV1 | AgentOutputV1_2)[] = [];
     for (const name of await ports.durableFileSystem.list(root)) {
       if (!name.endsWith(".json")) return { readable: false, values: [] };
       const path = `${root}/${name}`;
       const file = await ports.durableFileSystem.inspect(path);
       if (file.kind !== "file") return { readable: false, values: [] };
+      const document = JSON.parse(
+        await ports.durableFileSystem.readText(path),
+      ) as unknown;
+      const version = declaredContractVersion(
+        document,
+        "contractVersion",
+        "1.0.0",
+      );
+      if (version !== "1.0.0" && version !== "1.2.0") {
+        return { readable: false, values: [] };
+      }
       const validated = registry.validate({
         id: "host.agent-output",
-        version: "1.0.0",
-        value: JSON.parse(
-          await ports.durableFileSystem.readText(path),
-        ) as unknown,
+        version,
+        value: document,
         structuralReasonCode: "trail.output_invalido",
       });
       if (
@@ -1401,12 +1505,15 @@ type PhaseAssignmentReason =
   | "guard.config_corrupt"
   | "contract.state_version_invalid"
   | "contract.state_version_unsupported"
-  | "model.assignment_stale";
+  | "model.assignment_stale"
+  | "memory.migration_required"
+  | "memory.projection_drift"
+  | "runtime.state_corrupt";
 
 type PhaseAssignmentSubject = string;
 
 type PhaseAssignmentObservation =
-  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_1 }
+  | { readonly kind: "resolved"; readonly value: PhaseHandoffV1_2 }
   | PhaseAssignmentRefusal;
 
 interface PhaseAssignmentRefusal {
@@ -1490,7 +1597,7 @@ async function observePhaseAssignment(input: {
   readonly runId: string;
   readonly revision: number;
   readonly feature: string;
-  readonly status: PhaseHandoffV1_1["status"];
+  readonly status: PhaseHandoffV1_2["status"];
   readonly objectiveDigest: string;
   readonly gateDecision: GateDecision;
   readonly openGaps: number;
@@ -1588,7 +1695,16 @@ async function observePhaseAssignment(input: {
     return refusedAssignment("model.assignment_stale", "configuration");
   }
 
-  const value: PhaseHandoffV1_1 = {
+  const memory = await observePhaseMemoryBinding(
+    input.phase,
+    input.ports,
+    input.registry,
+  );
+  if (memory.kind === "refused") {
+    return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
+  }
+
+  const value = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -1603,6 +1719,7 @@ async function observePhaseAssignment(input: {
         revision: input.revision,
         host,
         assignment: currentResolution.assignment,
+        memory: memory.value,
       },
       (canonical) => input.ports.digests.sha256(canonical),
     ),
@@ -1618,12 +1735,16 @@ async function observePhaseAssignment(input: {
         : input.phase === "acceptance"
           ? "Review the evidence bundle, record final approval, and run kratos done."
           : `Complete the ${input.phase} phase and run kratos continue.`,
-  };
+    memory: memory.value,
+  } as PhaseHandoffV1_2;
   return { kind: "resolved", value };
 }
 
 function configurationHost(launcherHost: string | undefined):
-  | { readonly kind: "resolved"; readonly host: "claude" | "codex" }
+  | {
+      readonly kind: "resolved";
+      readonly host: "claude" | "codex" | "antigravity";
+    }
   | {
       readonly kind: "refused";
       readonly subject: "launcher:absent" | "launcher:unsupported";
@@ -1632,6 +1753,9 @@ function configurationHost(launcherHost: string | undefined):
     return { kind: "resolved", host: "claude" };
   }
   if (launcherHost === "codex") return { kind: "resolved", host: "codex" };
+  if (launcherHost === "antigravity") {
+    return { kind: "resolved", host: "antigravity" };
+  }
   return {
     kind: "refused",
     subject:
@@ -2155,10 +2279,11 @@ function corruptRun(): {
   };
 }
 
-function managed(path: GitPath): boolean {
+function managed(path: GitPath, worktreePrefix: string): boolean {
+  const managedRoot = `${worktreePrefix}.brain`;
   return (
     path.kind === "text" &&
-    (path.value === ".brain" || path.value.startsWith(".brain/"))
+    (path.value === managedRoot || path.value.startsWith(`${managedRoot}/`))
   );
 }
 
@@ -2177,7 +2302,9 @@ async function observeGitContext(
   return {
     clean: observation.repository.changes.every(
       ({ path, renamedFrom }) =>
-        managed(path) && (renamedFrom === null || managed(renamedFrom)),
+        managed(path, observation.repository.worktreePrefix) &&
+        (renamedFrom === null ||
+          managed(renamedFrom, observation.repository.worktreePrefix)),
     ),
     commit: head.kind === "unborn" ? null : head.commit,
   };
