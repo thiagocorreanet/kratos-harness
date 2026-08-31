@@ -90,6 +90,30 @@ canonical phases, in order: `prd`, `spec`, `plan`, `code`, `review`, and
 Retries update that record or leave its bytes unchanged; they do not append a
 second copy.
 
+Usage attribution follows the session that produced each newly observed token
+delta. The first accepted sample from an unowned host or subagent session is
+claimed atomically by the sole eligible running phase and stored in that
+record's sorted contributor list, which accepts at most 256 identifiers.
+For each contributor, the record also keeps its latest cumulative-token and
+observation-time checkpoint. Repeated or regressing totals add no tokens. If a
+completed phase's contributing session reports a delayed final increase after
+the next phase has started, the runtime recomputes that contributor's
+chronological allocation across the affected phases. The increase raises only
+the phase interval where it occurred and does not disturb other contributors,
+while the sum of phase consumption remains aligned with run-wide numeric usage
+and stop-loss facts.
+
+Contributor ownership remains durable if another phase or run becomes active:
+a later sample still updates only the owning phase and run's measurement,
+usage, and stop-loss state. If a session identifier is reused by sequential
+phases, the observation time and stored checkpoints select and, when necessary,
+reallocate only that contributor among phase intervals. The runtime refuses the
+sample without mutation when one contributor appears in overlapping phase
+records, checkpoint chronology or allocation contradicts cumulative usage, an
+unowned sample has zero or multiple eligible running phases, a 257th contributor
+would be added, prior usage lacks a durable owner, or the owning run's usage or
+gate state is missing or malformed.
+
 `kratos budgets --json` and `kratos evidence bundle --json` report numeric
 `used` values after the run has a validated usage sample. That number comes from
 the run-wide `totalGrossTokens` ledger that also drives the existing stop-loss

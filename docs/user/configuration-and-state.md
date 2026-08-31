@@ -101,9 +101,17 @@ entire `.brain` directory without an explicit governance decision.
 Initialization places `03-memory/task_log.jsonl` in `.brain/.gitignore`. The
 file is a canonical keyed set despite its JSONL form: one line is identified by
 `(runId, phase)`, and managed transactions atomically replace validated bytes.
-It is raw machine-local operational state and is not a history stream. The
-tracked `task_metrics.md` is the reviewable projection; only `metrics refresh`
-may replace it. Refresh records a raw-log digest, generation time, bounded
+Each record includes the sorted, unique session identifiers that contributed
+tokens to that phase, bounded to 256 identifiers. A pre-ownership `1.0.0`
+record without that field remains readable and gains its launcher as the sole
+contributor on the next raw-log rewrite. Records may also carry at most 256
+contributor checkpoints: a session identifier, cumulative gross-token count,
+and observation time used for chronological allocation. A compatible `1.0.0`
+record without checkpoints remains readable and gains an empty checkpoint list
+on its next raw-log rewrite without changing its distribution. The file is raw
+machine-local operational state and is not a history stream. The tracked
+`task_metrics.md` is the reviewable projection; only `metrics refresh` may
+replace it. Refresh records a raw-log digest, generation time, bounded
 feature/run sources, counts, and distributions, but no prompts or transcripts.
 
 The additive `state.phase-measurement@1.0.0` records are created lazily. Existing

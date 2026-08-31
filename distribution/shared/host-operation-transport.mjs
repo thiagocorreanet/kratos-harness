@@ -72,7 +72,7 @@ function validateProject(project) {
   }
 }
 
-/** Inspect every existing segment twice so no symlink is followed to mutate. */
+/** Refuse observed symlinks and rescan existing segments around staging. */
 function scanDirectories(project, segments) {
   validateProject(project);
   let absolute = project.path;

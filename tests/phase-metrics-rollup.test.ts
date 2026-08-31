@@ -124,6 +124,56 @@ function running(runId: string): PhaseMeasurement {
   };
 }
 
+function checkpointedRecoveryRecords(
+  runId = "run-checkpointed",
+): readonly [PhaseMeasurement, PhaseMeasurement] {
+  const first = {
+    ...completed(runId, 45, 180_000, "prd"),
+    sessionId: "session-shared",
+    contributingSessionIds: ["session-shared"] as [string],
+    contributorCheckpoints: [
+      {
+        sessionId: "session-shared",
+        cumulativeGrossTokens: 45,
+        occurredAt: "2026-08-30T12:02:00.000Z",
+      },
+    ],
+  };
+  const second = {
+    ...running(runId),
+    phase: "spec" as const,
+    sessionId: "session-shared",
+    contributingSessionIds: ["session-shared"] as [string],
+    contributorCheckpoints: [
+      {
+        sessionId: "session-shared",
+        cumulativeGrossTokens: 75,
+        occurredAt: "2026-08-30T12:04:30.000Z",
+      },
+    ],
+    startedAt: "2026-08-30T12:04:00.000Z",
+    baselineGrossTokens: 40,
+    grossTokens: 30,
+    updatedAt: "2026-08-30T12:04:30.000Z",
+  };
+  return [first, second];
+}
+
+function runUsage(runId: string, totalGrossTokens: number): string {
+  return `${JSON.stringify({
+    contractVersion: "1.0.0",
+    stateContract: "1.0.0",
+    runId,
+    totalGrossTokens,
+    epoch: { number: 1, baselineGrossTokens: 0, exhaustedAt: null },
+    sessions: [
+      { sessionId: "session-shared", cumulativeGrossTokens: totalGrossTokens },
+    ],
+    measurementFaultAt: null,
+    updatedAt: REFRESHED_AT,
+  })}\n`;
+}
+
 interface Subject {
   readonly storage: ReturnType<typeof memoryTransactionStorage>;
   readonly output: ReturnType<typeof recordingOutput>;
@@ -158,6 +208,45 @@ async function result(
   (run.output.human_ as string[]).splice(0);
   await runCommandLine(["--json", ...argv], ports);
   return JSON.parse(run.output.structured_.join("")) as OperationResultV1;
+}
+
+function acceptedSpecEventBytes(run: Subject, occurredAt: string): string {
+  const event = sealEvent(
+    {
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      eventId: `event-checkpointed-${occurredAt}`,
+      eventType: "transition",
+      occurredAt,
+      operation: "sdd.continue:accepted",
+      policyVersion: "workflow-v1",
+      priorRevision: 0,
+      resultingRevision: 1,
+      reasonCode: "run.transition.accepted",
+      effect: "state",
+      artifactRefs: [".brain/02-features/feature-b/01-design.md"],
+      evidenceRefs: [".brain/evidence/spec.json"],
+      observedIdentity: {
+        host: "codex",
+        model: "planner-canonical",
+        effort: "medium",
+      },
+      resolvedAssignment: {
+        phase: "spec",
+        role: "planner",
+        model: "planner-canonical",
+        effort: "medium",
+      },
+    },
+    { revision: 0, hash: null },
+    {
+      digests: run.storage.digests,
+      isProxy: () => false,
+      isPromise: () => false,
+      schemaRegistry: createSchemaRegistry(),
+    },
+  );
+  return `${canonicalizeJson(event)}\n`;
 }
 
 describe("phase metric distributions", () => {
@@ -398,6 +487,250 @@ describe("metrics refresh", () => {
       closeReason: "recovered_completed",
       updatedAt: REFRESHED_AT,
     });
+  });
+
+  it("refresh interrupts a checkpointed running phase without inflating its attributed gross", async () => {
+    const records = checkpointedRecoveryRecords();
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const run = subject({
+      [LOG]: renderPhaseMeasurementLog(records),
+      [usagePath]: runUsage("run-checkpointed", 75),
+    });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      reasonCode: "metrics.calibration_insufficient",
+      stateChanged: true,
+    });
+
+    const refreshed = (run.storage.snapshot().files[LOG] ?? "")
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PhaseMeasurementV1);
+    expect(refreshed.find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "interrupted",
+      endedAt: REFRESHED_AT,
+      finalGrossTokens: 70,
+      grossTokens: 30,
+      closeReason: "recovered_interrupted",
+    });
+    expect(refreshed.reduce((sum, record) => sum + record.grossTokens, 0)).toBe(
+      75,
+    );
+    expect(run.storage.snapshot().files[ROLLUP]).toContain(
+      "| spec | 0 | 1 | none | n/a | n/a | n/a | n/a |",
+    );
+  });
+
+  it("refresh completes a checkpointed running phase from its own accepted event without inflation", async () => {
+    const records = checkpointedRecoveryRecords();
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const eventsPath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/events.jsonl";
+    const run = subject({
+      [LOG]: renderPhaseMeasurementLog(records),
+      [usagePath]: runUsage("run-checkpointed", 75),
+    });
+    const accepted = sealEvent(
+      {
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        eventId: "event-checkpointed-spec",
+        eventType: "transition",
+        occurredAt: "2026-08-30T12:04:45.000Z",
+        operation: "sdd.continue:accepted",
+        policyVersion: "workflow-v1",
+        priorRevision: 0,
+        resultingRevision: 1,
+        reasonCode: "run.transition.accepted",
+        effect: "state",
+        artifactRefs: [".brain/02-features/feature-b/01-design.md"],
+        evidenceRefs: [".brain/evidence/spec.json"],
+        observedIdentity: {
+          host: "codex",
+          model: "planner-canonical",
+          effort: "medium",
+        },
+        resolvedAssignment: {
+          phase: "spec",
+          role: "planner",
+          model: "planner-canonical",
+          effort: "medium",
+        },
+      },
+      { revision: 0, hash: null },
+      {
+        digests: run.storage.digests,
+        isProxy: () => false,
+        isPromise: () => false,
+        schemaRegistry: createSchemaRegistry(),
+      },
+    );
+    await run.storage.fileSystem.write(
+      eventsPath,
+      `${canonicalizeJson(accepted)}\n`,
+    );
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      reasonCode: "metrics.calibration_insufficient",
+      stateChanged: true,
+    });
+
+    const refreshed = (run.storage.snapshot().files[LOG] ?? "")
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PhaseMeasurementV1);
+    expect(refreshed.find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "completed",
+      endedAt: "2026-08-30T12:04:45.000Z",
+      finalGrossTokens: 70,
+      grossTokens: 30,
+      closeReason: "recovered_completed",
+    });
+    expect(refreshed.reduce((sum, record) => sum + record.grossTokens, 0)).toBe(
+      75,
+    );
+    expect(run.storage.snapshot().files[ROLLUP]).toContain(
+      "| spec | 1 | 0 | feature-b/run-checkpointed | 30 | 30 | 30 | 30 |",
+    );
+  });
+
+  it("assigns only a provable accepted recovery residual to the sole running phase", async () => {
+    const records = checkpointedRecoveryRecords();
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const eventsPath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/events.jsonl";
+    const run = subject({
+      [LOG]: renderPhaseMeasurementLog(records),
+      [usagePath]: runUsage("run-checkpointed", 80),
+    });
+    await run.storage.fileSystem.write(
+      eventsPath,
+      acceptedSpecEventBytes(run, "2026-08-30T12:04:50.000Z"),
+    );
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      reasonCode: "metrics.calibration_insufficient",
+      stateChanged: true,
+    });
+
+    const refreshed = (run.storage.snapshot().files[LOG] ?? "")
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PhaseMeasurementV1);
+    expect(refreshed.find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "completed",
+      finalGrossTokens: 75,
+      grossTokens: 35,
+      closeReason: "recovered_completed",
+    });
+    expect(refreshed.reduce((sum, record) => sum + record.grossTokens, 0)).toBe(
+      80,
+    );
+  });
+
+  it("preserves raw and rollup bytes when validated usage falls below attributed measurements", async () => {
+    const records = checkpointedRecoveryRecords();
+    const priorRaw = renderPhaseMeasurementLog(records);
+    const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const run = subject({
+      [LOG]: priorRaw,
+      [ROLLUP]: priorRollup,
+      [usagePath]: runUsage("run-checkpointed", 74),
+    });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
+  });
+
+  it("preserves raw and rollup bytes when unassigned usage has multiple running candidates", async () => {
+    const [first, second] = checkpointedRecoveryRecords();
+    const third = {
+      ...running("run-checkpointed"),
+      phase: "plan" as const,
+      sessionId: "session-plan",
+      contributingSessionIds: ["session-plan"] as [string],
+      startedAt: "2026-08-30T12:04:40.000Z",
+      baselineGrossTokens: 75,
+      updatedAt: "2026-08-30T12:04:40.000Z",
+    };
+    const priorRaw = renderPhaseMeasurementLog([first, second, third]);
+    const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const run = subject({
+      [LOG]: priorRaw,
+      [ROLLUP]: priorRollup,
+      [usagePath]: runUsage("run-checkpointed", 80),
+    });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
+  });
+
+  it("preserves raw and rollup bytes when multiple running phases have no usage residual", async () => {
+    const [first, second] = checkpointedRecoveryRecords();
+    const third = {
+      ...running("run-checkpointed"),
+      phase: "plan" as const,
+      sessionId: "session-plan",
+      contributingSessionIds: ["session-plan"] as [string],
+      startedAt: "2026-08-30T12:04:40.000Z",
+      baselineGrossTokens: 75,
+      updatedAt: "2026-08-30T12:04:40.000Z",
+    };
+    const priorRaw = renderPhaseMeasurementLog([first, second, third]);
+    const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
+    const usagePath =
+      ".brain/02-features/feature-b/runs/run-checkpointed/usage.json";
+    const run = subject({
+      [LOG]: priorRaw,
+      [ROLLUP]: priorRollup,
+      [usagePath]: runUsage("run-checkpointed", 75),
+    });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
+  });
+
+  it("preserves raw and rollup bytes when a later phase baseline decreases", async () => {
+    const [first, second] = checkpointedRecoveryRecords();
+    const earlier = {
+      ...first,
+      baselineGrossTokens: 100,
+      finalGrossTokens: 145,
+    };
+    const invalid = { ...second, baselineGrossTokens: 0 };
+    const priorRaw = `${JSON.stringify(earlier)}\n${JSON.stringify(invalid)}\n`;
+    const priorRollup = "# Task metrics\n\nPrior committed bytes.\n";
+    const run = subject({ [LOG]: priorRaw, [ROLLUP]: priorRollup });
+
+    expect(await result(run, ["metrics", "refresh"])).toMatchObject({
+      exitCode: 4,
+      reasonCode: "metrics.log_invalid",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(run.storage.snapshot().files[ROLLUP]).toBe(priorRollup);
   });
 
   it("preserves prior raw and rollup bytes when the raw log is malformed", async () => {

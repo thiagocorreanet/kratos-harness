@@ -77,6 +77,13 @@ records appear only when a host starts measured phase work. The tracked
 `.brain/03-memory/task_metrics.md` remains unchanged until an operator runs
 `kratos metrics refresh`.
 
+Early `state.phase-measurement@1.0.0` records that predate contributor ownership
+remain valid. The runtime reads the launcher's `sessionId` as their sole
+contributor and writes the canonical sorted contributor field the next time a
+managed operation rewrites the raw log. A compatible record without contributor
+checkpoints likewise gains an empty checkpoint list on its next rewrite without
+changing its distribution; no standalone migration is required.
+
 Reinitialization is not a measurement reset. It preserves both measurement
 files byte for byte while still reconciling ordinary managed instructions. If
 another process creates either measurement file after init observes it as
@@ -87,14 +94,19 @@ file merely to make initialization pass.
 
 `session.end` closes the matching open measurement as `interrupted`. If the
 process dies before that hook arrives, the next phase start or `metrics refresh`
-reconciles stale `running` records against canonical workflow events. A recorded
-accepted transition recovers the record as completed at the transition time;
-otherwise recovery closes it as interrupted. No stale running record survives
-that boundary. Run refresh between executions because refreshing during live
-work deliberately closes the current measurement.
+reconciles every stale `running` record against that record's own feature/run
+events and usage. A recorded accepted transition recovers the record as
+completed at the transition time; otherwise recovery closes it as interrupted.
+A recovered record from another run remains completed through later refreshes
+and contributes only to its own phase distribution. No stale running record
+survives that boundary. Run refresh between executions because refreshing
+during live work deliberately closes the current measurement.
 
 Malformed raw lines, corrupt events needed for reconciliation, assignment
 conflicts, and stale write preconditions fail closed. A managed transaction
 cannot publish recovered raw bytes without its matching rollup, or publish a
 rollup from raw bytes that changed after observation. Preserve both files and
-correct the reported local-state problem before retrying refresh.
+correct the reported local-state problem before retrying refresh. A new phase
+also refuses before mutation when any other running record needs recovery from
+a corrupt event stream; current run events, usage, and raw measurements remain
+unchanged.

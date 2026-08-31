@@ -66,4 +66,3 @@ cannot complete without a validated phase-start measurement. Raw measurement
 data remains ignored and local. The committed rollup contains bounded
 aggregate/provenance metadata only. Measurement and lifecycle hooks remain
 offline and model-free.
-

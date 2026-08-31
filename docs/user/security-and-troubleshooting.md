@@ -12,11 +12,20 @@
   refusal.
 - Bind approvals, migrations, repairs, and attestations to canonical digests.
 - Do not persist prompts, secrets, source contents, or credentials in evidence.
-- Keep phase measurements to bounded identifiers, timestamps, counters, and
+- Keep phase measurements to bounded identifiers, timestamps, counters, at most
+  256 sorted contributor identifiers and cumulative/time checkpoints, and
   runtime-resolved assignment metadata; never persist prompts, transcripts, or
   raw host payloads in the measurement ledger.
-- Refuse symlinks and paths that escape the selected project root.
+- Refuse observed symlinks and paths that resolve outside the selected project
+  root before host artifacts are staged.
 - Verify package checksums, SBOM, provenance, versions, and host compatibility.
+
+Host artifact staging assumes that processes with permission to replace project
+directories are trusted. The portable Node.js relay rescans ancestors and
+refuses detected changes, but it does not provide descriptor-relative
+containment against a malicious same-account process that swaps an ancestor
+during staging. Run untrusted local processes under a different OS identity or
+filesystem sandbox; do not rely on the host relay as that isolation boundary.
 
 ## Troubleshooting sequence
 

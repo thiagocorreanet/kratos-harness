@@ -51,6 +51,27 @@ export interface ReconcileContributorCheckpointInput {
   readonly expectedRunGrossTokens: number;
 }
 
+export interface RecoverPhaseMeasurementsInput {
+  readonly records: readonly PhaseMeasurement[];
+  readonly recoveries: readonly {
+    readonly feature: string;
+    readonly runId: string;
+    readonly phase: RunPhase;
+    readonly totalGrossTokens: number | null;
+    readonly now: string;
+    readonly accepted: RecoverPhaseMeasurementInput["accepted"];
+  }[];
+}
+
+export type PhaseMeasurementOwnerResolution =
+  | {
+      readonly kind: "owned";
+      readonly record: PhaseMeasurement;
+      readonly claimContributor: boolean;
+    }
+  | { readonly kind: "absent" }
+  | { readonly kind: "ambiguous" };
+
 export interface CompletePhaseMeasurementInput extends SamplePhaseMeasurementInput {
   readonly observedIdentity: PhaseMeasurement["observedIdentity"];
 }
@@ -152,6 +173,70 @@ export function addPhaseMeasurementContributor(
   };
 }
 
+/** Resolve one session by event time across durable owners and one candidate. */
+export function resolvePhaseMeasurementOwner(
+  records: readonly PhaseMeasurement[],
+  sessionId: string,
+  occurredAt: string,
+  additionalCandidate?: PhaseMeasurement,
+): PhaseMeasurementOwnerResolution {
+  const owners = records.filter((record) =>
+    record.contributingSessionIds.includes(sessionId),
+  );
+  const candidates =
+    additionalCandidate === undefined || owners.includes(additionalCandidate)
+      ? owners
+      : [...owners, additionalCandidate];
+  if (candidates.length === 0) return { kind: "absent" };
+  const occurred = timestampOrderKey(occurredAt);
+  const intervals = candidates.map((record) => ({
+    record,
+    started: timestampOrderKey(record.startedAt),
+    ended:
+      record.status === "running"
+        ? undefined
+        : timestampOrderKey(record.endedAt),
+  }));
+  if (
+    occurred === null ||
+    intervals.some(({ started, ended }) => started === null || ended === null)
+  ) {
+    return { kind: "ambiguous" };
+  }
+  const containing = intervals.filter(
+    ({ started, ended }) =>
+      started !== null &&
+      started <= occurred &&
+      (ended === undefined || (ended !== null && occurred <= ended)),
+  );
+  if (containing.length > 1) return { kind: "ambiguous" };
+  let selected = containing[0];
+  if (selected === undefined) {
+    const applicable = intervals.filter(
+      ({ started }) => started !== null && started <= occurred,
+    );
+    const latestStarted = applicable.reduce<string | null>(
+      (latest, { started }) =>
+        started !== null && (latest === null || started > latest)
+          ? started
+          : latest,
+      null,
+    );
+    const latest = applicable.filter(
+      ({ started }) => started === latestStarted,
+    );
+    if (latest.length !== 1) return { kind: "ambiguous" };
+    selected = latest[0];
+  }
+  if (selected === undefined) return { kind: "ambiguous" };
+  return {
+    kind: "owned",
+    record: selected.record,
+    claimContributor:
+      !selected.record.contributingSessionIds.includes(sessionId),
+  };
+}
+
 /**
  * Reallocate one session's cumulative checkpoints without guessing at opaque
  * legacy gross-token residuals.
@@ -159,6 +244,7 @@ export function addPhaseMeasurementContributor(
 export function reconcileContributorCheckpoint(
   input: ReconcileContributorCheckpointInput,
 ): readonly PhaseMeasurement[] {
+  assertValidMeasurementSet(input.records);
   const runRecords = input.records.filter(
     (record) =>
       record.feature === input.feature && record.runId === input.runId,
@@ -248,10 +334,8 @@ export function reconcileContributorCheckpoint(
     reconciledByPhase.set(record.phase, reconciled);
   }
 
-  const minimumBaseline = Math.min(
-    ...stagedRun.map(({ baselineGrossTokens }) => baselineGrossTokens),
-  );
-  const measurableGrossTokens = input.expectedRunGrossTokens - minimumBaseline;
+  const earliestBaseline = earliestRunBaseline(stagedRun);
+  const measurableGrossTokens = input.expectedRunGrossTokens - earliestBaseline;
   const reconciledGrossTokens = [...reconciledByPhase.values()].reduce(
     (sum, record) => sum + record.grossTokens,
     0,
@@ -268,9 +352,7 @@ export function reconcileContributorCheckpoint(
       ? (reconciledByPhase.get(record.phase) ?? record)
       : record,
   );
-  if (!hasValidCheckpointChronology(reconciled)) {
-    throw new Error("Phase measurement checkpoint chronology is invalid");
-  }
+  assertValidMeasurementSet(reconciled);
   return reconciled;
 }
 
@@ -344,6 +426,103 @@ export function recoverPhaseMeasurement(
   };
 }
 
+/** Reconcile run-level conservation before closing any stale measurements. */
+export function recoverPhaseMeasurements(
+  input: RecoverPhaseMeasurementsInput,
+): readonly PhaseMeasurement[] {
+  assertValidMeasurementSet(input.records);
+  const recoveryKeys = new Set<string>();
+  const recoveriesByRun = new Map<
+    string,
+    RecoverPhaseMeasurementsInput["recoveries"][number][]
+  >();
+  for (const recovery of input.recoveries) {
+    const key = measurementKey(recovery);
+    const record = input.records.find(
+      (candidate) => measurementKey(candidate) === key,
+    );
+    if (
+      recoveryKeys.has(key) ||
+      record?.status !== "running" ||
+      (recovery.totalGrossTokens !== null &&
+        !isCount(recovery.totalGrossTokens))
+    ) {
+      throw new Error("Phase measurement recovery state is invalid");
+    }
+    recoveryKeys.add(key);
+    const run = runKey(recovery);
+    const values = recoveriesByRun.get(run) ?? [];
+    values.push(recovery);
+    recoveriesByRun.set(run, values);
+  }
+
+  const reconciled = new Map(
+    input.records.map((record) => [measurementKey(record), record] as const),
+  );
+  for (const [key, recoveries] of recoveriesByRun) {
+    const runRecords = [...reconciled.values()].filter(
+      (record) => runKey(record) === key,
+    );
+    const earliestBaseline = earliestRunBaseline(runRecords);
+    const attributedGrossTokens = runRecords.reduce(
+      (sum, record) => sum + record.grossTokens,
+      0,
+    );
+    const attributedRunTotal = earliestBaseline + attributedGrossTokens;
+    if (!isCount(attributedRunTotal)) {
+      throw new Error("Phase measurement recovery conservation is invalid");
+    }
+    const observedTotals = [
+      ...new Set(
+        recoveries.flatMap(({ totalGrossTokens }) =>
+          totalGrossTokens === null ? [] : [totalGrossTokens],
+        ),
+      ),
+    ];
+    if (observedTotals.length > 1) {
+      throw new Error("Phase measurement recovery conservation is invalid");
+    }
+    const observedRunTotal = observedTotals[0] ?? attributedRunTotal;
+    if (observedRunTotal < attributedRunTotal) {
+      throw new Error("Phase measurement recovery conservation is invalid");
+    }
+    const eligible = runRecords.filter(({ status }) => status === "running");
+    const owner = eligible[0];
+    if (eligible.length !== 1 || owner === undefined) {
+      throw new Error("Phase measurement recovery conservation is invalid");
+    }
+    const residual = observedRunTotal - attributedRunTotal;
+    if (residual > 0) {
+      const grossTokens = owner.grossTokens + residual;
+      if (!isCount(grossTokens)) {
+        throw new Error("Phase measurement recovery conservation is invalid");
+      }
+      reconciled.set(measurementKey(owner), { ...owner, grossTokens });
+    }
+    for (const recovery of recoveries) {
+      const recoveryKey = measurementKey(recovery);
+      const record = reconciled.get(recoveryKey);
+      if (record === undefined) {
+        throw new Error("Phase measurement recovery state is invalid");
+      }
+      reconciled.set(
+        recoveryKey,
+        recoverPhaseMeasurement({
+          record,
+          totalGrossTokens: record.baselineGrossTokens + record.grossTokens,
+          now: recovery.now,
+          accepted: recovery.accepted,
+        }),
+      );
+    }
+  }
+  const records = input.records.map(
+    (record) => reconciled.get(measurementKey(record)) ?? record,
+  );
+  assertValidMeasurementSet(records);
+  return records;
+}
+
 /** Attach only host-observed execution identity while a phase is open. */
 export function observePhaseMeasurementIdentity(
   input: ObservePhaseMeasurementIdentityInput,
@@ -406,12 +585,7 @@ export function upsertPhaseMeasurement(
       left.runId.localeCompare(right.runId) ||
       phaseOrder(left.phase) - phaseOrder(right.phase),
   );
-  if (!hasValidCheckpointChronology(updated)) {
-    throw new Error("Phase measurement checkpoint chronology is invalid");
-  }
-  if (!hasValidCheckpointResiduals(updated)) {
-    throw new Error("Phase measurement checkpoint residual is invalid");
-  }
+  assertValidMeasurementSet(updated);
   return updated;
 }
 
@@ -536,6 +710,65 @@ function checkpointAllocations(
   return allocations;
 }
 
+function measurementKey(
+  record: Pick<PhaseMeasurement, "feature" | "runId" | "phase">,
+): string {
+  return `${record.feature}\u0000${record.runId}\u0000${record.phase}`;
+}
+
+function runKey(record: Pick<PhaseMeasurement, "feature" | "runId">): string {
+  return `${record.feature}\u0000${record.runId}`;
+}
+
+function chronologicalRunRecords(
+  records: readonly PhaseMeasurement[],
+): readonly PhaseMeasurement[] {
+  return [...records].sort((left, right) => {
+    const leftStarted = timestampOrderKey(left.startedAt);
+    const rightStarted = timestampOrderKey(right.startedAt);
+    if (leftStarted === null || rightStarted === null) {
+      throw new Error("Phase measurement baseline chronology is invalid");
+    }
+    return (
+      leftStarted.localeCompare(rightStarted) ||
+      phaseOrder(left.phase) - phaseOrder(right.phase)
+    );
+  });
+}
+
+function earliestRunBaseline(records: readonly PhaseMeasurement[]): number {
+  const first = chronologicalRunRecords(records)[0];
+  if (first === undefined) {
+    throw new Error("Phase measurement baseline chronology is invalid");
+  }
+  return first.baselineGrossTokens;
+}
+
+function hasValidBaselineChronology(
+  records: readonly PhaseMeasurement[],
+): boolean {
+  const groups = new Map<string, PhaseMeasurement[]>();
+  for (const record of records) {
+    const group = groups.get(runKey(record)) ?? [];
+    group.push(record);
+    groups.set(runKey(record), group);
+  }
+  try {
+    for (const group of groups.values()) {
+      let previous: number | null = null;
+      for (const record of chronologicalRunRecords(group)) {
+        if (previous !== null && record.baselineGrossTokens < previous) {
+          return false;
+        }
+        previous = record.baselineGrossTokens;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function hasValidCheckpointChronology(
   records: readonly PhaseMeasurement[],
 ): boolean {
@@ -574,6 +807,37 @@ function hasValidCheckpointResiduals(
     return true;
   } catch {
     return false;
+  }
+}
+
+function hasValidCheckpointOwnership(
+  records: readonly PhaseMeasurement[],
+): boolean {
+  for (const record of records) {
+    for (const checkpoint of record.contributorCheckpoints) {
+      const resolved = resolvePhaseMeasurementOwner(
+        records,
+        checkpoint.sessionId,
+        checkpoint.occurredAt,
+      );
+      if (resolved.kind !== "owned" || resolved.record !== record) return false;
+    }
+  }
+  return true;
+}
+
+function assertValidMeasurementSet(records: readonly PhaseMeasurement[]): void {
+  if (!hasValidBaselineChronology(records)) {
+    throw new Error("Phase measurement baseline chronology is invalid");
+  }
+  if (!hasValidCheckpointChronology(records)) {
+    throw new Error("Phase measurement checkpoint chronology is invalid");
+  }
+  if (!hasValidCheckpointResiduals(records)) {
+    throw new Error("Phase measurement checkpoint residual is invalid");
+  }
+  if (!hasValidCheckpointOwnership(records)) {
+    throw new Error("Phase measurement checkpoint ownership is invalid");
   }
 }
 
@@ -656,10 +920,9 @@ export function parsePhaseMeasurementLog(
     if (keys.has(key)) throw new Error("Phase measurement log is invalid");
     keys.add(key);
   }
-  if (!hasValidCheckpointChronology(records)) {
-    throw new Error("Phase measurement log is invalid");
-  }
-  if (!hasValidCheckpointResiduals(records)) {
+  try {
+    assertValidMeasurementSet(records);
+  } catch {
     throw new Error("Phase measurement log is invalid");
   }
   return records;
@@ -684,12 +947,7 @@ export function renderPhaseMeasurementLog(
   if (records.some((record) => !hasValidCheckpointState(record))) {
     throw new Error("Phase measurement checkpoint state is invalid");
   }
-  if (!hasValidCheckpointChronology(records)) {
-    throw new Error("Phase measurement checkpoint chronology is invalid");
-  }
-  if (!hasValidCheckpointResiduals(records)) {
-    throw new Error("Phase measurement checkpoint residual is invalid");
-  }
+  assertValidMeasurementSet(records);
   return records.length === 0
     ? ""
     : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;

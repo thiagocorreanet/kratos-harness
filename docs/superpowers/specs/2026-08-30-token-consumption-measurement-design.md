@@ -125,4 +125,3 @@ undersized calibration refusal, explicit-refresh-only rollup mutation,
 interrupted-session closure and crash recovery, runtime-owned assignment
 metadata, equivalent host lifecycle messages, numeric finished-run usage,
 transactional failure safety, and a measured stop-loss overrun.
-

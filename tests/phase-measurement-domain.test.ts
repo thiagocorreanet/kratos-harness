@@ -368,6 +368,148 @@ describe("phase measurement domain", () => {
     );
   });
 
+  it("refuses a later phase whose run baseline decreases", () => {
+    const first = { ...running, phase: "prd" as const };
+    const second = {
+      ...running,
+      phase: "spec" as const,
+      sessionId: "session-200",
+      contributingSessionIds: ["session-200"] as [string],
+      startedAt: "2026-08-30T12:04:00.000Z",
+      baselineGrossTokens: 0,
+      updatedAt: "2026-08-30T12:04:00.000Z",
+    };
+
+    expect(() => renderPhaseMeasurementLog([first, second])).toThrow(
+      "Phase measurement baseline chronology is invalid",
+    );
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+  });
+
+  it.each([100, 145])(
+    "accepts a later phase with a nondecreasing baseline of %s",
+    (baselineGrossTokens) => {
+      const first = { ...running, phase: "prd" as const };
+      const second = {
+        ...running,
+        phase: "spec" as const,
+        sessionId: "session-200",
+        contributingSessionIds: ["session-200"] as [string],
+        startedAt: "2026-08-30T12:04:00.000Z",
+        baselineGrossTokens,
+        updatedAt: "2026-08-30T12:04:00.000Z",
+      };
+
+      expect(renderPhaseMeasurementLog([first, second])).toBe(
+        `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`,
+      );
+    },
+  );
+
+  it("refuses a checkpoint timestamp that resolves to a later phase owner", () => {
+    const first = {
+      ...completePhaseMeasurement({
+        record: { ...running, phase: "prd" },
+        totalGrossTokens: 145,
+        now: "2026-08-30T12:03:00.000Z",
+        observedIdentity: { model: null, effort: null },
+      }),
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 45,
+          occurredAt: "2026-08-30T12:05:00.000Z",
+        },
+      ],
+    };
+    const second = {
+      ...running,
+      phase: "spec" as const,
+      startedAt: "2026-08-30T12:04:00.000Z",
+      baselineGrossTokens: 145,
+      updatedAt: "2026-08-30T12:04:00.000Z",
+    };
+
+    expect(() => renderPhaseMeasurementLog([first, second])).toThrow(
+      "Phase measurement checkpoint ownership is invalid",
+    );
+    expect(() =>
+      parsePhaseMeasurementLog(
+        `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`,
+        ajvSchemaRegistry(),
+      ),
+    ).toThrow("Phase measurement log is invalid");
+  });
+
+  it("refuses an inclusive boundary checkpoint shared by closed and running owners", () => {
+    const first = {
+      ...completePhaseMeasurement({
+        record: { ...running, phase: "prd" },
+        totalGrossTokens: 145,
+        now: "2026-08-30T12:04:00.000Z",
+        observedIdentity: { model: null, effort: null },
+      }),
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 45,
+          occurredAt: "2026-08-30T12:04:00.000Z",
+        },
+      ],
+    };
+    const second = {
+      ...running,
+      phase: "spec" as const,
+      startedAt: "2026-08-30T12:04:00.000Z",
+      baselineGrossTokens: 145,
+      updatedAt: "2026-08-30T12:04:00.000Z",
+    };
+
+    expect(() => renderPhaseMeasurementLog([first, second])).toThrow(
+      "Phase measurement checkpoint ownership is invalid",
+    );
+  });
+
+  it("accepts checkpoints on unambiguous closed and running interval boundaries", () => {
+    const first = {
+      ...completePhaseMeasurement({
+        record: { ...running, phase: "prd" },
+        totalGrossTokens: 145,
+        now: "2026-08-30T12:03:00.000Z",
+        observedIdentity: { model: null, effort: null },
+      }),
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 45,
+          occurredAt: "2026-08-30T12:03:00.000Z",
+        },
+      ],
+    };
+    const second = {
+      ...running,
+      phase: "spec" as const,
+      startedAt: "2026-08-30T12:04:00.000Z",
+      baselineGrossTokens: 145,
+      grossTokens: 30,
+      contributorCheckpoints: [
+        {
+          sessionId: "session-144",
+          cumulativeGrossTokens: 75,
+          occurredAt: "2026-08-30T12:04:00.000Z",
+        },
+      ],
+      updatedAt: "2026-08-30T12:04:00.000Z",
+    };
+
+    expect(() => renderPhaseMeasurementLog([first, second])).not.toThrow();
+  });
+
   it("refuses a checkpoint allocation larger than the phase gross-token total", () => {
     const invalid = {
       ...running,

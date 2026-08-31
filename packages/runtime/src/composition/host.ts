@@ -13,7 +13,10 @@ import {
   initialRunUsage,
   sanitizeDiagnostic,
 } from "../domain/hooks/index.js";
-import { MAX_PHASE_MEASUREMENT_CONTRIBUTORS } from "../domain/measurements/index.js";
+import {
+  MAX_PHASE_MEASUREMENT_CONTRIBUTORS,
+  resolvePhaseMeasurementOwner,
+} from "../domain/measurements/index.js";
 import {
   resultFor,
   usageFailure,
@@ -442,9 +445,6 @@ function measurementTarget(
   activeRunId: string | null,
 ): MeasurementTarget {
   if (hook.kind === "tool.before") return { kind: "none" };
-  const owners = measurements.records.filter((record) =>
-    record.contributingSessionIds.includes(hook.sessionId),
-  );
   const cumulativeGrossTokens =
     "usage" in hook ? (hook.usage?.cumulativeGrossTokens ?? null) : null;
   const eligible =
@@ -465,17 +465,14 @@ function measurementTarget(
     };
   }
   const eligibleOwner = eligible[0];
-  const candidates =
-    eligibleOwner === undefined || owners.includes(eligibleOwner)
-      ? owners
-      : [...owners, eligibleOwner];
-  if (candidates.length > 0) {
-    const selected = ownedMeasurementAt(hook.occurredAt, candidates);
-    if (selected.kind === "corrupt") return selected;
-    if (selected.kind !== "owned") return ambiguousMeasuredSession();
-    const claim = !selected.record.contributingSessionIds.includes(
-      hook.sessionId,
-    );
+  const selected = resolvePhaseMeasurementOwner(
+    measurements.records,
+    hook.sessionId,
+    hook.occurredAt,
+    eligibleOwner,
+  );
+  if (selected.kind === "owned") {
+    const claim = selected.claimContributor;
     if (
       claim &&
       selected.record.contributingSessionIds.length >=
@@ -488,6 +485,7 @@ function measurementTarget(
     }
     return claim ? { kind: "claim", record: selected.record } : selected;
   }
+  if (selected.kind === "ambiguous") return ambiguousMeasuredSession();
   if (cumulativeGrossTokens === null) return { kind: "none" };
   if (activeFeature === null || activeRunId === null) {
     return {
@@ -502,67 +500,6 @@ function measurementTarget(
     };
   }
   return ambiguousMeasuredSession();
-}
-
-function ownedMeasurementAt(
-  occurredAt: string,
-  candidates: readonly MeasuredRecord[],
-): MeasurementTarget {
-  const occurred = timestampOrderKey(occurredAt);
-  const intervals = candidates.map((record) => ({
-    record,
-    started: timestampOrderKey(record.startedAt),
-    ended:
-      record.status === "running"
-        ? undefined
-        : timestampOrderKey(record.endedAt),
-  }));
-  if (
-    occurred === null ||
-    intervals.some(({ started, ended }) => started === null || ended === null)
-  ) {
-    return ambiguousMeasuredSession();
-  }
-  const containing = intervals.filter(
-    ({ started, ended }) =>
-      started !== null &&
-      started <= occurred &&
-      (ended === undefined || (ended !== null && occurred <= ended)),
-  );
-  if (containing.length === 1) {
-    const selected = containing[0];
-    return selected === undefined
-      ? ambiguousMeasuredSession()
-      : { kind: "owned", record: selected.record };
-  }
-  if (containing.length > 1) return ambiguousMeasuredSession();
-
-  const applicable = intervals.filter(
-    ({ started }) => started !== null && started <= occurred,
-  );
-  const latestStarted = applicable.reduce<string | null>(
-    (latest, { started }) =>
-      started !== null && (latest === null || started > latest)
-        ? started
-        : latest,
-    null,
-  );
-  const latest = applicable.filter(({ started }) => started === latestStarted);
-  const selected = latest[0];
-  return latest.length === 1 && selected !== undefined
-    ? { kind: "owned", record: selected.record }
-    : ambiguousMeasuredSession();
-}
-
-function timestampOrderKey(timestamp: string): string | null {
-  const match =
-    /^(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d)(?:\.(\d{1,9}))?Z$/.exec(
-      timestamp,
-    );
-  if (match === null || !Number.isFinite(Date.parse(timestamp))) return null;
-  const seconds = match[1];
-  if (seconds === undefined) return null;
-  return `${seconds}.${(match[2] ?? "").padEnd(9, "0")}`;
 }
 
 function ambiguousMeasuredSession(): MeasurementTarget {

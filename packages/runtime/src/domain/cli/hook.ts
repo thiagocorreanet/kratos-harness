@@ -5,7 +5,7 @@ import {
   addPhaseMeasurementContributor,
   interruptPhaseMeasurement,
   reconcileContributorCheckpoint,
-  recoverPhaseMeasurement,
+  recoverPhaseMeasurements,
   renderPhaseMeasurementLog,
   samePhaseMeasurementAssignment,
   startPhaseMeasurement,
@@ -292,44 +292,46 @@ function decidePhaseStart(observation: Observation): Decision {
       "The open phase measurement belongs to another assignment.",
     );
   }
-  const continued =
-    openPhase === undefined ||
-    (openPhase.sessionId === lifecycle.sessionId &&
-      openPhase.correlationId === lifecycle.correlationId &&
-      openPhase.assignmentDigest === lifecycle.assignmentDigest)
-      ? openPhase
-      : {
-          ...addPhaseMeasurementContributor(openPhase, lifecycle.sessionId),
-          sessionId: lifecycle.sessionId,
-          correlationId: lifecycle.correlationId,
-          assignmentDigest: lifecycle.assignmentDigest,
-          updatedAt: lifecycle.occurredAt,
-        };
-  const recovered: PhaseMeasurement[] = [];
-  for (const record of context.measurements.records) {
-    if (record.status !== "running" || record === openPhase) {
-      recovered.push(record);
-      continue;
-    }
-    const recovery = context.recoveries.find(
-      (candidate) =>
-        candidate.feature === record.feature &&
-        candidate.runId === record.runId &&
-        candidate.phase === record.phase,
+  let continued: PhaseMeasurement | undefined;
+  try {
+    continued =
+      openPhase === undefined ||
+      (openPhase.sessionId === lifecycle.sessionId &&
+        openPhase.correlationId === lifecycle.correlationId &&
+        openPhase.assignmentDigest === lifecycle.assignmentDigest)
+        ? openPhase
+        : {
+            ...addPhaseMeasurementContributor(openPhase, lifecycle.sessionId),
+            sessionId: lifecycle.sessionId,
+            correlationId: lifecycle.correlationId,
+            assignmentDigest: lifecycle.assignmentDigest,
+            updatedAt: lifecycle.occurredAt,
+          };
+  } catch {
+    return refusedMetric(
+      "runtime.state_corrupt",
+      "The open phase measurement cannot accept another contributor.",
     );
-    if (recovery === undefined) {
-      return refusedMetric(
-        "runtime.state_corrupt",
-        "A stale phase measurement has no verified recovery observation.",
-      );
+  }
+  let recovered: readonly PhaseMeasurement[];
+  try {
+    const expectedRecoveries = context.measurements.records.filter(
+      (record) => record.status === "running" && record !== openPhase,
+    );
+    if (expectedRecoveries.length !== context.recoveries.length) {
+      throw new Error("A stale phase measurement has no recovery fact");
     }
-    recovered.push(
-      recoverPhaseMeasurement({
-        record,
-        totalGrossTokens: recovery.totalGrossTokens,
+    recovered = recoverPhaseMeasurements({
+      records: context.measurements.records,
+      recoveries: context.recoveries.map((recovery) => ({
+        ...recovery,
         now: lifecycle.occurredAt,
-        accepted: recovery.accepted,
-      }),
+      })),
+    });
+  } catch {
+    return refusedMetric(
+      "runtime.state_corrupt",
+      "A stale phase measurement cannot be recovered without inventing usage.",
     );
   }
   const started =
@@ -350,8 +352,8 @@ function decidePhaseStart(observation: Observation): Decision {
     nextRecords = upsertPhaseMeasurement(recovered, started);
   } catch {
     return refusedMetric(
-      "metrics.phase_assignment_conflict",
-      "The open phase measurement belongs to another assignment.",
+      "runtime.state_corrupt",
+      "The phase measurement state cannot accept the phase start.",
     );
   }
   const effect = writeMeasurements(context.measurements, nextRecords);

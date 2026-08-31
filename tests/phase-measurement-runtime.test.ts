@@ -467,6 +467,29 @@ async function completeCurrentPhase(
   );
 }
 
+async function prepareCheckpointedRunningSecondPhase(
+  run: RuntimeSubject,
+): Promise<string> {
+  await setTokenBudget(run, 100);
+  await startPhase(run, "session-shared");
+  await samplePhase(run, "session-shared", 40, "shared-a", SAMPLE);
+  await completeCurrentPhase(run, 0);
+  await startPhase(run, "session-shared", LATER);
+  await samplePhase(run, "session-shared", 75, "shared-b", AFTER);
+  await samplePhase(
+    run,
+    "session-shared",
+    45,
+    "shared-delayed-a",
+    "2026-08-30T12:02:00.000Z",
+    "session.sample",
+    REFRESH,
+  );
+  const raw = run.storage.snapshot().files[LOG];
+  if (raw === undefined) throw new Error("Missing checkpointed measurements");
+  return raw;
+}
+
 async function recordForgedCodeReply(
   run: RuntimeSubject,
 ): Promise<OperationResultV1> {
@@ -803,6 +826,35 @@ describe("phase measurement runtime lifecycle", () => {
     ).toBeUndefined();
   });
 
+  it("refuses a 257th phase-start contributor without throwing or publishing state", async () => {
+    const run = await started();
+    await startPhase(run, "session-principal");
+    const open = records(run)[0];
+    if (open === undefined) throw new Error("Missing running measurement");
+    const fullContributors = [
+      open.sessionId,
+      ...Array.from(
+        { length: 255 },
+        (_, index) => `session-capacity-${String(index).padStart(3, "0")}`,
+      ),
+    ].sort((left, right) => left.localeCompare(right, "en-US"));
+    const fullRaw = `${JSON.stringify({
+      ...open,
+      contributingSessionIds: fullContributors,
+    })}\n`;
+    await run.ports.fileSystem.write(LOG, fullRaw);
+
+    expect(
+      await startPhase(run, "session-capacity-overflow", SAMPLE),
+    ).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+      evidence: [{ ref: LOG }],
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(fullRaw);
+  });
+
   it("reallocates an out-of-order launcher checkpoint across completed phases", async () => {
     const run = await started();
     await setTokenBudget(run, 100);
@@ -891,6 +943,116 @@ describe("phase measurement runtime lifecycle", () => {
     ).toContain(
       "| spec | 1 | 0 | measure-phase-usage/run-01 | 30 | 30 | 30 | 30 |",
     );
+  });
+
+  it("next phase start recovers accepted checkpointed work without inflating its phase", async () => {
+    const run = await started();
+    const stale = await prepareCheckpointedRunningSecondPhase(run);
+    await completeCurrentPhase(run, 1, COMPLETED);
+    await run.ports.fileSystem.write(LOG, stale);
+
+    expect(await startPhase(run, "session-plan", ROLLUP)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    expect(records(run).find(({ phase }) => phase === "spec")).toMatchObject({
+      status: "completed",
+      endedAt: COMPLETED,
+      finalGrossTokens: 70,
+      grossTokens: 30,
+      closeReason: "recovered_completed",
+      updatedAt: ROLLUP,
+    });
+    expect(records(run).find(({ phase }) => phase === "plan")).toMatchObject({
+      status: "running",
+      baselineGrossTokens: 75,
+      grossTokens: 0,
+    });
+    expect(
+      records(run)
+        .filter(({ runId }) => runId === "run-01")
+        .reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(75);
+  });
+
+  it("next phase start interrupts checkpointed work from another run without inflation", async () => {
+    const run = await started();
+    await prepareCheckpointedRunningSecondPhase(run);
+    const previous = records(run).map((record) => ({
+      ...record,
+      feature: "previous-feature",
+      runId: "run-previous",
+    }));
+    const priorRaw = previous
+      .map((record) => JSON.stringify(record))
+      .join("\n");
+    await run.ports.fileSystem.write(LOG, `${priorRaw}\n`);
+    await run.ports.fileSystem.write(
+      ".brain/02-features/previous-feature/runs/run-previous/usage.json",
+      `${JSON.stringify({
+        ...usage(run),
+        runId: "run-previous",
+      })}\n`,
+    );
+
+    expect(await startPhase(run, "session-current", ROLLUP)).toMatchObject({
+      reasonCode: "trail.ok",
+      stateChanged: true,
+    });
+
+    const previousRecords = records(run).filter(
+      ({ runId }) => runId === "run-previous",
+    );
+    expect(previousRecords.find(({ phase }) => phase === "spec")).toMatchObject(
+      {
+        status: "interrupted",
+        endedAt: ROLLUP,
+        finalGrossTokens: 70,
+        grossTokens: 30,
+        closeReason: "recovered_interrupted",
+      },
+    );
+    expect(
+      previousRecords.reduce((sum, record) => sum + record.grossTokens, 0),
+    ).toBe(75);
+  });
+
+  it("refuses next-start recovery atomically when run usage is below attributed work", async () => {
+    const run = await started();
+    await prepareCheckpointedRunningSecondPhase(run);
+    const previous = records(run).map((record) => ({
+      ...record,
+      feature: "previous-feature",
+      runId: "run-previous",
+    }));
+    const priorRaw = `${previous.map((record) => JSON.stringify(record)).join("\n")}\n`;
+    await run.ports.fileSystem.write(LOG, priorRaw);
+    await run.ports.fileSystem.write(
+      ".brain/02-features/previous-feature/runs/run-previous/usage.json",
+      `${JSON.stringify({
+        ...usage(run),
+        runId: "run-previous",
+        totalGrossTokens: 74,
+        sessions: [{ sessionId: "session-shared", cumulativeGrossTokens: 74 }],
+      })}\n`,
+    );
+    const priorCurrentEvents =
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-01/events.jsonl"
+      ];
+
+    expect(await startPhase(run, "session-current", ROLLUP)).toMatchObject({
+      exitCode: 4,
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
+    expect(run.storage.snapshot().files[LOG]).toBe(priorRaw);
+    expect(
+      run.storage.snapshot().files[
+        ".brain/02-features/measure-phase-usage/runs/run-01/events.jsonl"
+      ],
+    ).toBe(priorCurrentEvents);
   });
 
   it("selects and claims an active-run phase ahead of a historical non-launcher owner", async () => {
@@ -1201,7 +1363,8 @@ describe("phase measurement runtime lifecycle", () => {
     await samplePhase(run, "session-subagent", 20, "subagent-first", SAMPLE);
     const first = records(run)[0];
     if (first === undefined) throw new Error("Missing running measurement");
-    const ambiguousRaw = `${JSON.stringify(first)}\n${JSON.stringify({
+    const firstOwner = { ...first, contributorCheckpoints: [] };
+    const ambiguousRaw = `${JSON.stringify(firstOwner)}\n${JSON.stringify({
       ...first,
       phase: "spec",
       sessionId: "session-b",
@@ -1706,10 +1869,12 @@ describe("phase measurement runtime lifecycle", () => {
     await switchToEmptyRun(run, "run-02");
     const first = records(run)[0];
     if (first === undefined) throw new Error("Missing measured session");
-    const ambiguousRaw = `${JSON.stringify(first)}\n${JSON.stringify({
+    const firstOwner = { ...first, contributorCheckpoints: [] };
+    const ambiguousRaw = `${JSON.stringify(firstOwner)}\n${JSON.stringify({
       ...first,
       runId: "run-02",
       phase: "spec",
+      contributorCheckpoints: [],
     })}\n`;
     await run.ports.fileSystem.write(LOG, ambiguousRaw);
     const priorOldUsage = JSON.stringify(usageFor(run, "run-01"));

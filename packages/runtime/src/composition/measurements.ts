@@ -5,7 +5,7 @@ import { verifyEventStream } from "../domain/events/index.js";
 import { initialRunUsage } from "../domain/hooks/index.js";
 import {
   parsePhaseMeasurementLog,
-  recoverPhaseMeasurement,
+  recoverPhaseMeasurements,
   renderPhaseMeasurementLog,
   type PhaseMeasurement,
 } from "../domain/measurements/index.js";
@@ -108,17 +108,13 @@ type AcceptedTransitionObservation =
 export type PhaseMeasurementRecoveryObservation =
   | {
       readonly kind: "observed";
-      readonly totalGrossTokens: number;
+      readonly totalGrossTokens: number | null;
       readonly accepted: {
         readonly occurredAt: string;
         readonly observedIdentity: PhaseMeasurement["observedIdentity"];
       } | null;
     }
   | Extract<AcceptedTransitionObservation, { readonly kind: "corrupt" }>;
-
-type MeasurementReconciliation =
-  | { readonly kind: "record"; readonly record: PhaseMeasurement }
-  | Extract<PhaseMeasurementRecoveryObservation, { readonly kind: "corrupt" }>;
 
 /** Observe the run-local facts needed to close one stale measurement. */
 export async function observePhaseMeasurementRecovery(
@@ -136,13 +132,9 @@ export async function observePhaseMeasurementRecovery(
     ports,
     registry,
   );
-  const recordedTotal = record.baselineGrossTokens + record.grossTokens;
   return {
     kind: "observed",
-    totalGrossTokens: Math.max(
-      recordedTotal,
-      usage.tokenUsage ?? recordedTotal,
-    ),
+    totalGrossTokens: usage.tokenUsage,
     accepted:
       accepted.kind === "absent"
         ? null
@@ -182,45 +174,48 @@ export async function observeMetricsRefresh(
     };
   }
   const generatedAt = anchored.clock.now().toISOString();
-  let reconciliations: readonly MeasurementReconciliation[];
-  try {
-    reconciliations = await Promise.all(
-      measurements.records.map(async (record) => {
-        if (record.status !== "running") {
-          return { kind: "record" as const, record };
-        }
-        const recovery = await observePhaseMeasurementRecovery(
-          record,
-          generatedAt,
-          anchored,
-          registry,
-        );
-        if (recovery.kind === "corrupt") return recovery;
-        return {
-          kind: "record" as const,
-          record: recoverPhaseMeasurement({
-            record,
-            totalGrossTokens: recovery.totalGrossTokens,
-            now: generatedAt,
-            accepted: recovery.accepted,
-          }),
-        };
-      }),
-    );
-  } catch {
-    return invalidMeasurementLog();
-  }
-  const records: PhaseMeasurement[] = [];
-  for (const reconciliation of reconciliations) {
-    if (reconciliation.kind === "corrupt") {
+  const observedRecoveries = await Promise.all(
+    measurements.records.flatMap((record) =>
+      record.status === "running"
+        ? [
+            observePhaseMeasurementRecovery(
+              record,
+              generatedAt,
+              anchored,
+              registry,
+            ).then((recovery) => ({ record, recovery })),
+          ]
+        : [],
+    ),
+  );
+  for (const { recovery } of observedRecoveries) {
+    if (recovery.kind === "corrupt") {
       return {
         kind: "failure",
-        result: corruptPhaseMeasurementEventStreamResult(
-          reconciliation.evidenceRef,
-        ),
+        result: corruptPhaseMeasurementEventStreamResult(recovery.evidenceRef),
       };
     }
-    records.push(reconciliation.record);
+  }
+  let records: readonly PhaseMeasurement[];
+  try {
+    records = recoverPhaseMeasurements({
+      records: measurements.records,
+      recoveries: observedRecoveries.map(({ record, recovery }) => {
+        if (recovery.kind !== "observed") {
+          throw new Error("Phase measurement recovery is corrupt");
+        }
+        return {
+          feature: record.feature,
+          runId: record.runId,
+          phase: record.phase,
+          totalGrossTokens: recovery.totalGrossTokens,
+          now: generatedAt,
+          accepted: recovery.accepted,
+        };
+      }),
+    });
+  } catch {
+    return corruptPhaseMeasurementState();
   }
   const content = renderPhaseMeasurementLog(records);
   return {
@@ -287,6 +282,19 @@ export function corruptPhaseMeasurementEventStreamResult(
     ],
     evidence: [{ kind: "event", ref: evidenceRef }],
   });
+}
+
+function corruptPhaseMeasurementState(): Extract<
+  ObservedMetricsRefresh,
+  { readonly kind: "failure" }
+> {
+  return {
+    kind: "failure",
+    result: resultFor("runtime.state_corrupt", {
+      why: ["Phase measurement recovery cannot conserve validated run usage."],
+      evidence: [{ kind: "artifact", ref: PHASE_MEASUREMENT_LOG }],
+    }),
+  };
 }
 
 function invalidMeasurementLog(): Extract<

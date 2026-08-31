@@ -206,7 +206,7 @@ export type CommandObservation =
           readonly feature: string;
           readonly runId: string;
           readonly phase: PhaseMeasurement["phase"];
-          readonly totalGrossTokens: number;
+          readonly totalGrossTokens: number | null;
           readonly accepted: {
             readonly occurredAt: string;
             readonly observedIdentity: PhaseMeasurement["observedIdentity"];
