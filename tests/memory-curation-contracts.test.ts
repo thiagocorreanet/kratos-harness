@@ -27,11 +27,19 @@ describe("deterministic memory-curation contracts", () => {
     );
 
     await expect(Promise.all(paths.map(json))).resolves.toHaveLength(4);
-    expect(manifest).toMatchObject({
-      schemas: expect.arrayContaining(
-        paths.map((path) => expect.objectContaining({ path })),
-      ),
-    });
+    const entries: unknown[] = Array.isArray(manifest.schemas)
+      ? (manifest.schemas as unknown[])
+      : [];
+    const schemas = entries
+      .filter(
+        (entry): entry is { path: string } =>
+          typeof entry === "object" &&
+          entry !== null &&
+          "path" in entry &&
+          typeof entry.path === "string",
+      )
+      .map(({ path }) => path);
+    expect(schemas).toEqual(expect.arrayContaining(paths));
   });
 
   it("selects and loads each current memory revision", () => {

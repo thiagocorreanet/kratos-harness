@@ -39,6 +39,7 @@ import type { CurrentPhaseHandoff } from "@kratos/contracts";
 import type { PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { PhaseMeasurement } from "../measurements/index.js";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
+import type { MemoryCurationPlan } from "../memory/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
@@ -210,7 +211,7 @@ export type CommandObservation =
       readonly ledger: CuratedMemoryV1_1;
       readonly ledgerExpected: WriteFilePrecondition;
       readonly projectionExpected: WriteFilePrecondition;
-      readonly plan: import("../memory/index.js").MemoryCurationPlan;
+      readonly plan: MemoryCurationPlan;
       readonly approval: Extract<
         MemoryCurationV1_4,
         { readonly kind: "approval" }

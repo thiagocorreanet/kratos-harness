@@ -317,7 +317,9 @@ describe("memory curation reductions", () => {
       });
     }
     const oneOff = ledger();
-    oneOff.confirmed[0] = { ...oneOff.confirmed[0]!, observationCount: 1 };
+    const first = oneOff.confirmed[0];
+    if (first === undefined) throw new Error("fixture has no lesson");
+    oneOff.confirmed[0] = { ...first, observationCount: 1 };
     const deleted = applyMemoryCuration(
       oneOff,
       {

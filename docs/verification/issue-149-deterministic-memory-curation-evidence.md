@@ -46,6 +46,16 @@ and binary lexical ordering without stemming.
   Approval, ledger, projection, proposal, date, and observed file identities are
   digest/precondition bound.
 
+## Performance-budget decision
+
+The pre-change tree used 1,482,357 runtime-source bytes of a 1,500,000-byte
+budget and 282,758 schema bytes of a 290,000-byte budget. Additive scoring,
+batch/migration reducers, and five closed schema revisions bring the observed
+sizes to 1,538,601 and 309,272 bytes. The published ceilings therefore advance
+to 1,600,000 runtime bytes and 330,000 schema bytes. These round ceilings cover
+the measured contract-bearing implementation with approximately four and six
+percent headroom respectively; they are not derived from a proposal outcome.
+
 ## Verification commands
 
 ```bash
