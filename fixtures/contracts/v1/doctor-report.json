@@ -4,10 +4,10 @@
   "health": "degraded",
   "checks": [
     {
-      "name": "shadow-policy",
+      "name": "gates",
       "status": "warn",
-      "evidenceRef": ".brain/02-features/review-feature/gaps.json",
-      "details": ["The gaps-closed gate is running in shadow mode."]
+      "evidenceRef": ".brain/02-features/review-feature/runs/run-01/gates.json",
+      "details": ["gaps-closed: shadow gate.gaps_abertos"]
     }
   ],
   "gateFailures": [
@@ -15,9 +15,9 @@
       "gateId": "gaps-closed",
       "reasonCode": "gate.gaps_abertos",
       "mode": "shadow",
-      "priority": 0,
-      "evidenceRefs": [".brain/02-features/review-feature/gaps.json"],
-      "detail": "The gate would block if enforce mode were selected."
+      "priority": 50,
+      "evidenceRefs": [".brain/02-features/active"],
+      "detail": null
     }
   ]
 }

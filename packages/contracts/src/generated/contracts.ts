@@ -7,7 +7,7 @@
 // source: https://kratos.dev/schemas/host/agent-output/v1.1 sha256:088f8496631fb80570f3a863bc71753ef37deab1dbe6d03ad5b2b6e571f26c63
 // source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
 // source: https://kratos.dev/schemas/host/agent-output/v1.3 sha256:872af92d3fe24771807ea566f41e6654f98e3ed5eedff012235c513690b5c484
-// source: https://kratos.dev/schemas/host/doctor-report/v1 sha256:820db9a95211496f797955534429721f4d13d5586d69443c61cdfc132541628f
+// source: https://kratos.dev/schemas/host/doctor-report/v1 sha256:f80a9c91cfd6b362baade0172c0059ffcc012d5add88e5f6c9927c36f8af62ca
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
@@ -26,7 +26,7 @@
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.3 sha256:3b897513b55c5ad29bd8e6bb137cf5a16ecf3f6e01f71c5fce4d421f0cdba100
-// source: https://kratos.dev/schemas/host/phase-handoff/v1.4 sha256:e7675232ef55334dd58dc127e7dce88f9f95d2bb39e655178ab6d28ce01c718c
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.4 sha256:b023bead73d67aeedcf6cc524020ea85412d73e9df6c7cbe1fa564c27db97f79
 // source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
@@ -1103,44 +1103,6 @@ export namespace AgentOutputV1_3Contract {
 }
 export type AgentOutputV1_3 = AgentOutputV1_3Contract.AgentOutputV1_3;
 export namespace DoctorReportV1Contract {
-  /**
-   * @maxItems 8
-   */
-  export type GateFailures =
-    | []
-    | [GateFailure]
-    | [GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ];
-
   export interface DoctorReportV1 {
     contractVersion: "1.0.0";
     hostContract: "1.4.0";
@@ -1149,14 +1111,17 @@ export namespace DoctorReportV1Contract {
      * @maxItems 64
      */
     checks: Check[];
-    gateFailures: GateFailures;
+    /**
+     * @maxItems 265
+     */
+    gateFailures: GateFailure[];
   }
   export interface Check {
     name: string;
     status: "pass" | "warn" | "block" | "fail";
     evidenceRef: string | null;
     /**
-     * @maxItems 64
+     * @maxItems 265
      */
     details?: string[];
   }
@@ -2496,7 +2461,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2516,7 +2484,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2536,7 +2507,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2556,7 +2530,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2576,7 +2553,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2596,7 +2576,10 @@ export namespace PhaseHandoffV1_4Contract {
         objectiveDigest: Sha256;
         status: "idle" | "active" | "blocked" | "completed";
         gateOutcome: "pass" | "warn" | "block";
-        gateFailures: GateFailures;
+        /**
+         * @maxItems 265
+         */
+        gateFailures: GateFailure[];
         blockers: Id[];
         openGaps: number;
         nextAction: string;
@@ -2605,43 +2588,6 @@ export namespace PhaseHandoffV1_4Contract {
       };
   export type Id = string;
   export type Sha256 = string;
-  /**
-   * @maxItems 8
-   */
-  export type GateFailures =
-    | []
-    | [GateFailure]
-    | [GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure, GateFailure]
-    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ]
-    | [
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-        GateFailure,
-      ];
   export type PositiveInteger = number;
   export type KratosAcceptanceCriterionIdentifierV1 = string;
   export type Reference = string;

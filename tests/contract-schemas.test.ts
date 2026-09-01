@@ -161,6 +161,72 @@ describe("versioned state and host schemas", () => {
     expect(validateDoctor(doctorFailure)).toBe(false);
   });
 
+  it("bounds diagnostic traces at the evaluator maximum without deduplicating doctor details", async () => {
+    const [handoffSchema, doctorSchema, handoff, doctor] = await Promise.all([
+      readJson(join(schemaRoot, "host/phase-handoff.v1.4.schema.json")),
+      readJson(join(schemaRoot, "host/doctor-report.v1.schema.json")),
+      readJson(
+        join(repositoryRoot, "fixtures/contracts/v1.4/phase-handoff.json"),
+      ),
+      readJson(
+        join(repositoryRoot, "fixtures/contracts/v1/doctor-report.json"),
+      ),
+    ]);
+    const ajv = contractAjv();
+    const validateHandoff = ajv.compile(handoffSchema);
+    const validateDoctor = ajv.compile(doctorSchema);
+    const [fixtureFailure] = handoff.gateFailures as JsonObject[];
+    if (fixtureFailure === undefined) {
+      throw new Error("handoff failure unavailable");
+    }
+    const failures = Array.from({ length: 266 }, (_, index) => ({
+      ...structuredClone(fixtureFailure),
+      evidenceRefs: [`repair-stops/AC-${String(index + 1)}.json`],
+      detail: `Acceptance criterion AC-${String(index + 1)} stopped at attempt 3 with classification code.`,
+    }));
+    const duplicateSummary = "stop-loss: enforce blocked.stop_loss_rejections";
+
+    for (const count of [8, 9, 265]) {
+      const gateFailures = failures.slice(0, count);
+      const details = Array.from({ length: count }, () => duplicateSummary);
+      expect(
+        validateHandoff({ ...handoff, gateFailures }),
+        JSON.stringify(validateHandoff.errors),
+      ).toBe(true);
+      expect(
+        validateDoctor({
+          ...doctor,
+          checks: [
+            {
+              name: "gates",
+              status: "block",
+              evidenceRef: ".brain/gates.json",
+              details,
+            },
+          ],
+          gateFailures,
+        }),
+        JSON.stringify(validateDoctor.errors),
+      ).toBe(true);
+    }
+
+    expect(validateHandoff({ ...handoff, gateFailures: failures })).toBe(false);
+    expect(
+      validateDoctor({
+        ...doctor,
+        checks: [
+          {
+            name: "gates",
+            status: "block",
+            evidenceRef: ".brain/gates.json",
+            details: Array.from({ length: 266 }, () => duplicateSummary),
+          },
+        ],
+        gateFailures: failures,
+      }),
+    ).toBe(false);
+  });
+
   it("requires a closed partial gate-mode override map in project config v1.4", async () => {
     const schema = await readJson(
       join(schemaRoot, "state/project-config.v1.4.schema.json"),

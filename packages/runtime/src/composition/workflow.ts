@@ -2071,7 +2071,7 @@ async function observePhaseAssignment(input: {
     gateFailures: input.gateDecision.failures.map((failure) => ({
       ...failure,
       evidenceRefs: [...failure.evidenceRefs],
-    })) as CurrentPhaseHandoff["gateFailures"],
+    })),
     blockers: input.gateDecision.failures.map(({ gateId }) => gateId),
     openGaps: input.openGaps,
     nextAction:

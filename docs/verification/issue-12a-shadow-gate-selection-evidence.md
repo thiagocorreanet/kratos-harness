@@ -4,17 +4,19 @@
 
 | Criterion | Evidence test |
 | --- | --- |
-| Lifecycle: the guides publish `shadow -> measure -> warn -> enforce`. | `tests/contract-documentation.test.ts` — `documents the selectable shadow rollout across operator and registry guides`; `tests/gate-policy-modes.test.ts` — `aggregates %s and %s by the most severe outcome` |
+| Lifecycle: the same finding persists under all three selectable modes, only enforce stops, and the guides publish `shadow -> measure -> warn -> enforce`. | `tests/gate-facts.test.ts` — `records gaps-closed in %s mode as %s through the lifecycle`; `tests/contract-documentation.test.ts` — `documents the selectable shadow rollout across operator and registry guides` |
 | Initialization and preservation: the selected partial map is persisted, omitted input preserves it, and `{}` clears it. | `tests/init-answers.test.ts` — `selects, clears, defaults, or preserves per-gate modes`; `tests/init-command.test.ts` — `preserves gate modes when a re-initialization omits them` |
 | Handoff and doctor publish effective findings without host policy authority. | `tests/gate-facts.test.ts` — `reports a shadow gate finding without blocking the handoff`; `tests/doctor-command.test.ts` — `reports shadow gate findings in human and JSON doctor output` |
-| A predecessor or unsupported state is refused before schema validation or mutation. | `tests/project-configuration.test.ts` — `rejects %s before schema validation` |
+| A frozen predecessor refuses shadow-enabled current state before mutation. | `tests/contract-compatibility.test.ts` — `lets a frozen predecessor refuse a shadow-enabled state without mutation` |
 | Fixtures validate at their exact revisions while published predecessor schemas remain immutable. | `tests/schema-registry-fixtures.test.ts` — `accepts the committed $id fixture`; `tests/contract-schemas.test.ts` — `keeps the published %s schema byte-identical` |
 
 ## Three-mode lifecycle
 
-The documented rollout is `shadow -> measure -> warn -> enforce`. The named
-test publishes `shadow`, `warn`, and `enforce`; `tests/gate-policy-modes.test.ts`
-maps their findings to pass, warn, and block respectively.
+The documented rollout is `shadow -> measure -> warn -> enforce`. The exact
+end-to-end table `tests/gate-facts.test.ts` — `records gaps-closed in %s mode as
+%s through the lifecycle` publishes `shadow`, `warn`, and `enforce`, persists
+the same finding, maps them to pass, warn, and block, and proves only enforce
+stops phase progression.
 
 ## Initialization and reporting
 
@@ -33,9 +35,10 @@ in human and JSON doctor output` verifies effective-mode reporting through
 Project state remains `1.4.0`. No gate decision changed in this documentation
 and evidence slice, and no dependency was added. An older unsupported persisted
 state revision is refused before mutation as
-`contract.state_version_unsupported`; `tests/project-configuration.test.ts` —
-`rejects %s before schema validation` covers that refusal. The fixture index
-records that new fixtures leave predecessor bytes unchanged.
+`contract.state_version_unsupported`; `tests/contract-compatibility.test.ts` —
+`lets a frozen predecessor refuse a shadow-enabled state without mutation`
+covers that exact compatibility window and refusal. The fixture index records
+that new fixtures leave predecessor bytes unchanged.
 
 ## Verification commands
 

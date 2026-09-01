@@ -4,31 +4,31 @@
   "feature": "review-feature",
   "runId": "run-01",
   "revision": 12,
-  "phase": "acceptance",
+  "phase": "prd",
   "host": "codex",
   "assignment": {
-    "phase": "acceptance",
-    "role": "judge",
-    "model": "gpt-5-review",
+    "phase": "prd",
+    "role": "planner",
+    "model": "gpt-5-planner",
     "effort": "medium"
   },
   "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "objectiveDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "status": "blocked",
-  "gateOutcome": "block",
+  "status": "active",
+  "gateOutcome": "pass",
   "gateFailures": [
     {
       "gateId": "gaps-closed",
       "reasonCode": "gate.gaps_abertos",
       "mode": "shadow",
-      "priority": 0,
-      "evidenceRefs": [".brain/02-features/review-feature/gaps.json"],
-      "detail": "The gate would block if enforce mode were selected."
+      "priority": 50,
+      "evidenceRefs": [".brain/02-features/active"],
+      "detail": null
     }
   ],
-  "blockers": ["gate.gaps_abertos"],
+  "blockers": ["gaps-closed"],
   "openGaps": 1,
-  "nextAction": "Review the recorded gate failure.",
+  "nextAction": "Complete the prd phase and run kratos continue.",
   "acceptance": {
     "attemptCeiling": 3,
     "attempts": [],

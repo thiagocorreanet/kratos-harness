@@ -21,7 +21,11 @@
       "items": { "$ref": "#/$defs/check" }
     },
     "gateFailures": {
-      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailures"
+      "type": "array",
+      "maxItems": 265,
+      "items": {
+        "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailure"
+      }
     }
   },
   "$defs": {
@@ -44,8 +48,7 @@
         },
         "details": {
           "type": "array",
-          "maxItems": 64,
-          "uniqueItems": true,
+          "maxItems": 265,
           "items": {
             "type": "string",
             "minLength": 1,

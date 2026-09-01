@@ -54,7 +54,11 @@
     "status": { "enum": ["idle", "active", "blocked", "completed"] },
     "gateOutcome": { "enum": ["pass", "warn", "block"] },
     "gateFailures": {
-      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailures"
+      "type": "array",
+      "maxItems": 265,
+      "items": {
+        "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailure"
+      }
     },
     "blockers": {
       "type": "array",

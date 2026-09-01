@@ -89,6 +89,20 @@ function prepareAdapterPayload(
   return `${prepared.canonical}\n`;
 }
 
+function validatePublicPayload(value: unknown): void {
+  if (typeof value === "string") {
+    validatePublicText(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) validatePublicPayload(item);
+    return;
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const item of Object.values(value)) validatePublicPayload(item);
+  }
+}
+
 function preparePhaseHandoffPayload(
   payload: unknown,
   registry: SchemaRegistry,
@@ -105,7 +119,7 @@ function preparePhaseHandoffPayload(
   if (prepared.kind === "invalid") {
     throw new Error("Command payload does not satisfy its declared contract");
   }
-  validatePublicText(prepared.canonical);
+  validatePublicPayload(prepared.value);
   if (
     prepared.value.contractVersion !== CONTRACT_VERSIONS["host.phase-handoff"]
   ) {
@@ -128,7 +142,7 @@ function prepareDoctorReportPayload(
   if (prepared.kind === "invalid") {
     throw new Error("Command payload does not satisfy its declared contract");
   }
-  validatePublicText(prepared.canonical);
+  validatePublicPayload(prepared.value);
   return { canonical: prepared.canonical, value: prepared.value };
 }
 
@@ -233,7 +247,7 @@ export async function runCommandLine(
       preparedOutput = json
         ? `${doctor.canonical}\n`
         : (decision.humanStdout ?? `${decision.result.summary}\n`);
-      validatePublicText(preparedOutput);
+      if (!json) validatePublicText(preparedOutput);
     } else if (!json) {
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);

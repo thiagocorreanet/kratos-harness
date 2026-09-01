@@ -4,6 +4,14 @@ This directory owns Kratos's versioned public runtime contracts. These
 machine-readable artifacts establish wire shapes and compatibility boundaries;
 they are enforced by the runtime before domain use and persistence.
 
+Current evolving payload selectors are `state.event@1.4.0`,
+`host.init-answers@1.5.0`, `host.phase-handoff@1.4.0`,
+`host.doctor-report@1.0.0`, `host.agent-output@1.3.0`,
+`host.memory-capture@1.2.0`, `host.memory-change@1.4.0`,
+`host.memory-curation@1.4.0`, and `host.memory-migration@1.4.0`. These exact
+revisions come from `CONTRACT_VERSIONS`; predecessor schema files remain
+immutable.
+
 The universal runtime-result family contains:
 
 - [`result.v1.schema.json`](result.v1.schema.json), the closed result envelope;
@@ -110,16 +118,23 @@ plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
 [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json),
-[`agent-output.v1.1.schema.json`](host/agent-output.v1.1.schema.json), and current
-[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), the
-machine block one phase agent appends to its reply, plus
+[`agent-output.v1.1.schema.json`](host/agent-output.v1.1.schema.json),
+[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), and
+current [`agent-output.v1.3.schema.json`](host/agent-output.v1.3.schema.json),
+the machine block one phase agent appends to its reply, plus
 [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized
 structured file mutations, and
 [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json),
 [`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json), and
 [`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json), plus
 current [`phase-handoff.v1.4.schema.json`](host/phase-handoff.v1.4.schema.json)
-for the digest-bound resolved assignment and acceptance attempt context. See the
+for the digest-bound resolved assignment, acceptance attempt context, and
+effective gate-failure trace. The current memory schemas are
+[`memory-capture.v1.2.schema.json`](host/memory-capture.v1.2.schema.json),
+[`memory-change.v1.4.schema.json`](host/memory-change.v1.4.schema.json),
+[`memory-curation.v1.4.schema.json`](host/memory-curation.v1.4.schema.json), and
+[`memory-migration.v1.4.schema.json`](host/memory-migration.v1.4.schema.json).
+See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is

@@ -7,6 +7,7 @@ import reasonCatalogV16 from "../packages/contracts/catalogs/reason-codes.v1.6.j
 import preToolUseSchema from "../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import featureScopeSchema from "../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import guardrailsSchema from "../schemas/state/guardrails.v1.schema.json" with { type: "json" };
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -31,6 +32,7 @@ let schemaRegistry: string;
 let migrationObservability: string;
 let systemArchitecture: string;
 let commands: string;
+let shadowGateEvidence: string;
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -105,6 +107,7 @@ beforeAll(async () => {
     migrationObservability,
     systemArchitecture,
     commands,
+    shadowGateEvidence,
   ] = await Promise.all([
     readFile(
       join(repositoryRoot, "docs/compatibility/contract-versioning.md"),
@@ -171,6 +174,13 @@ beforeAll(async () => {
       "utf8",
     ),
     readFile(join(repositoryRoot, "docs/user/commands.md"), "utf8"),
+    readFile(
+      join(
+        repositoryRoot,
+        "docs/verification/issue-12a-shadow-gate-selection-evidence.md",
+      ),
+      "utf8",
+    ),
   ]);
 });
 
@@ -234,6 +244,35 @@ describe("contract versioning documentation", () => {
     expect(projectInitialization).toContain('"gaps-closed": "shadow"');
     expect(guide).toContain("contract.state_version_unsupported");
     expect(schemaIndex).toContain("host.doctor-report@1.0.0");
+  });
+
+  it("derives every documented current diagnostic revision from the exported selectors", () => {
+    const currentContracts = [
+      "state.event",
+      "host.init-answers",
+      "host.phase-handoff",
+      "host.doctor-report",
+      "host.agent-output",
+      "host.memory-capture",
+      "host.memory-change",
+      "host.memory-curation",
+      "host.memory-migration",
+    ] as const satisfies readonly (keyof typeof CONTRACT_VERSIONS)[];
+
+    for (const id of currentContracts) {
+      const selector = `\`${id}@${CONTRACT_VERSIONS[id]}\``;
+      expect(guide).toContain(selector);
+      expect(schemaIndex).toContain(selector);
+    }
+  });
+
+  it("maps acceptance evidence to the exact lifecycle and predecessor tests", () => {
+    expect(shadowGateEvidence).toContain(
+      "`tests/gate-facts.test.ts` — `records gaps-closed in %s mode as %s through the lifecycle`",
+    );
+    expect(shadowGateEvidence).toContain(
+      "`tests/contract-compatibility.test.ts` — `lets a frozen predecessor refuse a shadow-enabled state without mutation`",
+    );
   });
 
   it("publishes current state and migration boundaries in every operator guide", () => {

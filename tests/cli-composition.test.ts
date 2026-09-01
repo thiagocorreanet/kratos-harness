@@ -1,5 +1,7 @@
 import { KRATOS_VERSION, type CurrentPhaseHandoff } from "@kratos/contracts";
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
+import doctorReport from "../fixtures/contracts/v1/doctor-report.json" with { type: "json" };
+import phaseHandoffV1_4 from "../fixtures/contracts/v1.4/phase-handoff.json" with { type: "json" };
 import { describe, expect, it } from "vitest";
 
 import { runCli } from "@kratos/runtime";
@@ -10,6 +12,7 @@ import {
 } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import { planOf } from "@kratos/runtime/domain/effects";
+import { evaluateGates, resolveGateModes } from "@kratos/runtime/domain/gates";
 import {
   resultFor,
   usageFailure,
@@ -52,6 +55,40 @@ async function run(argv: readonly string[]) {
     stdout: output.structured_.join(""),
     stderr: output.human_.join(""),
   };
+}
+
+function maximumDiagnosticFailures() {
+  return evaluateGates({
+    gateModes: resolveGateModes("strict", {}),
+    phase: "acceptance",
+    contextReadable: false,
+    stopLoss: {
+      tripped: true,
+      exhausted: true,
+      repeatedRejections: Array.from({ length: 256 }, (_, index) => ({
+        criterionId: `AC-1.${String(index + 1)}`,
+        attempt: 3,
+        classification: "code" as const,
+        artifactRef: `repair-stops/AC-1.${String(index + 1)}.json`,
+      })),
+    },
+    prdDigest: null,
+    prdDocument: { kind: "missing" },
+    specDigest: null,
+    approvals: [],
+    openGaps: 1,
+    partitionRequired: true,
+    partitionApproved: false,
+    finalAcceptance: false,
+    acceptanceCriteria: [
+      {
+        criterionId: "AC-1.1",
+        state: "failed",
+        checked: false,
+        evidenceValid: false,
+      },
+    ],
+  }).failures;
 }
 
 const transactionReasons = [
@@ -116,6 +153,173 @@ const transactionReasons = [
 ] as const;
 
 describe("composed command line", () => {
+  it.each([8, 9, 265])(
+    "serializes %i evaluator findings through both diagnostic contracts",
+    async (count) => {
+      const maximum = maximumDiagnosticFailures();
+      expect(maximum).toHaveLength(265);
+      const gateFailures = maximum.slice(0, count);
+      expect(gateFailures).toHaveLength(count);
+      const summary = (failure: (typeof gateFailures)[number]) =>
+        `${failure.gateId}: ${failure.mode} ${failure.reasonCode}`;
+      const payloads = [
+        {
+          path: "doctor-limit",
+          jsonContract: "doctor-report@1.0.0" as const,
+          payload: {
+            contractVersion: "1.0.0",
+            hostContract: "1.4.0",
+            health: "blocked",
+            checks: [
+              {
+                name: "gates",
+                status: "block",
+                evidenceRef: ".brain/gates.json",
+                details: gateFailures.map(summary),
+              },
+            ],
+            gateFailures,
+          },
+        },
+        {
+          path: "handoff-limit",
+          jsonContract: "phase-handoff@1.4.0" as const,
+          payload: {
+            contractVersion: "1.4.0",
+            hostContract: "1.4.0",
+            feature: "feature-1",
+            runId: "run-1",
+            revision: 1,
+            phase: "acceptance",
+            host: "codex",
+            assignment: {
+              phase: "acceptance",
+              role: "judge",
+              model: "gpt-5-review",
+              effort: "medium",
+            },
+            assignmentDigest: "a".repeat(64),
+            objectiveDigest: "b".repeat(64),
+            status: "blocked",
+            gateOutcome: "block",
+            gateFailures,
+            blockers: gateFailures.map(({ gateId }) => gateId),
+            openGaps: 1,
+            nextAction:
+              "Resolve the reported gate blockers and rerun kratos doctor.",
+            acceptance: {
+              attemptCeiling: 3,
+              attempts: [],
+              faultsRequiredFor: [],
+              faults: [],
+            },
+            memory: null,
+          },
+        },
+      ];
+
+      for (const { path, jsonContract, payload } of payloads) {
+        const output = recordingOutput();
+        const contractValidation = createSchemaRegistry().validate({
+          id:
+            jsonContract === "doctor-report@1.0.0"
+              ? "host.doctor-report"
+              : "host.phase-handoff",
+          version: jsonContract === "doctor-report@1.0.0" ? "1.0.0" : "1.4.0",
+          value: payload,
+          structuralReasonCode: "trail.output_invalido",
+        });
+        const registry = [
+          {
+            path: [path],
+            summary: "Emit a bounded diagnostic trace.",
+            flags: [],
+            positionals: { min: 0, max: 0 },
+            jsonContract,
+            prerequisite: "none" as const,
+            handler: () => ({
+              result: resultFor("runtime.orientation_ok"),
+              plan: planOf(),
+              humanStdout: null,
+              payload,
+            }),
+          },
+        ];
+
+        expect(contractValidation).toMatchObject({ kind: "valid" });
+        expect(
+          await runCommandLine(
+            ["--json", path],
+            createRuntime({ output }),
+            registry,
+          ),
+        ).toBe(0);
+        expect(
+          (
+            JSON.parse(output.structured_.join("")) as {
+              gateFailures: unknown[];
+            }
+          ).gateFailures,
+        ).toHaveLength(count);
+      }
+    },
+  );
+
+  it.each([
+    [
+      "doctor-report@1.0.0",
+      {
+        ...doctorReport,
+        checks: [
+          {
+            ...doctorReport.checks[0],
+            details: ["/home/customer/private.txt"],
+          },
+        ],
+      },
+    ],
+    [
+      "phase-handoff@1.4.0",
+      {
+        ...phaseHandoffV1_4,
+        nextAction: "/home/customer/private.txt",
+      },
+    ],
+  ] as const)(
+    "rejects unsafe strings inside %s payloads",
+    async (jsonContract, payload) => {
+      const output = recordingOutput();
+      const registry = [
+        {
+          path: ["unsafe-diagnostic"],
+          summary: "Emit an unsafe diagnostic payload.",
+          flags: [],
+          positionals: { min: 0, max: 0 },
+          jsonContract,
+          prerequisite: "none" as const,
+          handler: () => ({
+            result: resultFor("runtime.orientation_ok"),
+            plan: planOf(),
+            humanStdout: null,
+            payload,
+          }),
+        },
+      ];
+
+      expect(
+        await runCommandLine(
+          ["--json", "unsafe-diagnostic"],
+          createRuntime({ output }),
+          registry,
+        ),
+      ).toBe(2);
+      expect(output.structured_.join("")).not.toContain("/home/customer");
+      expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+        reasonCode: "runtime.internal_failure",
+      });
+    },
+  );
+
   it("serializes a doctor report through the composed dispatcher", async () => {
     const output = recordingOutput();
     const registry = [

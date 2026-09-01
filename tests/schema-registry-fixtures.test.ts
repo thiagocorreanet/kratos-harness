@@ -828,6 +828,49 @@ function expectInvalidWithReason(
 }
 
 describe("compiled schema registry fixtures", () => {
+  it("keeps canonical diagnostic fixtures aligned with evaluator semantics", () => {
+    expect(phaseHandoffV1_4).toMatchObject({
+      phase: "prd",
+      status: "active",
+      gateOutcome: "pass",
+      gateFailures: [
+        {
+          gateId: "gaps-closed",
+          reasonCode: "gate.gaps_abertos",
+          mode: "shadow",
+          priority: 50,
+          evidenceRefs: [".brain/02-features/active"],
+          detail: null,
+        },
+      ],
+      blockers: ["gaps-closed"],
+      openGaps: 1,
+      nextAction: "Complete the prd phase and run kratos continue.",
+    });
+    expect(doctorReport).toMatchObject({
+      health: "degraded",
+      checks: [
+        {
+          name: "gates",
+          status: "warn",
+          evidenceRef:
+            ".brain/02-features/review-feature/runs/run-01/gates.json",
+          details: ["gaps-closed: shadow gate.gaps_abertos"],
+        },
+      ],
+      gateFailures: [
+        {
+          gateId: "gaps-closed",
+          reasonCode: "gate.gaps_abertos",
+          mode: "shadow",
+          priority: 50,
+          evidenceRefs: [".brain/02-features/active"],
+          detail: null,
+        },
+      ],
+    });
+  });
+
   it("validates an exact registered payload revision independently of the host identity", () => {
     expect(
       registry.validate({

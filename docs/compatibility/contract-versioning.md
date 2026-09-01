@@ -50,9 +50,10 @@ payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
   inherited default and requires the closed partial `gateModes` override map,
   in addition to the granular language policy from `1.2.0` and typed project
   profile from `1.3.0`.
-- Current `state.event` writes `1.2.0` with the ordered effective-mode trace in
-  `gateFailures`. Role-aware `state.migration` continues to write its registered
-  `1.1.0` revision.
+- Current `state.event@1.4.0` writes the ordered effective-mode trace introduced
+  by `1.2.0`, the repair metadata added by `1.3.0`, and the legacy-policy
+  upgrade boundary added by `1.4.0`. Role-aware `state.migration` continues to
+  write its registered `1.1.0` revision.
 - `state.curated-memory`, `state.beat`, and `state.narration` write their
   additive registered `1.0.0` revisions.
 - Unchanged state payloads `state.acceptance-criteria-snapshot`,
@@ -77,15 +78,16 @@ The host family's current global revision is `1.4.0`, with `1.0.0` through
 `1.4.0` accepted for their registered payloads. Exact writes again
 follow `CONTRACT_VERSIONS`:
 
-- Current `host.init-answers` writes `1.5.0` with optional partial
+- Current `host.init-answers@1.5.0` writes optional partial
   `projectProfile` answers and an optional closed `gateModes` map. Its
   `hostContract` remains `1.4.0`. `host.adapter-message` continues to write
   its registered `1.1.0` revision.
 - `host.doctor-report@1.0.0` is the structured read-only diagnostic payload;
   it carries the recorded gate failures and their effective modes.
-- Memory-aware `host.phase-handoff`, `host.agent-output`,
-  `host.memory-capture`, `host.memory-change`, and `host.memory-migration`
-  write their registered `1.2.0` revisions.
+- The current memory-aware selectors are `host.phase-handoff@1.4.0`,
+  `host.agent-output@1.3.0`, `host.memory-capture@1.2.0`,
+  `host.memory-change@1.4.0`, `host.memory-curation@1.4.0`, and
+  `host.memory-migration@1.4.0`.
 - Unchanged host payloads `host.gap-proposal`,
   `host.hook-observation`, `host.operation-message`, `host.phase-lifecycle`, and
   `host.pre-tool-use`
@@ -262,11 +264,11 @@ project profile. `state.project-config@1.4.0` adds the required closed partial
 `gateFailures` trace containing each failure's effective mode.
 
 A mixed event stream is valid: each line selects its exact registered schema
-before the continuous revision and hash chain is verified. `state.event@1.0.0`,
-`state.event@1.1.0`, and `state.event@1.2.0` may coexist without upgrading or
-rewriting old bytes. Migration changes only `.brain/config.json` and its audit
-bundle; it does not rewrite historical events, snapshots, documents,
-approvals, or evidence.
+before the continuous revision and hash chain is verified. The registered
+`state.event@1.0.0` through current `state.event@1.4.0` revisions may coexist
+without upgrading or rewriting old bytes. Migration changes only
+`.brain/config.json` and its audit bundle; it does not rewrite historical
+events, snapshots, documents, approvals, or evidence.
 
 The adjacent `1.3.0` to `1.4.0` configuration migration adds
 `gateModes: {}` and advances only the configuration/state contract constants.
@@ -284,9 +286,10 @@ ID; `primary` is the first failure and therefore comes from the deciding
 outcome. Prompts and host adapters neither resolve these modes nor override the
 runtime decision.
 
-The memory contracts independently use their registered `1.0.0` and `1.2.0`
-payload revisions; their addition does not rewrite existing configuration or
-event history.
+The current memory selectors are `host.memory-capture@1.2.0`,
+`host.memory-change@1.4.0`, `host.memory-curation@1.4.0`, and
+`host.memory-migration@1.4.0`; their addition does not rewrite existing
+configuration or event history.
 
 `state.requirement-discovery@1.0.0` is additive. Existing PRDs and state remain
 readable, no migration rewrites them, and no approval or gate contract changes.

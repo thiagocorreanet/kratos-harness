@@ -12,8 +12,24 @@ import {
   unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
 import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
-import { createRuntimeAt } from "@kratos/runtime/composition";
+import {
+  createRuntimeAt,
+  createSchemaRegistry,
+} from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
+import { observeWorkflow } from "@kratos/runtime/composition/workflow";
+import {
+  DEFAULT_REGISTRY,
+  doctorCommand,
+  parseInvocation,
+  type Decision,
+} from "@kratos/runtime/domain/cli";
+import {
+  evaluateGates,
+  resolveGateModes,
+  type GateDecision,
+} from "@kratos/runtime/domain/gates";
+import { prepareContract } from "@kratos/runtime/domain/schema";
 import {
   fixedClock,
   fixedEnvironment,
@@ -285,6 +301,56 @@ async function doctorWithoutGateFailures(): Promise<
   return run;
 }
 
+function repeatedRejectionDecision(count: number): GateDecision {
+  return evaluateGates({
+    gateModes: resolveGateModes("strict", {}),
+    phase: "prd",
+    contextReadable: true,
+    stopLoss: {
+      tripped: false,
+      exhausted: false,
+      repeatedRejections: Array.from({ length: count }, (_, index) => ({
+        criterionId: `AC-1.${String(index + 1)}`,
+        attempt: 3,
+        classification: "code" as const,
+        artifactRef: `repair-stops/AC-1.${String(index + 1)}.json`,
+      })),
+    },
+    prdDigest: "a".repeat(64),
+    prdDocument: { kind: "complete" },
+    specDigest: null,
+    approvals: [],
+    openGaps: 0,
+    partitionRequired: false,
+    partitionApproved: true,
+    finalAcceptance: false,
+    acceptanceCriteria: [],
+  });
+}
+
+async function doctorDecisionWithGateFailures(
+  run: ReturnType<typeof subject>,
+  gateDecision: GateDecision,
+): Promise<Decision> {
+  const parsed = parseInvocation(["doctor"], DEFAULT_REGISTRY);
+  if (parsed.kind !== "invocation") throw new Error("doctor did not parse");
+  const observed = await observeWorkflow(
+    parsed.invocation,
+    run.ports,
+    createSchemaRegistry(),
+  );
+  if (
+    observed.kind !== "observed" ||
+    observed.observation.kind !== "workflow"
+  ) {
+    throw new Error("doctor workflow observation unavailable");
+  }
+  return doctorCommand.handler({
+    ...parsed.invocation,
+    observation: { ...observed.observation, gateDecision },
+  });
+}
+
 function completePrd(): string {
   return `# Requirements\n\n${PRD_DOCUMENT.requiredSections
     .map((section) => `## ${section}\n\nCompleted ${section}.`)
@@ -333,6 +399,44 @@ describe("stack-profile doctor readiness", () => {
           gateId: "gaps-closed",
           reasonCode: "gate.gaps_abertos",
           mode: "shadow",
+        }),
+      ],
+    });
+  });
+
+  it("preserves duplicate repeated-rejection summaries in human and JSON doctor output", async () => {
+    const run = await doctorWithoutGateFailures();
+    const decision = await doctorDecisionWithGateFailures(
+      run,
+      repeatedRejectionDecision(2),
+    );
+    const prepared = prepareContract(createSchemaRegistry(), {
+      id: "host.doctor-report",
+      version: "1.0.0",
+      value: decision.payload,
+      structuralReasonCode: "trail.output_invalido",
+    });
+    const human = decision.humanStdout ?? "";
+    const summary = "stop-loss: enforce blocked.stop_loss_rejections";
+
+    expect(prepared).toMatchObject({ kind: "valid" });
+    if (prepared.kind !== "valid") throw new Error("doctor report invalid");
+    const json = JSON.parse(prepared.canonical) as Record<string, unknown>;
+    expect(human.split(summary)).toHaveLength(3);
+    const checks = json.checks as readonly Record<string, unknown>[];
+    expect(checks.find(({ name }) => name === "gates")).toMatchObject({
+      name: "gates",
+      details: [summary, summary],
+    });
+    expect(json).toMatchObject({
+      gateFailures: [
+        expect.objectContaining({
+          reasonCode: "blocked.stop_loss_rejections",
+          evidenceRefs: ["repair-stops/AC-1.1.json"],
+        }),
+        expect.objectContaining({
+          reasonCode: "blocked.stop_loss_rejections",
+          evidenceRefs: ["repair-stops/AC-1.2.json"],
         }),
       ],
     });
