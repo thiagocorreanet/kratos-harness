@@ -1,4 +1,4 @@
-import { CONTRACT_VERSIONS } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type DoctorReportV1 } from "@kratos/contracts";
 
 import {
   DEFAULT_REGISTRY,
@@ -106,6 +106,29 @@ function preparePhaseHandoffPayload(
     throw new Error("Command payload does not satisfy its declared contract");
   }
   validatePublicText(prepared.canonical);
+  if (
+    prepared.value.contractVersion !== CONTRACT_VERSIONS["host.phase-handoff"]
+  ) {
+    throw new Error("Command payload did not resolve to the current contract");
+  }
+  return { canonical: prepared.canonical, value: prepared.value };
+}
+
+function prepareDoctorReportPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): { readonly canonical: string; readonly value: DoctorReportV1 } {
+  const version = declaredContractVersion(payload, "contractVersion", "1.0.0");
+  const prepared = prepareContract(registry, {
+    id: "host.doctor-report",
+    version,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicText(prepared.canonical);
   return { canonical: prepared.canonical, value: prepared.value };
 }
 
@@ -199,6 +222,18 @@ export async function runCommandLine(
       preparedOutput = json
         ? `${handoff.canonical}\n`
         : renderPhaseHandoffHuman(handoff.value);
+    } else if (invocation.command.jsonContract === "doctor-report@1.0.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const doctor = prepareDoctorReportPayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${doctor.canonical}\n`
+        : (decision.humanStdout ?? `${decision.result.summary}\n`);
+      validatePublicText(preparedOutput);
     } else if (!json) {
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);

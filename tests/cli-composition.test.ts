@@ -116,6 +116,67 @@ const transactionReasons = [
 ] as const;
 
 describe("composed command line", () => {
+  it("serializes a doctor report through the composed dispatcher", async () => {
+    const output = recordingOutput();
+    const registry = [
+      {
+        path: ["doctor-report"],
+        summary: "Emit a doctor report.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "doctor-report@1.0.0" as const,
+        prerequisite: "none" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: null,
+          payload: {
+            contractVersion: "1.0.0",
+            hostContract: "1.4.0",
+            health: "degraded",
+            checks: [
+              {
+                name: "gates",
+                status: "warn",
+                evidenceRef: ".brain/gates.json",
+                details: ["gaps-closed: shadow gate.gaps_abertos"],
+              },
+            ],
+            gateFailures: [
+              {
+                gateId: "gaps-closed",
+                reasonCode: "gate.gaps_abertos",
+                priority: 50,
+                mode: "shadow",
+                evidenceRefs: [".brain/gates.json"],
+                detail: null,
+              },
+            ],
+          },
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "doctor-report"],
+        createRuntime({ output }),
+        registry,
+      ),
+    ).toBe(0);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      contractVersion: "1.0.0",
+      hostContract: "1.4.0",
+      health: "degraded",
+      gateFailures: [
+        expect.objectContaining({
+          gateId: "gaps-closed",
+          mode: "shadow",
+        }),
+      ],
+    });
+  });
+
   it("serializes a v1.4 phase handoff through the composed dispatcher", async () => {
     const output = recordingOutput();
     const handoff: CurrentPhaseHandoff = {

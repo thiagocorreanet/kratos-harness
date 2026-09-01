@@ -11,6 +11,7 @@ import {
   skeletonEffects,
   unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
+import { PRD_DOCUMENT } from "@kratos/runtime/domain/feature-documents";
 import { createRuntimeAt } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
 import {
@@ -151,7 +152,10 @@ function subject(options: SubjectOptions = {}) {
   const files = options.mutateFiles?.(generated) ?? generated;
   const storage = memoryTransactionStorage({
     files,
-    directories: options.stackProfileDirectory ? [STACK_PROFILE] : [],
+    directories: [
+      ".brain/transactions",
+      ...(options.stackProfileDirectory ? [STACK_PROFILE] : []),
+    ],
   });
   const output = recordingOutput();
   const fileSystem = memoryFileSystem({ "package.json": "{}" });
@@ -195,30 +199,96 @@ async function doctor(run: ReturnType<typeof subject>): Promise<{
   readonly exitCode: number;
   readonly rendered: string;
 }> {
+  const structuredLength = run.output.structured_.length;
+  const humanLength = run.output.human_.length;
   const exitCode = await runCommandLine(["doctor"], run.ports);
   return {
     exitCode,
-    rendered: run.output.structured_.join("") + run.output.human_.join(""),
+    rendered:
+      run.output.structured_.slice(structuredLength).join("") +
+      run.output.human_.slice(humanLength).join(""),
   };
 }
 
 async function doctorJson(run: ReturnType<typeof subject>): Promise<{
   readonly exitCode: number;
-  readonly result: {
-    readonly reasonCode: string;
-    readonly stateChanged: boolean;
-    readonly evidence: readonly { readonly ref: string }[];
-  };
+  readonly result: Record<string, unknown>;
 }> {
+  const structuredLength = run.output.structured_.length;
   const exitCode = await runCommandLine(["--json", "doctor"], run.ports);
   return {
     exitCode,
-    result: JSON.parse(run.output.structured_.join("")) as {
-      readonly reasonCode: string;
-      readonly stateChanged: boolean;
-      readonly evidence: readonly { readonly ref: string }[];
-    },
+    result: JSON.parse(
+      run.output.structured_.slice(structuredLength).join(""),
+    ) as Record<string, unknown>,
   };
+}
+
+async function doctorWithShadowGap(): Promise<ReturnType<typeof subject>> {
+  const run = subject({
+    mutateFiles: (files) => ({
+      ...files,
+      ".brain/config.json": `${JSON.stringify({
+        ...JSON.parse(files[".brain/config.json"] ?? "{}"),
+        gateModes: { "gaps-closed": "shadow" },
+      })}\n`,
+    }),
+  });
+  const objective = "Publish doctor findings";
+  const feature = "publish-doctor-findings";
+  const prd = `.brain/02-features/${feature}/00-prd.md`;
+  const proposal = `.brain/02-features/${feature}/gap-proposal.json`;
+
+  expect(await runCommandLine(["objective", objective], run.ports)).toBe(0);
+  expect(await runCommandLine(["start"], run.ports)).toBe(0);
+  await run.storage.fileSystem.write(prd, completePrd());
+  await run.storage.fileSystem.write(
+    proposal,
+    JSON.stringify({
+      contractVersion: "1.0.0",
+      hostContract: "1.0.0",
+      gaps: [
+        {
+          gapId: "doctor-output",
+          category: "document-contradiction",
+          weight: "high",
+          description: "The doctor output has two incompatible forms.",
+          recommendation: "Publish the structured report.",
+          reasoning: "Automation needs the selected gate mode.",
+          documentRefs: [prd],
+        },
+      ],
+    }),
+  );
+  expect(
+    await runCommandLine(
+      ["gaps", "record", proposal, "--correlation-id", "doctor-gap"],
+      run.ports,
+    ),
+  ).toBe(0);
+  return run;
+}
+
+async function doctorWithoutGateFailures(): Promise<
+  ReturnType<typeof subject>
+> {
+  const run = subject();
+  const objective = "Confirm doctor gates";
+  const feature = "confirm-doctor-gates";
+
+  expect(await runCommandLine(["objective", objective], run.ports)).toBe(0);
+  expect(await runCommandLine(["start"], run.ports)).toBe(0);
+  await run.storage.fileSystem.write(
+    `.brain/02-features/${feature}/00-prd.md`,
+    completePrd(),
+  );
+  return run;
+}
+
+function completePrd(): string {
+  return `# Requirements\n\n${PRD_DOCUMENT.requiredSections
+    .map((section) => `## ${section}\n\nCompleted ${section}.`)
+    .join("\n\n")}\n`;
 }
 
 async function writeNodeProject(
@@ -236,6 +306,38 @@ async function writeNodeProject(
 }
 
 describe("stack-profile doctor readiness", () => {
+  it("publishes an empty structured gate-failure list", async () => {
+    const result = await doctorJson(await doctorWithoutGateFailures());
+
+    expect(result.exitCode).toBe(0);
+    expect(result.result).toMatchObject({
+      contractVersion: "1.0.0",
+      hostContract: "1.4.0",
+      gateFailures: [],
+    });
+  });
+
+  it("reports shadow gate findings in human and JSON doctor output", async () => {
+    const human = await doctor(await doctorWithShadowGap());
+    const json = (await doctorJson(await doctorWithShadowGap())).result;
+
+    expect(human.exitCode).toBe(0);
+    expect(human.rendered).toContain("gates: warn");
+    expect(human.rendered).toContain("gaps-closed: shadow gate.gaps_abertos");
+    expect(json).toMatchObject({
+      contractVersion: "1.0.0",
+      hostContract: "1.4.0",
+      health: "degraded",
+      gateFailures: [
+        expect.objectContaining({
+          gateId: "gaps-closed",
+          reasonCode: "gate.gaps_abertos",
+          mode: "shadow",
+        }),
+      ],
+    });
+  });
+
   it("passes byte-matching complete authoritative state without executing commands", async () => {
     const run = subject();
 
@@ -382,6 +484,13 @@ describe("stack-profile doctor readiness", () => {
     expect(result.rendered).toContain(
       "The authoritative project configuration is invalid.",
     );
+    const json = await doctorJson(run);
+    expect(json.exitCode).toBe(4);
+    expect(json.result).toMatchObject({
+      contractVersion: "1.0.0",
+      reasonCode: "runtime.state_corrupt",
+      stateChanged: false,
+    });
   });
 
   it.each([

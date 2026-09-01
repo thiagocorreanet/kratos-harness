@@ -1,3 +1,5 @@
+import { CONTRACT_IDENTITIES, CONTRACT_VERSIONS } from "@kratos/contracts";
+
 import { planOf } from "../effects.js";
 import {
   derivePhaseDistributions,
@@ -290,6 +292,9 @@ export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
             ? "warn"
             : "pass",
       evidenceRef: `.brain/02-features/${observation.configuration.feature}/runs/${observation.configuration.runId}/gates.json`,
+      details: observation.gateDecision.failures.map(
+        ({ gateId, mode, reasonCode }) => `${gateId}: ${mode} ${reasonCode}`,
+      ),
     },
     {
       name: "worktree",
@@ -321,13 +326,28 @@ export const doctorCommand: CommandSpec = observed("doctor", (observation) => {
       payload: null,
     };
   }
-  return orientation(
-    `Doctor classified the project as ${report.health}.`,
-    report.checks.flatMap(({ name, status, details }) => [
-      `${name}: ${status}`,
-      ...(details ?? []),
-    ]),
-  );
+  const lines = report.checks.flatMap(({ name, status, details }) => [
+    `${name}: ${status}`,
+    ...(details ?? []),
+  ]);
+  return {
+    result: resultFor("runtime.orientation_ok", {
+      summary: `Doctor classified the project as ${report.health}.`,
+      why: lines,
+    }),
+    plan: planOf(),
+    humanStdout: `${lines.join("\n")}\n`,
+    payload: {
+      contractVersion: CONTRACT_VERSIONS["host.doctor-report"],
+      hostContract: CONTRACT_IDENTITIES.host,
+      health: report.health,
+      checks: report.checks,
+      gateFailures: observation.gateDecision.failures.map((failure) => ({
+        ...failure,
+        evidenceRefs: [...failure.evidenceRefs],
+      })),
+    },
+  };
 });
 
 export const explainCommand: CommandSpec = {
@@ -368,7 +388,12 @@ function observed(
       summary: `${name === "doctor" ? "Diagnose" : "Report"} ${name === "doctor" ? "managed state integrity" : `the active run ${name}`} without mutation.`,
       flags: ROOT_FLAG,
       positionals: { min: 0, max: 0 },
-      jsonContract: name === "handoff" ? "phase-handoff@1.4.0" : "result@1.0.0",
+      jsonContract:
+        name === "doctor"
+          ? "doctor-report@1.0.0"
+          : name === "handoff"
+            ? "phase-handoff@1.4.0"
+            : "result@1.0.0",
     },
     (_invocation, observation) => handler(observation),
   );
