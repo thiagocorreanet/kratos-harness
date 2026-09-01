@@ -20,9 +20,12 @@ the published predecessors
 [`contract-manifest.v1.3.schema.json`](../../schemas/contracts/contract-manifest.v1.3.schema.json),
 [`contract-manifest.v1.2.schema.json`](../../schemas/contracts/contract-manifest.v1.2.schema.json),
 [`contract-manifest.v1.1.schema.json`](../../schemas/contracts/contract-manifest.v1.1.schema.json),
-and the v1 schema remain byte-preserved.
-The manifest registers every current payload schema, its generated type, and
-the metadata-only Go v3 migration profiles.
+and the v1 schema keep their shape.
+Their bytes move only when `pluginVersion` does, because that constant is the
+identity of one installed bundle rather than a per-schema historical record;
+the v0.2.0 release is the first time that has happened. The manifest registers
+every current payload schema, its generated type, and the metadata-only Go v3
+migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
