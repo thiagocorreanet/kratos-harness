@@ -29,7 +29,62 @@ function answersV1_4(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function answersV1_5(overrides: Record<string, unknown> = {}) {
+  return {
+    contractVersion: "1.5.0",
+    hostContract: "1.4.0",
+    hosts: ["claude"],
+    ...overrides,
+  };
+}
+
 describe("initialization answers", () => {
+  it("selects, clears, defaults, or preserves per-gate modes", async () => {
+    const routing = fixedModelRouting([claudeCatalog()]);
+    const selected = await resolveInitAnswers(
+      answersV1_5({ gateModes: { "gaps-closed": "shadow" } }),
+      registry,
+      routing,
+    );
+    const preserved = await resolveInitAnswers(
+      answersV1_5(),
+      registry,
+      routing,
+      {
+        gateModes: { "spec-approved": "enforce" },
+      },
+    );
+    const defaulted = await resolveInitAnswers(
+      answersV1_5(),
+      registry,
+      routing,
+    );
+    const cleared = await resolveInitAnswers(
+      answersV1_5({ gateModes: {} }),
+      registry,
+      routing,
+      { gateModes: { "spec-approved": "enforce" } },
+    );
+
+    expect(selected).toMatchObject({
+      kind: "resolved",
+      answers: { gateModes: { "gaps-closed": "shadow" } },
+    });
+    expect(preserved).toMatchObject({
+      kind: "resolved",
+      answers: { gateModes: { "spec-approved": "enforce" } },
+    });
+    expect(defaulted).toMatchObject({
+      kind: "resolved",
+      answers: { gateModes: {} },
+      defaulted: expect.arrayContaining(["gateModes"]),
+    });
+    expect(cleared).toMatchObject({
+      kind: "resolved",
+      answers: { gateModes: {} },
+    });
+  });
+
   it("sets, clears, or preserves the acceptance attempt ceiling", async () => {
     const routing = fixedModelRouting([claudeCatalog()]);
     const set = await resolveInitAnswers(
@@ -153,7 +208,7 @@ describe("initialization answers", () => {
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.4.0",
+      contractVersion: "1.5.0",
       hostContract: "1.4.0",
       hosts: ["codex"],
       language: {
@@ -166,6 +221,7 @@ describe("initialization answers", () => {
         enforcement: "advisory",
       },
       policyMode: "standard",
+      gateModes: {},
       snapshots: true,
       modelRoles: { codex: codexCatalog().defaults },
       projectProfile: {
@@ -193,6 +249,7 @@ describe("initialization answers", () => {
       "language",
       "policyMode",
       "snapshots",
+      "gateModes",
       "modelRoles.codex.planner",
       "modelRoles.codex.implementer",
       "modelRoles.codex.judge",
@@ -246,7 +303,7 @@ describe("initialization answers", () => {
           },
         },
       },
-      defaulted: [],
+      defaulted: ["gateModes"],
     });
   });
 

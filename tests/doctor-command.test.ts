@@ -104,7 +104,7 @@ const replacementCharacterProfile: ResolvedProjectProfile = {
 const baseAnswers = (
   projectProfile: ResolvedProjectProfile,
 ): ResolvedAnswers => ({
-  contractVersion: "1.4.0",
+  contractVersion: "1.5.0",
   hostContract: "1.4.0",
   hosts: ["codex"],
   language: {
@@ -117,6 +117,7 @@ const baseAnswers = (
     enforcement: "advisory",
   },
   policyMode: "standard",
+  gateModes: {},
   snapshots: true,
   modelRoles: { codex: codexCatalog().defaults },
   projectProfile,

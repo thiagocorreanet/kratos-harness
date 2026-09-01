@@ -63,8 +63,8 @@ const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
 function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
-    contractVersion: "1.3.0",
-    hostContract: "1.3.0",
+    contractVersion: "1.5.0",
+    hostContract: "1.4.0",
     hosts: ["claude", "codex"],
     language: {
       conversation: "en",
@@ -76,6 +76,7 @@ function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
       enforcement: "advisory",
     },
     policyMode: "standard",
+    gateModes: {},
     snapshots: true,
     modelRoles: {
       claude: {
@@ -302,7 +303,12 @@ describe("the generated skeleton", () => {
       enforcement: "advisory" as const,
     };
     const generated = skeletonEffects(
-      answers({ language: ptBrPolicy, policyMode: "strict", snapshots: false }),
+      answers({
+        language: ptBrPolicy,
+        policyMode: "strict",
+        gateModes: { "gaps-closed": "shadow" },
+        snapshots: false,
+      }),
       nodeProject,
     );
     const config: unknown = JSON.parse(
@@ -316,7 +322,7 @@ describe("the generated skeleton", () => {
       hostContract: "1.4.0",
       language: ptBrPolicy,
       policyMode: "strict",
-      gateModes: {},
+      gateModes: { "gaps-closed": "shadow" },
       managedState: {
         directory: ".brain",
         eventLog: "events.jsonl",

@@ -12,7 +12,7 @@ function mockAnswers(
   overrides: Partial<ResolvedAnswers> = {},
 ): ResolvedAnswers {
   return {
-    contractVersion: "1.4.0",
+    contractVersion: "1.5.0",
     hostContract: "1.4.0",
     hosts: ["claude", "codex"],
     language: {
@@ -25,6 +25,7 @@ function mockAnswers(
       enforcement: "advisory",
     },
     policyMode: "standard",
+    gateModes: {},
     snapshots: true,
     modelRoles: {},
     projectProfile: unresolvedProjectProfile(),
