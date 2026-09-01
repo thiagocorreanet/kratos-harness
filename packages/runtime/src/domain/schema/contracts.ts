@@ -63,6 +63,7 @@ import type {
   MemoryChangeV1_4,
   MemoryCurationV1_4,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
 } from "@kratos/contracts";
 
 export interface ContractValues {
@@ -84,7 +85,7 @@ export interface ContractValues {
   readonly "host.memory-capture": MemoryCaptureV1_2;
   readonly "host.memory-change": MemoryChangeV1_2 | MemoryChangeV1_4;
   readonly "host.memory-curation": MemoryCurationV1_4;
-  readonly "host.memory-migration": MemoryMigrationV1_2;
+  readonly "host.memory-migration": MemoryMigrationV1_2 | MemoryMigrationV1_4;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "state.approval": ApprovalV1;
   readonly "state.curated-memory": CuratedMemoryV1 | CuratedMemoryV1_1;

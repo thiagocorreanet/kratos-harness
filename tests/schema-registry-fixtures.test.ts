@@ -47,6 +47,7 @@ import memoryChangeArchive from "../fixtures/contracts/v1.2/memory-change-archiv
 import memoryChangeReinforceV1_4 from "../fixtures/contracts/v1.4/memory-change-reinforce.json" with { type: "json" };
 import memoryCurationApprovalV1_4 from "../fixtures/contracts/v1.4/memory-curation-approval.json" with { type: "json" };
 import memoryMigration from "../fixtures/contracts/v1.2/memory-migration.json" with { type: "json" };
+import memoryMigrationV1_4 from "../fixtures/contracts/v1.4/memory-migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
@@ -484,6 +485,16 @@ const fixtures = [
     requiredField: "lessons",
     structuralReasonCode: "trail.output_invalido",
     fixture: memoryMigration,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.memory-migration",
+    version: "1.4.0",
+    versionField: "hostContract",
+    requiredField: "lessons",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryMigrationV1_4,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },

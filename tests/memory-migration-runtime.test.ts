@@ -7,7 +7,11 @@ import {
   recoverManagedMutation,
   type TransactionServices,
 } from "@kratos/runtime/composition";
-import { validateCuratedMemoryProjection } from "@kratos/runtime/domain/memory";
+import {
+  renderCuratedMemory,
+  validateCuratedMemoryProjection,
+} from "@kratos/runtime/domain/memory";
+import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import {
   fixedClock,
   fixedEnvironment,
@@ -57,6 +61,80 @@ function subject(gotchas = GOTCHAS) {
     ports: {
       clock: fixedClock(NOW),
       ids: sequentialIds("memory-migration"),
+      digests: storage.digests,
+      durableFileSystem: storage.durableFileSystem,
+      fileSystem: memoryFileSystem({
+        "mapping.json": JSON.stringify(proposal),
+      }),
+      environment: fixedEnvironment({}, "/project"),
+      git: stubGit(),
+      modelRouting: fixedModelRouting([claudeCatalog()]),
+      output,
+      standardInput: pipedInput(null),
+      workspace: memoryWorkspace({ directories: ["/project"] }),
+    } as unknown as RuntimePorts,
+  };
+}
+
+function structuredSubject() {
+  const title = "Clear stale cache";
+  const why = ["Compiler state can be stale"];
+  const apply = ["Clear compiler cache"];
+  const candidateIds = ["c".repeat(64), "d".repeat(64)];
+  const lessonId = sha256(
+    canonicalizeJson({ title, why, apply, candidateIds }),
+  );
+  const provisional = {
+    contractVersion: "1.0.0" as const,
+    stateContract: "1.0.0" as const,
+    revision: 2,
+    projectionDigest: "",
+    updatedAt: "2026-01-01T00:00:00Z",
+    confirmed: [
+      {
+        lessonId,
+        title,
+        why,
+        apply,
+        candidateIds,
+        reviewer: "alice",
+        confirmedAt: "2026-01-01T00:00:00Z",
+      },
+    ],
+    archive: [],
+  };
+  const projection = renderCuratedMemory(provisional);
+  const ledger = { ...provisional, projectionDigest: sha256(projection) };
+  const ledgerBytes = `${JSON.stringify(ledger, null, 2)}\n`;
+  const storage = memoryTransactionStorage({
+    directories: [".brain", ".brain/transactions", ".brain/03-memory"],
+    files: {
+      ".brain/03-memory/curated-memory.json": ledgerBytes,
+      ".brain/03-memory/gotchas.md": projection,
+    },
+  });
+  const proposal = {
+    contractVersion: "1.4.0",
+    hostContract: "1.4.0",
+    sourceDigest: sha256(ledgerBytes),
+    reviewer: "curator",
+    lessons: [
+      {
+        lessonId,
+        technology: "typescript",
+        failureKind: "nonzero_exit",
+        dependency: { kind: "path", path: "tsconfig.json" },
+      },
+    ],
+  };
+  const output = recordingOutput();
+  return {
+    storage,
+    output,
+    ledgerBytes,
+    ports: {
+      clock: fixedClock(NOW),
+      ids: sequentialIds("memory-state-migration"),
       digests: storage.digests,
       durableFileSystem: storage.durableFileSystem,
       fileSystem: memoryFileSystem({
@@ -181,6 +259,50 @@ function raceAfterObservation(
 }
 
 describe("legacy memory migration", () => {
+  it("previews and applies the adjacent v1 to v1.1 metadata migration", async () => {
+    const run = structuredSubject();
+    expect(
+      await runCommandLine(["migrate", "memory", "mapping.json"], run.ports),
+    ).toBe(0);
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/curated-memory.json"],
+    ).toBe(run.ledgerBytes);
+    const preview = authorization(run.output.structured_.join(""));
+    expect(await runCommandLine(applyArguments(preview), run.ports)).toBe(0);
+    const files = run.storage.snapshot().files;
+    const ledger = JSON.parse(
+      files[".brain/03-memory/curated-memory.json"] ?? "",
+    ) as {
+      stateContract: string;
+      confirmed: { observationCount: number; technology: string }[];
+    };
+    expect(ledger).toMatchObject({
+      stateContract: "1.1.0",
+      confirmed: [{ observationCount: 2, technology: "typescript" }],
+    });
+    expect(
+      Object.keys(files).some((path) =>
+        path.endsWith("/backup/curated-memory.json"),
+      ),
+    ).toBe(true);
+    expect(
+      Object.keys(files).some((path) => path.endsWith("/receipt.json")),
+    ).toBe(true);
+    const receiptPath = Object.keys(files).find((path) =>
+      path.endsWith("/receipt.json"),
+    );
+    if (receiptPath === undefined) throw new Error("expected receipt");
+    const migrationId = (
+      JSON.parse(files[receiptPath] ?? "") as { migrationId: string }
+    ).migrationId;
+    expect(
+      await runCommandLine(["migrate", "rollback", migrationId], run.ports),
+    ).toBe(0);
+    expect(
+      run.storage.snapshot().files[".brain/03-memory/curated-memory.json"],
+    ).toBe(run.ledgerBytes);
+  });
+
   it("requires migration before ordinary memory commands touch custom legacy gotchas", async () => {
     const run = subject();
     expect(await runCommandLine(["--json", "memory", "list"], run.ports)).toBe(

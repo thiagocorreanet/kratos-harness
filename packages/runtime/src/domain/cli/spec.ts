@@ -24,6 +24,7 @@ import type {
   MemoryChangeV1_4,
   MemoryCurationV1_4Contract,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
@@ -590,6 +591,24 @@ export type CommandObservation =
             readonly projection: string;
             readonly projectionDigest: string;
             readonly gotchasExpected: WriteFilePrecondition;
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+            }[];
+          }
+        | {
+            readonly kind: "memory-state";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly proposal: MemoryMigrationV1_4;
+            readonly proposalDigest: string;
+            readonly planDigest: string;
+            readonly ledger: CuratedMemoryV1_1;
+            readonly ledgerExpected: WriteFilePrecondition;
             readonly writes: readonly {
               readonly path: string;
               readonly content: string;

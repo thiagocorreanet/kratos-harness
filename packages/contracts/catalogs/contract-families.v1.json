@@ -158,6 +158,14 @@
       "typeName": "MemoryMigrationV1_2"
     },
     {
+      "id": "host.memory-migration",
+      "family": "host",
+      "version": "1.4.0",
+      "path": "schemas/host/memory-migration.v1.4.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryMigrationV1_4"
+    },
+    {
       "id": "host.operation-message",
       "family": "host",
       "version": "1.0.0",

@@ -30,9 +30,11 @@ export {
 export {
   classifyLegacyMemory,
   reduceLegacyMemoryMigration,
+  upgradeCuratedMemoryV1,
   STOCK_GOTCHAS_TEMPLATE,
   type LegacyMemoryClassification,
   type LegacyMemoryMigrationReduction,
+  type CuratedMemoryUpgradeReduction,
 } from "./migration.js";
 
 export const CURATED_MEMORY_RENDERED_MAX_BYTES = 48 * 1024;

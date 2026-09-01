@@ -17,6 +17,7 @@ import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1
 import memoryChangeV1_4Schema from "../../../../../schemas/host/memory-change.v1.4.schema.json" with { type: "json" };
 import memoryCurationV1_4Schema from "../../../../../schemas/host/memory-curation.v1.4.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
+import memoryMigrationV1_4Schema from "../../../../../schemas/host/memory-migration.v1.4.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
@@ -208,6 +209,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.2.0",
       path: "schemas/host/memory-migration.v1.2.schema.json",
       schema: memoryMigrationV1_2Schema,
+    },
+    {
+      id: "host.memory-migration",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/memory-migration.v1.4.schema.json",
+      schema: memoryMigrationV1_4Schema,
     },
     {
       id: "host.operation-message",

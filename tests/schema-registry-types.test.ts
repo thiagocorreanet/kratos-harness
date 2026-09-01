@@ -24,6 +24,7 @@ import type {
   MemoryChangeV1_4,
   MemoryCurationV1_4,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
   PreToolUseV1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -88,9 +89,9 @@ describe("schema registry vocabulary", () => {
     expectTypeOf<
       ContractValue<"state.acceptance-verdict">
     >().toEqualTypeOf<AcceptanceVerdictV1>();
-    expectTypeOf<
-      ContractValue<"state.curated-memory">
-    >().toEqualTypeOf<CuratedMemoryV1 | CuratedMemoryV1_1>();
+    expectTypeOf<ContractValue<"state.curated-memory">>().toEqualTypeOf<
+      CuratedMemoryV1 | CuratedMemoryV1_1
+    >();
     expectTypeOf<
       ContractValue<"state.feature-scope">
     >().toEqualTypeOf<FeatureScopeV1>();
@@ -129,15 +130,15 @@ describe("schema registry vocabulary", () => {
     expectTypeOf<
       ContractValue<"host.memory-capture">
     >().toEqualTypeOf<MemoryCaptureV1_2>();
-    expectTypeOf<
-      ContractValue<"host.memory-change">
-    >().toEqualTypeOf<MemoryChangeV1_2 | MemoryChangeV1_4>();
+    expectTypeOf<ContractValue<"host.memory-change">>().toEqualTypeOf<
+      MemoryChangeV1_2 | MemoryChangeV1_4
+    >();
     expectTypeOf<
       ContractValue<"host.memory-curation">
     >().toEqualTypeOf<MemoryCurationV1_4>();
-    expectTypeOf<
-      ContractValue<"host.memory-migration">
-    >().toEqualTypeOf<MemoryMigrationV1_2>();
+    expectTypeOf<ContractValue<"host.memory-migration">>().toEqualTypeOf<
+      MemoryMigrationV1_2 | MemoryMigrationV1_4
+    >();
     expectTypeOf<
       ContractValue<"state.requirement-discovery">
     >().toEqualTypeOf<RequirementDiscoveryV1>();

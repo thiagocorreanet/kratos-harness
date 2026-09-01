@@ -24,7 +24,7 @@ export const CONTRACT_VERSIONS = {
   "host.memory-capture": "1.2.0",
   "host.memory-change": "1.4.0",
   "host.memory-curation": "1.4.0",
-  "host.memory-migration": "1.2.0",
+  "host.memory-migration": "1.4.0",
   "host.agent-output": "1.3.0",
   "host.gap-proposal": "1.0.0",
   "host.hook-observation": "1.0.0",

@@ -115,6 +115,7 @@ export type {
   MemoryChangeV1_4,
   MemoryCurationV1_4,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
 } from "./generated/contracts.js";
 
 export type LanguagePolicyV1 = ProjectConfigV1_4Contract.LanguagePolicy;

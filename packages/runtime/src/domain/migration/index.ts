@@ -13,6 +13,7 @@ export {
   plannedConfigMigration,
   plannedMemoryMigration,
   plannedMemoryMigrationWrites,
+  plannedCuratedMemoryUpgradeWrites,
   type MemoryMigrationWrite,
   plannedMigration,
   rollBackConfigMigration,

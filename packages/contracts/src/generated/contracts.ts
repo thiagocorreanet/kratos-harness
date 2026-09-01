@@ -19,6 +19,7 @@
 // source: https://kratos.dev/schemas/host/memory-change/v1.4 sha256:e85e1c71e1590a5abfd61839e155feb764524dc24fbbaa74a84d8940ca43b5d5
 // source: https://kratos.dev/schemas/host/memory-curation/v1.4 sha256:c55c4b72817340d0f4cd190fd01e57dc1a2028c95b1a6968284218a08c08e589
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
+// source: https://kratos.dev/schemas/host/memory-migration/v1.4 sha256:f07bf84b45234ab5031cf4db421a5cb3d9f9ee4036a1066e1687dd75cef0425b
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
@@ -1691,6 +1692,37 @@ export namespace MemoryMigrationV1_2Contract {
 }
 export type MemoryMigrationV1_2 =
   MemoryMigrationV1_2Contract.MemoryMigrationV1_2;
+export namespace MemoryMigrationV1_4Contract {
+  export type Sha256 = string;
+  export type Id = string;
+  export type Technology = string;
+  export type FailureKind =
+    "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+  export type Dependency =
+    | {
+        kind: "none";
+      }
+    | {
+        kind: "path";
+        path: string;
+      };
+
+  export interface MemoryMigrationV1_4 {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    sourceDigest: Sha256;
+    reviewer: Id;
+    lessons: Lesson[];
+  }
+  export interface Lesson {
+    lessonId: Sha256;
+    technology: Technology;
+    failureKind: FailureKind;
+    dependency: Dependency;
+  }
+}
+export type MemoryMigrationV1_4 =
+  MemoryMigrationV1_4Contract.MemoryMigrationV1_4;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage

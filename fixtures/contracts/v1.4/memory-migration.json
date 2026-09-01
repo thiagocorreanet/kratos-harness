@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.4.0",
+  "hostContract": "1.4.0",
+  "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reviewer": "curator",
+  "lessons": [
+    {
+      "lessonId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "technology": "typescript",
+      "failureKind": "nonzero_exit",
+      "dependency": { "kind": "path", "path": "tsconfig.json" }
+    }
+  ]
+}
