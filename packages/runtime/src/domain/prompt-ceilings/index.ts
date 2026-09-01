@@ -5,9 +5,9 @@ export {
   type PromptCategory,
   type PromptCategoryDefinition,
   type PromptEvaluationResult,
-} from "./model.js";
+} from "./model.ts";
 
 export {
   collectShippedPromptSurfaces,
   type ShippedPromptSurface,
-} from "./discovery.js";
+} from "./discovery.ts";

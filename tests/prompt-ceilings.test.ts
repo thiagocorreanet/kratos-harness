@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  PROMPT_CATEGORIES,
   collectShippedPromptSurfaces,
   evaluatePromptCeiling,
 } from "@kratos/runtime/domain/prompt-ceilings";
@@ -41,7 +40,7 @@ describe("prompt size ceiling enforcement", () => {
     for (const result of results) {
       expect(
         result.passed,
-        `Expected ${result.path} to pass ceiling (${result.measuredChars}/${result.ceilingChars} chars)`,
+        `Expected ${result.path} to pass ceiling (${String(result.measuredChars)}/${String(result.ceilingChars)} chars)`,
       ).toBe(true);
       expect(result.error).toBeUndefined();
     }
@@ -49,7 +48,11 @@ describe("prompt size ceiling enforcement", () => {
 
   it("fails when a fixture prompt exceeds its category ceiling and formats the error", () => {
     const longContent = "X".repeat(6001);
-    const result = evaluatePromptCeiling("host-skill", longContent, "fixtures/oversized-skill.md");
+    const result = evaluatePromptCeiling(
+      "host-skill",
+      longContent,
+      "fixtures/oversized-skill.md",
+    );
     expect(result.passed).toBe(false);
     expect(result.measuredChars).toBe(6001);
     expect(result.ceilingChars).toBe(6000);
@@ -66,9 +69,7 @@ describe("prompt size ceiling enforcement", () => {
     );
 
     const surfaces = collectShippedPromptSurfaces();
-    const inventoriedRelPaths = new Set(
-      surfaces.map((s) => s.path),
-    );
+    const inventoriedRelPaths = new Set(surfaces.map((s) => s.path));
 
     for (const file of promptFiles) {
       const rel = relative(process.cwd(), file);
@@ -86,7 +87,11 @@ describe("prompt size ceiling enforcement", () => {
 
     for (const skill of skills) {
       expect(skill.category).toBe("host-skill");
-      const res = evaluatePromptCeiling(skill.category, skill.getRenderedText(), skill.path);
+      const res = evaluatePromptCeiling(
+        skill.category,
+        skill.getRenderedText(),
+        skill.path,
+      );
       expect(res.ceilingChars).toBe(6000);
       expect(res.passed).toBe(true);
     }

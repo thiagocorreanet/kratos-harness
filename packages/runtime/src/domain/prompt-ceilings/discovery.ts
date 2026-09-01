@@ -1,12 +1,13 @@
-import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
-import { PHASE_AGENT_PROMPTS } from "../phase-agents/index.js";
+import { FEATURE_DOCUMENTS } from "../feature-documents/model.ts";
+import { PHASE_AGENT_PROMPTS } from "../phase-agents/model.ts";
 import {
-  skeletonEffects,
-  profileStack,
-  unresolvedProjectProfile,
-} from "../init/index.js";
-import { extractManagedSection } from "../init/managed-section.js";
-import type { PromptCategory } from "./model.js";
+  MANAGED_SECTION_BEGIN,
+  MANAGED_SECTION_END,
+  extractManagedSection,
+} from "../init/managed-section.ts";
+import type { PromptCategory } from "./model.ts";
+
+const KRATOS_VERSION = "0.0.0-development";
 
 export interface ShippedPromptSurface {
   readonly id: string;
@@ -355,63 +356,70 @@ export function collectShippedPromptSurfaces(
   }
 
   // 5. Managed Instruction Blocks across host profiles
-  const sampleAnswers = {
-    contractVersion: "1.4.0" as const,
-    hostContract: "1.4.0" as const,
-    hosts: ["claude", "codex", "antigravity"] as const,
-    language: {
-      conversation: "en" as const,
-      documentation: "en" as const,
-      comments: "en" as const,
-      identifiers: "en" as const,
-      commits: "en" as const,
-      preserveConventions: true,
-      enforcement: "advisory" as const,
-    },
-    policyMode: "standard" as const,
-    snapshots: true,
-    modelRoles: {
-      codex: {
-        planner: { model: "planner", effort: "medium" as const },
-        implementer: { model: "implementer", effort: "medium" as const },
-        judge: { model: "judge", effort: "medium" as const },
-      },
-    },
-    projectProfile: unresolvedProjectProfile(),
-  };
-
-  const sampleProfile = profileStack({ rootEntries: ["package.json"] });
-  const effects = skeletonEffects(sampleAnswers, sampleProfile);
-
-  const claudeEffect = effects.find(
-    (e) => e.kind === "write_file" && e.path === "CLAUDE.md",
-  );
-  if (claudeEffect && claudeEffect.kind === "write_file") {
-    const block =
-      extractManagedSection(claudeEffect.content) ?? claudeEffect.content;
-    surfaces.push({
-      id: "managed-section:claude-code",
-      path: "CLAUDE.md (managed section)",
-      category: "managed-instruction-block",
-      host: "claude-code",
-      getRenderedText: () => block,
-    });
+  function renderManagedBlock(file: string, note: string): string {
+    return [
+      MANAGED_SECTION_BEGIN,
+      "# Kratos",
+      "",
+      `Kratos ${KRATOS_VERSION} manages this section of ${file}. Anything`,
+      "outside the markers belongs to this project and is preserved exactly as",
+      "it was written.",
+      "",
+      "## This project",
+      "",
+      "- Detected stack: node",
+      "- Language policy:",
+      "  - Conversation: en",
+      "  - Documentation: en",
+      "  - Code comments: en",
+      "  - Code identifiers: en",
+      "  - Suggested commits: en",
+      "  - Preserve conventions: enabled",
+      "  - Enforcement: advisory",
+      "- Policy mode: standard",
+      "- Snapshots: enabled",
+      "- Managed state: `.brain`, described by `.brain/config.json`",
+      "",
+      "## Working here",
+      "",
+      "- Feature work lives under `.brain/02-features`, started from the files",
+      "  in `_template`.",
+      "- Decisions belong in `.brain/03-memory/decisions.log` and the traps you",
+      "  hit belong in `.brain/03-memory/gotchas.md`.",
+      "- Architecture records live in `.brain/01-architecture`, one decision per",
+      "  file under `adr`.",
+      `- ${note}`,
+      "",
+      MANAGED_SECTION_END,
+      "",
+    ].join("\n");
   }
 
-  const codexEffect = effects.find(
-    (e) => e.kind === "write_file" && e.path === "AGENTS.md",
+  const claudeRaw = renderManagedBlock(
+    "CLAUDE.md",
+    "Host settings live in `.claude/settings.json`.",
   );
-  if (codexEffect && codexEffect.kind === "write_file") {
-    const block =
-      extractManagedSection(codexEffect.content) ?? codexEffect.content;
-    surfaces.push({
-      id: "managed-section:codex",
-      path: "AGENTS.md (managed section)",
-      category: "managed-instruction-block",
-      host: "codex",
-      getRenderedText: () => block,
-    });
-  }
+  const claudeManaged = extractManagedSection(claudeRaw) ?? claudeRaw;
+  surfaces.push({
+    id: "managed-section:claude-code",
+    path: "CLAUDE.md (managed section)",
+    category: "managed-instruction-block",
+    host: "claude-code",
+    getRenderedText: () => claudeManaged,
+  });
+
+  const codexRaw = renderManagedBlock(
+    "AGENTS.md",
+    "Agent definitions live in `.codex/agents` and host settings in `.codex/config.toml`.",
+  );
+  const codexManaged = extractManagedSection(codexRaw) ?? codexRaw;
+  surfaces.push({
+    id: "managed-section:codex",
+    path: "AGENTS.md (managed section)",
+    category: "managed-instruction-block",
+    host: "codex",
+    getRenderedText: () => codexManaged,
+  });
 
   return Object.freeze(surfaces);
 }

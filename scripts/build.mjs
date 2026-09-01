@@ -90,6 +90,14 @@ async function compileTree(
       mode: "transform",
       sourceMap: false,
     });
+    javascript = javascript.replaceAll(
+      /(\bfrom\s+["']\.[^"']+)\.ts(["'])/gu,
+      "$1.js$2",
+    );
+    javascript = javascript.replaceAll(
+      /(\bexport\s+[^'"]*from\s+["']\.[^"']+)\.ts(["'])/gu,
+      "$1.js$2",
+    );
     if (sourceFile.endsWith(`${sep}infra${sep}schema${sep}registry.ts`)) {
       javascript = javascript.replaceAll(
         '"ajv/dist/2020.js"',
