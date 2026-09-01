@@ -18,8 +18,8 @@ import {
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
 const sampleHandoff: CurrentPhaseHandoff = {
-  contractVersion: "1.3.0",
-  hostContract: "1.3.0",
+  contractVersion: "1.4.0",
+  hostContract: "1.4.0",
   feature: "narration-feature",
   runId: "run-sample",
   revision: 2,
@@ -35,6 +35,7 @@ const sampleHandoff: CurrentPhaseHandoff = {
   objectiveDigest: "0".repeat(64),
   status: "active",
   gateOutcome: "pass",
+  gateFailures: [],
   blockers: [],
   openGaps: 0,
   nextAction: "continue",
@@ -201,6 +202,17 @@ function createSampleObservation(
 }
 
 describe("kratos narrate command", () => {
+  it("declares the current phase handoff contract", () => {
+    const parsed = parseInvocation(["handoff"], DEFAULT_REGISTRY);
+
+    expect(parsed.kind).toBe("invocation");
+    if (parsed.kind === "invocation") {
+      expect(parsed.invocation.command.jsonContract).toBe(
+        "phase-handoff@1.4.0",
+      );
+    }
+  });
+
   it("parses kratos narrate with --root and --json flags", () => {
     const parsed = parseInvocation(
       ["narrate", "--root", ".", "--json"],

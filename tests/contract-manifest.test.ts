@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.8.schema.json",
+        "schemas/contracts/contract-manifest.v1.9.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -126,7 +126,26 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(65);
+    expect(manifest.schemas).toHaveLength(68);
+    expect(manifest.schemas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "host.init-answers",
+          version: "1.5.0",
+          typeName: "InitAnswersV1_5",
+        }),
+        expect.objectContaining({
+          id: "host.phase-handoff",
+          version: "1.4.0",
+          typeName: "PhaseHandoffV1_4",
+        }),
+        expect.objectContaining({
+          id: "host.doctor-report",
+          version: "1.0.0",
+          typeName: "DoctorReportV1",
+        }),
+      ]),
+    );
     const keys = manifest.schemas.map(({ id, version }) => `${id}@${version}`);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(new Set(keys).size).toBe(keys.length);
@@ -139,7 +158,7 @@ describe("contract family manifest", () => {
     );
     for (const path of paths) {
       expect(path).toMatch(
-        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[1234])?\.schema\.json$/u,
+        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[12345])?\.schema\.json$/u,
       );
     }
   });

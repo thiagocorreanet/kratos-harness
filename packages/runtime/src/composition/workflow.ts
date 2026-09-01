@@ -2045,7 +2045,7 @@ async function observePhaseAssignment(input: {
     return refusedAssignment(memory.reasonCode, ".brain/03-memory/gotchas.md");
   }
 
-  const value: CurrentPhaseHandoff = {
+  const value = {
     contractVersion: CONTRACT_VERSIONS["host.phase-handoff"],
     hostContract: CONTRACT_VERSIONS["host.phase-handoff"],
     runId: input.runId,
@@ -2068,6 +2068,10 @@ async function observePhaseAssignment(input: {
     objectiveDigest: input.objectiveDigest,
     status: input.status,
     gateOutcome: input.gateDecision.outcome,
+    gateFailures: input.gateDecision.failures.map((failure) => ({
+      ...failure,
+      evidenceRefs: [...failure.evidenceRefs],
+    })),
     blockers: input.gateDecision.failures.map(({ gateId }) => gateId),
     openGaps: input.openGaps,
     nextAction:
@@ -2078,7 +2082,7 @@ async function observePhaseAssignment(input: {
           : `Complete the ${input.phase} phase and run kratos continue.`,
     acceptance: input.acceptance,
     memory: memory.value,
-  };
+  } as CurrentPhaseHandoff;
   return { kind: "resolved", value };
 }
 

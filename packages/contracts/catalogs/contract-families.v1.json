@@ -62,6 +62,14 @@
       "typeName": "AgentOutputV1_3"
     },
     {
+      "id": "host.doctor-report",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/doctor-report.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "DoctorReportV1"
+    },
+    {
       "id": "host.gap-proposal",
       "family": "host",
       "version": "1.0.0",
@@ -116,6 +124,14 @@
       "path": "schemas/host/init-answers.v1.4.schema.json",
       "boundary": "cross-process",
       "typeName": "InitAnswersV1_4"
+    },
+    {
+      "id": "host.init-answers",
+      "family": "host",
+      "version": "1.5.0",
+      "path": "schemas/host/init-answers.v1.5.schema.json",
+      "boundary": "cross-process",
+      "typeName": "InitAnswersV1_5"
     },
     {
       "id": "host.memory-capture",
@@ -196,6 +212,14 @@
       "path": "schemas/host/phase-handoff.v1.3.schema.json",
       "boundary": "cross-process",
       "typeName": "PhaseHandoffV1_3"
+    },
+    {
+      "id": "host.phase-handoff",
+      "family": "host",
+      "version": "1.4.0",
+      "path": "schemas/host/phase-handoff.v1.4.schema.json",
+      "boundary": "cross-process",
+      "typeName": "PhaseHandoffV1_4"
     },
     {
       "id": "host.phase-lifecycle",

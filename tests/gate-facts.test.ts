@@ -1,4 +1,5 @@
 import type {
+  CurrentPhaseHandoff,
   EventV1_2,
   GapRecordV1,
   GateFactsV1,
@@ -61,6 +62,12 @@ const PROPOSED = {
     },
   ],
 };
+
+function completePrd(): string {
+  return `# Requirements\n\n${PRD_DOCUMENT.requiredSections
+    .map((section) => `## ${section}\n\nCompleted ${section}.`)
+    .join("\n\n")}\n`;
+}
 
 interface Subject {
   readonly ports: RuntimePorts;
@@ -193,6 +200,12 @@ async function handoff(run: Subject): Promise<string> {
   const view = next(run);
   expect(await runCommandLine(["handoff"], view.ports)).toBe(0);
   return view.output.structured_.join("");
+}
+
+async function handoffJson(run: Subject): Promise<CurrentPhaseHandoff> {
+  const view = next(run);
+  expect(await runCommandLine(["--json", "handoff"], view.ports)).toBe(0);
+  return JSON.parse(view.output.structured_.join("")) as CurrentPhaseHandoff;
 }
 
 async function evidenceBundle(run: Subject): Promise<string> {
@@ -431,6 +444,95 @@ describe("a run whose model proposed a gap", () => {
       status: "active",
       currentStep: "spec",
     });
+  });
+
+  it("reports a shadow gate finding without blocking the handoff", async () => {
+    const run = await recordProposal(
+      next(
+        withGateModes(await startedRun("strict"), {
+          "gaps-closed": "shadow",
+        }),
+        { [PRD]: completePrd() },
+      ),
+    );
+
+    const human = await handoff(run);
+    expect(human).toContain("Gate outcome: pass");
+    expect(human).toContain(
+      "Gate finding: gaps-closed shadow gate.gaps_abertos",
+    );
+
+    const json = await handoffJson(run);
+    expect(json.gateFailures).toEqual([
+      expect.objectContaining({
+        gateId: "gaps-closed",
+        reasonCode: "gate.gaps_abertos",
+        mode: "shadow",
+      }),
+    ]);
+    expect(json.blockers).toEqual(["gaps-closed"]);
+  });
+
+  it.each([
+    ["shadow", "pass", "active", "spec"],
+    ["warn", "warn", "active", "spec"],
+    ["enforce", "block", "blocked", "prd"],
+  ] as const)(
+    "records gaps-closed in %s mode as %s through the lifecycle",
+    async (mode, outcome, status, currentStep) => {
+      const configured = withGateModes(
+        next(await startedRun("strict"), { [PRD]: completePrd() }),
+        { "gaps-closed": mode },
+      );
+      const withGap = await recordProposal(configured, `gap-${mode}`);
+
+      const handoffView = next(withGap);
+      expect(
+        await runCommandLine(["--json", "handoff"], handoffView.ports),
+      ).toBe(0);
+      expect(JSON.parse(handoffView.output.structured_.join(""))).toMatchObject(
+        {
+          gateOutcome: outcome,
+          gateFailures: [
+            expect.objectContaining({ gateId: "gaps-closed", mode }),
+          ],
+        },
+      );
+
+      const doctorView = next(withGap);
+      expect(await runCommandLine(["--json", "doctor"], doctorView.ports)).toBe(
+        0,
+      );
+      expect(JSON.parse(doctorView.output.structured_.join(""))).toMatchObject({
+        gateFailures: [
+          expect.objectContaining({ gateId: "gaps-closed", mode }),
+        ],
+      });
+
+      const written = await recordEvidence(
+        next(withGap, { [PRD]: completePrd() }),
+        PRD,
+        `evidence-${mode}`,
+      );
+      expect(await completePhase(written, PRD, `complete-${mode}`)).toBe(0);
+      expect(stateOf(written)).toMatchObject({ status, currentStep });
+      expect(currentEvents(written).at(-1)).toMatchObject({
+        gateFailures: [
+          expect.objectContaining({ gateId: "gaps-closed", mode }),
+        ],
+      });
+    },
+  );
+
+  it("reports no gate findings when every gate passes", async () => {
+    const json = await handoffJson(
+      next(await startedRun("strict"), {
+        [PRD]: completePrd(),
+      }),
+    );
+
+    expect(json.gateFailures).toEqual([]);
+    expect(json.blockers).toEqual([]);
   });
 
   it("composes non-empty v1.4 overrides through decision, transition, and event", async () => {

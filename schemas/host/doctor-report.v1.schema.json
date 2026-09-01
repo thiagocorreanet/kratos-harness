@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/doctor-report/v1",
+  "title": "Kratos doctor report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "health",
+    "checks",
+    "gateFailures"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "hostContract": { "const": "1.4.0" },
+    "health": { "enum": ["healthy", "degraded", "blocked", "corrupt"] },
+    "checks": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/check" }
+    },
+    "gateFailures": {
+      "type": "array",
+      "maxItems": 265,
+      "items": {
+        "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailure"
+      }
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidenceRef"],
+      "properties": {
+        "name": {
+          "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/id"
+        },
+        "status": { "enum": ["pass", "warn", "block", "fail"] },
+        "evidenceRef": {
+          "oneOf": [
+            {
+              "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/reference"
+            },
+            { "type": "null" }
+          ]
+        },
+        "details": {
+          "type": "array",
+          "maxItems": 265,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[^\\u0000-\\u001f\\u007f\\r\\n]+$"
+          }
+        }
+      }
+    }
+  }
+}

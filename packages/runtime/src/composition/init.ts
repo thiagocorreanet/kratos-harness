@@ -1,5 +1,6 @@
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { WriteFilePrecondition } from "../domain/effects.js";
+import type { ProjectConfigV1_4 } from "@kratos/contracts";
 import {
   destinationsOf,
   profileStack,
@@ -81,6 +82,7 @@ export async function observeInitialization(
     {
       projectProfile: persisted.profile,
       acceptanceAttemptCeiling: persisted.acceptanceAttemptCeiling,
+      gateModes: persisted.gateModes,
     },
   );
   const rootEntries = await anchored.fileSystem.list(".");
@@ -106,6 +108,7 @@ async function observePersistedProfile(
       readonly kind: "profile";
       readonly profile?: ResolvedProjectProfile;
       readonly acceptanceAttemptCeiling?: number | undefined;
+      readonly gateModes?: ProjectConfigV1_4["gateModes"] | undefined;
       readonly expected: WriteFilePrecondition;
     }
   | Extract<Observed, { readonly kind: "failure" }>
@@ -167,6 +170,7 @@ async function observePersistedProfile(
     kind: "profile",
     profile: validated.value.projectProfile,
     acceptanceAttemptCeiling: validated.value.acceptanceAttemptCeiling,
+    gateModes: validated.value.gateModes,
     expected: { kind: "file", size: before.size, sha256: before.sha256 },
   };
 }

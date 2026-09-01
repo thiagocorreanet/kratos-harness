@@ -114,8 +114,8 @@ describe("the init command", () => {
       destinationsOf(
         skeletonEffects(
           {
-            contractVersion: "1.3.0",
-            hostContract: "1.3.0",
+            contractVersion: "1.5.0",
+            hostContract: "1.4.0",
             hosts: ["claude", "codex"],
             language: {
               conversation: "en",
@@ -127,6 +127,7 @@ describe("the init command", () => {
               enforcement: "advisory",
             },
             policyMode: "standard",
+            gateModes: {},
             snapshots: true,
             modelRoles: {
               claude: claudeCatalog().defaults,
@@ -184,6 +185,38 @@ describe("the init command", () => {
       ),
     );
     expect(again.output.structured_.join("")).toContain("preserved");
+  });
+
+  it("preserves gate modes when a re-initialization omits them", async () => {
+    const first = subject(
+      JSON.stringify({
+        contractVersion: "1.5.0",
+        hostContract: "1.4.0",
+        hosts: ["claude", "codex"],
+        gateModes: { "gaps-closed": "shadow" },
+      }),
+    );
+    expect(await runCommandLine(["init"], first.ports)).toBe(0);
+    const initialized = first.storage.snapshot();
+
+    const again = subject(
+      JSON.stringify({
+        contractVersion: "1.5.0",
+        hostContract: "1.4.0",
+        hosts: ["claude", "codex"],
+      }),
+      initialized.files,
+      {},
+      [],
+      initialized.directories,
+    );
+    expect(await runCommandLine(["init"], again.ports)).toBe(0);
+
+    expect(
+      JSON.parse(
+        again.storage.snapshot().files[".brain/config.json"] ?? "null",
+      ),
+    ).toMatchObject({ gateModes: { "gaps-closed": "shadow" } });
   });
 
   it("creates measurement artifacts once and preserves their bytes while refreshing managed instructions", async () => {

@@ -1,0 +1,39 @@
+{
+  "contractVersion": "1.4.0",
+  "hostContract": "1.4.0",
+  "feature": "review-feature",
+  "runId": "run-01",
+  "revision": 12,
+  "phase": "prd",
+  "host": "codex",
+  "assignment": {
+    "phase": "prd",
+    "role": "planner",
+    "model": "gpt-5-planner",
+    "effort": "medium"
+  },
+  "assignmentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "objectiveDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "active",
+  "gateOutcome": "pass",
+  "gateFailures": [
+    {
+      "gateId": "gaps-closed",
+      "reasonCode": "gate.gaps_abertos",
+      "mode": "shadow",
+      "priority": 50,
+      "evidenceRefs": [".brain/02-features/active"],
+      "detail": null
+    }
+  ],
+  "blockers": ["gaps-closed"],
+  "openGaps": 1,
+  "nextAction": "Complete the prd phase and run kratos continue.",
+  "acceptance": {
+    "attemptCeiling": 3,
+    "attempts": [],
+    "faultsRequiredFor": [],
+    "faults": []
+  },
+  "memory": null
+}

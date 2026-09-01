@@ -8,11 +8,13 @@ import agentOutputV1_2 from "../fixtures/contracts/v1.2/agent-output.json" with 
 import agentOutputV1_3 from "../fixtures/contracts/v1.3/agent-output.json" with { type: "json" };
 import gapProposal from "../fixtures/contracts/v1/gap-proposal.json" with { type: "json" };
 import hookObservation from "../fixtures/contracts/v1/hook-observation.json" with { type: "json" };
+import doctorReport from "../fixtures/contracts/v1/doctor-report.json" with { type: "json" };
 import initAnswers from "../fixtures/contracts/v1/init-answers.json" with { type: "json" };
 import initAnswersV1_1 from "../fixtures/contracts/v1.1/init-answers.json" with { type: "json" };
 import initAnswersV1_2 from "../fixtures/contracts/v1.2/init-answers.json" with { type: "json" };
 import initAnswersV1_3 from "../fixtures/contracts/v1.3/init-answers.json" with { type: "json" };
 import initAnswersV1_4 from "../fixtures/contracts/v1.4/init-answers.json" with { type: "json" };
+import initAnswersV1_5 from "../fixtures/contracts/v1.5/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import phaseLifecycle from "../fixtures/contracts/v1/phase-lifecycle.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
@@ -40,6 +42,7 @@ import phaseMeasurement from "../fixtures/contracts/v1/phase-measurement.json" w
 import phaseHandoffV1_1 from "../fixtures/contracts/v1.1/phase-handoff.json" with { type: "json" };
 import phaseHandoffV1_2 from "../fixtures/contracts/v1.2/phase-handoff.json" with { type: "json" };
 import phaseHandoffV1_3 from "../fixtures/contracts/v1.3/phase-handoff.json" with { type: "json" };
+import phaseHandoffV1_4 from "../fixtures/contracts/v1.4/phase-handoff.json" with { type: "json" };
 import memoryCapture from "../fixtures/contracts/v1.2/memory-capture.json" with { type: "json" };
 import memoryChangePromote from "../fixtures/contracts/v1.2/memory-change-promote.json" with { type: "json" };
 import memoryChangeMerge from "../fixtures/contracts/v1.2/memory-change-merge.json" with { type: "json" };
@@ -96,7 +99,7 @@ const narration = {
 
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0";
+  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0" | "1.5.0";
   readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
@@ -165,6 +168,16 @@ const fixtures = [
     requiredField: "payload",
     structuralReasonCode: "trail.output_invalido",
     fixture: agentOutputV1_3,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.doctor-report",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "checks",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: doctorReport,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -239,6 +252,16 @@ const fixtures = [
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
   {
+    id: "host.init-answers",
+    version: "1.5.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswersV1_5,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
     id: "host.phase-lifecycle",
     version: "1.0.0",
     versionField: "hostContract",
@@ -275,6 +298,16 @@ const fixtures = [
     requiredField: "acceptance",
     structuralReasonCode: "trail.output_invalido",
     fixture: phaseHandoffV1_3,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.phase-handoff",
+    version: "1.4.0",
+    versionField: "hostContract",
+    requiredField: "gateFailures",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: phaseHandoffV1_4,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -795,6 +828,89 @@ function expectInvalidWithReason(
 }
 
 describe("compiled schema registry fixtures", () => {
+  it("keeps canonical diagnostic fixtures aligned with evaluator semantics", () => {
+    expect(phaseHandoffV1_4).toMatchObject({
+      phase: "prd",
+      status: "active",
+      gateOutcome: "pass",
+      gateFailures: [
+        {
+          gateId: "gaps-closed",
+          reasonCode: "gate.gaps_abertos",
+          mode: "shadow",
+          priority: 50,
+          evidenceRefs: [".brain/02-features/active"],
+          detail: null,
+        },
+      ],
+      blockers: ["gaps-closed"],
+      openGaps: 1,
+      nextAction: "Complete the prd phase and run kratos continue.",
+    });
+    expect(doctorReport).toMatchObject({
+      health: "degraded",
+      checks: [
+        {
+          name: "gates",
+          status: "warn",
+          evidenceRef:
+            ".brain/02-features/review-feature/runs/run-01/gates.json",
+          details: ["gaps-closed: shadow gate.gaps_abertos"],
+        },
+      ],
+      gateFailures: [
+        {
+          gateId: "gaps-closed",
+          reasonCode: "gate.gaps_abertos",
+          mode: "shadow",
+          priority: 50,
+          evidenceRefs: [".brain/02-features/active"],
+          detail: null,
+        },
+      ],
+    });
+  });
+
+  it("validates an exact registered payload revision independently of the host identity", () => {
+    expect(
+      registry.validate({
+        id: "host.init-answers",
+        version: "1.5.0",
+        value: {
+          contractVersion: "1.5.0",
+          hostContract: "1.4.0",
+          hosts: ["codex"],
+          gateModes: { "gaps-closed": "shadow" },
+        },
+        structuralReasonCode: "trail.output_invalido",
+      }).kind,
+    ).toBe("valid");
+  });
+
+  it("preserves syntax rejection and refuses unregistered payload revisions", () => {
+    const invalid = registry.validate({
+      id: "host.init-answers",
+      version: "1.05.0",
+      value: initAnswersV1_5,
+      structuralReasonCode: "trail.output_invalido",
+    });
+    expect(invalid).toMatchObject({
+      kind: "invalid",
+      diagnostics: [{ reasonCode: "contract.host_version_invalid" }],
+    });
+
+    const unregistered = registry.validate({
+      id: "host.phase-handoff",
+      version: "1.5.0",
+      value: phaseHandoffV1_4,
+      structuralReasonCode: "trail.output_invalido",
+    });
+    expect(unregistered).toMatchObject({
+      kind: "invalid",
+      diagnostics: [{ reasonCode: "contract.host_version_unsupported" }],
+    });
+  });
+
   it.each([["model-x", { model: "model-x", effort: "medium" }]])(
     "accepts equivalent model assignment forms",
     (simple, object) => {

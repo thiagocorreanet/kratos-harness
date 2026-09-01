@@ -56,7 +56,7 @@ async function verifyArtifacts() {
   const manifestSchema = await readJson(
     join(
       repositoryRoot,
-      "schemas/contracts/contract-manifest.v1.8.schema.json",
+      "schemas/contracts/contract-manifest.v1.9.schema.json",
     ),
   );
   const resultSchema = await readJson(
@@ -104,8 +104,16 @@ async function verifyArtifacts() {
   });
   ajv.addSchema(resultSchema);
   ajv.addSchema(acceptanceCriterionIdSchema);
-  for (const { path } of manifest.schemas) {
-    ajv.compile(await readJson(join(repositoryRoot, path)));
+  const registeredSchemas = await Promise.all(
+    manifest.schemas.map(({ path }) => readJson(join(repositoryRoot, path))),
+  );
+  for (const schema of registeredSchemas) {
+    ajv.addSchema(schema);
+  }
+  for (const schema of registeredSchemas) {
+    if (ajv.getSchema(schema.$id) === undefined) {
+      throw new VerificationError("registered schema could not be compiled");
+    }
   }
   return manifest;
 }

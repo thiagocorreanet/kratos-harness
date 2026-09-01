@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/init-answers/v1.5",
+  "title": "Kratos initialization answers v1.5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "hosts"],
+  "properties": {
+    "contractVersion": { "const": "1.5.0" },
+    "hostContract": { "const": "1.4.0" },
+    "hosts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["claude", "codex", "antigravity"] }
+    },
+    "language": { "$ref": "#/$defs/languagePolicy" },
+    "policyMode": { "enum": ["standard", "strict"] },
+    "gateModes": { "$ref": "#/$defs/gateModes" },
+    "snapshots": { "type": "boolean" },
+    "modelRoles": { "$ref": "#/$defs/modelRoles" },
+    "projectProfile": { "$ref": "#/$defs/partialProjectProfile" },
+    "acceptanceAttemptCeiling": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  },
+  "$defs": {
+    "gateMode": { "enum": ["shadow", "warn", "enforce"] },
+    "gateModes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context-readable": { "$ref": "#/$defs/gateMode" },
+        "stop-loss": { "$ref": "#/$defs/gateMode" },
+        "prd-present": { "$ref": "#/$defs/gateMode" },
+        "spec-approved": { "$ref": "#/$defs/gateMode" },
+        "gaps-closed": { "$ref": "#/$defs/gateMode" },
+        "partition-approved": { "$ref": "#/$defs/gateMode" },
+        "acceptance-criteria": { "$ref": "#/$defs/gateMode" },
+        "final-acceptance": { "$ref": "#/$defs/gateMode" }
+      }
+    },
+    "languageCode": { "enum": ["en", "pt-BR"] },
+    "languagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conversation",
+        "documentation",
+        "comments",
+        "identifiers",
+        "commits",
+        "preserveConventions",
+        "enforcement"
+      ],
+      "properties": {
+        "conversation": { "$ref": "#/$defs/languageCode" },
+        "documentation": { "$ref": "#/$defs/languageCode" },
+        "comments": { "$ref": "#/$defs/languageCode" },
+        "identifiers": { "$ref": "#/$defs/languageCode" },
+        "commits": { "$ref": "#/$defs/languageCode" },
+        "preserveConventions": { "type": "boolean" },
+        "enforcement": { "enum": ["advisory", "off"] }
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "assignment": {
+      "oneOf": [
+        { "$ref": "#/$defs/id" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "effort"],
+          "properties": {
+            "model": { "$ref": "#/$defs/id" },
+            "effort": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "roleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "implementer", "judge"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/assignment" },
+        "implementer": { "$ref": "#/$defs/assignment" },
+        "judge": { "$ref": "#/$defs/assignment" }
+      }
+    },
+    "modelRoles": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "claude": { "$ref": "#/$defs/roleMap" },
+        "codex": { "$ref": "#/$defs/roleMap" },
+        "antigravity": { "$ref": "#/$defs/roleMap" }
+      }
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "convention": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "implementationLanguage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "projectPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*[\\u0000-\\u001F\\u007F]).+$"
+    },
+    "unresolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "const": "unresolved" } }
+    },
+    "notApplicable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "not-applicable" },
+        "reason": { "$ref": "#/$defs/reason" }
+      }
+    },
+    "resolvedCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value"],
+      "properties": {
+        "status": { "const": "resolved" },
+        "value": { "$ref": "#/$defs/command" }
+      }
+    },
+    "resolvedPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value"],
+      "properties": {
+        "status": { "const": "resolved" },
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/projectPath" }
+        }
+      }
+    },
+    "resolvedConvention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value"],
+      "properties": {
+        "status": { "const": "resolved" },
+        "value": { "$ref": "#/$defs/convention" }
+      }
+    },
+    "resolvedImplementationLanguages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value"],
+      "properties": {
+        "status": { "const": "resolved" },
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/implementationLanguage" }
+        }
+      }
+    },
+    "commandLeaf": {
+      "oneOf": [
+        { "$ref": "#/$defs/resolvedCommand" },
+        { "$ref": "#/$defs/notApplicable" },
+        { "$ref": "#/$defs/unresolved" }
+      ]
+    },
+    "pathsLeaf": {
+      "oneOf": [
+        { "$ref": "#/$defs/resolvedPaths" },
+        { "$ref": "#/$defs/notApplicable" },
+        { "$ref": "#/$defs/unresolved" }
+      ]
+    },
+    "conventionLeaf": {
+      "oneOf": [
+        { "$ref": "#/$defs/resolvedConvention" },
+        { "$ref": "#/$defs/notApplicable" },
+        { "$ref": "#/$defs/unresolved" }
+      ]
+    },
+    "implementationLanguagesLeaf": {
+      "oneOf": [
+        { "$ref": "#/$defs/resolvedImplementationLanguages" },
+        { "$ref": "#/$defs/notApplicable" },
+        { "$ref": "#/$defs/unresolved" }
+      ]
+    },
+    "partialCommands": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test": { "$ref": "#/$defs/commandLeaf" },
+        "lint": { "$ref": "#/$defs/commandLeaf" },
+        "build": { "$ref": "#/$defs/commandLeaf" },
+        "run": { "$ref": "#/$defs/commandLeaf" }
+      }
+    },
+    "partialPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "$ref": "#/$defs/pathsLeaf" },
+        "tests": { "$ref": "#/$defs/pathsLeaf" },
+        "configuration": { "$ref": "#/$defs/pathsLeaf" }
+      }
+    },
+    "partialConventions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directoryLayout": { "$ref": "#/$defs/conventionLeaf" },
+        "naming": { "$ref": "#/$defs/conventionLeaf" },
+        "implementationLanguages": {
+          "$ref": "#/$defs/implementationLanguagesLeaf"
+        }
+      }
+    },
+    "partialProjectProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commands": { "$ref": "#/$defs/partialCommands" },
+        "paths": { "$ref": "#/$defs/partialPaths" },
+        "conventions": { "$ref": "#/$defs/partialConventions" }
+      }
+    }
+  }
+}

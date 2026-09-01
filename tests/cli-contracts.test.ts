@@ -20,6 +20,8 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const schemaPaths = new Map([
   ["result@1.0.0", "schemas/result.v1.schema.json"],
   ["adapter-message@1.0.0", "schemas/host/adapter-message.v1.schema.json"],
+  ["doctor-report@1.0.0", "schemas/host/doctor-report.v1.schema.json"],
+  ["phase-handoff@1.4.0", "schemas/host/phase-handoff.v1.4.schema.json"],
   ["phase-handoff@1.3.0", "schemas/host/phase-handoff.v1.3.schema.json"],
   ["phase-handoff@1.1.0", "schemas/host/phase-handoff.v1.1.schema.json"],
   ["phase-handoff@1.2.0", "schemas/host/phase-handoff.v1.2.schema.json"],
@@ -38,6 +40,13 @@ beforeAll(async () => {
     ),
   ) as object;
   ajv.addSchema(criterionIdSchema);
+  const eventV1_3Schema = JSON.parse(
+    await readFile(
+      join(repositoryRoot, "schemas/state/event.v1.3.schema.json"),
+      "utf8",
+    ),
+  ) as object;
+  ajv.addSchema(eventV1_3Schema);
   const resultSchema = JSON.parse(
     await readFile(
       join(repositoryRoot, "schemas/result.v1.schema.json"),

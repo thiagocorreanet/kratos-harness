@@ -1,6 +1,7 @@
 import type {
   InitAnswersV1_3,
   InitAnswersV1_4,
+  InitAnswersV1_5,
   LanguagePolicyV1,
 } from "@kratos/contracts";
 
@@ -21,15 +22,15 @@ import {
 
 /** Answers after every default has been made visible and every model resolved. */
 export type ResolvedAnswers = Omit<
-  Required<InitAnswersV1_4>,
+  Required<InitAnswersV1_5>,
   | "contractVersion"
   | "hostContract"
   | "modelRoles"
   | "projectProfile"
   | "acceptanceAttemptCeiling"
 > & {
-  readonly contractVersion: "1.3.0" | "1.4.0";
-  readonly hostContract: "1.3.0" | "1.4.0";
+  readonly contractVersion: "1.5.0";
+  readonly hostContract: "1.4.0";
   readonly modelRoles: ResolvedModelRoles;
   readonly projectProfile: ResolvedProjectProfile;
   readonly acceptanceAttemptCeiling?: number | undefined;
@@ -58,9 +59,10 @@ const ROLES = ["planner", "implementer", "judge"] as const;
 export interface PersistedInitSettings {
   readonly projectProfile?: ResolvedProjectProfile | undefined;
   readonly acceptanceAttemptCeiling?: number | undefined;
+  readonly gateModes?: NonNullable<InitAnswersV1_5["gateModes"]> | undefined;
 }
 type Host = "claude" | "codex" | "antigravity";
-type ExplicitRoleMap = NonNullable<InitAnswersV1_4["modelRoles"]>[Host];
+type ExplicitRoleMap = NonNullable<InitAnswersV1_5["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */
 export type ResolvedRoleMap = Readonly<
@@ -120,15 +122,23 @@ export async function resolveInitAnswers(
   }
   if (
     validated.value.contractVersion !== "1.3.0" &&
-    validated.value.contractVersion !== "1.4.0"
+    validated.value.contractVersion !== "1.4.0" &&
+    validated.value.contractVersion !== "1.5.0"
   ) {
     return { kind: "invalid", reasonCode: "trail.output_invalido" };
   }
 
   const supplied = validated.value;
+  const persistedSettings = persistedInitSettings(persisted);
   const defaulted: string[] = DEFAULTABLE.filter(
     (key) => supplied[key] === undefined,
   );
+  if (
+    !("gateModes" in supplied) &&
+    persistedSettings?.gateModes === undefined
+  ) {
+    defaulted.push("gateModes");
+  }
   const resolvedByHost = new Map<Host, ResolvedRoleMap>();
 
   // Catalog lookup is intentionally confined to enabled hosts. A role map for
@@ -160,11 +170,12 @@ export async function resolveInitAnswers(
   return {
     kind: "resolved",
     answers: {
-      contractVersion: "1.4.0",
+      contractVersion: "1.5.0",
       hostContract: "1.4.0",
       hosts: supplied.hosts,
       language: supplied.language ?? DEFAULT_LANGUAGE_POLICY,
       policyMode: supplied.policyMode ?? DEFAULTS.policyMode,
+      gateModes: resolvedGateModes(supplied, persistedSettings),
       snapshots: supplied.snapshots ?? DEFAULTS.snapshots,
       modelRoles,
       projectProfile: resolveProjectProfile(
@@ -195,7 +206,7 @@ function persistedProjectProfile(
 }
 
 function resolvedAttemptCeiling(
-  supplied: InitAnswersV1_3 | InitAnswersV1_4,
+  supplied: InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5,
   persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
 ): number | undefined {
   const requested =
@@ -206,6 +217,23 @@ function resolvedAttemptCeiling(
   return persisted !== undefined && "acceptanceAttemptCeiling" in persisted
     ? persisted.acceptanceAttemptCeiling
     : undefined;
+}
+
+function persistedInitSettings(
+  persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
+): PersistedInitSettings | undefined {
+  if (persisted === undefined || "commands" in persisted) return undefined;
+  return persisted;
+}
+
+function resolvedGateModes(
+  supplied: InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5,
+  persisted: PersistedInitSettings | undefined,
+): NonNullable<InitAnswersV1_5["gateModes"]> {
+  if ("gateModes" in supplied) {
+    return structuredClone(supplied.gateModes);
+  }
+  return structuredClone(persisted?.gateModes ?? {});
 }
 
 function resolveHostRoles(
@@ -262,8 +290,8 @@ function modelRefusal(
   return { kind: "invalid", reasonCode, subject };
 }
 
-/** The host contract version the registry checks before the payload. */
+/** The answers contract version the registry checks before the payload. */
 function version(document: unknown): unknown {
   if (typeof document !== "object" || document === null) return undefined;
-  return (document as Record<string, unknown>).hostContract;
+  return (document as Record<string, unknown>).contractVersion;
 }

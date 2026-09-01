@@ -5,6 +5,7 @@ import agentOutputSchema from "../../../../../schemas/host/agent-output.v1.schem
 import agentOutputV1_1Schema from "../../../../../schemas/host/agent-output.v1.1.schema.json" with { type: "json" };
 import agentOutputV1_2Schema from "../../../../../schemas/host/agent-output.v1.2.schema.json" with { type: "json" };
 import agentOutputV1_3Schema from "../../../../../schemas/host/agent-output.v1.3.schema.json" with { type: "json" };
+import doctorReportSchema from "../../../../../schemas/host/doctor-report.v1.schema.json" with { type: "json" };
 import gapProposalSchema from "../../../../../schemas/host/gap-proposal.v1.schema.json" with { type: "json" };
 import hookObservationSchema from "../../../../../schemas/host/hook-observation.v1.schema.json" with { type: "json" };
 import initAnswersSchema from "../../../../../schemas/host/init-answers.v1.schema.json" with { type: "json" };
@@ -12,6 +13,7 @@ import initAnswersV1_1Schema from "../../../../../schemas/host/init-answers.v1.1
 import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2.schema.json" with { type: "json" };
 import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3.schema.json" with { type: "json" };
 import initAnswersV1_4Schema from "../../../../../schemas/host/init-answers.v1.4.schema.json" with { type: "json" };
+import initAnswersV1_5Schema from "../../../../../schemas/host/init-answers.v1.5.schema.json" with { type: "json" };
 import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_4Schema from "../../../../../schemas/host/memory-change.v1.4.schema.json" with { type: "json" };
@@ -23,6 +25,7 @@ import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
 import phaseHandoffV1_2Schema from "../../../../../schemas/host/phase-handoff.v1.2.schema.json" with { type: "json" };
 import phaseHandoffV1_3Schema from "../../../../../schemas/host/phase-handoff.v1.3.schema.json" with { type: "json" };
+import phaseHandoffV1_4Schema from "../../../../../schemas/host/phase-handoff.v1.4.schema.json" with { type: "json" };
 import phaseLifecycleSchema from "../../../../../schemas/host/phase-lifecycle.v1.schema.json" with { type: "json" };
 import resultSchema from "../../../../../schemas/result.v1.schema.json" with { type: "json" };
 import acceptanceCriterionIdSchema from "../../../../../schemas/contracts/acceptance-criterion-id.v1.schema.json" with { type: "json" };
@@ -127,6 +130,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: agentOutputV1_3Schema,
     },
     {
+      id: "host.doctor-report",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/doctor-report.v1.schema.json",
+      schema: doctorReportSchema,
+    },
+    {
       id: "host.gap-proposal",
       family: "host",
       version: "1.0.0",
@@ -174,6 +184,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.4.0",
       path: "schemas/host/init-answers.v1.4.schema.json",
       schema: initAnswersV1_4Schema,
+    },
+    {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.5.0",
+      path: "schemas/host/init-answers.v1.5.schema.json",
+      schema: initAnswersV1_5Schema,
     },
     {
       id: "host.memory-capture",
@@ -244,6 +261,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.3.0",
       path: "schemas/host/phase-handoff.v1.3.schema.json",
       schema: phaseHandoffV1_3Schema,
+    },
+    {
+      id: "host.phase-handoff",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/phase-handoff.v1.4.schema.json",
+      schema: phaseHandoffV1_4Schema,
     },
     {
       id: "host.phase-lifecycle",
@@ -556,9 +580,11 @@ function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
         ? "1.1"
         : entry.version === "1.2.0"
           ? "1.2"
-          : entry.version === "1.4.0"
-            ? "1.4"
-            : "1.3";
+          : entry.version === "1.5.0"
+            ? "1.5"
+            : entry.version === "1.4.0"
+              ? "1.4"
+              : "1.3";
   return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
 }
 
@@ -578,12 +604,31 @@ function schemaId(schema: object): string | undefined {
   return typeof id === "string" && id.length > 0 ? id : undefined;
 }
 
+function declaresOneOf(value: unknown, expected: readonly string[]): boolean {
+  const constraint = record(value);
+  if (constraint === undefined) return false;
+  if (typeof constraint.const === "string") {
+    return expected.includes(constraint.const);
+  }
+  return (
+    Array.isArray(constraint.enum) &&
+    constraint.enum.some(
+      (candidate) =>
+        typeof candidate === "string" && expected.includes(candidate),
+    )
+  );
+}
+
 function declaresVersion(entry: EmbeddedSchemaEntry): boolean {
   const propertyName =
     entry.family === "state" ? "stateContract" : "hostContract";
+  const familyVersions =
+    entry.family === "state"
+      ? manifest.stateContract.readable
+      : manifest.hostContract.accepted;
   const pending: unknown[] = [entry.schema];
   const seen = new WeakSet<object>();
-  let found = false;
+  let foundContractVersion = false;
 
   while (pending.length > 0) {
     const value = pending.pop();
@@ -597,29 +642,23 @@ function declaresVersion(entry: EmbeddedSchemaEntry): boolean {
 
     const properties = record(node.properties);
     if (properties !== undefined) {
-      const candidateProperty =
-        propertyName in properties
-          ? propertyName
-          : "contractVersion" in properties
-            ? "contractVersion"
-            : undefined;
-      if (candidateProperty !== undefined) {
-        found = true;
-        const constraint = record(properties[candidateProperty]);
-        if (
-          constraint === undefined ||
-          (constraint.const !== entry.version &&
-            (!Array.isArray(constraint.enum) ||
-              !constraint.enum.includes(entry.version)))
-        ) {
+      if ("contractVersion" in properties) {
+        foundContractVersion = true;
+        if (!declaresOneOf(properties.contractVersion, [entry.version])) {
           return false;
         }
+      }
+      if (
+        propertyName in properties &&
+        !declaresOneOf(properties[propertyName], familyVersions)
+      ) {
+        return false;
       }
     }
     pending.push(...Object.values(node));
   }
 
-  return found;
+  return foundContractVersion;
 }
 
 export function assertSchemaCatalog(

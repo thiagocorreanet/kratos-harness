@@ -169,8 +169,8 @@ describe("the canonical phase-agent prompts", () => {
   it("renders every Codex definition from the canonical body", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.3.0",
-        hostContract: "1.3.0",
+        contractVersion: "1.5.0",
+        hostContract: "1.4.0",
         hosts: ["codex"],
         language: {
           conversation: "en",
@@ -182,6 +182,7 @@ describe("the canonical phase-agent prompts", () => {
           enforcement: "advisory",
         },
         policyMode: "standard",
+        gateModes: {},
         snapshots: true,
         modelRoles: {
           codex: {

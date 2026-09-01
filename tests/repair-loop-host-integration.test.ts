@@ -39,8 +39,8 @@ function acceptanceOutput(faults: readonly unknown[]) {
 
 function handoff(host: "claude" | "codex"): CurrentPhaseHandoff {
   return {
-    contractVersion: "1.3.0",
-    hostContract: "1.3.0",
+    contractVersion: "1.4.0",
+    hostContract: "1.4.0",
     feature: "repair-loop",
     runId: "run-01",
     revision: 7,
@@ -56,6 +56,7 @@ function handoff(host: "claude" | "codex"): CurrentPhaseHandoff {
     objectiveDigest: SHA_B,
     status: "active",
     gateOutcome: "pass",
+    gateFailures: [],
     blockers: [],
     openGaps: 0,
     nextAction: "Evaluate the current acceptance criteria.",
@@ -152,12 +153,12 @@ describe("repair-loop host contracts", () => {
     ).toBe("invalid");
   });
 
-  it("validates ordered attempt and fault context in phase-handoff 1.3", () => {
+  it("validates ordered attempt and fault context in phase-handoff 1.4", () => {
     const registry = createSchemaRegistry();
     expect(
       registry.validate({
         id: "host.phase-handoff",
-        version: "1.3.0",
+        version: "1.4.0",
         value: handoff("codex"),
         structuralReasonCode: "trail.output_invalido",
       }).kind,

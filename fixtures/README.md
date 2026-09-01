@@ -40,6 +40,7 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `operation-cancellation.json`;
 - `operation-error.json`;
 - `agent-output.json`;
+- `doctor-report.json`;
 - `repair-loop-stop.json`;
 - `repair-resolution.json`;
 - `repair-restart.json`.
@@ -55,6 +56,14 @@ restart. [`contracts/v1.4`](contracts/v1.4) adds the explicit policy-upgrade
 event fixture plus project configuration and initialization-answer fixtures for
 the optional acceptance attempt ceiling. Published predecessor fixtures remain
 unchanged.
+
+[`contracts/v1.5`](contracts/v1.5) adds the initialization-answer fixture that
+selects `gateModes: { "gaps-closed": "shadow" }`. The current
+[`contracts/v1.4/project-config.json`](contracts/v1.4/project-config.json)
+fixture carries the matching persisted selection, and the
+[`contracts/v1/doctor-report.json`](contracts/v1/doctor-report.json) fixture
+records the effective shadow finding. These additions leave predecessor fixture
+bytes unchanged.
 
 The [`contracts/v1.2`](contracts/v1.2) directory adds the explicit current
 agent-output and phase-handoff curated-memory observations, plus the memory

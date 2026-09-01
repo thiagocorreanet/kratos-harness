@@ -208,7 +208,7 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
-Current `host.init-answers@1.4.0` accepts `modelRoles`, keyed by enabled
+Current `host.init-answers@1.5.0` accepts `modelRoles`, keyed by enabled
 configuration host. Every supplied host map is closed to `planner`,
 `implementer`, and `judge`. Each assignment is either a bare model name or
 `{ "model": NAME, "effort": EFFORT }`; a bare name normalizes exactly to the
@@ -225,6 +225,24 @@ clears an existing override with `null`, or preserves the current value when
 omitted during reinitialization. The corresponding project configuration stays
 optional when no override is supplied; a new run resolves the documented
 default of `3` and freezes it in the run event.
+
+The same input may include the optional closed `gateModes` map. It selects an
+effective mode for only the named gates, and an omitted map preserves the
+current project's selections during reinitialization. For example:
+
+```json
+{
+  "contractVersion": "1.5.0",
+  "hostContract": "1.4.0",
+  "hosts": ["codex"],
+  "gateModes": { "gaps-closed": "shadow" }
+}
+```
+
+The initializer persists the selected partial map in
+`state.project-config@1.4.0`; it does not evaluate or decide a gate. Host
+input cannot select a result, and every later report derives the effective mode
+from persisted state.
 
 ```json
 {

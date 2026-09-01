@@ -32,6 +32,12 @@ Unknown gate IDs or modes fail schema validation. Missing, unreadable, or
 invalid current policy fails closed in composition with unreadable context and
 an all-`enforce` resolved table.
 
+The supported rollout sequence is `shadow -> measure -> warn -> enforce`.
+Shadow keeps a mode-tagged failure for measurement while its aggregate outcome
+is pass; warn retains the finding and reports a warn outcome; enforce blocks.
+`kratos handoff` and `kratos doctor` report the resolved effective mode, rather
+than allowing a host or report to choose it.
+
 Each failure carries the effective mode of its own gate. Aggregation first
 orders by outcome severity (`block` before `warn` before `pass`), then by the
 existing numeric gate priority, then by gate ID. The first ordered failure is

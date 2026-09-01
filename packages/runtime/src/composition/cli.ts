@@ -1,4 +1,4 @@
-import { CONTRACT_VERSIONS } from "@kratos/contracts";
+import { CONTRACT_VERSIONS, type DoctorReportV1 } from "@kratos/contracts";
 
 import {
   DEFAULT_REGISTRY,
@@ -89,6 +89,20 @@ function prepareAdapterPayload(
   return `${prepared.canonical}\n`;
 }
 
+function validatePublicPayload(value: unknown): void {
+  if (typeof value === "string") {
+    validatePublicText(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) validatePublicPayload(item);
+    return;
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const item of Object.values(value)) validatePublicPayload(item);
+  }
+}
+
 function preparePhaseHandoffPayload(
   payload: unknown,
   registry: SchemaRegistry,
@@ -96,13 +110,31 @@ function preparePhaseHandoffPayload(
   readonly canonical: string;
   readonly value: Parameters<typeof renderPhaseHandoffHuman>[0];
 } {
-  const version = declaredContractVersion(
-    payload,
-    "hostContract",
-    CONTRACT_VERSIONS["host.phase-handoff"],
-  );
   const prepared = prepareContract(registry, {
     id: "host.phase-handoff",
+    version: CONTRACT_VERSIONS["host.phase-handoff"],
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicPayload(prepared.value);
+  if (
+    prepared.value.contractVersion !== CONTRACT_VERSIONS["host.phase-handoff"]
+  ) {
+    throw new Error("Command payload did not resolve to the current contract");
+  }
+  return { canonical: prepared.canonical, value: prepared.value };
+}
+
+function prepareDoctorReportPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): { readonly canonical: string; readonly value: DoctorReportV1 } {
+  const version = declaredContractVersion(payload, "contractVersion", "1.0.0");
+  const prepared = prepareContract(registry, {
+    id: "host.doctor-report",
     version,
     value: payload,
     structuralReasonCode: "trail.output_invalido",
@@ -110,7 +142,7 @@ function preparePhaseHandoffPayload(
   if (prepared.kind === "invalid") {
     throw new Error("Command payload does not satisfy its declared contract");
   }
-  validatePublicText(prepared.canonical);
+  validatePublicPayload(prepared.value);
   return { canonical: prepared.canonical, value: prepared.value };
 }
 
@@ -193,7 +225,7 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (invocation.command.jsonContract === "phase-handoff@1.3.0") {
+    } else if (invocation.command.jsonContract === "phase-handoff@1.4.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
@@ -204,6 +236,18 @@ export async function runCommandLine(
       preparedOutput = json
         ? `${handoff.canonical}\n`
         : renderPhaseHandoffHuman(handoff.value);
+    } else if (invocation.command.jsonContract === "doctor-report@1.0.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const doctor = prepareDoctorReportPayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${doctor.canonical}\n`
+        : (decision.humanStdout ?? `${decision.result.summary}\n`);
+      if (!json) validatePublicText(preparedOutput);
     } else if (!json) {
       preparedOutput = decision.humanStdout ?? `${decision.result.summary}\n`;
       validatePublicText(preparedOutput);
