@@ -56,7 +56,7 @@ export function roleConfig(
   return {
     contractVersion: "1.4.0",
     stateContract: "1.4.0",
-    pluginVersion: "0.0.0-development",
+    pluginVersion: "0.2.0",
     hostContract: "1.4.0",
     language: {
       conversation: "en",

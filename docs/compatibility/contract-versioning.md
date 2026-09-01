@@ -27,7 +27,7 @@ the metadata-only Go v3 migration profiles.
 | Identity | Current | Owner |
 | --- | --- | --- |
 | Contract-manifest schema | `v1.9` | Contract-family manifest format |
-| `pluginVersion` | `0.0.0-development` | One coherent installed plugin bundle |
+| `pluginVersion` | `0.2.0` | One coherent installed plugin bundle |
 | `stateContract` | `1.4.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.4.0` | Cross-process adapter request and response messages |
 

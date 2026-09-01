@@ -224,23 +224,35 @@ async function verifyArtifact(root, host) {
     fail(`${host} host assets digest is wrong`);
   }
 
+  // Every host requires its own manifest at the location its documentation
+  // names: `.codex-plugin/plugin.json` for Codex, `.claude-plugin/plugin.json`
+  // for Claude Code, and `plugin.json` at the plugin root for Antigravity.
+  // Without it the host does not recognize the directory as a plugin at all.
   const hostManifestPath =
     host === "codex"
       ? join(root, ".codex-plugin/plugin.json")
       : host === "claude-code"
         ? join(root, ".claude-plugin/plugin.json")
-        : null;
-  if (hostManifestPath !== null) {
-    const hostManifest = JSON.parse(await readFile(hostManifestPath, "utf8"));
-    if (
-      hostManifest.name !== "kratos" ||
-      hostManifest.version !== manifest.pluginVersion
-    ) {
-      fail(`${host} host manifest is not version coherent`);
-    }
-    if (host === "codex" && hostManifest.skills !== "./skills/") {
-      fail("Codex manifest does not expose the Kratos skill");
-    }
+        : join(root, "plugin.json");
+  const hostManifest = JSON.parse(await readFile(hostManifestPath, "utf8"));
+  if (hostManifest.name !== "kratos") {
+    fail(`${host} host manifest does not identify the Kratos plugin`);
+  }
+  // Antigravity's documented manifest carries `name`, `description`, and
+  // `$schema` and no version field, so the installed version is read from
+  // `runtime/manifest.json` there. Inventing a field the host does not
+  // document would be a manifest this project made up.
+  if (
+    host !== "antigravity" &&
+    hostManifest.version !== manifest.pluginVersion
+  ) {
+    fail(`${host} host manifest is not version coherent`);
+  }
+  if (host === "antigravity" && hostManifest.version !== undefined) {
+    fail("Antigravity manifest declares an undocumented version field");
+  }
+  if (host === "codex" && hostManifest.skills !== "./skills/") {
+    fail("Codex manifest does not expose the Kratos skill");
   }
   const skillBridge = join(root, "skills/kratos/scripts/kratos.mjs");
   const bridge = await readFile(skillBridge, "utf8");

@@ -1,6 +1,6 @@
 {
   "name": "kratos",
-  "version": "0.0.0-development",
+  "version": "0.2.0",
   "description": "Run a deterministic SDD workflow backed by the embedded Kratos runtime.",
   "license": "MIT",
   "keywords": ["sdd", "workflow", "evidence", "development"],

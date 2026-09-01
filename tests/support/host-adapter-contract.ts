@@ -45,7 +45,7 @@ export function conformanceResponse(
     operation: "handshake",
     capabilities: [],
     observedIdentity: {
-      adapterVersion: "0.0.0-development",
+      adapterVersion: "0.2.0",
       model: null,
       effort: null,
     },

@@ -29,6 +29,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      # `actions/setup-node` installs whatever npm the chosen Node.js
+      # distribution bundles, and that pairing drifts as the runner image is
+      # rebuilt. The lockfile is resolved by the npm `package.json` pins, not
+      # by whichever one the image shipped with.
+      - name: Pin the exact npm release
+        shell: bash
+        run: |
+          set -euo pipefail
+          pinned="$(node -p 'require("./package.json").packageManager.split("@")[1]')"
+          npm install --global --no-audit --no-fund "npm@$pinned"
+          test "$(npm --version)" = "$pinned"
       - run: npm ci
       - name: Audit production dependency resolution
         run: npm audit --omit=dev --audit-level=high

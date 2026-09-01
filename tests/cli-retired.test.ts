@@ -62,8 +62,8 @@ describe("retired phase commands", () => {
     for (const argv of [
       ["--json", name],
       [name, "--json"],
-      ["--expect", "0.0.0-development", name],
-      [name, "--expect", "0.0.0-development"],
+      ["--expect", "0.2.0", name],
+      [name, "--expect", "0.2.0"],
     ]) {
       const { decision, failure } = invoke(argv);
       expect(failure, argv.join(" ")).toBeNull();

@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "0.0.0-development",
+  "pluginVersion": "0.2.0",
   "stateContract": {
     "readable": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],
     "migrationOnly": ["0.9.0", "go-v3@0.6.5"]
