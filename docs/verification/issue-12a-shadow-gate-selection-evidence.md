@@ -49,12 +49,23 @@ tests. `npm run contracts:check` exited 0 and reported 68 schemas, 14 legacy
 profiles, and current generated types. `npm run format:check` exited 0.
 `npm run spellcheck` exited 0 after checking 244 files with zero issues.
 
-`npm run english:check` and `npm run verify` exited 1 before lint or test
-execution. Both stopped at the ignored, untracked
-`.superpowers/sdd/2026-09-01-shadow-gate-selection/task-1-report.md`, whose
-Portuguese words violate the repository English-only check. The checked-out
-verification reference was `ea4c53d2b4a53c85404dbed1b9f04404f3b44247`; no
-documentation commit was verified because of that external worktree blocker.
+After translating the scratch Task 1 report, `npm run english:check` exited 0.
+The final `npm run verify` exited 0 at
+`2e1d29f docs: explain shadow gate rollout`. It passed formatting, spellcheck,
+English, lint, and typecheck; the complete suite passed 233 files and 5,535
+tests in 433.06 seconds. The coverage suite also passed 233 files and 5,535
+tests in 731.07 seconds, with 91.96% statements, 87.15% branches, 95.95%
+functions, and 93.10% lines.
+
+The remaining final gates passed with these reported values: mutation 4/4
+(100.00%); gap calibration found all 10 planted gaps with no false gaps;
+performance reported 1,544,487 / 1,600,000 runtime source bytes and 329,148 /
+330,000 contract-schema bytes; the public oracle verified 12 surfaces, four PRD
+anchors, and three binaries; contract checking verified 68 schemas and 14
+legacy profiles; package verification passed for Codex, Claude Code, and
+Antigravity. The benchmark reported seven samples, help P95 257.796662 ms,
+version P95 163.623569 ms, handshake P95 147.302928 ms, and 2,071,950 bundle
+bytes.
 
 ## Contract, state, security, and host-parity impact
 
