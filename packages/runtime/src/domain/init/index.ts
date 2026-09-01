@@ -26,6 +26,7 @@ export type {
 export {
   MANAGED_SECTION_BEGIN,
   MANAGED_SECTION_END,
+  extractManagedSection,
   planManagedFile,
 } from "./managed-section.js";
 export type {

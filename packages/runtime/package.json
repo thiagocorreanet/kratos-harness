@@ -44,6 +44,7 @@
     "./domain/paths": "./src/domain/paths/index.ts",
     "./domain/project": "./src/domain/project/index.ts",
     "./domain/phase-agents": "./src/domain/phase-agents/index.ts",
+    "./domain/prompt-ceilings": "./src/domain/prompt-ceilings/index.ts",
     "./domain/prompt-eval": "./src/domain/prompt-eval/index.ts",
     "./domain/requirement-discovery": "./src/domain/requirement-discovery/index.ts",
     "./domain/repair-loop": "./src/domain/repair-loop/index.ts",

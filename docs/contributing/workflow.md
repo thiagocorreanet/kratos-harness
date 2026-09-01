@@ -173,3 +173,23 @@ impact, and normative-English confirmation.
 Probabilistic model evaluation is supplementary and is never accepted as a
 substitute for deterministic runtime, state, compatibility, migration, package,
 or security tests. All available required checks must pass before merge.
+
+### Prompt size ceiling reviews
+
+Changes affecting host skills, phase agent prompts, managed instruction blocks,
+or document templates are subject to deterministic prompt size ceiling enforcement
+(see [prompt size ceilings architecture](../architecture/prompt-size-ceilings.md)):
+
+- **Zero uncategorized prompts:** Every shipped or generated prompt surface must
+  be declared under an approved category in `@kratos/runtime/domain/prompt-ceilings`.
+  New prompt files cannot pass CI unchecked.
+- **Strict category ceilings:** Prompts must remain within their category limit in
+  their final rendered form. Category ceilings are hard attention-budget boundaries
+  and are never increased to accommodate prompt expansion.
+- **Externalize details on breach:** If a prompt approaches or breaches its limit,
+  detailed guidance or examples must be factored into external documentation files
+  (e.g., in `docs/` or separate markdown files) and linked from the prompt.
+- **Host parity:** Prompt changes must maintain identical constraints and limits
+  across all supported host distributions (Claude Code, Codex, Antigravity).
+- **Verification:** Run `npm run prompts:ceilings:check` (or `npm run verify`) to
+  confirm zero ceiling breaches before submitting a pull request.

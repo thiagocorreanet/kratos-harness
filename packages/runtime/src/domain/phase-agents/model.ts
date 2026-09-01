@@ -1,5 +1,5 @@
 import type { Agent } from "../agent/index.js";
-import { FEATURE_DOCUMENTS } from "../feature-documents/index.js";
+import { FEATURE_DOCUMENTS } from "../feature-documents/model.ts";
 
 export const MAX_PHASE_AGENT_PROMPT_BYTES = 12 * 1024;
 
