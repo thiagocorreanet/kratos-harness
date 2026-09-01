@@ -9,9 +9,11 @@ import { hookCommand } from "./hook.js";
 import {
   memoryArchiveCommand,
   memoryCaptureCommand,
+  memoryCurateCommand,
   memoryListCommand,
   memoryMergeCommand,
   memoryPromoteCommand,
+  memoryReinforceCommand,
 } from "./memory.js";
 import { objectiveCommand } from "./objective.js";
 import { continueCommand, doneCommand, startCommand } from "./workflow.js";
@@ -141,8 +143,10 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   migrateRollbackCommand,
   metricsRefreshCommand,
   memoryCaptureCommand,
+  memoryCurateCommand,
   memoryListCommand,
   memoryPromoteCommand,
+  memoryReinforceCommand,
   memoryMergeCommand,
   memoryArchiveCommand,
   narrateCommand,

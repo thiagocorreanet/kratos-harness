@@ -19,7 +19,10 @@ import type {
   FailureCandidateV1,
   FailureCandidateV1_1,
   CuratedMemoryV1,
+  CuratedMemoryV1_1,
   MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4Contract,
   MemoryMigrationV1_2,
   GateFactsV1,
   MigrationV1,
@@ -181,6 +184,35 @@ export type CommandObservation =
       readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
       readonly proposal: MemoryChangeV1_2;
       readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "current-change";
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
+      readonly ledger: CuratedMemoryV1_1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projection: string;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
+      readonly proposal: MemoryChangeV1_4;
+      readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "curate";
+      readonly ledger: CuratedMemoryV1_1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly plan: import("../memory/index.js").MemoryCurationPlan;
+      readonly approval: MemoryCurationV1_4Contract.Approval | null;
+      readonly approvalDigest: string | null;
+      readonly approvalPath: string | null;
       readonly now: string;
       readonly digest: (value: string) => string;
     }
