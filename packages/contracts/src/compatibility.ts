@@ -75,6 +75,15 @@ export interface ContractClassification {
   readonly selectedVersion: string | null;
 }
 
+export interface CompatibilityWindow {
+  readonly pluginVersion: string;
+  readonly stateContract: {
+    readonly readable: readonly string[];
+    readonly migrationOnly: readonly string[];
+  };
+  readonly hostContract: { readonly accepted: readonly string[] };
+}
+
 export interface ContractFailureResult {
   readonly contractVersion: "1.0.0";
   readonly status: "failure" | "blocked";
@@ -116,22 +125,27 @@ function rejected(
   };
 }
 
-function isCurrent(family: ContractFamily, value: string): boolean {
-  if (family === "plugin") return value === contractManifest.pluginVersion;
+function isCurrent(
+  family: ContractFamily,
+  value: string,
+  window: CompatibilityWindow,
+): boolean {
+  if (family === "plugin") return value === window.pluginVersion;
   if (family === "state") {
-    return contractManifest.stateContract.readable.includes(value);
+    return window.stateContract.readable.includes(value);
   }
-  return contractManifest.hostContract.accepted.includes(value);
+  return window.hostContract.accepted.includes(value);
 }
 
-export function classifyContractVersion(
+export function classifyContractVersionAgainst(
   family: ContractFamily,
   value: unknown,
+  window: CompatibilityWindow,
 ): ContractClassification {
   if (
     family === "state" &&
     typeof value === "string" &&
-    contractManifest.stateContract.migrationOnly.includes(value)
+    window.stateContract.migrationOnly.includes(value)
   ) {
     return {
       family,
@@ -143,7 +157,7 @@ export function classifyContractVersion(
   if (typeof value !== "string" || !exactSemver.test(value)) {
     return rejected(family, "invalid");
   }
-  if (isCurrent(family, value)) {
+  if (isCurrent(family, value, window)) {
     return {
       family,
       classification: "current",
@@ -152,6 +166,13 @@ export function classifyContractVersion(
     };
   }
   return rejected(family, "unsupported");
+}
+
+export function classifyContractVersion(
+  family: ContractFamily,
+  value: unknown,
+): ContractClassification {
+  return classifyContractVersionAgainst(family, value, contractManifest);
 }
 
 export function contractFailureResult(

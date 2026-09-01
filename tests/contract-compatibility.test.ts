@@ -11,11 +11,14 @@ import {
   classifyContractVersion,
   contractFailureResult,
 } from "../packages/contracts/src/index.js";
+import { classifyContractVersionAgainst } from "../packages/contracts/src/compatibility.js";
 import type {
   CompatibilityClass,
   ContractClassification,
   ContractFamily,
 } from "../packages/contracts/src/index.js";
+import predecessorWindow from "../fixtures/contracts/v1.3/compatibility-window.json" with { type: "json" };
+import shadowConfig from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const resultLibraryUrl = pathToFileURL(
@@ -126,5 +129,27 @@ describe("contract compatibility classifier", () => {
     expect(() => contractFailureResult(forged)).toThrow(
       "Contract failure classification is inconsistent",
     );
+  });
+
+  it("lets a frozen predecessor refuse a shadow-enabled state without mutation", () => {
+    expect(shadowConfig.gateModes).toEqual({ "gaps-closed": "shadow" });
+
+    const classified = classifyContractVersionAgainst(
+      "state",
+      shadowConfig.stateContract,
+      predecessorWindow,
+    );
+
+    expect(classified).toEqual({
+      family: "state",
+      classification: "unsupported",
+      reasonCode: "contract.state_version_unsupported",
+      selectedVersion: null,
+    });
+    expect(contractFailureResult(classified)).toMatchObject({
+      status: "blocked",
+      exitCode: 4,
+      stateChanged: false,
+    });
   });
 });

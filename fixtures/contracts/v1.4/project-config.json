@@ -13,7 +13,7 @@
     "enforcement": "advisory"
   },
   "policyMode": "standard",
-  "gateModes": {},
+  "gateModes": { "gaps-closed": "shadow" },
   "managedState": {
     "directory": ".brain",
     "eventLog": "events.jsonl",
