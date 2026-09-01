@@ -287,7 +287,11 @@ function schemaForTypeGeneration(id, schema) {
   if (id === "host.agent-output") {
     return agentOutputTypeSchema(schema);
   }
-  if (id === "host.phase-handoff" && schema.$id.endsWith("/v1.2")) {
+  if (
+    id === "host.phase-handoff" &&
+    Array.isArray(schema.allOf) &&
+    schema.properties?.memory !== undefined
+  ) {
     return phaseHandoffTypeSchema(schema);
   }
   if (id === "state.transaction-manifest") {

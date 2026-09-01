@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/phase-handoff/v1.4",
+  "title": "Kratos phase handoff v1.4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "feature",
+    "runId",
+    "revision",
+    "phase",
+    "host",
+    "assignment",
+    "assignmentDigest",
+    "objectiveDigest",
+    "status",
+    "gateOutcome",
+    "gateFailures",
+    "blockers",
+    "openGaps",
+    "nextAction",
+    "acceptance",
+    "memory"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.4.0" },
+    "hostContract": { "const": "1.4.0" },
+    "feature": {
+      "$ref": "#/$defs/id"
+    },
+    "runId": {
+      "$ref": "#/$defs/id"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "phase": {
+      "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+    },
+    "host": { "enum": ["claude", "codex", "antigravity"] },
+    "assignment": {
+      "$ref": "#/$defs/assignment"
+    },
+    "assignmentDigest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "objectiveDigest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "status": { "enum": ["idle", "active", "blocked", "completed"] },
+    "gateOutcome": { "enum": ["pass", "warn", "block"] },
+    "gateFailures": {
+      "$ref": "https://kratos.dev/schemas/state/event/v1.3#/$defs/gateFailures"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "openGaps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nextAction": { "type": "string", "minLength": 1 },
+    "acceptance": { "$ref": "#/$defs/acceptanceContext" },
+    "memory": { "$ref": "#/$defs/memory" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "phase": { "enum": ["code", "review"] } },
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": { "memory": { "$ref": "#/$defs/memoryObservation" } }
+      },
+      "else": { "properties": { "memory": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "role", "model", "effort"],
+      "properties": {
+        "phase": {
+          "enum": ["prd", "spec", "plan", "code", "review", "acceptance"]
+        },
+        "role": {
+          "enum": ["planner", "implementer", "judge"]
+        },
+        "model": {
+          "$ref": "#/$defs/id"
+        },
+        "effort": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "memory": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/memoryObservation" }]
+    },
+    "memoryObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "lessonIds"],
+      "properties": {
+        "ref": { "const": ".brain/03-memory/gotchas.md" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "lessonIds": {
+          "type": "array",
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "criterionId": {
+      "$ref": "https://kratos.dev/schemas/contracts/acceptance-criterion-id/v1"
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterionId", "attempt"],
+      "properties": {
+        "criterionId": {
+          "$ref": "#/$defs/criterionId"
+        },
+        "attempt": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "acceptanceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attemptCeiling", "attempts", "faultsRequiredFor", "faults"],
+      "properties": {
+        "attemptCeiling": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            { "type": "null" }
+          ]
+        },
+        "attempts": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/attempt"
+          }
+        },
+        "faultsRequiredFor": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/criterionId"
+          }
+        },
+        "faults": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/fault" }
+        }
+      }
+    },
+    "fault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterionId",
+        "attempt",
+        "classification",
+        "diagnosis",
+        "artifactRef",
+        "artifactDigest"
+      ],
+      "properties": {
+        "criterionId": {
+          "$ref": "#/$defs/criterionId"
+        },
+        "attempt": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "classification": { "enum": ["code", "specification"] },
+        "diagnosis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "artifactRef": {
+          "$ref": "#/$defs/reference"
+        },
+        "artifactDigest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

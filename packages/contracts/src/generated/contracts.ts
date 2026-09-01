@@ -7,6 +7,7 @@
 // source: https://kratos.dev/schemas/host/agent-output/v1.1 sha256:088f8496631fb80570f3a863bc71753ef37deab1dbe6d03ad5b2b6e571f26c63
 // source: https://kratos.dev/schemas/host/agent-output/v1.2 sha256:123a1558f3efbe360facffc331e2fd795fc7ec931aca492c6bada9812b802192
 // source: https://kratos.dev/schemas/host/agent-output/v1.3 sha256:872af92d3fe24771807ea566f41e6654f98e3ed5eedff012235c513690b5c484
+// source: https://kratos.dev/schemas/host/doctor-report/v1 sha256:820db9a95211496f797955534429721f4d13d5586d69443c61cdfc132541628f
 // source: https://kratos.dev/schemas/host/gap-proposal/v1 sha256:d84197ce78d147136c8ad92396bed4c75130cce6c1736a8213ed30d1cd7d5b6c
 // source: https://kratos.dev/schemas/host/hook-observation/v1 sha256:661124b0926b7bd1e40ca0a59aa2655db993de0ffb8e62387465e76830f79a02
 // source: https://kratos.dev/schemas/host/init-answers/v1 sha256:c816614cac9e6c5dd43f4f6f5bbab01dbcfb6e7bf58af4e30c6c311d57411806
@@ -14,6 +15,7 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1.2 sha256:81afcd81cd829a8c66c6e2d2cf704e76ed6a818ab873b5534f5265ad2c099112
 // source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7
 // source: https://kratos.dev/schemas/host/init-answers/v1.4 sha256:fa20c5b49969481e048244f96f3066d2138762578dd6427f0f524bfc82e931ee
+// source: https://kratos.dev/schemas/host/init-answers/v1.5 sha256:a6689fbe696f106ec73fa14cead9bc2434c3be066a974269b8495f2df6a7bcf0
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-change/v1.4 sha256:e85e1c71e1590a5abfd61839e155feb764524dc24fbbaa74a84d8940ca43b5d5
@@ -24,6 +26,7 @@
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.3 sha256:3b897513b55c5ad29bd8e6bb137cf5a16ecf3f6e01f71c5fce4d421f0cdba100
+// source: https://kratos.dev/schemas/host/phase-handoff/v1.4 sha256:e7675232ef55334dd58dc127e7dce88f9f95d2bb39e655178ab6d28ce01c718c
 // source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
@@ -1099,6 +1102,212 @@ export namespace AgentOutputV1_3Contract {
   }
 }
 export type AgentOutputV1_3 = AgentOutputV1_3Contract.AgentOutputV1_3;
+export namespace DoctorReportV1Contract {
+  /**
+   * @maxItems 8
+   */
+  export type GateFailures =
+    | []
+    | [GateFailure]
+    | [GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ];
+
+  export interface DoctorReportV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.4.0";
+    health: "healthy" | "degraded" | "blocked" | "corrupt";
+    /**
+     * @maxItems 64
+     */
+    checks: Check[];
+    gateFailures: GateFailures;
+  }
+  export interface Check {
+    name: string;
+    status: "pass" | "warn" | "block" | "fail";
+    evidenceRef: string | null;
+    /**
+     * @maxItems 64
+     */
+    details?: string[];
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "blocked.stop_loss_rejections"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: number;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [string]
+      | [string, string]
+      | [string, string, string]
+      | [string, string, string, string]
+      | [string, string, string, string, string]
+      | [string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string, string]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+    detail: string | null;
+  }
+}
+export type DoctorReportV1 = DoctorReportV1Contract.DoctorReportV1;
 export namespace GapProposalV1Contract {
   export type Id = string;
   export type Text = string;
@@ -1497,6 +1706,126 @@ export namespace InitAnswersV1_4Contract {
   }
 }
 export type InitAnswersV1_4 = InitAnswersV1_4Contract.InitAnswersV1_4;
+export namespace InitAnswersV1_5Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type GateMode = "shadow" | "warn" | "enforce";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf = ResolvedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Reason = string;
+  export type PathsLeaf = ResolvedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = ResolvedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    ResolvedImplementationLanguages | NotApplicable | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface InitAnswersV1_5 {
+    contractVersion: "1.5.0";
+    hostContract: "1.4.0";
+    /**
+     * @minItems 1
+     */
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
+    language?: LanguagePolicy;
+    policyMode?: "standard" | "strict";
+    gateModes?: GateModes;
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+    projectProfile?: PartialProjectProfile;
+    acceptanceAttemptCeiling?: number | null;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface GateModes {
+    "context-readable"?: GateMode;
+    "stop-loss"?: GateMode;
+    "prd-present"?: GateMode;
+    "spec-approved"?: GateMode;
+    "gaps-closed"?: GateMode;
+    "partition-approved"?: GateMode;
+    "acceptance-criteria"?: GateMode;
+    "final-acceptance"?: GateMode;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+  export interface PartialProjectProfile {
+    commands?: PartialCommands;
+    paths?: PartialPaths;
+    conventions?: PartialConventions;
+  }
+  export interface PartialCommands {
+    test?: CommandLeaf;
+    lint?: CommandLeaf;
+    build?: CommandLeaf;
+    run?: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface PartialPaths {
+    source?: PathsLeaf;
+    tests?: PathsLeaf;
+    configuration?: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface PartialConventions {
+    directoryLayout?: ConventionLeaf;
+    naming?: ConventionLeaf;
+    implementationLanguages?: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+}
+export type InitAnswersV1_5 = InitAnswersV1_5Contract.InitAnswersV1_5;
 export namespace MemoryCaptureV1_2Contract {
   export interface MemoryCaptureV1_2 {
     contractVersion: "1.2.0";
@@ -1988,33 +2317,126 @@ export namespace PhaseHandoffV1_2Contract {
 }
 export type PhaseHandoffV1_2 = PhaseHandoffV1_2Contract.PhaseHandoffV1_2;
 export namespace PhaseHandoffV1_3Contract {
-  export type PhaseHandoffV1_3 = {
-    [k: string]: unknown | undefined;
-  } & {
-    contractVersion: "1.3.0";
-    hostContract: "1.3.0";
-    feature: Id;
-    runId: Id;
-    revision: number;
-    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
-    host: "claude" | "codex" | "antigravity";
-    assignment: Assignment;
-    assignmentDigest: Sha256;
-    objectiveDigest: Sha256;
-    status: "idle" | "active" | "blocked" | "completed";
-    gateOutcome: "pass" | "warn" | "block";
-    blockers: Id[];
-    openGaps: number;
-    nextAction: string;
-    acceptance: AcceptanceContext;
-    memory: Memory;
-  };
+  export type PhaseHandoffV1_3 =
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "prd";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "spec";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "plan";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "code";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "review";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.3.0";
+        hostContract: "1.3.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "acceptance";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      };
   export type Id = string;
   export type Sha256 = string;
   export type PositiveInteger = number;
   export type KratosAcceptanceCriterionIdentifierV1 = string;
   export type Reference = string;
-  export type Memory = null | MemoryObservation;
 
   export interface Assignment {
     phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
@@ -2059,6 +2481,360 @@ export namespace PhaseHandoffV1_3Contract {
   }
 }
 export type PhaseHandoffV1_3 = PhaseHandoffV1_3Contract.PhaseHandoffV1_3;
+export namespace PhaseHandoffV1_4Contract {
+  export type PhaseHandoffV1_4 =
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "prd";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "spec";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "plan";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      }
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "code";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "review";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: MemoryObservation;
+      }
+    | {
+        contractVersion: "1.4.0";
+        hostContract: "1.4.0";
+        feature: Id;
+        runId: Id;
+        revision: number;
+        phase: "acceptance";
+        host: "claude" | "codex" | "antigravity";
+        assignment: Assignment;
+        assignmentDigest: Sha256;
+        objectiveDigest: Sha256;
+        status: "idle" | "active" | "blocked" | "completed";
+        gateOutcome: "pass" | "warn" | "block";
+        gateFailures: GateFailures;
+        blockers: Id[];
+        openGaps: number;
+        nextAction: string;
+        acceptance: AcceptanceContext;
+        memory: null & (null | MemoryObservation);
+      };
+  export type Id = string;
+  export type Sha256 = string;
+  /**
+   * @maxItems 8
+   */
+  export type GateFailures =
+    | []
+    | [GateFailure]
+    | [GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure]
+    | [GateFailure, GateFailure, GateFailure, GateFailure, GateFailure]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ]
+    | [
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+        GateFailure,
+      ];
+  export type PositiveInteger = number;
+  export type KratosAcceptanceCriterionIdentifierV1 = string;
+  export type Reference = string;
+
+  export interface Assignment {
+    phase: "prd" | "spec" | "plan" | "code" | "review" | "acceptance";
+    role: "planner" | "implementer" | "judge";
+    model: Id;
+    effort: Id;
+  }
+  export interface GateFailure {
+    gateId:
+      | "context-readable"
+      | "stop-loss"
+      | "prd-present"
+      | "spec-approved"
+      | "gaps-closed"
+      | "partition-approved"
+      | "acceptance-criteria"
+      | "final-acceptance";
+    reasonCode:
+      | "blocked.context_unreadable"
+      | "blocked.stop_loss_budget"
+      | "blocked.stop_loss_flag"
+      | "blocked.stop_loss_rejections"
+      | "gate.aceitacao_final"
+      | "gate.ac_incomplete"
+      | "gate.aprovacao_spec"
+      | "gate.gaps_abertos"
+      | "gate.particionamento"
+      | "gate.prd_ausente"
+      | "gate.prd_section_missing"
+      | "gate.prd_untouched";
+    mode: "shadow" | "warn" | "enforce";
+    priority: number;
+    /**
+     * @maxItems 16
+     */
+    evidenceRefs:
+      | []
+      | [string]
+      | [string, string]
+      | [string, string, string]
+      | [string, string, string, string]
+      | [string, string, string, string, string]
+      | [string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string, string]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ]
+      | [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+    detail: string | null;
+  }
+  export interface AcceptanceContext {
+    attemptCeiling: PositiveInteger | null;
+    /**
+     * @maxItems 256
+     */
+    attempts: Attempt[];
+    /**
+     * @maxItems 256
+     */
+    faultsRequiredFor: KratosAcceptanceCriterionIdentifierV1[];
+    /**
+     * @maxItems 256
+     */
+    faults: Fault[];
+  }
+  export interface Attempt {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+  }
+  export interface Fault {
+    criterionId: KratosAcceptanceCriterionIdentifierV1;
+    attempt: PositiveInteger;
+    classification: "code" | "specification";
+    diagnosis: string;
+    artifactRef: Reference;
+    artifactDigest: Sha256;
+  }
+  export interface MemoryObservation {
+    ref: ".brain/03-memory/gotchas.md";
+    sha256: Sha256;
+    /**
+     * @maxItems 24
+     */
+    lessonIds: Sha256[];
+  }
+}
+export type PhaseHandoffV1_4 = PhaseHandoffV1_4Contract.PhaseHandoffV1_4;
 export namespace PhaseLifecycleV1Contract {
   export type Id = string;
   export type Timestamp = string;

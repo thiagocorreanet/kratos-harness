@@ -11,6 +11,7 @@ import type {
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
   PhaseHandoffV1_3,
+  PhaseHandoffV1_4,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
@@ -61,12 +62,14 @@ export type {
   AgentOutputV1_1,
   AgentOutputV1_2,
   AgentOutputV1_3,
+  DoctorReportV1,
   ApprovalV1,
   InitAnswersV1,
   InitAnswersV1_1,
   InitAnswersV1_2,
   InitAnswersV1_3,
   InitAnswersV1_4,
+  InitAnswersV1_5,
   HostOperationMessageV1,
   EventV1,
   EventV1_1,
@@ -89,6 +92,7 @@ export type {
   PhaseHandoffV1_1,
   PhaseHandoffV1_2,
   PhaseHandoffV1_3,
+  PhaseHandoffV1_4,
   ProjectConfigV1,
   ProjectConfigV1_1,
   ProjectConfigV1_2,
@@ -128,9 +132,9 @@ export type ReadableEvent =
 export type CurrentAgentOutput = AgentOutputV1_3;
 export type ReadableAgentOutput =
   AgentOutputV1 | AgentOutputV1_1 | AgentOutputV1_2 | AgentOutputV1_3;
-export type CurrentPhaseHandoff = PhaseHandoffV1_3;
+export type CurrentPhaseHandoff = PhaseHandoffV1_4;
 export type ReadablePhaseHandoff =
-  PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3;
+  PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3 | PhaseHandoffV1_4;
 export type CurrentRepairLoopStop = RepairLoopStopV1_1;
 export type ReadableRepairLoopStop = RepairLoopStopV1 | RepairLoopStopV1_1;
 export type CurrentRepairResolution = RepairResolutionV1_1;

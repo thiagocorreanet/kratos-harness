@@ -1,0 +1,6 @@
+{
+  "contractVersion": "1.5.0",
+  "hostContract": "1.4.0",
+  "hosts": ["codex"],
+  "gateModes": { "gaps-closed": "shadow" }
+}

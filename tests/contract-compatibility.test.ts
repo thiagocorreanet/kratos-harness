@@ -54,11 +54,13 @@ function renderResult(result: unknown) {
 }
 
 describe("contract compatibility classifier", () => {
-  it("recognizes stateContract 1.4.0 and hostContract 1.4.0 as current", () => {
+  it("recognizes current family identities and payload revisions", () => {
     expect(CONTRACT_IDENTITIES.state).toBe("1.4.0");
     expect(CONTRACT_IDENTITIES.host).toBe("1.4.0");
     expect(CONTRACT_VERSIONS["state.project-config"]).toBe("1.4.0");
-    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.4.0");
+    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.5.0");
+    expect(CONTRACT_VERSIONS["host.phase-handoff"]).toBe("1.4.0");
+    expect(CONTRACT_VERSIONS["host.doctor-report"]).toBe("1.0.0");
   });
 
   it("classifies every fixture exactly without mutating input", () => {

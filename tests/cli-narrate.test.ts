@@ -18,8 +18,8 @@ import {
 import type { WorkflowState } from "@kratos/runtime/domain/workflow";
 
 const sampleHandoff: CurrentPhaseHandoff = {
-  contractVersion: "1.3.0",
-  hostContract: "1.3.0",
+  contractVersion: "1.4.0",
+  hostContract: "1.4.0",
   feature: "narration-feature",
   runId: "run-sample",
   revision: 2,
@@ -35,6 +35,7 @@ const sampleHandoff: CurrentPhaseHandoff = {
   objectiveDigest: "0".repeat(64),
   status: "active",
   gateOutcome: "pass",
+  gateFailures: [],
   blockers: [],
   openGaps: 0,
   nextAction: "continue",

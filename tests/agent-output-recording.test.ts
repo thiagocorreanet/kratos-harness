@@ -378,7 +378,7 @@ describe("replies the runtime refuses to route on", () => {
 
     expect(await runCommandLine(["--json", "handoff"], active.ports)).toBe(0);
     expect(JSON.parse(active.output.structured_.join(""))).toMatchObject({
-      contractVersion: "1.3.0",
+      contractVersion: "1.4.0",
       phase: "prd",
     });
   });

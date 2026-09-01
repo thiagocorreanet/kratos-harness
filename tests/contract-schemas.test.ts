@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Ajv2020 } from "ajv/dist/2020.js";
+import { CONTRACT_VERSIONS } from "@kratos/contracts";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -45,6 +46,7 @@ const artifacts = [
   ],
   ["host/adapter-message.v1.schema.json", "adapter-message.json", "host"],
   ["host/agent-output.v1.schema.json", "agent-output.json", "host"],
+  ["host/doctor-report.v1.schema.json", "doctor-report.json", "host"],
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
   ["host/phase-lifecycle.v1.schema.json", "phase-lifecycle.json", "host"],
@@ -73,6 +75,7 @@ async function readJson(path: string): Promise<JsonObject> {
 
 let resultSchema: JsonObject;
 let acceptanceCriterionIdSchema: JsonObject;
+let eventV1_3Schema: JsonObject;
 let loaded: {
   readonly schema: JsonObject;
   readonly fixture: JsonObject;
@@ -81,12 +84,14 @@ let loaded: {
 }[];
 
 beforeAll(async () => {
-  [resultSchema, acceptanceCriterionIdSchema] = await Promise.all([
-    readJson(join(schemaRoot, "result.v1.schema.json")),
-    readJson(
-      join(schemaRoot, "contracts/acceptance-criterion-id.v1.schema.json"),
-    ),
-  ]);
+  [resultSchema, acceptanceCriterionIdSchema, eventV1_3Schema] =
+    await Promise.all([
+      readJson(join(schemaRoot, "result.v1.schema.json")),
+      readJson(
+        join(schemaRoot, "contracts/acceptance-criterion-id.v1.schema.json"),
+      ),
+      readJson(join(schemaRoot, "state/event.v1.3.schema.json")),
+    ]);
   loaded = await Promise.all(
     artifacts.map(async ([schemaName, fixtureName, family]) => ({
       schema: await readJson(join(schemaRoot, schemaName)),
@@ -101,10 +106,61 @@ function contractAjv(): Ajv2020 {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   ajv.addSchema(resultSchema);
   ajv.addSchema(acceptanceCriterionIdSchema);
+  ajv.addSchema(eventV1_3Schema);
   return ajv;
 }
 
 describe("versioned state and host schemas", () => {
+  it("publishes selectable gate modes and closed host diagnostics", async () => {
+    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.5.0");
+    expect(CONTRACT_VERSIONS["host.phase-handoff"]).toBe("1.4.0");
+    expect(CONTRACT_VERSIONS["host.doctor-report"]).toBe("1.0.0");
+
+    const [initSchema, handoffSchema, doctorSchema] = await Promise.all([
+      readJson(join(schemaRoot, "host/init-answers.v1.5.schema.json")),
+      readJson(join(schemaRoot, "host/phase-handoff.v1.4.schema.json")),
+      readJson(join(schemaRoot, "host/doctor-report.v1.schema.json")),
+    ]);
+    const ajv = contractAjv();
+    const validateInit = ajv.compile(initSchema);
+    const validateHandoff = ajv.compile(handoffSchema);
+    const validateDoctor = ajv.compile(doctorSchema);
+
+    const init = {
+      contractVersion: "1.5.0",
+      hostContract: "1.4.0",
+      hosts: ["codex"],
+      gateModes: { "gaps-closed": "shadow" },
+    };
+    expect(validateInit(init), JSON.stringify(validateInit.errors)).toBe(true);
+    expect(validateInit({ ...init, gateModes: { unknown: "shadow" } })).toBe(
+      false,
+    );
+    expect(
+      validateInit({ ...init, gateModes: { "gaps-closed": "silent" } }),
+    ).toBe(false);
+
+    const handoff = await readJson(
+      join(repositoryRoot, "fixtures/contracts/v1.4/phase-handoff.json"),
+    );
+    const handoffFailure = structuredClone(handoff);
+    const [failure] = handoffFailure.gateFailures as JsonObject[];
+    if (failure === undefined) throw new Error("handoff failure unavailable");
+    expect(Reflect.deleteProperty(failure, "mode")).toBe(true);
+    expect(validateHandoff(handoffFailure)).toBe(false);
+
+    const doctor = await readJson(
+      join(repositoryRoot, "fixtures/contracts/v1/doctor-report.json"),
+    );
+    const doctorFailure = structuredClone(doctor);
+    const [doctorGateFailure] = doctorFailure.gateFailures as JsonObject[];
+    if (doctorGateFailure === undefined) {
+      throw new Error("doctor gate failure unavailable");
+    }
+    doctorGateFailure.unexpected = true;
+    expect(validateDoctor(doctorFailure)).toBe(false);
+  });
+
   it("requires a closed partial gate-mode override map in project config v1.4", async () => {
     const schema = await readJson(
       join(schemaRoot, "state/project-config.v1.4.schema.json"),
@@ -566,6 +622,10 @@ describe("versioned state and host schemas", () => {
     [
       "contracts/contract-manifest.v1.2.schema.json",
       "cc681c74f36da960791a0e5a79d8f5eca96a246dc59da244fc91992620ec8f78",
+    ],
+    [
+      "contracts/contract-manifest.v1.8.schema.json",
+      "e4333d7f6d0a5378dd4fdb0d79f9b42c14c05a87f017bab451560c393560e7bd",
     ],
     [
       "host/adapter-message.v1.1.schema.json",

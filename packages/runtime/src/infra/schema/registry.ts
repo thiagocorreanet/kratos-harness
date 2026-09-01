@@ -147,7 +147,7 @@ export function compileSchemaRegistry(
       family,
       requestedContractVersion,
     );
-    if (classification.classification !== "current") {
+    if (classification.classification === "invalid") {
       try {
         return {
           kind: "invalid" as const,
@@ -159,11 +159,33 @@ export function compileSchemaRegistry(
         throw registryIntegrityError();
       }
     }
+    if (
+      classification.classification === "current" &&
+      classification.selectedVersion !== requestedContractVersion
+    ) {
+      throw registryIntegrityError();
+    }
 
-    const version = classification.selectedVersion;
-    if (version === null) throw registryIntegrityError();
+    // Invalid syntax returned above. Migration markers and valid semver
+    // revisions remain strings so exact registered payload lookup stays
+    // independent from the family compatibility window.
+    const version = requestedContractVersion as string;
     const validator = validators.get(registryKey(id, version));
-    if (validator === undefined) throw registryIntegrityError();
+    if (validator === undefined) {
+      if (classification.classification !== "current") {
+        try {
+          return {
+            kind: "invalid" as const,
+            diagnostics: [
+              versionDiagnostic(id, requestedContractVersion, classification),
+            ],
+          };
+        } catch {
+          throw registryIntegrityError();
+        }
+      }
+      throw registryIntegrityError();
+    }
     try {
       const structuralReasonCode = request.structuralReasonCode;
       const value = request.value;

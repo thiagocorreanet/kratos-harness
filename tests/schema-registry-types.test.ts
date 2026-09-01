@@ -7,6 +7,7 @@ import type {
   FeatureScopeV1,
   GuardrailsV1,
   AdapterMessageV1_1,
+  DoctorReportV1,
   EventV1_1,
   EventV1_2,
   EventV1_3,
@@ -17,6 +18,7 @@ import type {
   InitAnswersV1_2,
   InitAnswersV1_3,
   InitAnswersV1_4,
+  InitAnswersV1_5,
   MigrationV1,
   MigrationV1_1,
   MemoryCaptureV1_2,
@@ -25,6 +27,10 @@ import type {
   MemoryCurationV1_4,
   MemoryMigrationV1_2,
   MemoryMigrationV1_4,
+  PhaseHandoffV1_1,
+  PhaseHandoffV1_2,
+  PhaseHandoffV1_3,
+  PhaseHandoffV1_4,
   PreToolUseV1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -53,6 +59,7 @@ describe("schema registry vocabulary", () => {
     const ids = [
       "host.adapter-message",
       "host.agent-output",
+      "host.doctor-report",
       "host.gap-proposal",
       "host.init-answers",
       "host.memory-capture",
@@ -82,7 +89,10 @@ describe("schema registry vocabulary", () => {
       "state.transaction-manifest",
       "state.transaction-progress",
     ] as const satisfies readonly ContractId[];
-    expect(ids).toHaveLength(30);
+    expect(ids).toHaveLength(31);
+    expectTypeOf<
+      ContractValue<"host.doctor-report">
+    >().toEqualTypeOf<DoctorReportV1>();
     expectTypeOf<
       ContractValue<"state.acceptance-criteria-snapshot">
     >().toEqualTypeOf<AcceptanceCriteriaSnapshotV1>();
@@ -123,6 +133,10 @@ describe("schema registry vocabulary", () => {
       | InitAnswersV1_2
       | InitAnswersV1_3
       | InitAnswersV1_4
+      | InitAnswersV1_5
+    >();
+    expectTypeOf<ContractValue<"host.phase-handoff">>().toEqualTypeOf<
+      PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3 | PhaseHandoffV1_4
     >();
     expectTypeOf<ContractValue<"host.adapter-message">>().toEqualTypeOf<
       AdapterMessageV1 | AdapterMessageV1_1
