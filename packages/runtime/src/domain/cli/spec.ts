@@ -104,7 +104,7 @@ export interface FlagSpec {
 }
 
 export type JsonContractId =
-  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.3.0";
+  "result@1.0.0" | "adapter-message@1.0.0" | "phase-handoff@1.4.0";
 
 export interface Decision {
   readonly result: Result;

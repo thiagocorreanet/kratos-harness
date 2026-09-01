@@ -1,4 +1,4 @@
-import { KRATOS_VERSION } from "@kratos/contracts";
+import { KRATOS_VERSION, type CurrentPhaseHandoff } from "@kratos/contracts";
 import adapterMessage from "../fixtures/contracts/v1/adapter-message.json" with { type: "json" };
 import { describe, expect, it } from "vitest";
 
@@ -116,6 +116,73 @@ const transactionReasons = [
 ] as const;
 
 describe("composed command line", () => {
+  it("serializes a v1.4 phase handoff through the composed dispatcher", async () => {
+    const output = recordingOutput();
+    const handoff: CurrentPhaseHandoff = {
+      contractVersion: "1.4.0",
+      hostContract: "1.4.0",
+      feature: "feature-1",
+      runId: "run-1",
+      revision: 1,
+      phase: "code",
+      host: "claude",
+      assignment: {
+        phase: "code",
+        role: "implementer",
+        model: "claude-3-5-sonnet",
+        effort: "standard",
+      },
+      assignmentDigest: "0".repeat(64),
+      objectiveDigest: "0".repeat(64),
+      status: "active",
+      gateOutcome: "pass",
+      gateFailures: [],
+      blockers: [],
+      openGaps: 0,
+      nextAction: "continue",
+      acceptance: {
+        attemptCeiling: null,
+        attempts: [],
+        faultsRequiredFor: [],
+        faults: [],
+      },
+      memory: {
+        ref: ".brain/03-memory/gotchas.md",
+        sha256: "0".repeat(64),
+        lessonIds: [],
+      },
+    };
+    const registry = [
+      {
+        path: ["handoff-v1-4"],
+        summary: "Emit a current phase handoff.",
+        flags: [],
+        positionals: { min: 0, max: 0 },
+        jsonContract: "phase-handoff@1.4.0" as const,
+        prerequisite: "none" as const,
+        handler: () => ({
+          result: resultFor("runtime.orientation_ok"),
+          plan: planOf(),
+          humanStdout: null,
+          payload: handoff,
+        }),
+      },
+    ];
+
+    expect(
+      await runCommandLine(
+        ["--json", "handoff-v1-4"],
+        createRuntime({ output }),
+        registry,
+      ),
+    ).toBe(0);
+    expect(JSON.parse(output.structured_.join(""))).toMatchObject({
+      contractVersion: "1.4.0",
+      hostContract: "1.4.0",
+      gateFailures: [],
+    });
+  });
+
   it("delegates the process entry to the composed pipeline", async () => {
     const output = recordingOutput();
     const exitCode = await runCli(["version"], createRuntime({ output }));

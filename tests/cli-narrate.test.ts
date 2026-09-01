@@ -202,6 +202,17 @@ function createSampleObservation(
 }
 
 describe("kratos narrate command", () => {
+  it("declares the current phase handoff contract", () => {
+    const parsed = parseInvocation(["handoff"], DEFAULT_REGISTRY);
+
+    expect(parsed.kind).toBe("invocation");
+    if (parsed.kind === "invocation") {
+      expect(parsed.invocation.command.jsonContract).toBe(
+        "phase-handoff@1.4.0",
+      );
+    }
+  });
+
   it("parses kratos narrate with --root and --json flags", () => {
     const parsed = parseInvocation(
       ["narrate", "--root", ".", "--json"],

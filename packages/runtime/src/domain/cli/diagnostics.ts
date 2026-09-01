@@ -183,6 +183,11 @@ export function renderPhaseHandoffHuman(payload: {
   readonly status: string;
   readonly phase: string;
   readonly gateOutcome: string;
+  readonly gateFailures: readonly {
+    readonly gateId: string;
+    readonly mode: string;
+    readonly reasonCode: string;
+  }[];
   readonly blockers: readonly string[];
   readonly openGaps: number;
   readonly nextAction: string;
@@ -200,6 +205,10 @@ export function renderPhaseHandoffHuman(payload: {
     `Status: ${payload.status}`,
     `Phase: ${payload.phase}`,
     `Gate outcome: ${payload.gateOutcome}`,
+    ...payload.gateFailures.map(
+      ({ gateId, mode, reasonCode }) =>
+        `Gate finding: ${gateId} ${mode} ${reasonCode}`,
+    ),
     `Blockers: ${payload.blockers.length === 0 ? "none" : payload.blockers.join(", ")}`,
     `Open gaps: ${String(payload.openGaps)}`,
     `Next action: ${payload.nextAction}`,
@@ -359,7 +368,7 @@ function observed(
       summary: `${name === "doctor" ? "Diagnose" : "Report"} ${name === "doctor" ? "managed state integrity" : `the active run ${name}`} without mutation.`,
       flags: ROOT_FLAG,
       positionals: { min: 0, max: 0 },
-      jsonContract: name === "handoff" ? "phase-handoff@1.3.0" : "result@1.0.0",
+      jsonContract: name === "handoff" ? "phase-handoff@1.4.0" : "result@1.0.0",
     },
     (_invocation, observation) => handler(observation),
   );

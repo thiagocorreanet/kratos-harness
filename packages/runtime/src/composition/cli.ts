@@ -96,14 +96,9 @@ function preparePhaseHandoffPayload(
   readonly canonical: string;
   readonly value: Parameters<typeof renderPhaseHandoffHuman>[0];
 } {
-  const version = declaredContractVersion(
-    payload,
-    "hostContract",
-    CONTRACT_VERSIONS["host.phase-handoff"],
-  );
   const prepared = prepareContract(registry, {
     id: "host.phase-handoff",
-    version,
+    version: CONTRACT_VERSIONS["host.phase-handoff"],
     value: payload,
     structuralReasonCode: "trail.output_invalido",
   });
@@ -193,7 +188,7 @@ export async function runCommandLine(
         throw new Error("Command payload is absent");
       }
       preparedOutput = prepareAdapterPayload(decision.payload, schemaRegistry);
-    } else if (invocation.command.jsonContract === "phase-handoff@1.3.0") {
+    } else if (invocation.command.jsonContract === "phase-handoff@1.4.0") {
       if (decision.payload === undefined) {
         throw new Error("Command payload is absent");
       }
