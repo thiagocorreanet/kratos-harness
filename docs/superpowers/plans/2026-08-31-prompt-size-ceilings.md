@@ -24,13 +24,16 @@
 ### Task 1: Prompt Ceilings Domain Catalog and Pure Evaluator
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-ceilings/model.ts`
 - Create: `packages/runtime/src/domain/prompt-ceilings/index.ts`
 - Modify: `packages/runtime/src/index.ts`
 - Test: `tests/prompt-ceilings-domain.test.ts`
 
 **Interfaces:**
+
 - Produces:
+
   ```typescript
   export type PromptCategory =
     | "host-skill"
@@ -63,6 +66,7 @@
 - [ ] **Step 1: Write the failing unit tests for domain catalog and evaluator**
 
 Create `tests/prompt-ceilings-domain.test.ts`:
+
 ```typescript
 import { describe, expect, it } from "vitest";
 import {
@@ -115,6 +119,7 @@ Expected: FAIL with module `@kratos/runtime/domain/prompt-ceilings` not found.
 - [ ] **Step 3: Implement domain model and exports**
 
 Create `packages/runtime/src/domain/prompt-ceilings/model.ts`:
+
 ```typescript
 export type PromptCategory =
   | "host-skill"
@@ -213,6 +218,7 @@ export function evaluatePromptCeiling(
 ```
 
 Create `packages/runtime/src/domain/prompt-ceilings/index.ts`:
+
 ```typescript
 export {
   PROMPT_CATEGORIES,
@@ -225,6 +231,7 @@ export {
 ```
 
 Export in `packages/runtime/src/index.ts`:
+
 ```typescript
 export * as promptCeilings from "./domain/prompt-ceilings/index.js";
 ```
@@ -246,12 +253,15 @@ git commit -m "feat(runtime): introduce prompt ceilings domain catalog and evalu
 ### Task 2: Shipped Prompt Discovery and Rendered Surface Extraction
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/prompt-ceilings/discovery.ts`
 - Modify: `packages/runtime/src/domain/prompt-ceilings/index.ts`
 - Test: `tests/prompt-ceilings-discovery.test.ts`
 
 **Interfaces:**
+
 - Produces:
+
   ```typescript
   export interface ShippedPromptSurface {
     readonly id: string;
@@ -269,6 +279,7 @@ git commit -m "feat(runtime): introduce prompt ceilings domain catalog and evalu
 - [ ] **Step 1: Write the failing discovery tests**
 
 Create `tests/prompt-ceilings-discovery.test.ts`:
+
 ```typescript
 import { describe, expect, it } from "vitest";
 import { collectShippedPromptSurfaces } from "@kratos/runtime/domain/prompt-ceilings";
@@ -323,6 +334,7 @@ Expected: FAIL with `collectShippedPromptSurfaces` not defined.
 - [ ] **Step 3: Implement discovery and rendered surface extractors**
 
 Create `packages/runtime/src/domain/prompt-ceilings/discovery.ts`:
+
 ```typescript
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -479,6 +491,7 @@ export function collectShippedPromptSurfaces(options?: {
 ```
 
 Update `packages/runtime/src/domain/prompt-ceilings/index.ts`:
+
 ```typescript
 export {
   PROMPT_CATEGORIES,
@@ -512,14 +525,17 @@ git commit -m "feat(runtime): add prompt surface discovery and rendered extracti
 ### Task 3: Comprehensive Vitest Test Suite for Prompt Ceilings
 
 **Files:**
+
 - Create: `tests/prompt-ceilings.test.ts`
 
 **Interfaces:**
+
 - Consumes: `collectShippedPromptSurfaces`, `evaluatePromptCeiling`, `PROMPT_CATEGORIES` from `@kratos/runtime/domain/prompt-ceilings`.
 
 - [ ] **Step 1: Write the full test suite**
 
 Create `tests/prompt-ceilings.test.ts`:
+
 ```typescript
 import { readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -627,10 +643,12 @@ git commit -m "test: add prompt ceiling and inventory completeness test suite"
 ### Task 4: CI Verification Script and Verification Target Integration
 
 **Files:**
+
 - Create: `scripts/check-prompt-ceilings.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Produces: CLI script exiting with code 0 on passing ceilings or code 1 on breach / uncategorized prompt, printing formatted evaluation tables and failure diagnostics.
 - Adds script: `"prompts:ceilings:check": "node scripts/check-prompt-ceilings.mjs"`
 - Adds to `"verify"` in `package.json`.
@@ -638,6 +656,7 @@ git commit -m "test: add prompt ceiling and inventory completeness test suite"
 - [ ] **Step 1: Write `scripts/check-prompt-ceilings.mjs`**
 
 Create `scripts/check-prompt-ceilings.mjs`:
+
 ```javascript
 import { collectShippedPromptSurfaces, evaluatePromptCeiling } from "@kratos/runtime/domain/prompt-ceilings";
 
@@ -688,9 +707,11 @@ if (hasFailures) {
 
 Modify `package.json`:
 Add script:
+
 ```json
 "prompts:ceilings:check": "node scripts/check-prompt-ceilings.mjs",
 ```
+
 Update `"verify"` script to include `npm run prompts:ceilings:check`.
 
 - [ ] **Step 3: Run the check script and verify command**
@@ -710,17 +731,20 @@ git commit -m "feat(ci): add check-prompt-ceilings script to build verification"
 ### Task 5: Architecture Documentation, Policy and Baseline Evidence
 
 **Files:**
+
 - Create: `docs/architecture/prompt-size-ceilings.md`
 - Create: `docs/verification/qal-10-prompt-ceilings-evidence.md`
 - Modify: `docs/contributing/workflow.md`
 
 **Interfaces:**
+
 - Documents the categories, ceilings, rationales, measurement rules, and remediation policy.
 - Records exact baseline character measurements for every shipped prompt surface.
 
 - [ ] **Step 1: Create `docs/architecture/prompt-size-ceilings.md`**
 
 Create documentation outlining:
+
 - The problem of prompt bloat and instruction degradation.
 - Category definitions and limits.
 - Rendered form measurement policy.
@@ -729,6 +753,7 @@ Create documentation outlining:
 - [ ] **Step 2: Create `docs/verification/qal-10-prompt-ceilings-evidence.md`**
 
 Record current measurements for all prompts:
+
 - Claude Code skill (`distribution/claude-code/skills/kratos/SKILL.md`)
 - Codex skill (`distribution/codex/skills/kratos/SKILL.md`)
 - Antigravity skill (`distribution/antigravity/skills/kratos/SKILL.md`)

@@ -110,10 +110,13 @@ SUCCESS: All prompt size ceilings passed.
 ## 5. Negative and Boundary Failure Modes
 
 1. **Ceiling Breach Diagnostic**: When a prompt exceeds its ceiling limit, evaluation fails deterministically with an actionable error specifying the file path, measured character count, category limit, and category name:
+
    ```text
    Prompt size ceiling exceeded in fixtures/oversized-skill.md: measured 6001 chars, limit is 6000 chars (category: host-skill).
    ```
+
 2. **Uncategorized Prompt Detection**: When an unmapped prompt file is introduced into `distribution/` without a declared category, the discovery check fast-fails immediately:
+
    ```text
    Uncategorized prompt file detected: distribution/unknown/skills/foo/SKILL.md. All shipped prompts must be declared under a valid category.
    ```
