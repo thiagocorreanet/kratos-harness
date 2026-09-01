@@ -4,8 +4,11 @@
 
 | Criterion | Evidence test |
 | --- | --- |
-| The operator and registry guides publish the rollout, input, refusal, and diagnostic contract. | `tests/contract-documentation.test.ts` — `documents the selectable shadow rollout across operator and registry guides` |
-| Every committed contract fixture is validated against its exact registered revision. | `tests/schema-registry-fixtures.test.ts` — `accepts the committed $id fixture` |
+| Lifecycle: the guides publish `shadow -> measure -> warn -> enforce`. | `tests/contract-documentation.test.ts` — `documents the selectable shadow rollout across operator and registry guides`; `tests/gate-policy-modes.test.ts` — `aggregates %s and %s by the most severe outcome` |
+| Initialization and preservation: the selected partial map is persisted, omitted input preserves it, and `{}` clears it. | `tests/init-answers.test.ts` — `selects, clears, defaults, or preserves per-gate modes`; `tests/init-command.test.ts` — `preserves gate modes when a re-initialization omits them` |
+| Handoff and doctor publish effective findings without host policy authority. | `tests/host-adapter-contract.test.ts` — `relays the same mixed gate decision bytes through Claude Code and Codex`; `tests/doctor-command.test.ts` — `reports shadow gate findings in human and JSON doctor output` |
+| A predecessor or unsupported state is refused before schema validation or mutation. | `tests/project-configuration.test.ts` — `rejects %s before schema validation` |
+| Fixtures validate at their exact revisions while published predecessor schemas remain immutable. | `tests/schema-registry-fixtures.test.ts` — `accepts the committed $id fixture`; `tests/contract-schemas.test.ts` — `keeps the published %s schema byte-identical` |
 
 ## Three-mode lifecycle
 

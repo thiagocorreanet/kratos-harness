@@ -365,6 +365,7 @@ describe("contract versioning documentation", () => {
       "init-answers.v1.1.schema.json",
       "init-answers.v1.2.schema.json",
       "init-answers.v1.3.schema.json",
+      "init-answers.v1.4.schema.json",
       "phase-handoff.v1.1.schema.json",
       "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.3.schema.json",

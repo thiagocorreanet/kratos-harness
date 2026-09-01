@@ -101,10 +101,11 @@ current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.js
 [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
 [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
 [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json) with
-partial project-profile answers, plus current
-[`init-answers.v1.5.schema.json`](host/init-answers.v1.5.schema.json), which
-adds an optional closed per-gate `gateModes` map to the v1.4 positive-ceiling,
-clear-with-`null`, and omitted-value preservation behavior,
+partial project-profile answers, plus
+[`init-answers.v1.4.schema.json`](host/init-answers.v1.4.schema.json), which
+sets a positive ceiling, clears it with `null`, or preserves it when omitted,
+plus current [`init-answers.v1.5.schema.json`](host/init-answers.v1.5.schema.json),
+which adds the optional closed per-gate `gateModes` map,
 plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
