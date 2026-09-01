@@ -229,6 +229,13 @@ describe("contract versioning documentation", () => {
     }
   });
 
+  it("documents the selectable shadow rollout across operator and registry guides", () => {
+    expect(configuration).toContain("shadow -> measure -> warn -> enforce");
+    expect(projectInitialization).toContain('"gaps-closed": "shadow"');
+    expect(guide).toContain("contract.state_version_unsupported");
+    expect(schemaIndex).toContain("host.doctor-report@1.0.0");
+  });
+
   it("publishes current state and migration boundaries in every operator guide", () => {
     for (const phrase of [
       "| `state.event` | state | `1.4.0` | `EventV1_4` |",
@@ -253,7 +260,7 @@ describe("contract versioning documentation", () => {
     for (const phrase of [
       "pre-`1.4.0` configuration",
       "current `1.4.0` state",
-      "host.init-answers@1.3.0",
+      "host.init-answers@1.5.0",
     ]) {
       expect(commands).toContain(phrase);
     }
@@ -364,6 +371,7 @@ describe("contract versioning documentation", () => {
       "contract-manifest.v1.4.schema.json",
       "contract-manifest.v1.5.schema.json",
       "contract-manifest.v1.6.schema.json",
+      "contract-manifest.v1.9.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",

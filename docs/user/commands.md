@@ -47,12 +47,30 @@ Never automate by scraping human output; use `--json`.
 
 ## Model-role command behavior
 
-`kratos init` consumes `host.init-answers@1.3.0` from standard input or
+`kratos init` consumes `host.init-answers@1.5.0` from standard input or
 `--answers PATH`. Explicit host role maps override adapter defaults. Omitted
 maps are filled only from the corresponding enabled host catalog, and every
 default is disclosed and persisted after canonical resolution. Initialization
 fails before writing when roles are incomplete, unresolved, unsupported, or
 non-independent.
+
+Select a gate rollout in the same answers document:
+
+```json
+{
+  "contractVersion": "1.5.0",
+  "hostContract": "1.4.0",
+  "hosts": ["codex"],
+  "gateModes": { "gaps-closed": "shadow" }
+}
+```
+
+The optional closed `gateModes` map selects effective modes only for its named
+gates. When it is omitted on reinitialization, the current project's map is
+preserved; supplying it replaces that map. A new project persists current
+`state.project-config@1.4.0` state, and a runtime that does not support that
+persisted state refuses it before mutation with
+`contract.state_version_unsupported`.
 
 The same answers document may carry a partial typed `projectProfile` for the
 project's exact root commands; source, test, and configuration paths; directory
@@ -76,6 +94,11 @@ byte drift, and fails for invalid authoritative configuration or an unreadable
 or non-file destination. Not-applicable leaves count as complete. Recovery is
 to change typed initialization answers and rerun `kratos init`, not edit the
 generated Markdown.
+
+Doctor also reports every recorded gate finding with its effective mode in its
+human output and in `host.doctor-report@1.0.0` JSON. A shadow `gaps-closed`
+finding is therefore visible for measurement even though its gate outcome is
+pass.
 
 `kratos handoff [--json]` is read-only. It maps the current phase to the fixed
 runtime role, resolves the canonical model and effort, and returns both that

@@ -46,6 +46,14 @@ pass, then preserves the established priority and gate-ID ordering within an
 outcome. `primary` is the first ordered failure from the outcome that decided
 the result.
 
+Roll out one gate deliberately as `shadow -> measure -> warn -> enforce`.
+`shadow` keeps the failure, its reason, and its effective mode visible without
+changing the decision; measure those findings before moving to `warn`, then
+use `enforce` only when blocking is intended. Reinitialization preserves an
+omitted `gateModes` map from the current project configuration. Supplying a map
+replaces that partial map, including with `{}` when the inherited defaults
+should be restored.
+
 The runtime resolves the complete mode table before pure gate evaluation.
 Unreadable policy fails closed with an all-`enforce` table and unreadable
 context. Prompts, agent responses, command hosts, Claude Code, and Codex do not

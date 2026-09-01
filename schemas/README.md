@@ -47,7 +47,8 @@ The state family contains:
 - [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
   configuration with complete project-profile answers;
 - current [`project-config.v1.4.schema.json`](state/project-config.v1.4.schema.json),
-  which optionally carries the positive `acceptanceAttemptCeiling` override;
+  which requires the closed partial `gateModes` map and optionally carries the
+  positive `acceptanceAttemptCeiling` override;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
@@ -93,14 +94,17 @@ The state family contains:
 The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the
 current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.json),
+[`doctor-report.v1.schema.json`](host/doctor-report.v1.schema.json) for
+`host.doctor-report@1.0.0`, the read-only effective-mode diagnostic report,
 [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
 [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
 [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
 [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json) with
 partial project-profile answers, plus current
-[`init-answers.v1.4.schema.json`](host/init-answers.v1.4.schema.json), which
-sets a positive ceiling, clears it with `null`, or preserves it when omitted,
+[`init-answers.v1.5.schema.json`](host/init-answers.v1.5.schema.json), which
+adds an optional closed per-gate `gateModes` map to the v1.4 positive-ceiling,
+clear-with-`null`, and omitted-value preservation behavior,
 plus
 [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
 approval, hook, timeout, cancellation, and error delivery, and
@@ -112,30 +116,18 @@ machine block one phase agent appends to its reply, plus
 structured file mutations, and
 [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json),
 [`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json), and
-current [`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json)
+[`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json), plus
+current [`phase-handoff.v1.4.schema.json`](host/phase-handoff.v1.4.schema.json)
 for the digest-bound resolved assignment and acceptance attempt context. See the
 [agent output contract](../docs/architecture/agent-output-contract.md) for the
 delimiter, the envelope, and the extraction rules. The
 current registry format is
-[`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json).
+[`contract-manifest.v1.9.schema.json`](contracts/contract-manifest.v1.9.schema.json).
 The immutable predecessors remain
+[`contract-manifest.v1.8.schema.json`](contracts/contract-manifest.v1.8.schema.json),
 [`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json),
 [`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json),
 [`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
-[`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json) for the
-digest-bound resolved assignment, plus the explicit v1.2
-[`memory-capture.v1.2.schema.json`](host/memory-capture.v1.2.schema.json),
-[`memory-change.v1.2.schema.json`](host/memory-change.v1.2.schema.json),
-[`memory-migration.v1.2.schema.json`](host/memory-migration.v1.2.schema.json),
-[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), and
-[`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json)
-contracts. The last two bind the phase-constrained curated-memory observation.
-See the
-[agent output contract](../docs/architecture/agent-output-contract.md) for the
-delimiter, the envelope, and the extraction rules. The
-current registry format is
-[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json).
-The immutable predecessors remain
 [`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
 [`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
 [`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
