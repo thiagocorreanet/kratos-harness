@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.7.schema.json",
+        "schemas/contracts/contract-manifest.v1.8.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -126,7 +126,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(60);
+    expect(manifest.schemas).toHaveLength(65);
     const keys = manifest.schemas.map(({ id, version }) => `${id}@${version}`);
     const paths = manifest.schemas.map(({ path }) => path);
     expect(new Set(keys).size).toBe(keys.length);

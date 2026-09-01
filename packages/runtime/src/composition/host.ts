@@ -1,5 +1,6 @@
 import type {
   FailureCandidateV1,
+  FailureCandidateV1_1,
   GateFactsV1,
   HostOperationMessageV1,
   HookObservationV1,
@@ -182,6 +183,7 @@ export async function observeHostOperation(
     registry,
     measurements,
     candidates?.value ?? [],
+    candidates?.expected ?? new Map(),
   );
   if (context.kind === "failure") return context;
   return {
@@ -279,7 +281,8 @@ async function observeHookContext(
   ports: RuntimePorts,
   registry: SchemaRegistry,
   measurements: PhaseMeasurementLogObservation,
-  existingCandidates: readonly FailureCandidateV1[],
+  existingCandidates: readonly (FailureCandidateV1 | FailureCandidateV1_1)[],
+  candidateExpected: ReadonlyMap<string, WriteFilePrecondition>,
 ): Promise<
   | {
       readonly kind: "context";
@@ -428,6 +431,12 @@ async function observeHookContext(
           : emptyGates(runId, hook.occurredAt),
       gatesExpected: precondition(gatesEntry),
       capture,
+      captureExpected:
+        capture === null
+          ? null
+          : (candidateExpected.get(
+              `.brain/03-memory/candidates/${capture.candidate.candidateId}.json`,
+            ) ?? { kind: "missing" }),
       cache,
       telemetryExists:
         (await ports.durableFileSystem.inspect(telemetryPath)).kind === "file",

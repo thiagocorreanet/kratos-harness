@@ -86,6 +86,9 @@ The state family contains:
 - [`transaction-progress.v1.schema.json`](state/transaction-progress.v1.schema.json).
 - [`curated-memory.v1.schema.json`](state/curated-memory.v1.schema.json), the
   committed confirmed-lesson and archive-tombstone ledger.
+- [`curated-memory.v1.1.schema.json`](state/curated-memory.v1.1.schema.json),
+  which adds classification, dependency, observation counts, dates, and scored
+  archive evidence without changing predecessor bytes.
 
 The host family contains
 [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the

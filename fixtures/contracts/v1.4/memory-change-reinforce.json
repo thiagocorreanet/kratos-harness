@@ -1,0 +1,10 @@
+{
+  "contractVersion": "1.4.0",
+  "hostContract": "1.4.0",
+  "operation": "reinforce",
+  "reviewer": "reviewer",
+  "lessonId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "candidateIds": [
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ]
+}

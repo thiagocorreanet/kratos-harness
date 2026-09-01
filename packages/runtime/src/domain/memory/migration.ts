@@ -1,4 +1,9 @@
-import type { CuratedMemoryV1, MemoryMigrationV1_2 } from "@kratos/contracts";
+import type {
+  CuratedMemoryV1,
+  CuratedMemoryV1_1,
+  MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
+} from "@kratos/contracts";
 
 import { canonicalizeJson } from "../schema/index.js";
 
@@ -36,6 +41,60 @@ export function classifyLegacyMemory(input: {
 export type LegacyMemoryMigrationReduction =
   | { readonly kind: "ready"; readonly ledger: CuratedMemoryV1 }
   | { readonly kind: "invalid_mapping" };
+
+export type CuratedMemoryUpgradeReduction =
+  | { readonly kind: "ready"; readonly ledger: CuratedMemoryV1_1 }
+  | { readonly kind: "invalid_mapping" };
+
+/** Upgrade structured v1 memory without inventing historical observations. */
+export function upgradeCuratedMemoryV1(
+  sourceBytes: string,
+  source: CuratedMemoryV1,
+  proposal: MemoryMigrationV1_4,
+  now: string,
+  sha256: (value: string) => string,
+): CuratedMemoryUpgradeReduction {
+  if (proposal.sourceDigest !== sha256(sourceBytes))
+    return { kind: "invalid_mapping" };
+  const mappings = new Map(
+    proposal.lessons.map((lesson) => [lesson.lessonId, lesson] as const),
+  );
+  if (
+    mappings.size !== proposal.lessons.length ||
+    mappings.size !== source.confirmed.length ||
+    source.confirmed.some(({ lessonId }) => !mappings.has(lessonId))
+  )
+    return { kind: "invalid_mapping" };
+  const provisional: CuratedMemoryV1_1 = {
+    contractVersion: "1.1.0",
+    stateContract: "1.1.0",
+    revision: source.revision + 1,
+    projectionDigest: "",
+    updatedAt: now,
+    confirmed: source.confirmed.map((lesson) => {
+      const mapping = mappings.get(lesson.lessonId);
+      if (mapping === undefined) throw new Error("validated mapping absent");
+      return {
+        ...lesson,
+        technology: mapping.technology,
+        failureKind: mapping.failureKind,
+        dependency: mapping.dependency,
+        observationCount: lesson.candidateIds.length,
+        firstObservedAt: lesson.confirmedAt,
+        lastObservedAt: lesson.confirmedAt,
+      };
+    }),
+    archive: source.archive.map((tombstone) => ({ ...tombstone })),
+  };
+  const projection = projectCuratedMemory(
+    provisional as unknown as CuratedMemoryV1,
+    sha256,
+  );
+  return {
+    kind: "ready",
+    ledger: { ...provisional, projectionDigest: projection.projectionDigest },
+  };
+}
 
 /**
  * Build an empty-ledger replacement from a closed, line-addressed mapping.

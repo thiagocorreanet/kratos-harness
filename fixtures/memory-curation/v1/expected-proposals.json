@@ -1,0 +1,56 @@
+{
+  "asOf": "2026-09-01",
+  "dependencyPresence": {
+    "tsconfig.json": true,
+    "removed-generator.json": false
+  },
+  "proposals": [
+    {
+      "proposalId": "21b699ec41e4b36486f349f4a029335d238db43ed4c3587180007ef8117787f5",
+      "type": "delete",
+      "score": 10000,
+      "lessonIds": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "components": {
+        "age": 10000,
+        "rarity": 10000,
+        "dependencyAbsent": 10000
+      }
+    },
+    {
+      "proposalId": "37dc53e1c16f571f934466536e6bec46dc4a3c3646a7fbc95b0ecd0c0c2a7c4b",
+      "type": "merge",
+      "score": 8500,
+      "lessonIds": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "components": {
+        "text": 4000,
+        "fix": 10000,
+        "technology": 10000,
+        "failureKind": 10000
+      },
+      "textEvidence": {
+        "intersection": ["cache", "compiler", "paths", "stale"],
+        "union": [
+          "becomes",
+          "builds",
+          "cache",
+          "compiler",
+          "fails",
+          "paths",
+          "remain",
+          "retains",
+          "stale",
+          "state"
+        ]
+      },
+      "fixEvidence": {
+        "intersection": ["before", "cache", "compiler", "remove", "retry"],
+        "union": ["before", "cache", "compiler", "remove", "retry"]
+      }
+    }
+  ]
+}

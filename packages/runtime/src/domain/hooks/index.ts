@@ -1,4 +1,10 @@
-import type { FailureCandidateV1, RunUsageV1 } from "@kratos/contracts";
+import type {
+  FailureCandidateV1,
+  FailureCandidateV1_1,
+  RunUsageV1,
+} from "@kratos/contracts";
+
+export type FailureCandidate = FailureCandidateV1 | FailureCandidateV1_1;
 
 export interface UsageSample {
   readonly sessionId: string;
@@ -180,7 +186,7 @@ type CandidateIdentity = Pick<
 > & { readonly observedAt?: string };
 
 export interface CandidateCaptureDecision {
-  readonly candidate: FailureCandidateV1;
+  readonly candidate: FailureCandidateV1_1;
   readonly write: boolean;
 }
 
@@ -203,27 +209,53 @@ export function candidateNormalizationKey(
   );
 }
 
-/** Decide whether capture needs one new file from supplied, already-read v1 candidates. */
+/** Decide the current v1.1 candidate from supplied, already-read candidates. */
 export function captureCandidate(
   observation: FailureObservation,
-  existing: readonly FailureCandidateV1[],
+  existing: readonly FailureCandidate[],
   digest: (canonical: string) => string,
 ): CandidateCaptureDecision {
   const key = candidateNormalizationKey(observation, digest);
   const matched = [...existing]
     .sort((left, right) => left.candidateId.localeCompare(right.candidateId))
     .find((candidate) => candidateNormalizationKey(candidate, digest) === key);
-  if (matched !== undefined) return { candidate: matched, write: false };
+  if (matched !== undefined) {
+    const currentCount =
+      matched.contractVersion === "1.1.0" ? matched.observationCount : 1;
+    const currentLast =
+      matched.contractVersion === "1.1.0"
+        ? matched.lastObservedAt
+        : matched.firstObservedAt;
+    return {
+      candidate: {
+        ...matched,
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        observationCount: currentCount + 1,
+        firstObservedAt:
+          matched.firstObservedAt < observation.observedAt
+            ? matched.firstObservedAt
+            : observation.observedAt,
+        lastObservedAt:
+          currentLast > observation.observedAt
+            ? currentLast
+            : observation.observedAt,
+      },
+      write: true,
+    };
+  }
   return {
     candidate: {
-      contractVersion: "1.0.0",
-      stateContract: "1.0.0",
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
       candidateId: key,
       toolFamily: observation.toolFamily,
       failureClass: observation.failureClass,
       exitCode: observation.exitCode,
       diagnostic: observation.diagnostic,
+      observationCount: 1,
       firstObservedAt: observation.observedAt,
+      lastObservedAt: observation.observedAt,
     },
     write: true,
   };
@@ -260,6 +292,6 @@ function normalizeCandidateDiagnostic(value: string): string {
 export function failureCandidate(
   observation: FailureObservation,
   digest: (canonical: string) => string,
-): FailureCandidateV1 {
+): FailureCandidateV1_1 {
   return captureCandidate(observation, [], digest).candidate;
 }

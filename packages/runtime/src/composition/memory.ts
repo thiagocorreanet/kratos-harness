@@ -1,14 +1,19 @@
 import type {
   CuratedMemoryV1,
+  CuratedMemoryV1_1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4,
 } from "@kratos/contracts";
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { FailureObservation } from "../domain/hooks/index.js";
 import { captureCandidate, sanitizeDiagnostic } from "../domain/hooks/index.js";
 import {
   classifyLegacyMemory,
+  proposeMemoryCuration,
   STOCK_GOTCHAS_TEMPLATE,
   validateCuratedMemoryProjection,
   validatesCuratedMemorySemantics,
@@ -25,6 +30,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { createSchemaRegistry } from "./schema.js";
+import { declaredContractVersion } from "./contract-version.js";
 
 export type ObservedMemory =
   | { readonly kind: "failure"; readonly result: Result }
@@ -58,6 +64,10 @@ export async function observeMemory(
   const candidates = await readCandidates(anchored, registry);
   if (candidates.kind === "failure") return candidates;
 
+  if (invocation.command.path.join(" ") === "memory curate") {
+    return observeMemoryCuration(invocation, anchored, registry);
+  }
+
   if (invocation.command.path.join(" ") === "memory list") {
     return {
       kind: "observed",
@@ -71,14 +81,42 @@ export async function observeMemory(
   }
 
   if (invocation.command.path[1] !== "capture") {
-    const state = await readCuratedState(anchored, registry);
-    if (state.kind === "failure") return state;
     const proposal = await readChangeProposal(
       invocation.positionals[0] ?? "",
       anchored,
       registry,
     );
     if (proposal.kind === "failure") return proposal;
+    if (proposal.value.contractVersion === "1.4.0") {
+      const current = await readCuratedStateV1_1(anchored, registry);
+      if (current.kind === "failure") return current;
+      return {
+        kind: "observed",
+        observation: {
+          kind: "memory",
+          operation: "current-change",
+          candidates: candidates.value,
+          ledger: current.value.ledger,
+          ledgerExpected: current.value.ledgerExpected,
+          projection: current.value.projection,
+          projectionExpected: current.value.projectionExpected,
+          candidateExpected: candidates.expected,
+          proposal: proposal.value,
+          proposalDigest: anchored.digests.sha256(
+            canonicalizeJson(proposal.value),
+          ),
+          now:
+            invocation.flags.get("--yes") === true &&
+            typeof invocation.flags.get("--plan-time") === "string"
+              ? (invocation.flags.get("--plan-time") as string)
+              : anchored.clock.now().toISOString(),
+          digest: (value) => anchored.digests.sha256(value),
+        },
+        ports: anchored,
+      };
+    }
+    const state = await readCuratedState(anchored, registry);
+    if (state.kind === "failure") return state;
     return {
       kind: "observed",
       observation: {
@@ -127,8 +165,92 @@ export async function observeMemory(
       capture: captureCandidate(capture, candidates.value, (canonical) =>
         anchored.digests.sha256(canonical),
       ),
+      candidateExpected: candidates.expected,
     },
     ports: anchored,
+  };
+}
+
+async function observeMemoryCuration(
+  invocation: Invocation,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<ObservedMemory> {
+  const asOf = invocation.flags.get("--as-of");
+  if (typeof asOf !== "string") {
+    return {
+      kind: "failure",
+      result: usageFailure("Memory curation requires --as-of YYYY-MM-DD."),
+    };
+  }
+  const state = await readCuratedStateV1_1(ports, registry);
+  if (state.kind === "failure") return state;
+  const presence = new Map<string, boolean>();
+  for (const dependencyPath of [
+    ...new Set(
+      state.value.ledger.confirmed.flatMap(({ dependency }) =>
+        dependency.kind === "path" ? [dependency.path] : [],
+      ),
+    ),
+  ].sort()) {
+    const entry = await ports.fileSystem.stat(dependencyPath);
+    if (entry?.kind === "symlink") {
+      return {
+        kind: "failure",
+        result: resultFor("runtime.state_corrupt", {
+          why: ["A memory dependency path cannot be observed safely."],
+          evidence: [{ kind: "artifact", ref: dependencyPath }],
+        }),
+      };
+    }
+    presence.set(dependencyPath, entry !== null);
+  }
+  let plan;
+  try {
+    plan = proposeMemoryCuration({
+      ledger: state.value.ledger,
+      asOf,
+      dependencyPresence: presence,
+      digest: (value) => ports.digests.sha256(value),
+    });
+  } catch {
+    return {
+      kind: "failure",
+      result: usageFailure(
+        "The curation date is invalid or precedes a lesson observation.",
+      ),
+    };
+  }
+  const approvalPath = invocation.positionals[0] ?? null;
+  const approval =
+    approvalPath === null
+      ? null
+      : await readCurationApproval(approvalPath, ports, registry);
+  if (approval?.kind === "failure") return approval;
+  const now =
+    invocation.flags.get("--yes") === true &&
+    typeof invocation.flags.get("--plan-time") === "string"
+      ? (invocation.flags.get("--plan-time") as string)
+      : ports.clock.now().toISOString();
+  return {
+    kind: "observed",
+    observation: {
+      kind: "memory",
+      operation: "curate",
+      ledger: state.value.ledger,
+      ledgerExpected: state.value.ledgerExpected,
+      projectionExpected: state.value.projectionExpected,
+      plan,
+      approval: approval?.value ?? null,
+      approvalDigest:
+        approval === null
+          ? null
+          : ports.digests.sha256(canonicalizeJson(approval.value)),
+      approvalPath,
+      now,
+      digest: (value) => ports.digests.sha256(value),
+    },
+    ports,
   };
 }
 
@@ -199,6 +321,19 @@ export async function observePhaseMemoryBinding(
   }
   const state = await readCuratedState(ports, registry);
   if (state.kind === "failure") {
+    const current = await readCuratedStateV1_1(ports, registry);
+    if (current.kind === "value") {
+      return {
+        kind: "value",
+        value: {
+          ref: ".brain/03-memory/gotchas.md",
+          sha256: ports.digests.sha256(current.value.projection),
+          lessonIds: current.value.ledger.confirmed
+            .map(({ lessonId }) => lessonId)
+            .sort(),
+        },
+      };
+    }
     return {
       kind: "refused",
       reasonCode:
@@ -315,6 +450,85 @@ async function readCuratedState(
   }
 }
 
+async function readCuratedStateV1_1(
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | {
+      readonly kind: "value";
+      readonly value: {
+        readonly ledger: CuratedMemoryV1_1;
+        readonly ledgerExpected: WriteFilePrecondition;
+        readonly projection: string;
+        readonly projectionExpected: WriteFilePrecondition;
+      };
+    }
+  | { readonly kind: "failure"; readonly result: Result }
+> {
+  const ledgerPath = ".brain/03-memory/curated-memory.json";
+  const projectionPath = ".brain/03-memory/gotchas.md";
+  try {
+    const ledgerEntry = await ports.durableFileSystem.inspect(ledgerPath);
+    const projectionEntry =
+      await ports.durableFileSystem.inspect(projectionPath);
+    if (ledgerEntry.kind !== "file" || projectionEntry.kind !== "file")
+      return corrupt(ledgerPath);
+    const parsed = JSON.parse(
+      await ports.durableFileSystem.readText(ledgerPath),
+    ) as unknown;
+    if (declaredContractVersion(parsed, "stateContract", "1.0.0") !== "1.1.0") {
+      return {
+        kind: "failure",
+        result: resultFor("memory.migration_required", {
+          why: [
+            "Deterministic curation requires curated-memory observation metadata.",
+          ],
+          evidence: [{ kind: "artifact", ref: ledgerPath }],
+        }),
+      };
+    }
+    const prepared = registry.validate({
+      id: "state.curated-memory",
+      version: "1.1.0",
+      value: parsed,
+      structuralReasonCode: "runtime.state_corrupt",
+    });
+    if (prepared.kind !== "valid") return corrupt(ledgerPath);
+    const projection = await ports.durableFileSystem.readText(projectionPath);
+    if (
+      validateCuratedMemoryProjection(
+        prepared.value as unknown as CuratedMemoryV1,
+        projection,
+        (value) => ports.digests.sha256(value),
+      ).kind !== "valid"
+    ) {
+      return {
+        kind: "failure",
+        result: resultFor("memory.projection_drift", {
+          why: [
+            "The rendered curated-memory projection does not match its ledger.",
+          ],
+          evidence: [
+            { kind: "artifact", ref: ledgerPath },
+            { kind: "artifact", ref: projectionPath },
+          ],
+        }),
+      };
+    }
+    return {
+      kind: "value",
+      value: {
+        ledger: prepared.value,
+        ledgerExpected: filePrecondition(ledgerEntry),
+        projection,
+        projectionExpected: filePrecondition(projectionEntry),
+      },
+    };
+  } catch {
+    return corrupt(ledgerPath);
+  }
+}
+
 function filePrecondition(entry: {
   readonly kind: "file";
   readonly size: number;
@@ -340,7 +554,11 @@ async function candidatePreconditions(
 }
 
 export type CandidateInbox =
-  | { readonly kind: "value"; readonly value: readonly FailureCandidateV1[] }
+  | {
+      readonly kind: "value";
+      readonly value: readonly (FailureCandidateV1 | FailureCandidateV1_1)[];
+      readonly expected: ReadonlyMap<string, WriteFilePrecondition>;
+    }
   | { readonly kind: "failure"; readonly result: Result };
 
 export async function readCandidates(
@@ -349,25 +567,28 @@ export async function readCandidates(
 ): Promise<CandidateInbox> {
   const root = ".brain/03-memory/candidates";
   if ((await ports.durableFileSystem.inspect(root)).kind !== "directory") {
-    return { kind: "value", value: [] };
+    return { kind: "value", value: [], expected: new Map() };
   }
-  const candidates: FailureCandidateV1[] = [];
+  const candidates: (FailureCandidateV1 | FailureCandidateV1_1)[] = [];
+  const expected = new Map<string, WriteFilePrecondition>();
   for (const name of await ports.durableFileSystem.list(root)) {
     if (!name.endsWith(".json")) continue;
     const path = `${root}/${name}`;
-    if ((await ports.durableFileSystem.inspect(path)).kind !== "file") continue;
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind !== "file") continue;
     try {
       const parsed = JSON.parse(
         await ports.durableFileSystem.readText(path),
       ) as unknown;
       const prepared = registry.validate({
         id: "state.failure-candidate",
-        version: "1.0.0",
+        version: declaredContractVersion(parsed, "stateContract", "1.0.0"),
         value: parsed,
         structuralReasonCode: "runtime.state_corrupt",
       });
       if (prepared.kind !== "valid") return corrupt(path);
       candidates.push(prepared.value);
+      expected.set(path, filePrecondition(entry));
     } catch {
       return corrupt(path);
     }
@@ -381,6 +602,7 @@ export async function readCandidates(
           ? 1
           : 0,
     ),
+    expected,
   };
 }
 
@@ -419,14 +641,25 @@ async function readChangeProposal(
   ports: RuntimePorts,
   registry: SchemaRegistry,
 ): Promise<
-  | { readonly kind: "value"; readonly value: MemoryChangeV1_2 }
+  | {
+      readonly kind: "value";
+      readonly value: MemoryChangeV1_2 | MemoryChangeV1_4;
+    }
   | { readonly kind: "failure"; readonly result: Result }
 > {
   try {
+    const parsed = JSON.parse(await ports.fileSystem.read(path)) as unknown;
+    const version = declaredContractVersion(parsed, "hostContract", "1.2.0");
+    if (version !== "1.2.0" && version !== "1.4.0") {
+      return {
+        kind: "failure",
+        result: usageFailure("The memory change proposal is invalid."),
+      };
+    }
     const prepared = registry.validate({
       id: "host.memory-change",
-      version: "1.2.0",
-      value: JSON.parse(await ports.fileSystem.read(path)) as unknown,
+      version,
+      value: parsed,
       structuralReasonCode: "trail.uso",
     });
     return prepared.kind === "valid"
@@ -439,6 +672,41 @@ async function readChangeProposal(
     return {
       kind: "failure",
       result: usageFailure("The memory change proposal is unreadable."),
+    };
+  }
+}
+
+async function readCurationApproval(
+  path: string,
+  ports: RuntimePorts,
+  registry: SchemaRegistry,
+): Promise<
+  | {
+      readonly kind: "value";
+      readonly value: Extract<
+        MemoryCurationV1_4,
+        { readonly kind: "approval" }
+      >;
+    }
+  | { readonly kind: "failure"; readonly result: Result }
+> {
+  try {
+    const prepared = registry.validate({
+      id: "host.memory-curation",
+      version: "1.4.0",
+      value: JSON.parse(await ports.fileSystem.read(path)) as unknown,
+      structuralReasonCode: "trail.uso",
+    });
+    return prepared.kind === "valid" && prepared.value.kind === "approval"
+      ? { kind: "value", value: prepared.value }
+      : {
+          kind: "failure",
+          result: usageFailure("The memory curation approval is invalid."),
+        };
+  } catch {
+    return {
+      kind: "failure",
+      result: usageFailure("The memory curation approval is unreadable."),
     };
   }
 }

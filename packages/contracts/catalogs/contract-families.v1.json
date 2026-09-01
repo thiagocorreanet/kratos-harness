@@ -134,12 +134,36 @@
       "typeName": "MemoryChangeV1_2"
     },
     {
+      "id": "host.memory-change",
+      "family": "host",
+      "version": "1.4.0",
+      "path": "schemas/host/memory-change.v1.4.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryChangeV1_4"
+    },
+    {
+      "id": "host.memory-curation",
+      "family": "host",
+      "version": "1.4.0",
+      "path": "schemas/host/memory-curation.v1.4.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryCurationV1_4"
+    },
+    {
       "id": "host.memory-migration",
       "family": "host",
       "version": "1.2.0",
       "path": "schemas/host/memory-migration.v1.2.schema.json",
       "boundary": "cross-process",
       "typeName": "MemoryMigrationV1_2"
+    },
+    {
+      "id": "host.memory-migration",
+      "family": "host",
+      "version": "1.4.0",
+      "path": "schemas/host/memory-migration.v1.4.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MemoryMigrationV1_4"
     },
     {
       "id": "host.operation-message",
@@ -230,6 +254,14 @@
       "typeName": "CuratedMemoryV1"
     },
     {
+      "id": "state.curated-memory",
+      "family": "state",
+      "version": "1.1.0",
+      "path": "schemas/state/curated-memory.v1.1.schema.json",
+      "boundary": "persisted",
+      "typeName": "CuratedMemoryV1_1"
+    },
+    {
       "id": "state.event",
       "family": "state",
       "version": "1.0.0",
@@ -284,6 +316,14 @@
       "path": "schemas/state/failure-candidate.v1.schema.json",
       "boundary": "persisted",
       "typeName": "FailureCandidateV1"
+    },
+    {
+      "id": "state.failure-candidate",
+      "family": "state",
+      "version": "1.1.0",
+      "path": "schemas/state/failure-candidate.v1.1.schema.json",
+      "boundary": "persisted",
+      "typeName": "FailureCandidateV1_1"
     },
     {
       "id": "state.feature",

@@ -14,7 +14,10 @@ import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3
 import initAnswersV1_4Schema from "../../../../../schemas/host/init-answers.v1.4.schema.json" with { type: "json" };
 import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
+import memoryChangeV1_4Schema from "../../../../../schemas/host/memory-change.v1.4.schema.json" with { type: "json" };
+import memoryCurationV1_4Schema from "../../../../../schemas/host/memory-curation.v1.4.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
+import memoryMigrationV1_4Schema from "../../../../../schemas/host/memory-migration.v1.4.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import phaseHandoffV1_1Schema from "../../../../../schemas/host/phase-handoff.v1.1.schema.json" with { type: "json" };
@@ -28,6 +31,7 @@ import acceptanceVerdictSchema from "../../../../../schemas/state/acceptance-ver
 import approvalSchema from "../../../../../schemas/state/approval.v1.schema.json" with { type: "json" };
 import beatSchema from "../../../../../schemas/state/beat.v1.schema.json" with { type: "json" };
 import curatedMemorySchema from "../../../../../schemas/state/curated-memory.v1.schema.json" with { type: "json" };
+import curatedMemoryV1_1Schema from "../../../../../schemas/state/curated-memory.v1.1.schema.json" with { type: "json" };
 import eventSchema from "../../../../../schemas/state/event.v1.schema.json" with { type: "json" };
 import eventV1_1Schema from "../../../../../schemas/state/event.v1.1.schema.json" with { type: "json" };
 import eventV1_2Schema from "../../../../../schemas/state/event.v1.2.schema.json" with { type: "json" };
@@ -37,6 +41,7 @@ import featureSchema from "../../../../../schemas/state/feature.v1.schema.json" 
 import featureScopeSchema from "../../../../../schemas/state/feature-scope.v1.schema.json" with { type: "json" };
 import evidenceSchema from "../../../../../schemas/state/evidence.v1.schema.json" with { type: "json" };
 import failureCandidateSchema from "../../../../../schemas/state/failure-candidate.v1.schema.json" with { type: "json" };
+import failureCandidateV1_1Schema from "../../../../../schemas/state/failure-candidate.v1.1.schema.json" with { type: "json" };
 import gapSchema from "../../../../../schemas/state/gap.v1.schema.json" with { type: "json" };
 import gatesSchema from "../../../../../schemas/state/gates.v1.schema.json" with { type: "json" };
 import guardrailsSchema from "../../../../../schemas/state/guardrails.v1.schema.json" with { type: "json" };
@@ -185,11 +190,32 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: memoryChangeV1_2Schema,
     },
     {
+      id: "host.memory-change",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/memory-change.v1.4.schema.json",
+      schema: memoryChangeV1_4Schema,
+    },
+    {
+      id: "host.memory-curation",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/memory-curation.v1.4.schema.json",
+      schema: memoryCurationV1_4Schema,
+    },
+    {
       id: "host.memory-migration",
       family: "host",
       version: "1.2.0",
       path: "schemas/host/memory-migration.v1.2.schema.json",
       schema: memoryMigrationV1_2Schema,
+    },
+    {
+      id: "host.memory-migration",
+      family: "host",
+      version: "1.4.0",
+      path: "schemas/host/memory-migration.v1.4.schema.json",
+      schema: memoryMigrationV1_4Schema,
     },
     {
       id: "host.operation-message",
@@ -269,6 +295,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: curatedMemorySchema,
     },
     {
+      id: "state.curated-memory",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/curated-memory.v1.1.schema.json",
+      schema: curatedMemoryV1_1Schema,
+    },
+    {
       id: "state.event",
       family: "state",
       version: "1.0.0",
@@ -316,6 +349,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.0.0",
       path: "schemas/state/failure-candidate.v1.schema.json",
       schema: failureCandidateSchema,
+    },
+    {
+      id: "state.failure-candidate",
+      family: "state",
+      version: "1.1.0",
+      path: "schemas/state/failure-candidate.v1.1.schema.json",
+      schema: failureCandidateV1_1Schema,
     },
     {
       id: "state.feature",

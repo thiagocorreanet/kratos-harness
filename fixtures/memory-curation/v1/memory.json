@@ -1,0 +1,61 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "revision": 7,
+  "projectionDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "updatedAt": "2026-08-01T00:00:00Z",
+  "confirmed": [
+    {
+      "lessonId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "title": "Compiler cache becomes stale",
+      "why": ["Compiler cache retains stale paths"],
+      "apply": ["Remove compiler cache before retry"],
+      "candidateIds": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "reviewer": "alice",
+      "confirmedAt": "2026-07-01T00:00:00Z",
+      "technology": "typescript",
+      "failureKind": "nonzero_exit",
+      "dependency": { "kind": "path", "path": "tsconfig.json" },
+      "observationCount": 3,
+      "firstObservedAt": "2026-06-01T00:00:00Z",
+      "lastObservedAt": "2026-08-01T00:00:00Z"
+    },
+    {
+      "lessonId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "title": "Stale compiler state fails builds",
+      "why": ["Stale paths remain in compiler cache"],
+      "apply": ["Remove compiler cache before retry"],
+      "candidateIds": [
+        "2222222222222222222222222222222222222222222222222222222222222222"
+      ],
+      "reviewer": "bob",
+      "confirmedAt": "2026-07-02T00:00:00Z",
+      "technology": "typescript",
+      "failureKind": "nonzero_exit",
+      "dependency": { "kind": "path", "path": "tsconfig.json" },
+      "observationCount": 2,
+      "firstObservedAt": "2026-05-01T00:00:00Z",
+      "lastObservedAt": "2026-08-02T00:00:00Z"
+    },
+    {
+      "lessonId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "title": "Removed generator failed",
+      "why": ["A removed generator was once required"],
+      "apply": ["Run the removed generator"],
+      "candidateIds": [
+        "3333333333333333333333333333333333333333333333333333333333333333"
+      ],
+      "reviewer": "carol",
+      "confirmedAt": "2024-01-01T00:00:00Z",
+      "technology": "oldgen",
+      "failureKind": "tool_error",
+      "dependency": { "kind": "path", "path": "removed-generator.json" },
+      "observationCount": 1,
+      "firstObservedAt": "2024-01-01T00:00:00Z",
+      "lastObservedAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "archive": []
+}

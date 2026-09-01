@@ -107,10 +107,15 @@ export type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   CuratedMemoryV1,
+  CuratedMemoryV1_1,
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
 } from "./generated/contracts.js";
 
 export type LanguagePolicyV1 = ProjectConfigV1_4Contract.LanguagePolicy;

@@ -306,7 +306,7 @@ describe("workflow hook domain", () => {
     expect(diagnostic).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/u);
   });
 
-  it("matches a readable legacy candidate whose ID predates normalized identity", () => {
+  it("upgrades and increments a matching readable legacy candidate", () => {
     const digest = (text: string): string => `digest:${text}`;
     const decision = captureCandidate(
       {
@@ -332,8 +332,49 @@ describe("workflow hook domain", () => {
     );
 
     expect(decision).toMatchObject({
-      write: false,
-      candidate: { candidateId: "a".repeat(64) },
+      write: true,
+      candidate: {
+        contractVersion: "1.1.0",
+        stateContract: "1.1.0",
+        candidateId: "a".repeat(64),
+        observationCount: 2,
+        firstObservedAt: first,
+        lastObservedAt: later,
+      },
+    });
+  });
+
+  it("increments a current candidate while preserving the observation extrema", () => {
+    const digest = (text: string): string => `digest:${text}`;
+    const decision = captureCandidate(
+      {
+        toolFamily: "shell",
+        failureClass: "nonzero_exit",
+        exitCode: 1,
+        diagnostic: "Build failed",
+        observedAt: "2026-08-29T00:00:00Z",
+      },
+      [
+        {
+          contractVersion: "1.1.0",
+          stateContract: "1.1.0",
+          candidateId: "a".repeat(64),
+          toolFamily: "shell",
+          failureClass: "nonzero_exit",
+          exitCode: 1,
+          diagnostic: "Build failed",
+          observationCount: 2,
+          firstObservedAt: "2026-08-28T00:00:00Z",
+          lastObservedAt: "2026-08-30T00:00:00Z",
+        },
+      ],
+      digest,
+    );
+
+    expect(decision.candidate).toMatchObject({
+      observationCount: 3,
+      firstObservedAt: "2026-08-28T00:00:00Z",
+      lastObservedAt: "2026-08-30T00:00:00Z",
     });
   });
 });

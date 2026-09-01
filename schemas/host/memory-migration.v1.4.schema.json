@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/memory-migration/v1.4",
+  "title": "Kratos curated-memory state migration proposal v1.4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "hostContract",
+    "sourceDigest",
+    "reviewer",
+    "lessons"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.4.0" },
+    "hostContract": { "const": "1.4.0" },
+    "sourceDigest": { "$ref": "#/$defs/sha256" },
+    "reviewer": { "$ref": "#/$defs/id" },
+    "lessons": {
+      "type": "array",
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/lesson" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "technology": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._+-][a-z0-9]+)*$",
+      "maxLength": 128
+    },
+    "failureKind": {
+      "enum": ["nonzero_exit", "tool_error", "timeout", "denied", "unknown"]
+    },
+    "dependency": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "path" },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![a-z][a-z0-9+.-]*://)[^\\u0000-\\u001f\\u007f]+$"
+            }
+          }
+        }
+      ]
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lessonId", "technology", "failureKind", "dependency"],
+      "properties": {
+        "lessonId": { "$ref": "#/$defs/sha256" },
+        "technology": { "$ref": "#/$defs/technology" },
+        "failureKind": { "$ref": "#/$defs/failureKind" },
+        "dependency": { "$ref": "#/$defs/dependency" }
+      }
+    }
+  }
+}

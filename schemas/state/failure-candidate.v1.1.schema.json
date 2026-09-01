@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/state/failure-candidate/v1.1",
+  "title": "Kratos failure candidate v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "stateContract",
+    "candidateId",
+    "toolFamily",
+    "failureClass",
+    "exitCode",
+    "diagnostic",
+    "observationCount",
+    "firstObservedAt",
+    "lastObservedAt"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.1.0" },
+    "stateContract": { "const": "1.1.0" },
+    "candidateId": { "$ref": "#/$defs/sha256" },
+    "toolFamily": { "enum": ["file", "shell", "mcp", "search", "other"] },
+    "failureClass": {
+      "enum": ["nonzero_exit", "tool_error", "timeout", "denied", "unknown"]
+    },
+    "exitCode": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 255 },
+        { "type": "null" }
+      ]
+    },
+    "diagnostic": { "type": "string", "maxLength": 2048 },
+    "observationCount": { "$ref": "#/$defs/positiveInteger" },
+    "firstObservedAt": { "$ref": "#/$defs/timestamp" },
+    "lastObservedAt": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$"
+    }
+  }
+}

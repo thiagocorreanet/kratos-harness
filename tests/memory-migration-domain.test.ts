@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 
+import type { CuratedMemoryV1, MemoryMigrationV1_4 } from "@kratos/contracts";
+
 import {
   classifyLegacyMemory,
   reduceLegacyMemoryMigration,
+  upgradeCuratedMemoryV1,
 } from "@kratos/runtime/domain/memory";
 import { canonicalizeJson } from "@kratos/runtime/domain/schema";
 import { describe, expect, it } from "vitest";
@@ -31,6 +34,84 @@ const proposal = (source: string) => ({
 });
 
 describe("lossless legacy memory migration", () => {
+  it("upgrades every active v1 lesson with explicit metadata and derived lower bounds", () => {
+    const source: CuratedMemoryV1 = {
+      contractVersion: "1.0.0",
+      stateContract: "1.0.0",
+      revision: 2,
+      projectionDigest: "0".repeat(64),
+      updatedAt: "2026-01-01T00:00:00Z",
+      confirmed: [
+        {
+          lessonId: "a".repeat(64),
+          title: "Cache",
+          why: ["Stale cache"],
+          apply: ["Clear cache"],
+          candidateIds: ["b".repeat(64), "c".repeat(64)],
+          reviewer: "alice",
+          confirmedAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      archive: [
+        {
+          lessonId: "d".repeat(64),
+          title: "Old",
+          candidateIds: ["e".repeat(64)],
+          reviewer: "alice",
+          archivedAt: "2026-02-01T00:00:00Z",
+          reason: "historical",
+          replacementLessonId: null,
+        },
+      ],
+    };
+    const bytes = `${JSON.stringify(source, null, 2)}\n`;
+    const proposal: MemoryMigrationV1_4 = {
+      contractVersion: "1.4.0",
+      hostContract: "1.4.0",
+      sourceDigest: sha256(bytes),
+      reviewer: "curator",
+      lessons: [
+        {
+          lessonId: "a".repeat(64),
+          technology: "typescript",
+          failureKind: "nonzero_exit",
+          dependency: { kind: "path", path: "tsconfig.json" },
+        },
+      ],
+    };
+    const outcome = upgradeCuratedMemoryV1(
+      bytes,
+      source,
+      proposal,
+      "2026-09-01T00:00:00Z",
+      sha256,
+    );
+    expect(outcome.kind).toBe("ready");
+    if (outcome.kind !== "ready") return;
+    expect(outcome.ledger).toMatchObject({
+      contractVersion: "1.1.0",
+      stateContract: "1.1.0",
+      revision: 3,
+      confirmed: [
+        {
+          observationCount: 2,
+          firstObservedAt: "2026-01-01T00:00:00Z",
+          lastObservedAt: "2026-01-01T00:00:00Z",
+          technology: "typescript",
+        },
+      ],
+      archive: [{ reason: "historical", archivedAt: "2026-02-01T00:00:00Z" }],
+    });
+    expect(
+      upgradeCuratedMemoryV1(
+        bytes,
+        source,
+        { ...proposal, lessons: [] },
+        "2026-09-01T00:00:00Z",
+        sha256,
+      ),
+    ).toEqual({ kind: "invalid_mapping" });
+  });
   it("classifies structured state, the exact stock template, and custom legacy bytes without parsing Markdown", () => {
     expect(classifyLegacyMemory({ ledger: "present", gotchas: STOCK })).toBe(
       "adopted",

@@ -17,9 +17,14 @@ import type {
   HookObservationV1,
   PhaseLifecycleV1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   CuratedMemoryV1,
+  CuratedMemoryV1_1,
   MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4,
   MemoryMigrationV1_2,
+  MemoryMigrationV1_4,
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
@@ -34,6 +39,7 @@ import type { CurrentPhaseHandoff } from "@kratos/contracts";
 import type { PhaseHandoffV1_2 } from "@kratos/contracts";
 import type { PhaseMeasurement } from "../measurements/index.js";
 import type { ModelRoleRefusal } from "../model-roles/index.js";
+import type { MemoryCurationPlan } from "../memory/index.js";
 import type { ProjectResolution } from "../project/index.js";
 import type { Result } from "../result/index.js";
 import type {
@@ -154,18 +160,25 @@ export type CommandObservation =
   | {
       readonly kind: "memory";
       readonly operation: "list";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
     }
   | {
       readonly kind: "memory";
       readonly operation: "capture";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
       readonly capture: CandidateCaptureDecision;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
     }
   | {
       readonly kind: "memory";
       readonly operation: "change";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
       readonly ledger: CuratedMemoryV1;
       readonly ledgerExpected: WriteFilePrecondition;
       readonly projection: string;
@@ -173,6 +186,38 @@ export type CommandObservation =
       readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
       readonly proposal: MemoryChangeV1_2;
       readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "current-change";
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
+      readonly ledger: CuratedMemoryV1_1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projection: string;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
+      readonly proposal: MemoryChangeV1_4;
+      readonly proposalDigest: string;
+      readonly now: string;
+      readonly digest: (value: string) => string;
+    }
+  | {
+      readonly kind: "memory";
+      readonly operation: "curate";
+      readonly ledger: CuratedMemoryV1_1;
+      readonly ledgerExpected: WriteFilePrecondition;
+      readonly projectionExpected: WriteFilePrecondition;
+      readonly plan: MemoryCurationPlan;
+      readonly approval: Extract<
+        MemoryCurationV1_4,
+        { readonly kind: "approval" }
+      > | null;
+      readonly approvalDigest: string | null;
+      readonly approvalPath: string | null;
       readonly now: string;
       readonly digest: (value: string) => string;
     }
@@ -229,6 +274,7 @@ export type CommandObservation =
         readonly gates: GateFactsV1;
         readonly gatesExpected: WriteFilePrecondition;
         readonly capture: CandidateCaptureDecision | null;
+        readonly captureExpected: WriteFilePrecondition | null;
         readonly cache: {
           readonly startedAt: string;
           readonly grossTokens: number;
@@ -549,6 +595,24 @@ export type CommandObservation =
             readonly projection: string;
             readonly projectionDigest: string;
             readonly gotchasExpected: WriteFilePrecondition;
+            readonly writes: readonly {
+              readonly path: string;
+              readonly content: string;
+            }[];
+          }
+        | {
+            readonly kind: "memory-state";
+            readonly migrationId: string;
+            readonly now: string;
+            readonly source: {
+              readonly content: string;
+              readonly sha256: string;
+            };
+            readonly proposal: MemoryMigrationV1_4;
+            readonly proposalDigest: string;
+            readonly planDigest: string;
+            readonly ledger: CuratedMemoryV1_1;
+            readonly ledgerExpected: WriteFilePrecondition;
             readonly writes: readonly {
               readonly path: string;
               readonly content: string;

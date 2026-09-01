@@ -146,6 +146,95 @@ export interface MemoryMigrationWrite {
   readonly content: string;
 }
 
+/** Audit/write set for the adjacent curated-memory v1 -> v1.1 replacement. */
+export function plannedCuratedMemoryUpgradeWrites(input: {
+  readonly migrationId: string;
+  readonly receiptPlanDigest: string;
+  readonly proposalDigest: string;
+  readonly source: { readonly content: string; readonly sha256: string };
+  readonly ledgerContent: string;
+  readonly ledgerDigest: string;
+  readonly now: string;
+}): readonly MemoryMigrationWrite[] {
+  const root = `.brain/migrations/${input.migrationId}`;
+  const authorizationRef = `${root}/authorization.json`;
+  const backupRef = `${root}/backup/curated-memory.json`;
+  const rollbackRef = `${root}/rollback.json`;
+  const verificationRef = `${root}/verification.json`;
+  const planned = plannedMemoryMigration({
+    migrationId: input.migrationId,
+    planDigest: input.receiptPlanDigest,
+    authorizationRef,
+    backupRef,
+    backupDigest: input.source.sha256,
+    destinationRef: ".brain/03-memory/curated-memory.json",
+    destinationDigest: input.ledgerDigest,
+    verificationRef,
+    now: input.now,
+  });
+  const authorized = authorizeConfigMigration(
+    planned,
+    input.receiptPlanDigest,
+    authorizationRef,
+    input.now,
+  );
+  const receipt =
+    authorized === null
+      ? null
+      : completeConfigMigration(
+          authorized,
+          verificationRef,
+          input.ledgerDigest,
+          input.now,
+        );
+  if (receipt === null) throw new Error("memory upgrade receipt invariant");
+  const json = (value: unknown): string =>
+    `${JSON.stringify(value, null, 2)}\n`;
+  return [
+    {
+      path: ".brain/03-memory/curated-memory.json",
+      content: input.ledgerContent,
+    },
+    {
+      path: authorizationRef,
+      content: json({
+        contractVersion: "1.4.0",
+        hostContract: "1.4.0",
+        migrationId: input.migrationId,
+        proposalDigest: input.proposalDigest,
+        planDigest: input.receiptPlanDigest,
+        source: {
+          ref: ".brain/03-memory/curated-memory.json",
+          sha256: input.source.sha256,
+        },
+        authorizedAt: input.now,
+      }),
+    },
+    { path: backupRef, content: input.source.content },
+    {
+      path: rollbackRef,
+      content: json({
+        kind: "memory-state-replace",
+        migrationId: input.migrationId,
+        backupRef,
+        backupDigest: input.source.sha256,
+        destinationRef: ".brain/03-memory/curated-memory.json",
+        destinationDigest: input.ledgerDigest,
+        removeTargets: [],
+      }),
+    },
+    {
+      path: verificationRef,
+      content: json({
+        migrationId: input.migrationId,
+        destinationDigest: input.ledgerDigest,
+        verifiedAt: input.now,
+      }),
+    },
+    { path: `${root}/receipt.json`, content: json(receipt) },
+  ];
+}
+
 /** One immutable audit/write set; outer authorization hashes these exact bytes. */
 export function plannedMemoryMigrationWrites(input: {
   readonly migrationId: string;
