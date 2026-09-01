@@ -6,7 +6,7 @@ import type {
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
   MemoryChangeV1_4,
-  MemoryCurationV1_4Contract,
+  MemoryCurationV1_4,
 } from "@kratos/contracts";
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { FailureObservation } from "../domain/hooks/index.js";
@@ -243,7 +243,7 @@ async function observeMemoryCuration(
       plan,
       approval: approval?.value ?? null,
       approvalDigest:
-        approval === null || approval.kind === "failure"
+        approval === null
           ? null
           : ports.digests.sha256(canonicalizeJson(approval.value)),
       approvalPath,
@@ -321,6 +321,19 @@ export async function observePhaseMemoryBinding(
   }
   const state = await readCuratedState(ports, registry);
   if (state.kind === "failure") {
+    const current = await readCuratedStateV1_1(ports, registry);
+    if (current.kind === "value") {
+      return {
+        kind: "value",
+        value: {
+          ref: ".brain/03-memory/gotchas.md",
+          sha256: ports.digests.sha256(current.value.projection),
+          lessonIds: current.value.ledger.confirmed
+            .map(({ lessonId }) => lessonId)
+            .sort(),
+        },
+      };
+    }
     return {
       kind: "refused",
       reasonCode:
@@ -670,7 +683,10 @@ async function readCurationApproval(
 ): Promise<
   | {
       readonly kind: "value";
-      readonly value: MemoryCurationV1_4Contract.Approval;
+      readonly value: Extract<
+        MemoryCurationV1_4,
+        { readonly kind: "approval" }
+      >;
     }
   | { readonly kind: "failure"; readonly result: Result }
 > {

@@ -263,7 +263,7 @@ describe("memory curate runtime", () => {
       "approval.json",
       `${JSON.stringify(approval)}\n`,
     );
-    run.output.structured_.length = 0;
+    (run.output.structured_ as string[]).length = 0;
     expect(
       await runCommandLine(
         ["memory", "curate", "--as-of", "2026-09-01", "approval.json"],
@@ -323,7 +323,7 @@ describe("memory curate runtime", () => {
       "approval.json",
       `${JSON.stringify(approval)}\n`,
     );
-    run.output.structured_.length = 0;
+    (run.output.structured_ as string[]).length = 0;
     await runCommandLine(
       ["memory", "curate", "--as-of", "2026-09-01", "approval.json"],
       run.ports,

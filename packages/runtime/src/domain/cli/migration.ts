@@ -381,11 +381,8 @@ function migrateMemory(
     invocation.flags.get("--plan-time") !== operation.now
   )
     return memoryConfirmationStale();
-  const effects = operation.writes.map(({ path, content }) => ({
-    kind: "write_file" as const,
-    path,
-    content,
-    expected:
+  const effects: Effect[] = operation.writes.map(({ path, content }) => {
+    const expected =
       path === ".brain/03-memory/curated-memory.json"
         ? operation.kind === "memory-state"
           ? operation.ledgerExpected
@@ -394,8 +391,11 @@ function migrateMemory(
           ? operation.kind === "memory"
             ? operation.gotchasExpected
             : undefined
-          : ({ kind: "missing" } as const),
-  }));
+          : ({ kind: "missing" } as const);
+    return expected === undefined
+      ? { kind: "write_file" as const, path, content }
+      : { kind: "write_file" as const, path, content, expected };
+  });
   return {
     result: resultFor("trail.ok", {
       summary: `Completed memory migration plan ${operation.planDigest}.`,

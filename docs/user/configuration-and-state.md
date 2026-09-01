@@ -175,6 +175,12 @@ either artifact. Fresh initialization creates the empty ledger and its exact
 two-section projection.
 
 Candidate diagnostics are sanitized and limited to 2 KiB before persistence.
+Repeated matching diagnostics increment the v1.1 candidate count and widen its
+first/last observation interval using an execution-time file precondition.
+Confirmed v1.1 lessons record technology, failure kind, a project-local
+dependency, count, and observation interval. Curation reads dependency metadata
+only; it does not read dependency contents, run project commands, call a model,
+or access the network.
 Capture performs no model call, network/socket operation, or project command.
 It uses no automatic promotion path. Windows and POSIX diagnostics share the
 same conservative volatile matcher without folding drive, path, or case.

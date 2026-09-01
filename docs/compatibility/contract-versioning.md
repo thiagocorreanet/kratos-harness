@@ -221,6 +221,14 @@ Revision `1.11.0` preserves every `1.10.0` entry and appends
 `blocked.stop_loss_rejections`, the fail-closed outcome used when repeated
 acceptance rejection reaches the run-frozen attempt ceiling.
 
+Deterministic memory curation adds `state.failure-candidate@1.1.0`,
+`state.curated-memory@1.1.0`, `host.memory-change@1.4.0`,
+`host.memory-curation@1.4.0`, and `host.memory-migration@1.4.0`. All predecessor
+schema bytes remain importable. The old ledger remains readable for phases and
+explicit adjacent migration, while scoring fails closed with
+`memory.migration_required` until observation metadata is supplied. Manual
+`host.memory-change@1.2.0` merge and archive operations remain supported.
+
 Every rejection renders through the
 [universal result contract](result-contract.md), reports `stateChanged: false`,
 and uses catalog-owned recovery text. Public output does not echo the supplied

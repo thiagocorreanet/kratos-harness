@@ -22,7 +22,7 @@ import type {
   CuratedMemoryV1_1,
   MemoryChangeV1_2,
   MemoryChangeV1_4,
-  MemoryCurationV1_4Contract,
+  MemoryCurationV1_4,
   MemoryMigrationV1_2,
   MemoryMigrationV1_4,
   GateFactsV1,
@@ -211,7 +211,10 @@ export type CommandObservation =
       readonly ledgerExpected: WriteFilePrecondition;
       readonly projectionExpected: WriteFilePrecondition;
       readonly plan: import("../memory/index.js").MemoryCurationPlan;
-      readonly approval: MemoryCurationV1_4Contract.Approval | null;
+      readonly approval: Extract<
+        MemoryCurationV1_4,
+        { readonly kind: "approval" }
+      > | null;
       readonly approvalDigest: string | null;
       readonly approvalPath: string | null;
       readonly now: string;

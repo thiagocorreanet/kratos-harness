@@ -4,7 +4,7 @@ import type {
   CuratedMemoryV1_1,
   FailureCandidateV1_1,
   MemoryChangeV1_4,
-  MemoryCurationV1_4Contract,
+  MemoryCurationV1_4,
 } from "@kratos/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -77,6 +77,46 @@ function candidate(count = 2): FailureCandidateV1_1 {
 }
 
 describe("memory curation reductions", () => {
+  it("promotes structured metadata and sums candidate observation facts", () => {
+    const empty = ledger();
+    empty.confirmed = [];
+    const second = {
+      ...candidate(4),
+      candidateId: "d".repeat(64),
+      firstObservedAt: "2024-01-01T00:00:00Z",
+      lastObservedAt: "2026-08-15T00:00:00Z",
+    };
+    const outcome = reduceMemoryChangeV1_4(
+      empty,
+      [candidate(2), second],
+      {
+        contractVersion: "1.4.0",
+        hostContract: "1.4.0",
+        operation: "promote",
+        reviewer: "curator",
+        candidateIds: [candidateId, second.candidateId],
+        title: "Clear compiler cache",
+        why: ["Compiler state can be stale"],
+        apply: ["Clear compiler cache"],
+        technology: "typescript",
+        failureKind: "nonzero_exit",
+        dependency: { kind: "path", path: "tsconfig.json" },
+      },
+      "2026-09-01T00:00:00Z",
+      digest,
+    );
+    expect(outcome.kind).toBe("ready");
+    if (outcome.kind !== "ready") return;
+    expect(outcome.ledger.confirmed[0]).toMatchObject({
+      technology: "typescript",
+      failureKind: "nonzero_exit",
+      dependency: { kind: "path", path: "tsconfig.json" },
+      observationCount: 6,
+      firstObservedAt: "2024-01-01T00:00:00Z",
+      lastObservedAt: "2026-08-15T00:00:00Z",
+    });
+  });
+
   it("reinforces only same-provenance observations and preserves lesson identity", () => {
     const proposal: MemoryChangeV1_4 = {
       contractVersion: "1.4.0",
@@ -141,7 +181,7 @@ describe("memory curation reductions", () => {
       ],
       planDigest: "9".repeat(64),
     };
-    const approval: MemoryCurationV1_4Contract.Approval = {
+    const approval: Extract<MemoryCurationV1_4, { kind: "approval" }> = {
       contractVersion: "1.4.0",
       hostContract: "1.4.0",
       kind: "approval",
@@ -200,7 +240,7 @@ describe("memory curation reductions", () => {
       planDigest: "3".repeat(64),
     };
     const approval = (
-      decisions: MemoryCurationV1_4Contract.Approval["decisions"],
+      decisions: Extract<MemoryCurationV1_4, { kind: "approval" }>["decisions"],
     ) => ({
       contractVersion: "1.4.0" as const,
       hostContract: "1.4.0" as const,

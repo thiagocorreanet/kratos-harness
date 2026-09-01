@@ -5,6 +5,7 @@ import {
   reduceMemoryChange,
   reduceMemoryChangeV1_4,
   type MemoryChangeReduction,
+  type MemoryChangeV1_4Reduction,
 } from "../memory/index.js";
 import { resultFor } from "../result/index.js";
 import { canonicalizeJson } from "../schema/index.js";
@@ -439,9 +440,15 @@ function result(
 function changePlanDigest(
   observation: Extract<
     CommandObservation,
-    { readonly kind: "memory"; readonly operation: "change" }
+    {
+      readonly kind: "memory";
+      readonly operation: "change" | "current-change";
+    }
   >,
-  reduction: Extract<MemoryChangeReduction, { readonly kind: "ready" }>,
+  reduction: Extract<
+    MemoryChangeReduction | MemoryChangeV1_4Reduction,
+    { readonly kind: "ready" }
+  >,
 ): string {
   return observation.digest(
     canonicalizeJson({

@@ -223,6 +223,8 @@ async function observeMemoryMigration(
     registry,
   );
   if (proposal.kind === "failure") return proposal;
+  if (proposal.value.contractVersion !== "1.2.0")
+    return resultFailure("trail.uso", MEMORY_GOTCHAS_REF);
   const now =
     typeof requestedTime === "string"
       ? requestedTime
@@ -458,19 +460,23 @@ function validCurrentCuratedMemory(
   registry: SchemaRegistry,
 ): boolean {
   try {
+    const version = declaredVersion(ledger, "stateContract");
+    if (version !== "1.0.0" && version !== "1.1.0") return false;
     const validated = registry.validate({
       id: "state.curated-memory",
-      version: "1.0.0",
+      version,
       value: JSON.parse(ledger) as unknown,
       structuralReasonCode: "runtime.state_corrupt",
     });
     return (
       validated.kind === "valid" &&
-      validatesCuratedMemorySemantics(validated.value, (value) =>
+      validatesCuratedMemorySemantics(validated.value as never, (value) =>
         ports.digests.sha256(value),
       ) &&
-      validateCuratedMemoryProjection(validated.value, projection, (value) =>
-        ports.digests.sha256(value),
+      validateCuratedMemoryProjection(
+        validated.value as never,
+        projection,
+        (value) => ports.digests.sha256(value),
       ).kind === "valid"
     );
   } catch {

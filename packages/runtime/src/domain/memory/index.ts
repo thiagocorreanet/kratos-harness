@@ -5,7 +5,7 @@ import type {
   FailureCandidateV1_1,
   MemoryChangeV1_2,
   MemoryChangeV1_4,
-  MemoryCurationV1_4Contract,
+  MemoryCurationV1_4,
 } from "@kratos/contracts";
 
 import type { MemoryCurationPlan, MemoryCurationProposal } from "./curation.js";
@@ -551,7 +551,7 @@ export type MemoryCurationReduction =
 export function applyMemoryCuration(
   ledger: CuratedMemoryV1_1,
   plan: MemoryCurationPlan,
-  approval: MemoryCurationV1_4Contract.Approval,
+  approval: Extract<MemoryCurationV1_4, { readonly kind: "approval" }>,
   now: string,
   sha256: (value: string) => string,
 ): MemoryCurationReduction {
@@ -595,7 +595,13 @@ export function applyMemoryCuration(
         null,
         proposal,
       );
-      if (reduced.kind !== "ready") return reduced;
+      if (reduced.kind !== "ready")
+        return {
+          kind:
+            reduced.kind === "curation_required"
+              ? "curation_required"
+              : "candidate_missing",
+        };
       confirmed = [...reduced.ledger.confirmed];
       archive = [...reduced.ledger.archive];
       continue;
@@ -632,7 +638,12 @@ export function applyMemoryCuration(
         ledger: completed.ledger,
         approvedProposalIds: approved.map(({ proposalId }) => proposalId),
       }
-    : completed;
+    : {
+        kind:
+          completed.kind === "curation_required"
+            ? "curation_required"
+            : "candidate_missing",
+      };
 }
 
 function mergeCurrent(

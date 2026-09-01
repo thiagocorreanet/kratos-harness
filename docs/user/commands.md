@@ -27,7 +27,9 @@ also accept `--root PATH` where shown by `kratos help`.
 | `hook` | Accept one versioned host operation from standard input | Conditional |
 | `memory list` | List machine-local failure candidates | No |
 | `memory capture PROPOSAL` | Add one validated manual failure candidate | Conditional |
+| `memory curate --as-of DATE [APPROVAL]` | Score proposals or apply one completely reviewed batch | Conditional |
 | `memory promote PROPOSAL` | Preview or apply promotion into confirmed memory | Conditional |
+| `memory reinforce PROPOSAL` | Preview or apply repeated observations to one lesson | Conditional |
 | `memory merge PROPOSAL` | Preview or apply a lossless lesson merge | Conditional |
 | `memory archive PROPOSAL` | Preview or apply archival of one lesson | Conditional |
 | `migrate brain` | Preview or authorize a legacy migration | Conditional |
@@ -172,7 +174,8 @@ kratos memory capture --root PATH capture.json
 ```
 
 Promotion, merge, and archive take exactly one closed
-`host.memory-change@1.2.0` proposal file. A promotion names 1–16 candidate
+`host.memory-change@1.2.0` proposal file. Current metadata-aware promotion and
+reinforcement use `host.memory-change@1.4.0`. A promotion names 1–16 candidate
 SHA-256 identifiers and supplies `reviewer`, `title`, nonempty `why`, and
 nonempty `apply`. A merge names 2–16 confirmed lesson identifiers plus a
 reviewer and title; it retains every distinct source `why`, `apply`, and
@@ -181,6 +184,7 @@ reason. The command verb and proposal `operation` must agree.
 
 ```bash
 kratos memory promote --root PATH promote.json
+kratos memory reinforce --root PATH reinforce.json
 kratos memory merge --root PATH merge.json
 kratos memory archive --root PATH archive.json
 ```
@@ -193,7 +197,7 @@ for compatibility. Use the argv array directly when a launcher accepts an
 executable plus arguments. Its general grammar is:
 
 ```bash
-kratos memory <promote|merge|archive> --root PATH proposal.json \
+kratos memory <promote|reinforce|merge|archive> --root PATH proposal.json \
   --yes --proposal-digest SHA256 --plan-digest SHA256 --plan-time INSTANT
 ```
 
@@ -213,6 +217,34 @@ tombstones remain in Git history. `memory.curation_required` blocks a change
 that would exceed an active-surface limit. `memory list`, capture, and all
 preview calls are read-only except that a non-duplicate capture writes its
 local candidate.
+
+`memory curate --as-of YYYY-MM-DD` is a read-only deterministic scorer. Policy
+`memory-curation/1.0.0` uses integer scores from 0 to 10,000:
+
+```text
+similarity = floor((25*text + 45*fix + 15*technology + 15*failureKind) / 100)
+obsolescence = floor((50*age + 20*rarity + 30*dependencyAbsent) / 100)
+```
+
+Both thresholds are 7,500 for similarity and 7,000 for obsolescence. Text and
+fix are Jaccard set comparisons after Unicode NFKC, lowercase, letter/number
+token extraction, duplicate removal, and the exact stopword list `a an and are
+as at be been by for from has have in into is it of on or that the this to was
+were when with`. The fix weight is largest because the reusable action is the
+lesson's core. Age has half the obsolescence weight so dependency churn alone
+cannot archive recent knowledge; dependency absence is strong but insufficient,
+and rarity separates one-off noise from repeated history.
+
+Proposals at or above their threshold are ordered by descending score, then
+merge, archive, delete, then binary lexical lesson identifiers. Every proposal
+prints its component scores and token evidence. An
+`host.memory-curation@1.4.0` approval must approve or reject every proposal
+exactly once. Approved sources may not overlap. Preview the approval, then run
+the emitted argv with `--yes`, `--plan-digest`, `--approval-digest`, and
+`--plan-time`; the ledger and projection publish as one transaction. Count-one
+obsolete lessons are deleted only after approval. Repeated lessons are archived
+with reviewer, reason, date, score, and components. A merge unions both lessons'
+causes, fixes, and provenance and sums their observation counts.
 
 ## Configuration migration commands
 

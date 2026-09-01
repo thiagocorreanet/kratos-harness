@@ -116,6 +116,15 @@ exact stock empty Gotchas template is safely adoptable; any other free-form
 Gotchas document blocks memory use with `memory.migration_required` until an
 explicit lossless mapping is reviewed and applied.
 
+Structured `state.curated-memory@1.0.0` requires a separate adjacent migration
+before scoring. A closed `host.memory-migration@1.4.0` mapping supplies
+technology, failure kind, and project-relative dependency for every active
+lesson and binds the exact ledger digest. The runtime derives
+`observationCount = candidateIds.length` and uses `confirmedAt` for both
+observation dates; it does not invent history. Existing archive reasons and
+dates are preserved. Preview, digest-bound apply, backup, receipt, verification,
+and `migrate rollback` use the same commands above.
+
 ## Replay and repair
 
 `kratos audit` replays the event log and identifies the earliest known

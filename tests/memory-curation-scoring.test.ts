@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { CuratedMemoryV1_1 } from "@kratos/contracts";
 import {
@@ -43,6 +45,34 @@ function words(prefix: string, first: number, last: number): string {
 }
 
 describe("memory curation scoring policy", () => {
+  it("matches the recorded proposals for the known duplicate and stale fixture", async () => {
+    const ledger = JSON.parse(
+      await readFile(
+        join(process.cwd(), "fixtures/memory-curation/v1/memory.json"),
+        "utf8",
+      ),
+    ) as CuratedMemoryV1_1;
+    const expected = JSON.parse(
+      await readFile(
+        join(
+          process.cwd(),
+          "fixtures/memory-curation/v1/expected-proposals.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      asOf: string;
+      dependencyPresence: Record<string, boolean>;
+      proposals: unknown[];
+    };
+    const plan = proposeMemoryCuration({
+      ledger,
+      asOf: expected.asOf,
+      dependencyPresence: new Map(Object.entries(expected.dependencyPresence)),
+      digest,
+    });
+    expect(plan.proposals).toEqual(expected.proposals);
+  });
   it("tokenizes with the published normalization and stopword set", () => {
     expect(
       tokenizeMemoryText("The café CAFE\u0301 builds in Node.js and node-js."),
