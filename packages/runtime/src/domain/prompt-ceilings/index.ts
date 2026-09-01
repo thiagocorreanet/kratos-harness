@@ -6,3 +6,8 @@ export {
   type PromptCategoryDefinition,
   type PromptEvaluationResult,
 } from "./model.js";
+
+export {
+  collectShippedPromptSurfaces,
+  type ShippedPromptSurface,
+} from "./discovery.js";

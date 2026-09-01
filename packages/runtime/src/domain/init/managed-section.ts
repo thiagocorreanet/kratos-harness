@@ -128,3 +128,14 @@ function refused(
 ): ManagedFilePlan {
   return { kind: "refused", reasonCode };
 }
+
+/**
+ * Extracts the managed section block from a document if present.
+ */
+export function extractManagedSection(text: string): string | undefined {
+  const section = locateSection(text);
+  if (section.kind === "found") {
+    return text.slice(section.start, section.end);
+  }
+  return undefined;
+}
