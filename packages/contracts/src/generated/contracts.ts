@@ -16,6 +16,8 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1.4 sha256:fa20c5b49969481e048244f96f3066d2138762578dd6427f0f524bfc82e931ee
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
+// source: https://kratos.dev/schemas/host/memory-change/v1.4 sha256:e85e1c71e1590a5abfd61839e155feb764524dc24fbbaa74a84d8940ca43b5d5
+// source: https://kratos.dev/schemas/host/memory-curation/v1.4 sha256:c55c4b72817340d0f4cd190fd01e57dc1a2028c95b1a6968284218a08c08e589
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
@@ -28,6 +30,7 @@
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
 // source: https://kratos.dev/schemas/state/beat/v1 sha256:e6bf3425c5fd36c5955c7941fdf575efd3fa1f8bba0565d0d8f5ec6ab49a8c25
 // source: https://kratos.dev/schemas/state/curated-memory/v1 sha256:8051659b745cf3e6b6411d952e446ca7d7acc557245015ab0fa514b6c21afd2b
+// source: https://kratos.dev/schemas/state/curated-memory/v1.1 sha256:6ba7f3e1778bc6f5e87323daeef7992571c9c892869dcf31605e19248712a6d3
 // source: https://kratos.dev/schemas/state/event/v1 sha256:83431b3a9c1615460eb6faef640671e8ae300a1c347b929c009570a177e6c80d
 // source: https://kratos.dev/schemas/state/event/v1.1 sha256:856cb81c6823d8717c47fb957b4cebf9a6e16cb2c8a1a79b3d0448394ef6d57f
 // source: https://kratos.dev/schemas/state/event/v1.2 sha256:50adde1dd706a3d79a772ddf886764d19d83a0048c6f646def22e6a121d4f9be
@@ -35,6 +38,7 @@
 // source: https://kratos.dev/schemas/state/event/v1.4 sha256:c01f73fdb88fa4d1a179a36ca2657bac4cd159b245c3c4ab2798f4b556352085
 // source: https://kratos.dev/schemas/state/evidence/v1 sha256:c8acfc4104fdf4f095059a241b30806c41d7023420710439e3e63122f5546bbf
 // source: https://kratos.dev/schemas/state/failure-candidate/v1 sha256:1f372affd71283578f103882decedbb5581c015bf2948de79c2d4d72f135511a
+// source: https://kratos.dev/schemas/state/failure-candidate/v1.1 sha256:af5a9915a5ad73278901a8aa55aa8a0448a212317b4371f9366f63aaf3dcb7bc
 // source: https://kratos.dev/schemas/state/feature/v1 sha256:e7f2cd451bc3e864e805b82b21d8abbc1468c710c0dd87cf50a77c359256165e
 // source: https://kratos.dev/schemas/state/feature-scope/v1 sha256:22cd993ba7cd6f434799fbf4163cb5ff597d2ee195d9737009291ca5ef63df0f
 // source: https://kratos.dev/schemas/state/gap/v1 sha256:cff06bc219cb2dc4005680230a936e20e47374fe05b12f3ced21108d0ee55591
@@ -1535,6 +1539,131 @@ export namespace MemoryChangeV1_2Contract {
   }
 }
 export type MemoryChangeV1_2 = MemoryChangeV1_2Contract.MemoryChangeV1_2;
+export namespace MemoryChangeV1_4Contract {
+  export type MemoryChangeV1_4 = Promote | Reinforce | Merge | Archive;
+  export type Id = string;
+  export type Sha256 = string;
+  export type CandidateIds = Sha256[];
+  export type Title = string;
+  export type Text = string;
+  export type Technology = string;
+  export type FailureKind =
+    "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+  export type Dependency =
+    | {
+        kind: "none";
+      }
+    | {
+        kind: "path";
+        path: string;
+      };
+
+  export interface Promote {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    operation: "promote";
+    reviewer: Id;
+    candidateIds: CandidateIds;
+    title: Title;
+    why: Text[];
+    apply: Text[];
+    technology: Technology;
+    failureKind: FailureKind;
+    dependency: Dependency;
+  }
+  export interface Reinforce {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    operation: "reinforce";
+    reviewer: Id;
+    lessonId: Sha256;
+    candidateIds: CandidateIds;
+  }
+  export interface Merge {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    operation: "merge";
+    reviewer: Id;
+    lessonIds: Sha256[];
+    title: Title;
+  }
+  export interface Archive {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    operation: "archive";
+    reviewer: Id;
+    lessonId: Sha256;
+    reason: Text;
+  }
+}
+export type MemoryChangeV1_4 = MemoryChangeV1_4Contract.MemoryChangeV1_4;
+export namespace MemoryCurationV1_4Contract {
+  export type MemoryCurationV1_4 = Plan | Approval;
+  export type Date = string;
+  export type Sha256 = string;
+  export type Score = number;
+  export type Id = string;
+
+  export interface Plan {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    kind: "plan";
+    policyVersion: "memory-curation/1.0.0";
+    asOf: Date;
+    ledgerDigest: Sha256;
+    proposals: (MergeProposal | ObsoleteProposal)[];
+    planDigest: Sha256;
+  }
+  export interface MergeProposal {
+    proposalId: Sha256;
+    type: "merge";
+    score: Score;
+    /**
+     * @minItems 2
+     * @maxItems 2
+     */
+    lessonIds: [Sha256, Sha256];
+    components: {
+      text: Score;
+      fix: Score;
+      technology: Score;
+      failureKind: Score;
+    };
+    textEvidence: TokenEvidence;
+    fixEvidence: TokenEvidence;
+  }
+  export interface TokenEvidence {
+    intersection: string[];
+    union: string[];
+  }
+  export interface ObsoleteProposal {
+    proposalId: Sha256;
+    type: "archive" | "delete";
+    score: Score;
+    /**
+     * @minItems 1
+     * @maxItems 1
+     */
+    lessonIds: [Sha256];
+    components: {
+      age: Score;
+      rarity: Score;
+      dependencyAbsent: Score;
+    };
+  }
+  export interface Approval {
+    contractVersion: "1.4.0";
+    hostContract: "1.4.0";
+    kind: "approval";
+    reviewer: Id;
+    planDigest: Sha256;
+    decisions: {
+      proposalId: Sha256;
+      decision: "approve" | "reject";
+    }[];
+  }
+}
+export type MemoryCurationV1_4 = MemoryCurationV1_4Contract.MemoryCurationV1_4;
 export namespace MemoryMigrationV1_2Contract {
   export type Sha256 = string;
   export type Id = string;
@@ -2088,6 +2217,87 @@ export namespace CuratedMemoryV1Contract {
   }
 }
 export type CuratedMemoryV1 = CuratedMemoryV1Contract.CuratedMemoryV1;
+export namespace CuratedMemoryV1_1Contract {
+  export type NonnegativeInteger = number;
+  export type Sha256 = string;
+  export type Timestamp = string;
+  export type Title = string;
+  export type Text = string;
+  export type Id = string;
+  export type Technology = string;
+  export type FailureKind =
+    "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+  export type Dependency =
+    | {
+        kind: "none";
+      }
+    | {
+        kind: "path";
+        path: string;
+      };
+  export type PositiveInteger = number;
+  export type Score = number;
+
+  export interface CuratedMemoryV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    revision: NonnegativeInteger;
+    projectionDigest: Sha256;
+    updatedAt: Timestamp;
+    confirmed: ConfirmedLesson[];
+    archive: (LegacyArchiveTombstone | ArchiveTombstone)[];
+  }
+  export interface ConfirmedLesson {
+    lessonId: Sha256;
+    title: Title;
+    why: Text[];
+    apply: Text[];
+    candidateIds: Sha256[];
+    reviewer: Id;
+    confirmedAt: Timestamp;
+    technology: Technology;
+    failureKind: FailureKind;
+    dependency: Dependency;
+    observationCount: PositiveInteger;
+    firstObservedAt: Timestamp;
+    lastObservedAt: Timestamp;
+  }
+  export interface LegacyArchiveTombstone {
+    lessonId: Sha256;
+    title: Title;
+    candidateIds: Sha256[];
+    reviewer: Id;
+    archivedAt: Timestamp;
+    reason: Text;
+    replacementLessonId: Sha256 | null;
+  }
+  export interface ArchiveTombstone {
+    lessonId: Sha256;
+    title: Title;
+    candidateIds: Sha256[];
+    reviewer: Id;
+    archivedAt: Timestamp;
+    reason: Text;
+    replacementLessonId: Sha256 | null;
+    technology: Technology;
+    failureKind: FailureKind;
+    dependency: Dependency;
+    observationCount: PositiveInteger;
+    firstObservedAt: Timestamp;
+    lastObservedAt: Timestamp;
+    curationEvidence: null | {
+      policyVersion: "memory-curation/1.0.0";
+      proposalId: Sha256;
+      score: Score;
+      components: {
+        age: Score;
+        rarity: Score;
+        dependencyAbsent: Score;
+      };
+    };
+  }
+}
+export type CuratedMemoryV1_1 = CuratedMemoryV1_1Contract.CuratedMemoryV1_1;
 export namespace EventV1Contract {
   export type Id = string;
   export type Timestamp = string;
@@ -3063,6 +3273,27 @@ export namespace FailureCandidateV1Contract {
   }
 }
 export type FailureCandidateV1 = FailureCandidateV1Contract.FailureCandidateV1;
+export namespace FailureCandidateV1_1Contract {
+  export type Sha256 = string;
+  export type PositiveInteger = number;
+  export type Timestamp = string;
+
+  export interface FailureCandidateV1_1 {
+    contractVersion: "1.1.0";
+    stateContract: "1.1.0";
+    candidateId: Sha256;
+    toolFamily: "file" | "shell" | "mcp" | "search" | "other";
+    failureClass:
+      "nonzero_exit" | "tool_error" | "timeout" | "denied" | "unknown";
+    exitCode: number | null;
+    diagnostic: string;
+    observationCount: PositiveInteger;
+    firstObservedAt: Timestamp;
+    lastObservedAt: Timestamp;
+  }
+}
+export type FailureCandidateV1_1 =
+  FailureCandidateV1_1Contract.FailureCandidateV1_1;
 export namespace FeatureStateV1Contract {
   export interface FeatureStateV1 {
     contractVersion: "1.0.0";

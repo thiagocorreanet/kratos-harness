@@ -25,7 +25,9 @@ import eventV1_3 from "../fixtures/contracts/v1.3/event.json" with { type: "json
 import eventV1_4 from "../fixtures/contracts/v1.4/event.json" with { type: "json" };
 import evidence from "../fixtures/contracts/v1/evidence.json" with { type: "json" };
 import failureCandidate from "../fixtures/contracts/v1/failure-candidate.json" with { type: "json" };
+import failureCandidateV1_1 from "../fixtures/contracts/v1.1/failure-candidate.json" with { type: "json" };
 import curatedMemory from "../fixtures/contracts/v1/curated-memory.json" with { type: "json" };
+import curatedMemoryV1_1 from "../fixtures/contracts/v1.1/curated-memory.json" with { type: "json" };
 import feature from "../fixtures/contracts/v1/feature.json" with { type: "json" };
 import featureScope from "../fixtures/contracts/v1/feature-scope.json" with { type: "json" };
 import gap from "../fixtures/contracts/v1/gap.json" with { type: "json" };
@@ -42,6 +44,8 @@ import memoryCapture from "../fixtures/contracts/v1.2/memory-capture.json" with 
 import memoryChangePromote from "../fixtures/contracts/v1.2/memory-change-promote.json" with { type: "json" };
 import memoryChangeMerge from "../fixtures/contracts/v1.2/memory-change-merge.json" with { type: "json" };
 import memoryChangeArchive from "../fixtures/contracts/v1.2/memory-change-archive.json" with { type: "json" };
+import memoryChangeReinforceV1_4 from "../fixtures/contracts/v1.4/memory-change-reinforce.json" with { type: "json" };
+import memoryCurationApprovalV1_4 from "../fixtures/contracts/v1.4/memory-curation-approval.json" with { type: "json" };
 import memoryMigration from "../fixtures/contracts/v1.2/memory-migration.json" with { type: "json" };
 import projectConfig from "../fixtures/contracts/v1/project-config.json" with { type: "json" };
 import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" with { type: "json" };
@@ -404,12 +408,32 @@ const fixtures = [
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
   {
+    id: "state.failure-candidate",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "candidateId",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: failureCandidateV1_1,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
     id: "state.curated-memory",
     version: "1.0.0",
     versionField: "stateContract",
     requiredField: "confirmed",
     structuralReasonCode: "runtime.state_corrupt",
     fixture: curatedMemory,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.curated-memory",
+    version: "1.1.0",
+    versionField: "stateContract",
+    requiredField: "confirmed",
+    structuralReasonCode: "runtime.state_corrupt",
+    fixture: curatedMemoryV1_1,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },
@@ -430,6 +454,26 @@ const fixtures = [
     requiredField: "operation",
     structuralReasonCode: "trail.output_invalido",
     fixture: memoryChangePromote,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.memory-change",
+    version: "1.4.0",
+    versionField: "hostContract",
+    requiredField: "operation",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryChangeReinforceV1_4,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.memory-curation",
+    version: "1.4.0",
+    versionField: "hostContract",
+    requiredField: "kind",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: memoryCurationApprovalV1_4,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },

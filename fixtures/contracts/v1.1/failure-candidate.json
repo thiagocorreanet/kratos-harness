@@ -1,0 +1,12 @@
+{
+  "contractVersion": "1.1.0",
+  "stateContract": "1.1.0",
+  "candidateId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "toolFamily": "shell",
+  "failureClass": "nonzero_exit",
+  "exitCode": 1,
+  "diagnostic": "build input missing",
+  "observationCount": 2,
+  "firstObservedAt": "2026-08-28T12:00:00Z",
+  "lastObservedAt": "2026-09-01T12:00:00Z"
+}

@@ -107,9 +107,13 @@ export type {
   TransactionManifestV1,
   TransactionProgressV1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   CuratedMemoryV1,
+  CuratedMemoryV1_1,
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4,
   MemoryMigrationV1_2,
 } from "./generated/contracts.js";
 

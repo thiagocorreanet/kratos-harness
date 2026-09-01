@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/memory-change/v1.4",
+  "title": "Kratos memory change proposal v1.4",
+  "oneOf": [
+    { "$ref": "#/$defs/promote" },
+    { "$ref": "#/$defs/reinforce" },
+    { "$ref": "#/$defs/merge" },
+    { "$ref": "#/$defs/archive" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "technology": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._+-][a-z0-9]+)*$",
+      "maxLength": 128
+    },
+    "failureKind": {
+      "enum": ["nonzero_exit", "tool_error", "timeout", "denied", "unknown"]
+    },
+    "dependency": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "path" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 1024 }
+          }
+        }
+      ]
+    },
+    "candidateIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "base": {
+      "contractVersion": { "const": "1.4.0" },
+      "hostContract": { "const": "1.4.0" },
+      "reviewer": { "$ref": "#/$defs/id" }
+    },
+    "promote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "operation",
+        "reviewer",
+        "candidateIds",
+        "title",
+        "why",
+        "apply",
+        "technology",
+        "failureKind",
+        "dependency"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.4.0" },
+        "hostContract": { "const": "1.4.0" },
+        "operation": { "const": "promote" },
+        "reviewer": { "$ref": "#/$defs/id" },
+        "candidateIds": { "$ref": "#/$defs/candidateIds" },
+        "title": { "$ref": "#/$defs/title" },
+        "why": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "apply": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "technology": { "$ref": "#/$defs/technology" },
+        "failureKind": { "$ref": "#/$defs/failureKind" },
+        "dependency": { "$ref": "#/$defs/dependency" }
+      }
+    },
+    "reinforce": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "operation",
+        "reviewer",
+        "lessonId",
+        "candidateIds"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.4.0" },
+        "hostContract": { "const": "1.4.0" },
+        "operation": { "const": "reinforce" },
+        "reviewer": { "$ref": "#/$defs/id" },
+        "lessonId": { "$ref": "#/$defs/sha256" },
+        "candidateIds": { "$ref": "#/$defs/candidateIds" }
+      }
+    },
+    "merge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "operation",
+        "reviewer",
+        "lessonIds",
+        "title"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.4.0" },
+        "hostContract": { "const": "1.4.0" },
+        "operation": { "const": "merge" },
+        "reviewer": { "$ref": "#/$defs/id" },
+        "lessonIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "title": { "$ref": "#/$defs/title" }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "hostContract",
+        "operation",
+        "reviewer",
+        "lessonId",
+        "reason"
+      ],
+      "properties": {
+        "contractVersion": { "const": "1.4.0" },
+        "hostContract": { "const": "1.4.0" },
+        "operation": { "const": "archive" },
+        "reviewer": { "$ref": "#/$defs/id" },
+        "lessonId": { "$ref": "#/$defs/sha256" },
+        "reason": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}
