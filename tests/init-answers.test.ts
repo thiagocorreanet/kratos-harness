@@ -74,11 +74,11 @@ describe("initialization answers", () => {
       kind: "resolved",
       answers: { gateModes: { "spec-approved": "enforce" } },
     });
-    expect(defaulted).toMatchObject({
-      kind: "resolved",
-      answers: { gateModes: {} },
-      defaulted: expect.arrayContaining(["gateModes"]),
-    });
+    expect(defaulted.kind).toBe("resolved");
+    if (defaulted.kind === "resolved") {
+      expect(defaulted.answers.gateModes).toEqual({});
+      expect(defaulted.defaulted).toContain("gateModes");
+    }
     expect(cleared).toMatchObject({
       kind: "resolved",
       answers: { gateModes: {} },

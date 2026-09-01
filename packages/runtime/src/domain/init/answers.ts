@@ -134,7 +134,7 @@ export async function resolveInitAnswers(
     (key) => supplied[key] === undefined,
   );
   if (
-    !("gateModes" in supplied && supplied.gateModes !== undefined) &&
+    !("gateModes" in supplied) &&
     persistedSettings?.gateModes === undefined
   ) {
     defaulted.push("gateModes");
@@ -230,7 +230,7 @@ function resolvedGateModes(
   supplied: InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5,
   persisted: PersistedInitSettings | undefined,
 ): NonNullable<InitAnswersV1_5["gateModes"]> {
-  if ("gateModes" in supplied && supplied.gateModes !== undefined) {
+  if ("gateModes" in supplied) {
     return structuredClone(supplied.gateModes);
   }
   return structuredClone(persisted?.gateModes ?? {});
