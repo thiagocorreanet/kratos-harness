@@ -3,6 +3,21 @@ import type { CuratedMemoryV1, MemoryChangeV1_2 } from "@kratos/contracts";
 import { canonicalizeJson } from "../schema/index.js";
 
 export {
+  MEMORY_CURATION_POLICY,
+  jaccardScore,
+  proposeMemoryCuration,
+  scoreLessonObsolescence,
+  scoreLessonSimilarity,
+  tokenizeMemoryText,
+  type MemoryCurationPlan,
+  type MemoryCurationPolicy,
+  type MemoryCurationProposal,
+  type ObsolescenceScore,
+  type SetComparison,
+  type SimilarityScore,
+} from "./curation.js";
+
+export {
   classifyLegacyMemory,
   reduceLegacyMemoryMigration,
   STOCK_GOTCHAS_TEMPLATE,
