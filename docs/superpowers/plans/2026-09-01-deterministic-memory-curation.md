@@ -24,6 +24,7 @@
 ### Task 1: Publish the additive memory contracts
 
 **Files:**
+
 - Create: `schemas/state/failure-candidate.v1.1.schema.json`
 - Create: `schemas/state/curated-memory.v1.1.schema.json`
 - Create: `schemas/host/memory-change.v1.4.schema.json`
@@ -32,6 +33,7 @@
 - Test: schema, registry, type-generation, and compatibility suites
 
 **Interfaces:**
+
 - Produces `FailureCandidateV1_1`, `CuratedMemoryV1_1`, `MemoryChangeV1_4`, and `MemoryCurationV1_4`.
 - Keeps every predecessor schema importable and byte-stable.
 
@@ -44,12 +46,14 @@
 ### Task 2: Implement pure scoring and proposal generation
 
 **Files:**
+
 - Create: `packages/runtime/src/domain/memory/curation.ts`
 - Modify: `packages/runtime/src/domain/memory/index.ts`
 - Test: `tests/memory-curation-scoring.test.ts`
 - Fixture: `fixtures/memory-curation/v1/*`
 
 **Interfaces:**
+
 - Produces `tokenizeMemoryText`, `jaccardScore`, `scoreLessonSimilarity`, `scoreLessonObsolescence`, and `proposeMemoryCuration`.
 - Consumes only ledger values, `asOf`, a versioned policy object, and path observations supplied by composition.
 
@@ -62,11 +66,13 @@
 ### Task 3: Track observations and support explicit reinforcement
 
 **Files:**
+
 - Modify: hook candidate reducer and memory domain reducer
 - Modify: memory observation/composition and CLI command registration
 - Test: workflow-hook domain/runtime and curated-memory domain/runtime suites
 
 **Interfaces:**
+
 - Duplicate capture upgrades or updates `FailureCandidateV1_1` atomically.
 - `memory reinforce` consumes a `MemoryChangeV1_4` proposal and preserves lesson identity/content while updating observation facts.
 
@@ -79,10 +85,12 @@
 ### Task 4: Implement curate preview, complete approval, and batch apply
 
 **Files:**
+
 - Modify: memory composition, CLI specs/handlers, command/help registration, fake/node transaction observations
 - Test: `tests/memory-curation-runtime.test.ts`, CLI command/composition tests, transaction fault tests
 
 **Interfaces:**
+
 - `memory curate --as-of DATE` produces a deterministic plan.
 - `memory curate --as-of DATE APPROVAL` previews the complete reviewed batch.
 - Apply requires `--yes`, `--plan-digest`, and `--approval-digest` and writes one final ledger/projection pair.
@@ -97,10 +105,12 @@
 ### Task 5: Implement adjacent migration and compatibility behavior
 
 **Files:**
+
 - Modify: memory migration domain/composition/CLI and migration schemas
 - Test: memory migration domain/runtime tests and contract compatibility suites
 
 **Interfaces:**
+
 - Extends `migrate memory` with an explicit v1-ledger metadata mapping.
 - Produces v1.1 counts/date lower bounds, backups, receipts, verification, and rollback without rewriting unrelated history.
 
@@ -112,11 +122,13 @@
 ### Task 6: Publish policy, evidence, and complete verification
 
 **Files:**
+
 - Modify: memory command/state/migration and contract-versioning documentation
 - Modify: schema README and compatibility/security documentation as required
 - Create: `docs/verification/issue-149-deterministic-memory-curation-evidence.md`
 
 **Interfaces:**
+
 - Documents every public field, formula, threshold, rationale, command, migration, compatibility impact, and security boundary.
 - Maps each #149 criterion to executable evidence and exact commands.
 
