@@ -189,8 +189,25 @@ agy plugin install "$KRATOS_HOME/antigravity"
 agy plugin list
 ```
 
-Antigravity stages the package under its own plugin directory and reads the
-`plugin.json` marker at the package root for the plugin name, `kratos`.
+Antigravity stages the package under its own CLI plugin directory
+(`~/.gemini/antigravity-cli/plugins/kratos/`) and reads the `plugin.json`
+marker at the package root for the plugin name, `kratos`.
+
+The Antigravity IDE discovers plugins by scanning directories rather than
+through a command, so a workspace or global installation is a copy:
+
+```bash
+# One workspace only
+mkdir -p /path/to/workspace/.agents/plugins
+cp -R "$KRATOS_HOME/antigravity" /path/to/workspace/.agents/plugins/kratos
+
+# Every workspace
+mkdir -p ~/.gemini/config/plugins
+cp -R "$KRATOS_HOME/antigravity" ~/.gemini/config/plugins/kratos
+```
+
+Uninstalling such a copy means deleting that directory. `agy plugin uninstall`
+manages only what `agy plugin install` staged.
 
 ### Update
 
