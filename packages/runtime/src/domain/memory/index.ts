@@ -1,4 +1,14 @@
-import type { CuratedMemoryV1, MemoryChangeV1_2 } from "@kratos/contracts";
+import type {
+  CuratedMemoryV1,
+  CuratedMemoryV1_1,
+  FailureCandidateV1,
+  FailureCandidateV1_1,
+  MemoryChangeV1_2,
+  MemoryChangeV1_4,
+  MemoryCurationV1_4Contract,
+} from "@kratos/contracts";
+
+import type { MemoryCurationPlan, MemoryCurationProposal } from "./curation.js";
 
 import { canonicalizeJson } from "../schema/index.js";
 
@@ -397,4 +407,420 @@ function compareText(left: string, right: string): number {
     if (a[index] !== b[index]) return (a[index] ?? 0) - (b[index] ?? 0);
   }
   return a.length - b.length;
+}
+
+type CurrentCandidate = FailureCandidateV1 | FailureCandidateV1_1;
+type CurrentLesson = CuratedMemoryV1_1["confirmed"][number];
+type CurrentTombstone = CuratedMemoryV1_1["archive"][number];
+
+export type MemoryChangeV1_4Reduction =
+  | {
+      readonly kind: "ready";
+      readonly ledger: CuratedMemoryV1_1;
+      readonly consumedCandidateIds: readonly string[];
+    }
+  | {
+      readonly kind:
+        | "lesson_incomplete"
+        | "candidate_missing"
+        | "curation_required"
+        | "provenance_mismatch";
+    };
+
+export function reduceMemoryChangeV1_4(
+  ledger: CuratedMemoryV1_1,
+  candidates: readonly CurrentCandidate[],
+  proposal: MemoryChangeV1_4,
+  now: string,
+  sha256: (value: string) => string,
+): MemoryChangeV1_4Reduction {
+  if (proposal.reviewer.trim().length === 0)
+    return { kind: "lesson_incomplete" };
+  if (proposal.operation === "promote") {
+    const selected = selectCandidates(candidates, proposal.candidateIds);
+    if (selected === null) return { kind: "candidate_missing" };
+    if (!nonempty(proposal.why) || !nonempty(proposal.apply))
+      return { kind: "lesson_incomplete" };
+    const facts = observationFacts(selected);
+    const lesson: CurrentLesson = {
+      ...lessonFor(
+        proposal.title,
+        sortedUnique(proposal.why),
+        sortedUnique(proposal.apply),
+        sortedUnique(proposal.candidateIds),
+        proposal.reviewer,
+        now,
+        sha256,
+      ),
+      technology: proposal.technology,
+      failureKind: proposal.failureKind,
+      dependency: proposal.dependency,
+      ...facts,
+    };
+    return completeCurrent(
+      ledger,
+      [...ledger.confirmed, lesson],
+      ledger.archive,
+      proposal.candidateIds,
+      now,
+      sha256,
+    );
+  }
+  if (proposal.operation === "reinforce") {
+    const lesson = ledger.confirmed.find(
+      ({ lessonId }) => lessonId === proposal.lessonId,
+    );
+    const selected = selectCandidates(candidates, proposal.candidateIds);
+    if (lesson === undefined || selected === null)
+      return { kind: "candidate_missing" };
+    if (proposal.candidateIds.some((id) => !lesson.candidateIds.includes(id)))
+      return { kind: "provenance_mismatch" };
+    const facts = observationFacts(selected);
+    const reinforced: CurrentLesson = {
+      ...lesson,
+      reviewer: proposal.reviewer,
+      observationCount: lesson.observationCount + facts.observationCount,
+      firstObservedAt: minText(lesson.firstObservedAt, facts.firstObservedAt),
+      lastObservedAt: maxText(lesson.lastObservedAt, facts.lastObservedAt),
+    };
+    return completeCurrent(
+      ledger,
+      ledger.confirmed.map((value) =>
+        value.lessonId === lesson.lessonId ? reinforced : value,
+      ),
+      ledger.archive,
+      proposal.candidateIds,
+      now,
+      sha256,
+    );
+  }
+  if (proposal.operation === "merge") {
+    const source = lessonsByIds(ledger, proposal.lessonIds);
+    if (source === null) return { kind: "candidate_missing" };
+    return mergeCurrent(
+      ledger,
+      source,
+      proposal.reviewer,
+      now,
+      sha256,
+      proposal.title,
+      null,
+    );
+  }
+  const lesson = ledger.confirmed.find(
+    ({ lessonId }) => lessonId === proposal.lessonId,
+  );
+  if (lesson === undefined) return { kind: "candidate_missing" };
+  const tombstone = currentTombstone(
+    lesson,
+    proposal.reviewer,
+    now,
+    proposal.reason,
+    null,
+    null,
+  );
+  return completeCurrent(
+    ledger,
+    ledger.confirmed.filter(({ lessonId }) => lessonId !== lesson.lessonId),
+    [...ledger.archive, tombstone],
+    [],
+    now,
+    sha256,
+  );
+}
+
+export type MemoryCurationReduction =
+  | {
+      readonly kind: "ready";
+      readonly ledger: CuratedMemoryV1_1;
+      readonly approvedProposalIds: readonly string[];
+    }
+  | {
+      readonly kind:
+        | "approval_stale"
+        | "approval_incomplete"
+        | "approval_duplicate"
+        | "approval_unknown"
+        | "approval_overlap"
+        | "candidate_missing"
+        | "curation_required";
+    };
+
+export function applyMemoryCuration(
+  ledger: CuratedMemoryV1_1,
+  plan: MemoryCurationPlan,
+  approval: MemoryCurationV1_4Contract.Approval,
+  now: string,
+  sha256: (value: string) => string,
+): MemoryCurationReduction {
+  if (approval.planDigest !== plan.planDigest)
+    return { kind: "approval_stale" };
+  const proposalIds = new Set(
+    plan.proposals.map(({ proposalId }) => proposalId),
+  );
+  const decisions = new Map<string, "approve" | "reject">();
+  for (const decision of approval.decisions) {
+    if (decisions.has(decision.proposalId))
+      return { kind: "approval_duplicate" };
+    if (!proposalIds.has(decision.proposalId))
+      return { kind: "approval_unknown" };
+    decisions.set(decision.proposalId, decision.decision);
+  }
+  if (decisions.size !== plan.proposals.length)
+    return { kind: "approval_incomplete" };
+  const approved = plan.proposals.filter(
+    ({ proposalId }) => decisions.get(proposalId) === "approve",
+  );
+  const occupied = new Set<string>();
+  for (const proposal of approved) {
+    for (const lessonId of proposal.lessonIds) {
+      if (occupied.has(lessonId)) return { kind: "approval_overlap" };
+      occupied.add(lessonId);
+    }
+  }
+  let confirmed = [...ledger.confirmed];
+  let archive = [...ledger.archive];
+  for (const proposal of approved) {
+    const source = lessonsByIds({ ...ledger, confirmed }, proposal.lessonIds);
+    if (source === null) return { kind: "candidate_missing" };
+    if (proposal.type === "merge") {
+      const reduced = mergeCurrent(
+        { ...ledger, confirmed, archive },
+        source,
+        approval.reviewer,
+        now,
+        sha256,
+        null,
+        proposal,
+      );
+      if (reduced.kind !== "ready") return reduced;
+      confirmed = [...reduced.ledger.confirmed];
+      archive = [...reduced.ledger.archive];
+      continue;
+    }
+    const lesson = source[0];
+    if (lesson === undefined) return { kind: "candidate_missing" };
+    confirmed = confirmed.filter(
+      ({ lessonId }) => lessonId !== lesson.lessonId,
+    );
+    if (proposal.type === "archive") {
+      archive.push(
+        currentTombstone(
+          lesson,
+          approval.reviewer,
+          now,
+          `Obsolete under ${plan.policyVersion}.`,
+          null,
+          proposal,
+        ),
+      );
+    }
+  }
+  const completed = completeCurrent(
+    ledger,
+    confirmed,
+    archive,
+    [],
+    now,
+    sha256,
+  );
+  return completed.kind === "ready"
+    ? {
+        kind: "ready",
+        ledger: completed.ledger,
+        approvedProposalIds: approved.map(({ proposalId }) => proposalId),
+      }
+    : completed;
+}
+
+function mergeCurrent(
+  ledger: CuratedMemoryV1_1,
+  source: readonly CurrentLesson[],
+  reviewer: string,
+  now: string,
+  sha256: (value: string) => string,
+  explicitTitle: string | null,
+  evidenceProposal: Extract<
+    MemoryCurationProposal,
+    { readonly type: "merge" }
+  > | null,
+): MemoryChangeV1_4Reduction {
+  const canonical = [...source].sort((left, right) =>
+    right.observationCount !== left.observationCount
+      ? right.observationCount - left.observationCount
+      : byLessonId(left, right),
+  )[0];
+  if (canonical === undefined) return { kind: "candidate_missing" };
+  const why = sortedUnique(source.flatMap((lesson) => lesson.why));
+  const apply = sortedUnique(source.flatMap((lesson) => lesson.apply));
+  const candidateIds = sortedUnique(
+    source.flatMap((lesson) => lesson.candidateIds),
+  );
+  if (why.length > 8 || apply.length > 8 || candidateIds.length > 256)
+    return { kind: "curation_required" };
+  const title = explicitTitle ?? canonical.title;
+  const replacement: CurrentLesson = {
+    ...lessonFor(title, why, apply, candidateIds, reviewer, now, sha256),
+    technology: canonical.technology,
+    failureKind: canonical.failureKind,
+    dependency: canonical.dependency,
+    observationCount: source.reduce(
+      (sum, lesson) => sum + lesson.observationCount,
+      0,
+    ),
+    firstObservedAt: source
+      .map(({ firstObservedAt }) => firstObservedAt)
+      .reduce(minText),
+    lastObservedAt: source
+      .map(({ lastObservedAt }) => lastObservedAt)
+      .reduce(maxText),
+  };
+  const sourceIds = new Set(source.map(({ lessonId }) => lessonId));
+  const tombstones = source.map((lesson) =>
+    currentTombstone(
+      lesson,
+      reviewer,
+      now,
+      "Merged into replacement lesson.",
+      replacement.lessonId,
+      evidenceProposal === null ? null : null,
+    ),
+  );
+  return completeCurrent(
+    ledger,
+    [
+      ...ledger.confirmed.filter(({ lessonId }) => !sourceIds.has(lessonId)),
+      replacement,
+    ],
+    [...ledger.archive, ...tombstones],
+    [],
+    now,
+    sha256,
+  );
+}
+
+function completeCurrent(
+  prior: CuratedMemoryV1_1,
+  confirmed: readonly CurrentLesson[],
+  archive: readonly CurrentTombstone[],
+  consumedCandidateIds: readonly string[],
+  now: string,
+  sha256: (value: string) => string,
+): MemoryChangeV1_4Reduction {
+  if (confirmed.length > CURATED_MEMORY_CONFIRMED_MAX)
+    return { kind: "curation_required" };
+  const provisional: CuratedMemoryV1_1 = {
+    ...prior,
+    revision: prior.revision + 1,
+    updatedAt: now,
+    confirmed: [...confirmed].sort(byLessonId),
+    archive: [...archive].slice(-CURATED_MEMORY_ARCHIVE_MAX),
+  };
+  const projection = projectCuratedMemory(
+    provisional as unknown as CuratedMemoryV1,
+    sha256,
+  );
+  return {
+    kind: "ready",
+    ledger: { ...provisional, projectionDigest: projection.projectionDigest },
+    consumedCandidateIds: sortedUnique(consumedCandidateIds),
+  };
+}
+
+function lessonsByIds(
+  ledger: Pick<CuratedMemoryV1_1, "confirmed">,
+  ids: readonly string[],
+): CurrentLesson[] | null {
+  const wanted = new Set(ids);
+  const source = ledger.confirmed.filter(({ lessonId }) =>
+    wanted.has(lessonId),
+  );
+  return wanted.size === ids.length && source.length === wanted.size
+    ? source
+    : null;
+}
+
+function selectCandidates(
+  candidates: readonly CurrentCandidate[],
+  ids: readonly string[],
+): CurrentCandidate[] | null {
+  const wanted = new Set(ids);
+  const selected = candidates.filter(({ candidateId }) =>
+    wanted.has(candidateId),
+  );
+  return wanted.size === ids.length && selected.length === wanted.size
+    ? selected
+    : null;
+}
+
+function observationFacts(candidates: readonly CurrentCandidate[]): {
+  readonly observationCount: number;
+  readonly firstObservedAt: string;
+  readonly lastObservedAt: string;
+} {
+  return {
+    observationCount: candidates.reduce(
+      (sum, candidate) =>
+        sum +
+        (candidate.contractVersion === "1.1.0"
+          ? candidate.observationCount
+          : 1),
+      0,
+    ),
+    firstObservedAt: candidates
+      .map(({ firstObservedAt }) => firstObservedAt)
+      .reduce(minText),
+    lastObservedAt: candidates
+      .map((candidate) =>
+        candidate.contractVersion === "1.1.0"
+          ? candidate.lastObservedAt
+          : candidate.firstObservedAt,
+      )
+      .reduce(maxText),
+  };
+}
+
+function currentTombstone(
+  lesson: CurrentLesson,
+  reviewer: string,
+  archivedAt: string,
+  reason: string,
+  replacementLessonId: string | null,
+  evidenceProposal: Extract<
+    MemoryCurationProposal,
+    { readonly type: "archive" | "delete" }
+  > | null,
+): Extract<CurrentTombstone, { readonly curationEvidence: unknown }> {
+  return {
+    lessonId: lesson.lessonId,
+    title: lesson.title,
+    candidateIds: [...lesson.candidateIds],
+    reviewer,
+    archivedAt,
+    reason,
+    replacementLessonId,
+    technology: lesson.technology,
+    failureKind: lesson.failureKind,
+    dependency: lesson.dependency,
+    observationCount: lesson.observationCount,
+    firstObservedAt: lesson.firstObservedAt,
+    lastObservedAt: lesson.lastObservedAt,
+    curationEvidence:
+      evidenceProposal === null
+        ? null
+        : {
+            policyVersion: "memory-curation/1.0.0",
+            proposalId: evidenceProposal.proposalId,
+            score: evidenceProposal.score,
+            components: evidenceProposal.components,
+          },
+  };
+}
+
+function minText(left: string, right: string): string {
+  return left < right ? left : right;
+}
+
+function maxText(left: string, right: string): string {
+  return left > right ? left : right;
 }

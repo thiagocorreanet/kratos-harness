@@ -202,7 +202,7 @@ function decide(
         write(
           `.brain/03-memory/candidates/${context.capture.candidate.candidateId}.json`,
           context.capture.candidate,
-          { kind: "missing" },
+          context.captureExpected ?? { kind: "missing" },
         ),
       );
     }

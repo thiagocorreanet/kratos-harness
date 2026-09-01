@@ -69,29 +69,19 @@ export const memoryCaptureCommand: CommandSpec = observingCommand(
   (_invocation, observation) => {
     if (observation.operation !== "capture") return internal();
     const decision = observation.capture;
-    if (!decision.write) {
-      return {
-        result: resultFor("runtime.orientation_ok", {
-          summary: "The matching local memory candidate already exists.",
-          evidence: [
-            {
-              kind: "artifact",
-              ref: `.brain/03-memory/candidates/${decision.candidate.candidateId}.json`,
-            },
-          ],
-        }),
-        plan: planOf(),
-        humanStdout: null,
-        payload: null,
-      };
-    }
     const path = `.brain/03-memory/candidates/${decision.candidate.candidateId}.json`;
     return {
       result: resultFor("trail.ok", {
         summary: "The local memory candidate was captured.",
         evidence: [{ kind: "artifact", ref: path }],
       }),
-      plan: planOf(write(path, decision.candidate, { kind: "missing" })),
+      plan: planOf(
+        write(
+          path,
+          decision.candidate,
+          observation.candidateExpected.get(path) ?? { kind: "missing" },
+        ),
+      ),
       humanStdout: null,
       payload: null,
     };

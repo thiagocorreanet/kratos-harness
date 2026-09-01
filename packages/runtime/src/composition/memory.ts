@@ -1,6 +1,7 @@
 import type {
   CuratedMemoryV1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   MemoryCaptureV1_2,
   MemoryChangeV1_2,
 } from "@kratos/contracts";
@@ -25,6 +26,7 @@ import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
 import { createSchemaRegistry } from "./schema.js";
+import { declaredContractVersion } from "./contract-version.js";
 
 export type ObservedMemory =
   | { readonly kind: "failure"; readonly result: Result }
@@ -127,6 +129,7 @@ export async function observeMemory(
       capture: captureCandidate(capture, candidates.value, (canonical) =>
         anchored.digests.sha256(canonical),
       ),
+      candidateExpected: candidates.expected,
     },
     ports: anchored,
   };
@@ -340,7 +343,11 @@ async function candidatePreconditions(
 }
 
 export type CandidateInbox =
-  | { readonly kind: "value"; readonly value: readonly FailureCandidateV1[] }
+  | {
+      readonly kind: "value";
+      readonly value: readonly (FailureCandidateV1 | FailureCandidateV1_1)[];
+      readonly expected: ReadonlyMap<string, WriteFilePrecondition>;
+    }
   | { readonly kind: "failure"; readonly result: Result };
 
 export async function readCandidates(
@@ -349,25 +356,28 @@ export async function readCandidates(
 ): Promise<CandidateInbox> {
   const root = ".brain/03-memory/candidates";
   if ((await ports.durableFileSystem.inspect(root)).kind !== "directory") {
-    return { kind: "value", value: [] };
+    return { kind: "value", value: [], expected: new Map() };
   }
-  const candidates: FailureCandidateV1[] = [];
+  const candidates: (FailureCandidateV1 | FailureCandidateV1_1)[] = [];
+  const expected = new Map<string, WriteFilePrecondition>();
   for (const name of await ports.durableFileSystem.list(root)) {
     if (!name.endsWith(".json")) continue;
     const path = `${root}/${name}`;
-    if ((await ports.durableFileSystem.inspect(path)).kind !== "file") continue;
+    const entry = await ports.durableFileSystem.inspect(path);
+    if (entry.kind !== "file") continue;
     try {
       const parsed = JSON.parse(
         await ports.durableFileSystem.readText(path),
       ) as unknown;
       const prepared = registry.validate({
         id: "state.failure-candidate",
-        version: "1.0.0",
+        version: declaredContractVersion(parsed, "stateContract", "1.0.0"),
         value: parsed,
         structuralReasonCode: "runtime.state_corrupt",
       });
       if (prepared.kind !== "valid") return corrupt(path);
       candidates.push(prepared.value);
+      expected.set(path, filePrecondition(entry));
     } catch {
       return corrupt(path);
     }
@@ -381,6 +391,7 @@ export async function readCandidates(
           ? 1
           : 0,
     ),
+    expected,
   };
 }
 

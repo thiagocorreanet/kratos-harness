@@ -17,6 +17,7 @@ import type {
   HookObservationV1,
   PhaseLifecycleV1,
   FailureCandidateV1,
+  FailureCandidateV1_1,
   CuratedMemoryV1,
   MemoryChangeV1_2,
   MemoryMigrationV1_2,
@@ -154,18 +155,25 @@ export type CommandObservation =
   | {
       readonly kind: "memory";
       readonly operation: "list";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
     }
   | {
       readonly kind: "memory";
       readonly operation: "capture";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
       readonly capture: CandidateCaptureDecision;
+      readonly candidateExpected: ReadonlyMap<string, WriteFilePrecondition>;
     }
   | {
       readonly kind: "memory";
       readonly operation: "change";
-      readonly candidates: readonly FailureCandidateV1[];
+      readonly candidates: readonly (
+        FailureCandidateV1 | FailureCandidateV1_1
+      )[];
       readonly ledger: CuratedMemoryV1;
       readonly ledgerExpected: WriteFilePrecondition;
       readonly projection: string;
@@ -229,6 +237,7 @@ export type CommandObservation =
         readonly gates: GateFactsV1;
         readonly gatesExpected: WriteFilePrecondition;
         readonly capture: CandidateCaptureDecision | null;
+        readonly captureExpected: WriteFilePrecondition | null;
         readonly cache: {
           readonly startedAt: string;
           readonly grossTokens: number;
