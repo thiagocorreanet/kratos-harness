@@ -53,21 +53,22 @@ profiles, and current generated types. `npm run format:check` exited 0.
 `npm run spellcheck` exited 0 after checking 244 files with zero issues.
 
 After translating the scratch Task 1 report, `npm run english:check` exited 0.
-The final `npm run verify` exited 0 at
-`2e1d29f docs: explain shadow gate rollout`. It passed formatting, spellcheck,
-English, lint, and typecheck; the complete suite passed 233 files and 5,535
-tests in 433.06 seconds. The coverage suite also passed 233 files and 5,535
-tests in 731.07 seconds, with 91.96% statements, 87.15% branches, 95.95%
-functions, and 93.10% lines.
+The final `npm run verify` exited 0 at content commit
+`91c83e0 docs: restore init answer predecessor index`. It passed formatting,
+spellcheck, English, lint, and typecheck; the complete suite passed 233 files
+and 5,535 tests in 469.22 seconds. The coverage suite also passed 233 files and
+5,535 tests in 693.56 seconds, with 91.96% statements, 87.15% branches,
+95.95% functions, and 93.10% lines. The subsequent commit changes only this
+Markdown evidence record; it is deliberately not the verified content tree.
 
 The remaining final gates passed with these reported values: mutation 4/4
 (100.00%); gap calibration found all 10 planted gaps with no false gaps;
-performance reported 1,544,487 / 1,600,000 runtime source bytes and 329,148 /
+performance reported 1,544,487 / 1,600,000 runtime source bytes and 329,220 /
 330,000 contract-schema bytes; the public oracle verified 12 surfaces, four PRD
 anchors, and three binaries; contract checking verified 68 schemas and 14
 legacy profiles; package verification passed for Codex, Claude Code, and
-Antigravity. The benchmark reported seven samples, help P95 257.796662 ms,
-version P95 163.623569 ms, handshake P95 147.302928 ms, and 2,071,950 bundle
+Antigravity. The benchmark reported seven samples, help P95 134.730146 ms,
+version P95 133.795581 ms, handshake P95 133.125712 ms, and 2,072,022 bundle
 bytes.
 
 ## Contract, state, security, and host-parity impact
