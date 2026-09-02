@@ -122,7 +122,7 @@ const replacementCharacterProfile: ResolvedProjectProfile = {
 const baseAnswers = (
   projectProfile: ResolvedProjectProfile,
 ): ResolvedAnswers => ({
-  contractVersion: "1.5.0",
+  contractVersion: "1.6.0",
   hostContract: "1.4.0",
   hosts: ["codex"],
   language: {

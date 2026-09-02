@@ -80,7 +80,7 @@ async function createGitRepo(): Promise<{
 async function writeSkeleton(root: string): Promise<void> {
   const effects = skeletonEffects(
     {
-      contractVersion: "1.5.0",
+      contractVersion: "1.6.0",
       hostContract: "1.4.0",
       hosts: ["claude", "codex"],
       language: DEFAULT_LANGUAGE_POLICY,

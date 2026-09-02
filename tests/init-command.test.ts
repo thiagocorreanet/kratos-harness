@@ -20,6 +20,7 @@ import {
 import type { DurableFileSystem, RuntimePorts } from "@kratos/runtime/ports";
 import { describe, expect, it } from "vitest";
 
+import type { ProjectConfigV1_5 } from "@kratos/contracts";
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 
 import {
@@ -114,7 +115,7 @@ describe("the init command", () => {
       destinationsOf(
         skeletonEffects(
           {
-            contractVersion: "1.5.0",
+            contractVersion: "1.6.0",
             hostContract: "1.4.0",
             hosts: ["claude", "codex"],
             language: {
@@ -961,6 +962,93 @@ describe("the init command", () => {
     expect(profile).toContain("| csharp | 1 | `src/Api/Program.cs` |");
     expect(files[".claude/rules/dotnet.md"]).toContain("# .NET Conventions");
     expect(files[".claude/settings.json"]).toContain("Bash(dotnet test)");
+  });
+
+  it("derives commands and paths from repository manifests when answers omit them", async () => {
+    const pkg = JSON.stringify({
+      scripts: {
+        test: "vitest run",
+        lint: "eslint .",
+        build: "tsc -b",
+        start: "node dist/index.js",
+      },
+    });
+    const run = subject(
+      ANSWERS,
+      {},
+      {
+        "package.json": pkg,
+        "src/index.ts": "console.log('hi');",
+        "tests/index.test.ts": "test('hi', () => {});",
+        "config/default.json": "{}",
+      },
+    );
+
+    expect(await runCommandLine(["init"], run.ports)).toBe(0);
+
+    const files = run.storage.snapshot().files;
+    const config = JSON.parse(
+      files[".brain/config.json"] ?? "null",
+    ) as ProjectConfigV1_5;
+    expect(config.projectProfile).toEqual({
+      commands: {
+        test: {
+          status: "derived",
+          value: "npm test",
+          evidence: "package.json#scripts.test",
+        },
+        lint: {
+          status: "derived",
+          value: "npm run lint",
+          evidence: "package.json#scripts.lint",
+        },
+        build: {
+          status: "derived",
+          value: "npm run build",
+          evidence: "package.json#scripts.build",
+        },
+        run: {
+          status: "derived",
+          value: "npm start",
+          evidence: "package.json#scripts.start",
+        },
+      },
+      paths: {
+        source: {
+          status: "derived",
+          value: ["src"],
+          evidence: "directory:src",
+        },
+        tests: {
+          status: "derived",
+          value: ["tests"],
+          evidence: "directory:tests",
+        },
+        configuration: {
+          status: "derived",
+          value: ["config"],
+          evidence: "directory:config",
+        },
+      },
+      conventions: {
+        directoryLayout: { status: "unresolved" },
+        naming: { status: "unresolved" },
+        implementationLanguages: {
+          status: "derived",
+          value: ["typescript"],
+          evidence: "census:typescript",
+        },
+      },
+    });
+
+    const stackProfile = files[".brain/01-architecture/stack-profile.md"] ?? "";
+    expect(stackProfile).toContain("### Test (derived from package.json#scripts.test)");
+    expect(stackProfile).toContain("### Lint (derived from package.json#scripts.lint)");
+    expect(stackProfile).toContain("### Build (derived from package.json#scripts.build)");
+    expect(stackProfile).toContain("### Run (derived from package.json#scripts.start)");
+    expect(stackProfile).toContain("| Source | src (derived from directory:src) |");
+    expect(stackProfile).toContain("| Tests | tests (derived from directory:tests) |");
+    expect(stackProfile).toContain("| Configuration | config (derived from directory:config) |");
   });
 
   it("refuses both an answers file and a piped document", async () => {

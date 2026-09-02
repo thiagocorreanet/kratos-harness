@@ -1,7 +1,7 @@
 import {
   KRATOS_VERSION,
   type CuratedMemoryV1,
-  type ProjectConfigV1_4,
+  type ProjectConfigV1_5,
 } from "@kratos/contracts";
 
 import type { Effect } from "../effects.js";
@@ -199,9 +199,9 @@ const HOST_SURFACES: readonly (readonly [Host, HostSurface])[] = [
 ];
 
 function configuration(answers: Answers): string {
-  const config: ProjectConfigV1_4 = {
-    contractVersion: "1.4.0",
-    stateContract: "1.4.0",
+  const config: ProjectConfigV1_5 = {
+    contractVersion: "1.5.0",
+    stateContract: "1.5.0",
     pluginVersion: KRATOS_VERSION,
     hostContract: "1.4.0",
     language: answers.language,
@@ -215,7 +215,7 @@ function configuration(answers: Answers): string {
     modelRoles: answers.modelRoles,
     projectProfile: structuredClone(
       answers.projectProfile,
-    ) as ProjectConfigV1_4["projectProfile"],
+    ) as ProjectConfigV1_5["projectProfile"],
     ...(answers.acceptanceAttemptCeiling === undefined
       ? {}
       : { acceptanceAttemptCeiling: answers.acceptanceAttemptCeiling }),

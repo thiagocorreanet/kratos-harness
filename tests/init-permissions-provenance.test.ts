@@ -13,7 +13,7 @@ function mockAnswers(
   overrides: Partial<ResolvedAnswers> = {},
 ): ResolvedAnswers {
   return {
-    contractVersion: "1.5.0",
+    contractVersion: "1.6.0",
     hostContract: "1.4.0",
     hosts: ["claude", "codex"],
     language: {

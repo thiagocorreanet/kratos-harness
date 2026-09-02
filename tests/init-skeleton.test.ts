@@ -63,7 +63,7 @@ const nodeProject = profileStack({ rootEntries: ["package.json"] });
 
 function answers(overrides: Partial<ResolvedAnswers> = {}): ResolvedAnswers {
   return {
-    contractVersion: "1.5.0",
+    contractVersion: "1.6.0",
     hostContract: "1.4.0",
     hosts: ["claude", "codex"],
     language: {
@@ -316,8 +316,8 @@ describe("the generated skeleton", () => {
     );
 
     expect(config).toEqual({
-      contractVersion: "1.4.0",
-      stateContract: "1.4.0",
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
       pluginVersion: KRATOS_VERSION,
       hostContract: "1.4.0",
       language: ptBrPolicy,
@@ -345,7 +345,7 @@ describe("the generated skeleton", () => {
     expect(
       registry.validate({
         id: "state.project-config",
-        version: "1.4.0",
+        version: "1.5.0",
         value: config,
         structuralReasonCode: "guard.config_corrupt",
       }).kind,
