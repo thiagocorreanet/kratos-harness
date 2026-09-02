@@ -1,7 +1,13 @@
 {
   "name": "kratos",
-  "version": "0.0.0-development",
+  "version": "0.2.0",
   "description": "Run a deterministic SDD workflow backed by the embedded Kratos runtime.",
+  "author": {
+    "name": "Kratos contributors",
+    "url": "https://github.com/thiagocorreanet/kratos-harness"
+  },
+  "homepage": "https://github.com/thiagocorreanet/kratos-harness",
+  "repository": "https://github.com/thiagocorreanet/kratos-harness",
   "license": "MIT",
   "keywords": ["sdd", "workflow", "evidence", "development"],
   "skills": "./skills/",

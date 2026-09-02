@@ -88,6 +88,7 @@ describe("pull-request CI workflow", () => {
       "Checkout",
       "Set up exact Node.js",
       "Prepare diagnostics",
+      "Pin the exact npm release",
       "Verify exact toolchain",
       "Install locked dependencies",
       "Check formatting",
@@ -162,8 +163,9 @@ describe("pull-request CI workflow", () => {
     const jobs = object(workflow.jobs, "jobs");
     const quality = object(jobs.quality, "quality");
     const steps = quality.steps as JsonObject[];
-    const commandSteps = steps.slice(3, 18);
+    const commandSteps = steps.slice(3, 19);
     const expectedCommands = [
+      'npm install --global --no-audit --no-fund "npm@$pinned"',
       "node --version",
       "npm ci",
       "npm run format:check",
@@ -190,7 +192,16 @@ describe("pull-request CI workflow", () => {
       );
     }
 
-    const toolchain = String(commandSteps[0]?.run);
+    // The pin installs the npm `package.json` names; the check that follows
+    // then observes what is actually on PATH. Asserting only the second one is
+    // what let a runner image decide the package manager version.
+    const pin = String(commandSteps[0]?.run);
+    expect(pin).toContain(
+      'require("./package.json").packageManager.split("@")[1]',
+    );
+    expect(pin).toContain('test "$pinned" = "11.16.0"');
+
+    const toolchain = String(commandSteps[1]?.run);
     expect(toolchain).toContain('test "$node_version" = "v24.18.0"');
     expect(toolchain).toContain('test "$npm_version" = "11.16.0"');
   });

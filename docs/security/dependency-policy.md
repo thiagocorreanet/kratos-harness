@@ -163,9 +163,10 @@ refuses to review one as routine.
 
 Stated here rather than left for someone to discover:
 
-**SBOM, checksums, and build provenance.** `release.yml` creates a deterministic
-plugin archive, `SHA256SUMS`, a CycloneDX SBOM, and a GitHub build-provenance
-attestation. The workflow is executable, but a protected release environment
+**SBOM, checksums, and build provenance.** `release.yml` creates four
+deterministic plugin archives — the marketplace tree and one per host —
+`SHA256SUMS`, a CycloneDX SBOM, and a GitHub build-provenance attestation over
+every archive. The workflow is executable, but a protected release environment
 and published immutable release are external repository controls and therefore
 must still be evidenced before promotion. The exact source-side gates are
 documented in [release gates](../distribution/release-gates.md).

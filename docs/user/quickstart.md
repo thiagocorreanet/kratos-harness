@@ -5,7 +5,12 @@
 - Node.js 24.18.0
 - npm 11.16.0
 - Git
-- Claude Code, Codex, or direct runtime use
+- Claude Code, Codex, Google Antigravity, or direct runtime use
+
+This page builds the packages from a checkout. To install the published
+packages from a GitHub release instead — with checksum and provenance
+verification, and the update, rollback, and uninstall commands for each host —
+see [Installing Kratos](../INSTALLATION.md).
 
 Build a clean checkout:
 
@@ -24,7 +29,9 @@ codex plugin marketplace add "$KRATOS_BUILD_OUTPUT"
 
 Install Kratos from `/plugins`, then start a new session. For Claude Code, use
 `claude plugin marketplace add "$KRATOS_BUILD_OUTPUT"` followed by
-`claude plugin install kratos@kratos-open-source`.
+`claude plugin install kratos@kratos-open-source`. Antigravity installs a
+plugin directory rather than a marketplace, so use
+`agy plugin install "$KRATOS_BUILD_OUTPUT/antigravity"`.
 
 Inside a Git project, initialize the managed surfaces and start a trail:
 

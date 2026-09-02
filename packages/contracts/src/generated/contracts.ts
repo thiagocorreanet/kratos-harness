@@ -53,11 +53,11 @@
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:c783ccba225a9cd283460d11f9f1b590195c70ddcc8af28bf2bd891014888548
-// source: https://kratos.dev/schemas/state/project-config/v1 sha256:0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf
-// source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4
-// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495
-// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b
-// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:2a1681a6231b74735ad73f8f8dab4d29869c3c4b5c89577945d5aa47637eeeb9
+// source: https://kratos.dev/schemas/state/project-config/v1 sha256:989427d7680941436b09a8ce7786f43a55131498bec82e74b171a44d5a16056d
+// source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:246c84c839d0cf4c5b5b5eca10eb900e3d468feb38633850bf8cab406292b297
+// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:3f3f7f0fd5a2be574fcb8a15096ebaf75b515a1283df4e848cf41fb9098b43f9
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:4dd74aff09e68f1c3d121e535cae355c3bcca408c998b9fa4296aef3c70534b6
+// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:c112c4bbec84b108cbae589a8ad2dd097cbb1c23773046fbc4fe136a246cc134
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1 sha256:bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1.1 sha256:8dde526faeb7bc240f31e6edef90f6c2670e166dad0b75cda25ab58734386124
@@ -4456,7 +4456,7 @@ export namespace ProjectConfigV1Contract {
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
     stateContract: "1.0.0";
-    pluginVersion: "0.0.0-development";
+    pluginVersion: "0.2.0";
     hostContract: "1.0.0";
     language: "en" | "pt-BR";
     policyMode: "standard" | "strict";
@@ -4480,7 +4480,7 @@ export namespace ProjectConfigV1_1Contract {
   export interface ProjectConfigV1_1 {
     contractVersion: "1.1.0";
     stateContract: "1.1.0";
-    pluginVersion: "0.0.0-development";
+    pluginVersion: "0.2.0";
     hostContract: "1.1.0";
     language: "en" | "pt-BR";
     policyMode: "standard" | "strict";
@@ -4515,7 +4515,7 @@ export namespace ProjectConfigV1_2Contract {
   export interface ProjectConfigV1_2 {
     contractVersion: "1.2.0";
     stateContract: "1.2.0";
-    pluginVersion: "0.0.0-development";
+    pluginVersion: "0.2.0";
     hostContract: "1.2.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
@@ -4570,7 +4570,7 @@ export namespace ProjectConfigV1_3Contract {
   export interface ProjectConfigV1_3 {
     contractVersion: "1.3.0";
     stateContract: "1.3.0";
-    pluginVersion: "0.0.0-development";
+    pluginVersion: "0.2.0";
     hostContract: "1.3.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
@@ -4677,7 +4677,7 @@ export namespace ProjectConfigV1_4Contract {
   export interface ProjectConfigV1_4 {
     contractVersion: "1.4.0";
     stateContract: "1.4.0";
-    pluginVersion: "0.0.0-development";
+    pluginVersion: "0.2.0";
     hostContract: "1.4.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";

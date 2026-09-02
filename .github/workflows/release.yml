@@ -11,7 +11,13 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # `npm run verify` alone now costs more than the 25 minutes this job used
+    # to allow: the CI quality job runs a strict subset of it and takes 26,
+    # and this job then rebuilds the whole distribution a second time to prove
+    # the archives are reproducible. 25 was set when v0.1.0 published in 11
+    # minutes against a suite of 30 tests; there are 5,545 now, and the next
+    # tag would have been killed mid-verify.
+    timeout-minutes: 60
     environment: release
     permissions:
       contents: write
@@ -34,32 +40,61 @@ jobs:
         run: |
           set -euo pipefail
           printf 'KRATOS_BUILD_OUTPUT=%s\n' "$RUNNER_TEMP/kratos-plugin-build" >> "$GITHUB_ENV"
+      # `actions/setup-node` installs whatever npm the Node.js distribution
+      # happens to bundle, which drifts as the runner image is rebuilt. The
+      # release is reproducible only if the package manager that resolves the
+      # lockfile is the exact one `package.json` pins, so it is installed here
+      # rather than assumed.
+      - name: Pin the exact npm release
+        run: |
+          set -euo pipefail
+          pinned="$(node -p 'require("./package.json").packageManager.split("@")[1]')"
+          test "$pinned" = "11.16.0"
+          npm install --global --no-audit --no-fund "npm@$pinned"
+          test "$(npm --version)" = "$pinned"
       - run: npm ci
       - run: npm run verify
-      - run: npm run benchmark
       - name: Stage release, checksums, and SBOM
         run: |
           set -euo pipefail
           mkdir -p release
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-marketplace.tgz -C "$KRATOS_BUILD_OUTPUT" .
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-claude-code.tgz -C "$KRATOS_BUILD_OUTPUT/claude-code" .
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf release/kratos-codex.tgz -C "$KRATOS_BUILD_OUTPUT/codex" .
-          sha256sum release/*.tgz > release/SHA256SUMS
+          # One archive carries the whole marketplace tree, and one carries each
+          # host package on its own so a host that installs from a plain
+          # directory does not have to download the other two.
+          archive() {
+            tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 \
+              --numeric-owner -czf "$1" -C "$2" .
+          }
+          archive release/kratos-marketplace.tgz "$KRATOS_BUILD_OUTPUT"
+          archive release/kratos-claude-code.tgz "$KRATOS_BUILD_OUTPUT/claude-code"
+          archive release/kratos-codex.tgz "$KRATOS_BUILD_OUTPUT/codex"
+          archive release/kratos-antigravity.tgz "$KRATOS_BUILD_OUTPUT/antigravity"
+          # Written from inside `release/` so a downloader who put the assets in
+          # one directory can run `sha256sum -c SHA256SUMS` unchanged.
+          ( cd release && sha256sum ./*.tgz > SHA256SUMS )
           npm sbom --sbom-format cyclonedx > release/sbom.cdx.json
       - name: Rebuild and prove archive reproducibility
         run: |
           set -euo pipefail
           mkdir -p .reproducibility
-          cp release/kratos-marketplace.tgz .reproducibility/kratos-marketplace.first.tgz
-          cp release/kratos-claude-code.tgz .reproducibility/kratos-claude-code.first.tgz
-          cp release/kratos-codex.tgz .reproducibility/kratos-codex.first.tgz
+          archives="kratos-marketplace kratos-claude-code kratos-codex kratos-antigravity"
+          for name in $archives; do
+            cp "release/$name.tgz" ".reproducibility/$name.first.tgz"
+          done
           npm run build
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-marketplace.second.tgz -C "$KRATOS_BUILD_OUTPUT" .
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-claude-code.second.tgz -C "$KRATOS_BUILD_OUTPUT/claude-code" .
-          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf .reproducibility/kratos-codex.second.tgz -C "$KRATOS_BUILD_OUTPUT/codex" .
-          cmp .reproducibility/kratos-marketplace.first.tgz .reproducibility/kratos-marketplace.second.tgz
-          cmp .reproducibility/kratos-claude-code.first.tgz .reproducibility/kratos-claude-code.second.tgz
-          cmp .reproducibility/kratos-codex.first.tgz .reproducibility/kratos-codex.second.tgz
+          archive() {
+            tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 \
+              --numeric-owner -czf "$1" -C "$2" .
+          }
+          archive .reproducibility/kratos-marketplace.second.tgz "$KRATOS_BUILD_OUTPUT"
+          archive .reproducibility/kratos-claude-code.second.tgz "$KRATOS_BUILD_OUTPUT/claude-code"
+          archive .reproducibility/kratos-codex.second.tgz "$KRATOS_BUILD_OUTPUT/codex"
+          archive .reproducibility/kratos-antigravity.second.tgz "$KRATOS_BUILD_OUTPUT/antigravity"
+          # Byte-for-byte on every published archive, not only the ones that
+          # happened to be compared when the workflow was written.
+          for name in $archives; do
+            cmp ".reproducibility/$name.first.tgz" ".reproducibility/$name.second.tgz"
+          done
       - name: Attest plugin archive
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

@@ -1,6 +1,6 @@
 {
   "contractVersion": "1.0.0",
-  "pluginVersion": "0.0.0-development",
+  "pluginVersion": "0.2.0",
   "resultContract": "1.0.0",
   "reasonCatalog": "1.11.0",
   "stateContract": {

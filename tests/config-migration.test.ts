@@ -49,7 +49,7 @@ const SNAPSHOT_REF = ".brain/02-features/sample-feature/runs/run-01/state.json";
 const LEGACY_CONFIG: ProjectConfigV1 = {
   contractVersion: "1.0.0",
   stateContract: "1.0.0",
-  pluginVersion: "0.0.0-development",
+  pluginVersion: "0.2.0",
   hostContract: "1.0.0",
   language: "pt-BR",
   policyMode: "strict",
@@ -278,7 +278,7 @@ describe("configuration migration", () => {
     const source: ProjectConfigV1_3 = {
       contractVersion: "1.3.0",
       stateContract: "1.3.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.3.0",
       language: {
         conversation: "en",
@@ -340,7 +340,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -382,7 +382,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -456,7 +456,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -516,7 +516,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -588,7 +588,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.1.0",
       stateContract: "1.1.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.1.0",
       language: "en",
       policyMode: "standard",
@@ -633,7 +633,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.1.0",
       stateContract: "1.1.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.1.0",
       language: "en",
       policyMode: "standard",
@@ -692,7 +692,7 @@ describe("configuration migration", () => {
     const source = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -778,7 +778,7 @@ describe("configuration migration", () => {
     const legacy: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",
       stateContract: "1.1.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.1.0",
       language: "pt-BR",
       policyMode: "standard",
@@ -807,7 +807,7 @@ describe("configuration migration", () => {
     const legacy: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",
       stateContract: "1.1.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.1.0",
       language: "en",
       policyMode: "standard",
@@ -865,7 +865,7 @@ describe("configuration migration", () => {
     const legacy1_1: ProjectConfigV1_1 = {
       contractVersion: "1.1.0",
       stateContract: "1.1.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.1.0",
       language: "pt-BR",
       policyMode: "standard",
@@ -893,7 +893,7 @@ describe("configuration migration", () => {
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.4.0",
       gateModes: {},
       language: {

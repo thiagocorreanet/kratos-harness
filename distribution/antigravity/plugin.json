@@ -1,0 +1,4 @@
+{
+  "name": "kratos",
+  "description": "Deterministic SDD workflow backed by the embedded Kratos runtime."
+}

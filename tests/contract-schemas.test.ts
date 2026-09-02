@@ -235,7 +235,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.4.0",
       language: {
         conversation: "en",
@@ -336,7 +336,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.3.0",
       stateContract: "1.3.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.3.0",
       language: {
         conversation: "en",
@@ -472,7 +472,7 @@ describe("versioned state and host schemas", () => {
     const baseProject12 = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -664,10 +664,18 @@ describe("versioned state and host schemas", () => {
     }
   });
 
+  // These digests freeze a superseded schema so an edit to it has to be
+  // deliberate. `pluginVersion` is the one field they all pin to a single
+  // value, because the contract model treats it as the identity of one
+  // coherent installed bundle rather than a per-schema historical record:
+  // `classifyContractVersion("plugin", ...)` accepts exactly the current
+  // value and every configuration upgrade carries the field forward
+  // unchanged. Releasing 0.2.0 therefore moves it in every schema at once,
+  // and these digests move with it. Nothing else about these files changed.
   it.each([
     [
       "state/project-config.v1.schema.json",
-      "0471230187a6ee726fdd26c68f524c9649730765b9962b3668c0eeccd3580fbf",
+      "989427d7680941436b09a8ce7786f43a55131498bec82e74b171a44d5a16056d",
     ],
     [
       "state/event.v1.schema.json",
@@ -683,15 +691,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "contracts/contract-manifest.v1.1.schema.json",
-      "7693411838fa4629ca524fd0053de08372201d2d3ffd44e9e2e3c69f5d91d9bf",
+      "ec050850bcf9cb584bee1f27a047891d3ed60236a36be3c7bb586fad7cea281e",
     ],
     [
       "contracts/contract-manifest.v1.2.schema.json",
-      "cc681c74f36da960791a0e5a79d8f5eca96a246dc59da244fc91992620ec8f78",
+      "4fd2411deadcda1d1012eacbd6036a3b950b58256df0ded745bd84497e4458b3",
     ],
     [
       "contracts/contract-manifest.v1.8.schema.json",
-      "e4333d7f6d0a5378dd4fdb0d79f9b42c14c05a87f017bab451560c393560e7bd",
+      "8b1783ad5fbeff14a41240273327d5f45821af68f5785104b3f17e7513506e9f",
     ],
     [
       "host/adapter-message.v1.1.schema.json",
@@ -723,15 +731,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "state/project-config.v1.1.schema.json",
-      "ce578e418cb03d4c25219f5d81de7fec81c19f03c8bc961d1cfe9cbb1778d4a4",
+      "246c84c839d0cf4c5b5b5eca10eb900e3d468feb38633850bf8cab406292b297",
     ],
     [
       "state/project-config.v1.2.schema.json",
-      "27a694a7e337aab5f9e0811f47af7876a24519599278ba11e991f246bc9d3495",
+      "3f3f7f0fd5a2be574fcb8a15096ebaf75b515a1283df4e848cf41fb9098b43f9",
     ],
     [
       "state/project-config.v1.3.schema.json",
-      "7c895a22950cc7f7b02f2fdac57d7553bf08138e65ef1510307073b3f92e3c3b",
+      "4dd74aff09e68f1c3d121e535cae355c3bcca408c998b9fa4296aef3c70534b6",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));
@@ -1023,7 +1031,7 @@ describe("versioned state and host schemas", () => {
       ({ fixtureName }) => fixtureName === "project-config.json",
     )?.fixture;
     expect(projectConfig).toMatchObject({
-      pluginVersion: "0.0.0-development",
+      pluginVersion: "0.2.0",
       stateContract: "1.0.0",
       hostContract: "1.0.0",
     });
