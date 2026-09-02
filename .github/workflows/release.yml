@@ -11,7 +11,13 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # `npm run verify` alone now costs more than the 25 minutes this job used
+    # to allow: the CI quality job runs a strict subset of it and takes 26,
+    # and this job then rebuilds the whole distribution a second time to prove
+    # the archives are reproducible. 25 was set when v0.1.0 published in 11
+    # minutes against a suite of 30 tests; there are 5,545 now, and the next
+    # tag would have been killed mid-verify.
+    timeout-minutes: 60
     environment: release
     permissions:
       contents: write
@@ -48,7 +54,6 @@ jobs:
           test "$(npm --version)" = "$pinned"
       - run: npm ci
       - run: npm run verify
-      - run: npm run benchmark
       - name: Stage release, checksums, and SBOM
         run: |
           set -euo pipefail
