@@ -14,167 +14,175 @@ import {
   skeletonEffects,
   unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
+import { extractRequirementDiscovery } from "@kratos/runtime/domain/requirement-discovery";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 const expectedTemplates = {
-  "00-prd": `# Requirements
+  "00-prd": `# PRD: <feature name>
 
-<!-- Explain the problem and the reasoning behind it. Keep architecture and implementation decisions in 01-design.md. -->
+> Written by prd-researcher (prd phase) — the WHAT and WHY. No code, no architecture.
 
-## Problem
+## Problem Discovery
+<!-- Start from the problem, not the solution. Fill when the demand is vague, recurring,
+     or stated as a ready solution; otherwise mark the technique "not applied" + why. -->
 
-<!-- State the observed problem and why it matters. -->
-
-## Affected users
-
-<!-- Name the users or systems affected and describe the impact on each. -->
-
-## Goals
-
-<!-- List the outcomes this feature must achieve. -->
-
-## Non-goals
-
-<!-- List adjacent outcomes this feature deliberately will not pursue. -->
-
-## Scope boundary
-
-<!-- State what is inside and outside the change boundary. -->
-
-## Success metrics
-
-<!-- Define observable measures that show whether the problem was solved. -->
-
-## Open questions
-
-<!-- Record unresolved decisions. Write "None" when every decision is closed. -->
-
-## Problem discovery (5 Whys)
-
-<!-- Quote the original request, classify it, and record whether 5 Whys ran and why. Ask why until the cause surfaces: do not force exactly five questions or stop at five while the cause remains hidden. -->
-
-### Original request (quoted as received)
-
-<!-- Preserve the requester's words without silently reframing them. -->
+### Initial demand
+<the original request, verbatim>
 
 ### Classification
+<problem | proposed solution | bug | improvement | refactor | external obligation>
 
-<!-- Choose one: stated problem, proposed solution, defect, improvement, refactor, or external obligation. -->
+### Technique applied
+<5 Whys applied | 5 Whys not applied>
 
-### Application decision and investigation
+### Decision reason
+<why the technique was or wasn't applied>
 
-<!-- Record applied or skipped and the reason. Skip for a well-specified simple operation, small visual change, clear legal obligation, trivial defect with a known cause, or a demand already explicit about problem, impact, metric, and scope. A skip still needs a reason. -->
+### 5 Whys investigation
+<!-- adaptive: stop when the root cause surfaces; don't force five. Omit if not applied. -->
+1. Why is this necessary? — ...
+2. Why does it happen today? — ...
+3. Why doesn't the current process/system solve it? — ...
+4. Why does it impact user/operation/business? — ...
+5. Why solve it now? — ...
 
-<!-- A person is not a root cause. Ask: What allowed the omission to happen? What would have caught it? Rewrite blame as a process, system, rule, flow, communication, architecture, or operating-context cause. -->
+### Probable root cause
+<a process/system/rule/flow/communication/architecture/context cause — never person-blame>
 
-### Discovery outcome
+### Validated problem
+<the real problem, distinct from the proposed solution>
 
-<!-- State the probable root cause, validated problem, solution hypothesis, success metric, and risk that the assumed cause is wrong. Keep the validated problem and solution hypothesis separate and commit to neither. -->
+### Solution hypothesis
+<a hypothesis, explicitly not yet a committed plan>
 
-## Action framing (5W2H)
+### Success metric
+<how success is measured, tied to the root cause>
 
-<!-- Only after the problem is clear, record whether 5W2H ran and why. Skip it for small, trivial, or already well-structured work; a skip still needs a reason. -->
+### Risks & premises
+<incl. the risk of assuming the wrong root cause>
 
-### What, Why, Who, Where, When, How, and How Much
+## Action Framing — 5W2H
+<!-- Only after the problem is clear. Skip for small/trivial/well-structured actions;
+     record the skip reason. Never use 5W2H to justify the initial solution on its own. -->
 
-<!-- When applied, answer all seven fields. How Much means effort, complexity, operational impact, or uncertainty; never require a financial estimate or invent a number. -->
+### Technique applied
+<5W2H applied | 5W2H not applied>
 
-<!-- 5W2H cannot ratify the requester's original solution. If its only support is that the solution fits these fields, investigate the problem further. State the action plan separately from the validated problem and solution hypothesis, and commit to none. -->
+### Decision reason
+<why the technique was or wasn't applied>
+
+### What — what will be done or investigated
+### Why — why it should be done
+### Who — users, areas, systems or owners involved
+### Where — module, flow, screen, process or integration affected
+### When — priority, urgency, window or milestone
+### How — initial approach / strategy
+### How Much — effort, complexity, impact or uncertainty (no financial estimate required)
 
 ### Machine-readable discovery record
-
 <!-- Replace the object below with a state.requirement-discovery@1.0.0 record. The runtime validates the record; this phase never blocks a run. -->
 
 <!-- KRATOS-REQUIREMENT-DISCOVERY-V1
 {}
 KRATOS-END-REQUIREMENT-DISCOVERY-V1 -->
+
+## Problem
+<2-3 paragraphs: what's broken, who feels the pain, why now — grounded in the validated problem above>
+
+## Users
+<personas — role, need, context>
+
+## Goals
+- <measurable outcome 1>
+
+## Non-goals
+- <explicitly out of scope>
+
+## Scope
+**In-scope:**
+- <feature/capability>
+
+**Out-of-scope:**
+- <what we're NOT doing>
+
+## Success metrics
+<quantitative/behavioral evidence of success>
+
+## Open questions
+<decisions not yet made — track them, don't paper over>
 `,
-  "01-design": `# Design
+  "01-design": `# Design: <feature name>
 
-<!-- Describe the approach and its contracts. Keep executable code out of this document. -->
+> Written by spec-planner (spec phase) — the HOW. Diagrams and contracts, no code.
 
-## Architecture summary
-
-<!-- Explain the components, responsibilities, and control flow. -->
+## Architecture overview
+<ASCII or mermaid diagram + 1-2 paragraphs>
 
 ## Data model
+<entities, fields, relationships, migrations, RLS implications>
 
-<!-- Define data shapes, ownership, lifecycle, and invariants. -->
-
-## Interface surface
-
-<!-- Define public and internal interfaces, inputs, outputs, and errors. -->
+## API surface
+<endpoints, request/response shapes, auth requirements>
 
 ## Integration points
+<existing code/services this touches>
 
-<!-- Name every external boundary and how failures cross it. -->
-
-## Trade-offs
-
-| Decision | Benefit | Cost | Rejected alternative |
-| --- | --- | --- | --- |
+## Trade-offs considered
+| Option | Pros | Cons | Chosen? |
+|--------|------|------|---------|
+| ... | ... | ... | ... |
 
 ## Risks
-
-<!-- List technical, compatibility, operational, and security risks with mitigations. -->
+<things that could go wrong + mitigation>
 `,
-  "02-tasks": `# Tasks
+  "02-tasks": `# Tasks: <feature name>
 
-<!-- Order work by dependency. Each work unit must be independently reviewable. -->
+> Status: [ ] todo · [x] done — flipped by the orchestrator after evaluation, never by hand mid-sprint.
+> AC IDs (AC-<sprint>.<task>.<n>, E<n> for edge cases) are the audit contract — never renumber after approval.
 
-## Ordered work
+## Sprint 1: <name>
 
-### Work unit 1: Work unit
+### Task 1.1: <imperative title>
 
-<!-- State one concrete change. Add more numbered work units without renumbering approved items. -->
+**Files affected:** <list or glob>
 
-#### Task 1.1: Task
+**Description:** <1-2 sentences>
 
-<!-- State one task inside this work unit. Preserve approved task coordinates. -->
+**Steps:**
+1. ...
 
-##### Files
+**Acceptance criteria:**
+- [ ] AC-1.1.1: <verifiable criterion>
 
-<!-- List every file this work unit may create or modify. -->
+**Edge cases:**
+- [ ] AC-1.1.E1: <what if X fails?> → <expected behavior>
 
-##### Acceptance criteria
-
-<!-- Declare main-path outcomes as: - [ ] AC-<work-unit>.<task>.<criterion>: Observable outcome. -->
-
-##### Edge cases
-
-<!-- Declare boundary and failure outcomes as: - [ ] AC-<work-unit>.<task>.E<criterion>: Observable outcome. -->
-
-## Out of scope
-
-<!-- List work that implementers must not perform as part of this feature. -->
+**Out of scope:**
+- <explicit don'ts>
 `,
-  "03-summa": `# Summary
+  "03-summa": `# Summa: <feature name>
 
-<!-- This is the reviewer contract. Summarize constraints; do not introduce new scope. -->
+> Written by spec-reviewer (plan phase) — the Judge's contract. Compressed reference the evaluator enforces.
 
-## One-sentence statement
+## In one sentence
+<what this feature does>
 
-<!-- State the approved change in one sentence. -->
+## Hard requirements (the Judge enforces these)
+- <e.g., "RLS policies must restrict by tenant_id">
 
-## Hard requirements
+## Files that should change
+<allowlist — Judge flags edits outside this list>
 
-<!-- List the conditions an implementation may not trade away. -->
+## Files that must NOT change
+<denylist — Judge rejects changes touching these>
 
-## File allowlist
+> Exception: checkbox status flips (\`[ ]\` → \`[x]\`) in 02-tasks.md are exempt.
+> Any other edit to spec content after approval is an automatic FAIL.
 
-<!-- List one project-relative glob per code-formatted bullet, for example: - \`packages/runtime/src/**\`. -->
-
-## File denylist
-
-<!-- List one project-relative glob per code-formatted bullet, for example: - \`packages/contracts/**\`. -->
-
-## Definition of done
-
-<!-- List the evidence required for acceptance. -->
-
-<!-- After approval, changing specification content fails review. The only exemption is flipping an acceptance checkbox in 02-tasks.md. -->
+## Done means
+<crisp definition — what the Judge checks for PASS>
 `,
 } as const;
 
@@ -190,46 +198,40 @@ describe("feature document contracts", () => {
     ).toEqual({
       "00-prd": {
         requiredSections: [
+          "Problem Discovery",
+          "Action Framing — 5W2H",
           "Problem",
-          "Affected users",
+          "Users",
           "Goals",
           "Non-goals",
-          "Scope boundary",
+          "Scope",
           "Success metrics",
           "Open questions",
-          "Problem discovery (5 Whys)",
-          "Action framing (5W2H)",
         ],
         template: expectedTemplates["00-prd"],
       },
       "01-design": {
         requiredSections: [
-          "Architecture summary",
+          "Architecture overview",
           "Data model",
-          "Interface surface",
+          "API surface",
           "Integration points",
-          "Trade-offs",
+          "Trade-offs considered",
           "Risks",
         ],
         template: expectedTemplates["01-design"],
       },
       "02-tasks": {
-        requiredSections: [
-          "Ordered work",
-          "Files",
-          "Acceptance criteria",
-          "Edge cases",
-          "Out of scope",
-        ],
+        requiredSections: ["Sprint 1: <name>", "Task 1.1: <imperative title>"],
         template: expectedTemplates["02-tasks"],
       },
       "03-summa": {
         requiredSections: [
-          "One-sentence statement",
-          "Hard requirements",
-          "File allowlist",
-          "File denylist",
-          "Definition of done",
+          "In one sentence",
+          "Hard requirements (the Judge enforces these)",
+          "Files that should change",
+          "Files that must NOT change",
+          "Done means",
         ],
         template: expectedTemplates["03-summa"],
       },
@@ -270,6 +272,13 @@ describe("feature document contracts", () => {
     }
   });
 
+  it("carries extractable requirement-discovery block in PRD template", () => {
+    expect(extractRequirementDiscovery(PRD_DOCUMENT.template)).toEqual({
+      kind: "found",
+      value: {},
+    });
+  });
+
   it("recognizes missing, untouched, incomplete, and complete PRDs", () => {
     const complete = `# Requirements
 
@@ -292,13 +301,13 @@ ${PRD_DOCUMENT.requiredSections
     const fenced = `# Requirements
 
 \`\`\`markdown
-## Problem
+## Problem Discovery
 \`\`\`
 `;
 
     expect(inspectPrdDocument(fenced)).toEqual({
       kind: "incomplete",
-      missingSection: "Problem",
+      missingSection: "Problem Discovery",
     });
   });
 

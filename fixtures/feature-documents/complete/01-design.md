@@ -1,6 +1,8 @@
-# Design
+# Design: Centralize feature documents
 
-## Architecture summary
+> Written by spec-planner (spec phase) — the HOW. Diagrams and contracts, no code.
+
+## Architecture overview
 
 One pure domain module owns feature document definitions and inspection.
 
@@ -8,7 +10,7 @@ One pure domain module owns feature document definitions and inspection.
 
 Each definition carries an identifier, title, section depth, required sections, and template bytes.
 
-## Interface surface
+## API surface
 
 Initialization reads definitions; composition passes an inspection fact to the gate.
 
@@ -16,9 +18,9 @@ Initialization reads definitions; composition passes an inspection fact to the g
 
 The existing durable filesystem port reads the active PRD during observation.
 
-## Trade-offs
+## Trade-offs considered
 
-| Decision | Benefit | Cost | Rejected alternative |
+| Option | Pros | Cons | Chosen? |
 | --- | --- | --- | --- |
 | Embedded templates | Pure deterministic generation | Longer source literals | Runtime template file reads |
 

@@ -3,15 +3,17 @@ export type FeatureDocumentId =
 
 interface SectionDefinition {
   readonly name: string;
-  readonly depth: 2 | 5;
-  readonly guidance?: string;
+  readonly depth: 2 | 3;
+  readonly comment?: string;
+  readonly placeholder?: string;
   readonly scaffold?: readonly string[];
+  readonly subsections?: readonly SectionDefinition[];
 }
 
 interface DocumentSource {
   readonly id: FeatureDocumentId;
   readonly title: string;
-  readonly guidance: string;
+  readonly subtitle?: string | readonly string[];
   readonly sections: readonly SectionDefinition[];
 }
 
@@ -31,221 +33,279 @@ export type PrdDocumentObservation =
 const SOURCES = [
   {
     id: "00-prd",
-    title: "Requirements",
-    guidance:
-      "Explain the problem and the reasoning behind it. Keep architecture and implementation decisions in 01-design.md.",
+    title: "PRD: <feature name>",
+    subtitle:
+      "Written by prd-researcher (prd phase) — the WHAT and WHY. No code, no architecture.",
     sections: [
+      {
+        name: "Problem Discovery",
+        depth: 2,
+        comment:
+          'Start from the problem, not the solution. Fill when the demand is vague, recurring,\n     or stated as a ready solution; otherwise mark the technique "not applied" + why.',
+        subsections: [
+          {
+            name: "Initial demand",
+            depth: 3,
+            placeholder: "<the original request, verbatim>",
+          },
+          {
+            name: "Classification",
+            depth: 3,
+            placeholder:
+              "<problem | proposed solution | bug | improvement | refactor | external obligation>",
+          },
+          {
+            name: "Technique applied",
+            depth: 3,
+            placeholder: "<5 Whys applied | 5 Whys not applied>",
+          },
+          {
+            name: "Decision reason",
+            depth: 3,
+            placeholder: "<why the technique was or wasn't applied>",
+          },
+          {
+            name: "5 Whys investigation",
+            depth: 3,
+            comment:
+              "adaptive: stop when the root cause surfaces; don't force five. Omit if not applied.",
+            scaffold: [
+              "1. Why is this necessary? — ...",
+              "2. Why does it happen today? — ...",
+              "3. Why doesn't the current process/system solve it? — ...",
+              "4. Why does it impact user/operation/business? — ...",
+              "5. Why solve it now? — ...",
+            ],
+          },
+          {
+            name: "Probable root cause",
+            depth: 3,
+            placeholder:
+              "<a process/system/rule/flow/communication/architecture/context cause — never person-blame>",
+          },
+          {
+            name: "Validated problem",
+            depth: 3,
+            placeholder:
+              "<the real problem, distinct from the proposed solution>",
+          },
+          {
+            name: "Solution hypothesis",
+            depth: 3,
+            placeholder: "<a hypothesis, explicitly not yet a committed plan>",
+          },
+          {
+            name: "Success metric",
+            depth: 3,
+            placeholder: "<how success is measured, tied to the root cause>",
+          },
+          {
+            name: "Risks & premises",
+            depth: 3,
+            placeholder: "<incl. the risk of assuming the wrong root cause>",
+          },
+        ],
+      },
+      {
+        name: "Action Framing — 5W2H",
+        depth: 2,
+        comment:
+          "Only after the problem is clear. Skip for small/trivial/well-structured actions;\n     record the skip reason. Never use 5W2H to justify the initial solution on its own.",
+        subsections: [
+          {
+            name: "Technique applied",
+            depth: 3,
+            placeholder: "<5W2H applied | 5W2H not applied>",
+          },
+          {
+            name: "Decision reason",
+            depth: 3,
+            placeholder: "<why the technique was or wasn't applied>",
+          },
+          {
+            name: "What — what will be done or investigated",
+            depth: 3,
+            scaffold: [
+              "### Why — why it should be done",
+              "### Who — users, areas, systems or owners involved",
+              "### Where — module, flow, screen, process or integration affected",
+              "### When — priority, urgency, window or milestone",
+              "### How — initial approach / strategy",
+              "### How Much — effort, complexity, impact or uncertainty (no financial estimate required)",
+            ],
+          },
+          {
+            name: "Machine-readable discovery record",
+            depth: 3,
+            comment:
+              "Replace the object below with a state.requirement-discovery@1.0.0 record. The runtime validates the record; this phase never blocks a run.",
+            scaffold: [
+              "",
+              "<!-- KRATOS-REQUIREMENT-DISCOVERY-V1",
+              "{}",
+              "KRATOS-END-REQUIREMENT-DISCOVERY-V1 -->",
+            ],
+          },
+        ],
+      },
       {
         name: "Problem",
         depth: 2,
-        guidance: "State the observed problem and why it matters.",
+        placeholder:
+          "<2-3 paragraphs: what's broken, who feels the pain, why now — grounded in the validated problem above>",
       },
       {
-        name: "Affected users",
+        name: "Users",
         depth: 2,
-        guidance:
-          "Name the users or systems affected and describe the impact on each.",
+        placeholder: "<personas — role, need, context>",
       },
       {
         name: "Goals",
         depth: 2,
-        guidance: "List the outcomes this feature must achieve.",
+        scaffold: ["- <measurable outcome 1>"],
       },
       {
         name: "Non-goals",
         depth: 2,
-        guidance:
-          "List adjacent outcomes this feature deliberately will not pursue.",
+        scaffold: ["- <explicitly out of scope>"],
       },
       {
-        name: "Scope boundary",
+        name: "Scope",
         depth: 2,
-        guidance: "State what is inside and outside the change boundary.",
+        scaffold: [
+          "**In-scope:**",
+          "- <feature/capability>",
+          "",
+          "**Out-of-scope:**",
+          "- <what we're NOT doing>",
+        ],
       },
       {
         name: "Success metrics",
         depth: 2,
-        guidance:
-          "Define observable measures that show whether the problem was solved.",
+        placeholder: "<quantitative/behavioral evidence of success>",
       },
       {
         name: "Open questions",
         depth: 2,
-        guidance:
-          'Record unresolved decisions. Write "None" when every decision is closed.',
-      },
-      {
-        name: "Problem discovery (5 Whys)",
-        depth: 2,
-        guidance:
-          "Quote the original request, classify it, and record whether 5 Whys ran and why. Ask why until the cause surfaces: do not force exactly five questions or stop at five while the cause remains hidden.",
-        scaffold: [
-          "### Original request (quoted as received)",
-          "",
-          "<!-- Preserve the requester's words without silently reframing them. -->",
-          "",
-          "### Classification",
-          "",
-          "<!-- Choose one: stated problem, proposed solution, defect, improvement, refactor, or external obligation. -->",
-          "",
-          "### Application decision and investigation",
-          "",
-          "<!-- Record applied or skipped and the reason. Skip for a well-specified simple operation, small visual change, clear legal obligation, trivial defect with a known cause, or a demand already explicit about problem, impact, metric, and scope. A skip still needs a reason. -->",
-          "",
-          "<!-- A person is not a root cause. Ask: What allowed the omission to happen? What would have caught it? Rewrite blame as a process, system, rule, flow, communication, architecture, or operating-context cause. -->",
-          "",
-          "### Discovery outcome",
-          "",
-          "<!-- State the probable root cause, validated problem, solution hypothesis, success metric, and risk that the assumed cause is wrong. Keep the validated problem and solution hypothesis separate and commit to neither. -->",
-        ],
-      },
-      {
-        name: "Action framing (5W2H)",
-        depth: 2,
-        guidance:
-          "Only after the problem is clear, record whether 5W2H ran and why. Skip it for small, trivial, or already well-structured work; a skip still needs a reason.",
-        scaffold: [
-          "### What, Why, Who, Where, When, How, and How Much",
-          "",
-          "<!-- When applied, answer all seven fields. How Much means effort, complexity, operational impact, or uncertainty; never require a financial estimate or invent a number. -->",
-          "",
-          "<!-- 5W2H cannot ratify the requester's original solution. If its only support is that the solution fits these fields, investigate the problem further. State the action plan separately from the validated problem and solution hypothesis, and commit to none. -->",
-          "",
-          "### Machine-readable discovery record",
-          "",
-          "<!-- Replace the object below with a state.requirement-discovery@1.0.0 record. The runtime validates the record; this phase never blocks a run. -->",
-          "",
-          "<!-- KRATOS-REQUIREMENT-DISCOVERY-V1",
-          "{}",
-          "KRATOS-END-REQUIREMENT-DISCOVERY-V1 -->",
-        ],
+        placeholder: "<decisions not yet made — track them, don't paper over>",
       },
     ],
   },
   {
     id: "01-design",
-    title: "Design",
-    guidance:
-      "Describe the approach and its contracts. Keep executable code out of this document.",
+    title: "Design: <feature name>",
+    subtitle:
+      "Written by spec-planner (spec phase) — the HOW. Diagrams and contracts, no code.",
     sections: [
       {
-        name: "Architecture summary",
+        name: "Architecture overview",
         depth: 2,
-        guidance: "Explain the components, responsibilities, and control flow.",
+        placeholder: "<ASCII or mermaid diagram + 1-2 paragraphs>",
       },
       {
         name: "Data model",
         depth: 2,
-        guidance: "Define data shapes, ownership, lifecycle, and invariants.",
+        placeholder:
+          "<entities, fields, relationships, migrations, RLS implications>",
       },
       {
-        name: "Interface surface",
+        name: "API surface",
         depth: 2,
-        guidance:
-          "Define public and internal interfaces, inputs, outputs, and errors.",
+        placeholder: "<endpoints, request/response shapes, auth requirements>",
       },
       {
         name: "Integration points",
         depth: 2,
-        guidance: "Name every external boundary and how failures cross it.",
+        placeholder: "<existing code/services this touches>",
       },
       {
-        name: "Trade-offs",
+        name: "Trade-offs considered",
         depth: 2,
         scaffold: [
-          "| Decision | Benefit | Cost | Rejected alternative |",
-          "| --- | --- | --- | --- |",
+          "| Option | Pros | Cons | Chosen? |",
+          "|--------|------|------|---------|",
+          "| ... | ... | ... | ... |",
         ],
       },
       {
         name: "Risks",
         depth: 2,
-        guidance:
-          "List technical, compatibility, operational, and security risks with mitigations.",
+        placeholder: "<things that could go wrong + mitigation>",
       },
     ],
   },
   {
     id: "02-tasks",
-    title: "Tasks",
-    guidance:
-      "Order work by dependency. Each work unit must be independently reviewable.",
+    title: "Tasks: <feature name>",
+    subtitle: [
+      "Status: [ ] todo · [x] done — flipped by the orchestrator after evaluation, never by hand mid-sprint.",
+      "AC IDs (AC-<sprint>.<task>.<n>, E<n> for edge cases) are the audit contract — never renumber after approval.",
+    ],
     sections: [
       {
-        name: "Ordered work",
+        name: "Sprint 1: <name>",
         depth: 2,
+      },
+      {
+        name: "Task 1.1: <imperative title>",
+        depth: 3,
         scaffold: [
-          "### Work unit 1: Work unit",
           "",
-          "<!-- State one concrete change. Add more numbered work units without renumbering approved items. -->",
+          "**Files affected:** <list or glob>",
           "",
-          "#### Task 1.1: Task",
+          "**Description:** <1-2 sentences>",
           "",
-          "<!-- State one task inside this work unit. Preserve approved task coordinates. -->",
+          "**Steps:**",
+          "1. ...",
+          "",
+          "**Acceptance criteria:**",
+          "- [ ] AC-1.1.1: <verifiable criterion>",
+          "",
+          "**Edge cases:**",
+          "- [ ] AC-1.1.E1: <what if X fails?> → <expected behavior>",
+          "",
+          "**Out of scope:**",
+          "- <explicit don'ts>",
         ],
-      },
-      {
-        name: "Files",
-        depth: 5,
-        guidance: "List every file this work unit may create or modify.",
-      },
-      {
-        name: "Acceptance criteria",
-        depth: 5,
-        scaffold: [
-          "<!-- Declare main-path outcomes as: - [ ] AC-<work-unit>.<task>.<criterion>: Observable outcome. -->",
-        ],
-      },
-      {
-        name: "Edge cases",
-        depth: 5,
-        scaffold: [
-          "<!-- Declare boundary and failure outcomes as: - [ ] AC-<work-unit>.<task>.E<criterion>: Observable outcome. -->",
-        ],
-      },
-      {
-        name: "Out of scope",
-        depth: 2,
-        guidance:
-          "List work that implementers must not perform as part of this feature.",
       },
     ],
   },
   {
     id: "03-summa",
-    title: "Summary",
-    guidance:
-      "This is the reviewer contract. Summarize constraints; do not introduce new scope.",
+    title: "Summa: <feature name>",
+    subtitle:
+      "Written by spec-reviewer (plan phase) — the Judge's contract. Compressed reference the evaluator enforces.",
     sections: [
       {
-        name: "One-sentence statement",
+        name: "In one sentence",
         depth: 2,
-        guidance: "State the approved change in one sentence.",
+        placeholder: "<what this feature does>",
       },
       {
-        name: "Hard requirements",
+        name: "Hard requirements (the Judge enforces these)",
         depth: 2,
-        guidance: "List the conditions an implementation may not trade away.",
+        scaffold: ['- <e.g., "RLS policies must restrict by tenant_id">'],
       },
       {
-        name: "File allowlist",
+        name: "Files that should change",
         depth: 2,
-        guidance:
-          "List one project-relative glob per code-formatted bullet, for example: - `packages/runtime/src/**`.",
+        placeholder: "<allowlist — Judge flags edits outside this list>",
       },
       {
-        name: "File denylist",
+        name: "Files that must NOT change",
         depth: 2,
-        guidance:
-          "List one project-relative glob per code-formatted bullet, for example: - `packages/contracts/**`.",
-      },
-      {
-        name: "Definition of done",
-        depth: 2,
-        guidance: "List the evidence required for acceptance.",
+        placeholder: "<denylist — Judge rejects changes touching these>",
         scaffold: [
-          "<!-- After approval, changing specification content fails review. The only exemption is flipping an acceptance checkbox in 02-tasks.md. -->",
+          "",
+          "> Exception: checkbox status flips (`[ ]` → `[x]`) in 02-tasks.md are exempt.",
+          "> Any other edit to spec content after approval is an automatic FAIL.",
         ],
+      },
+      {
+        name: "Done means",
+        depth: 2,
+        placeholder: "<crisp definition — what the Judge checks for PASS>",
       },
     ],
   },
@@ -255,15 +315,38 @@ function comment(text: string): string {
   return `<!-- ${text} -->`;
 }
 
-function render(source: DocumentSource): string {
-  const lines = [`# ${source.title}`, "", comment(source.guidance)];
-  for (const section of source.sections) {
-    lines.push("", `${"#".repeat(section.depth)} ${section.name}`, "");
-    if (section.guidance !== undefined) lines.push(comment(section.guidance));
-    if (section.scaffold !== undefined) {
-      if (section.guidance !== undefined) lines.push("");
-      lines.push(...section.scaffold);
+function renderSection(section: SectionDefinition): string[] {
+  const lines: string[] = [];
+  lines.push("", `${"#".repeat(section.depth)} ${section.name}`);
+  if (section.comment !== undefined) {
+    lines.push(comment(section.comment));
+  }
+  if (section.placeholder !== undefined) {
+    lines.push(section.placeholder);
+  }
+  if (section.scaffold !== undefined) {
+    lines.push(...section.scaffold);
+  }
+  if (section.subsections !== undefined) {
+    for (const sub of section.subsections) {
+      lines.push(...renderSection(sub));
     }
+  }
+  return lines;
+}
+
+function render(source: DocumentSource): string {
+  const lines = [`# ${source.title}`];
+  if (source.subtitle !== undefined) {
+    lines.push("");
+    const subtitleLines =
+      typeof source.subtitle === "string" ? [source.subtitle] : source.subtitle;
+    for (const sub of subtitleLines) {
+      lines.push(`> ${sub}`);
+    }
+  }
+  for (const section of source.sections) {
+    lines.push(...renderSection(section));
   }
   return `${lines.join("\n")}\n`;
 }
