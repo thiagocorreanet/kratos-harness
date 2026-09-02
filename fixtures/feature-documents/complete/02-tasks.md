@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-file MD033 -->
 # Tasks: Centralize feature documents
 
 > Status: [x] todo · [x] done — flipped by the orchestrator after evaluation, never by hand mid-sprint.
@@ -12,13 +13,17 @@
 **Description:** Centralize feature document definitions into a single pure domain module.
 
 **Steps:**
+
 1. Define feature document models and render templates.
 
 **Acceptance criteria:**
+
 - [x] AC-1.1.1: All definitions and templates come from one module.
 
 **Edge cases:**
+
 - [x] AC-1.1.E1: Ignore heading-shaped text inside fenced examples.
 
 **Out of scope:**
+
 - Discovery method semantics.
