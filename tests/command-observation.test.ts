@@ -21,10 +21,10 @@ const probe: CommandSpec = observingCommand(
   },
   (_invocation, observation) => ({
     result: resultFor("runtime.orientation_ok", {
-      summary: `Observed ${String(observation.rootEntries.length)} entries.`,
+      summary: `Observed ${String(observation.evidence.rootEntries.length)} entries.`,
     }),
     plan: planOf(),
-    humanStdout: `${observation.rootEntries.join(",")}\n`,
+    humanStdout: `${observation.evidence.rootEntries.join(",")}\n`,
     payload: null,
   }),
 );
@@ -107,7 +107,7 @@ describe("commands that observe before deciding", () => {
       invocationWith({
         kind: "initialization",
         configExpected: { kind: "missing" },
-        rootEntries: ["package.json", "README.md"],
+        evidence: { rootEntries: ["package.json", "README.md"] },
         answers: {
           kind: "invalid",
           reasonCode: "contract.host_version_invalid",

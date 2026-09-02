@@ -13,6 +13,7 @@
     "./composition/migration": "./src/composition/migration.ts",
     "./composition/memory": "./src/composition/memory.ts",
     "./composition/objective": "./src/composition/objective.ts",
+    "./composition/repository": "./src/composition/repository.ts",
     "./composition/schema": "./src/composition/schema.ts",
     "./composition/workflow": "./src/composition/workflow.ts",
     "./application/write-guard": "./src/application/write-guard/index.ts",

@@ -36,9 +36,19 @@ export type {
 } from "./managed-section.js";
 export { destinationsOf, skeletonEffects } from "./skeleton.js";
 export { renderStackProfile } from "./stack-profile.js";
-export { profileStack } from "./stack.js";
+export {
+  profileStack,
+  SCAN_EXCLUDED_DIRECTORIES,
+  SCAN_MAX_DEPTH,
+  SCAN_MAX_ENTRIES,
+  STACK_IDS,
+} from "./stack.js";
 export type {
+  DetectedLanguage,
   DetectedStack,
+  LanguageId,
+  ObservedEvidence,
+  ObservedExtension,
   RepositoryEvidence,
   StackId,
   StackProfile,

@@ -3,6 +3,7 @@ import {
   deriveHostPermissions,
   assertPermissionProvenance,
   profileStack,
+  STACK_IDS,
   type StackProfile,
   unresolvedProjectProfile,
   type ResolvedAnswers,
@@ -35,7 +36,7 @@ function mockAnswers(
 
 describe("permission allowlist derivation and strict provenance", () => {
   it("derives git read-only permissions when git repository is present", () => {
-    const profile: StackProfile = { stacks: [], unrecognized: true };
+    const profile: StackProfile = profileStack({ rootEntries: [] });
     const answers = mockAnswers();
     const result = deriveHostPermissions(answers, profile, { hasGit: true });
 
@@ -44,8 +45,32 @@ describe("permission allowlist derivation and strict provenance", () => {
     expect(result.allow).toContain("Bash(git log)");
   });
 
+  it("derives a toolchain permission for every detected stack", () => {
+    // AC-10: detection that names a toolchain nobody gave commands to would
+    // silently produce a project with no derived permissions at all.
+    for (const id of STACK_IDS) {
+      const profile: StackProfile = {
+        stacks: [{ id, evidence: `evidence-for-${id}` }],
+        languages: [],
+        unrecognized: false,
+        partial: false,
+        observed: { extensions: [], rootEntries: [] },
+      };
+
+      const result = deriveHostPermissions(mockAnswers(), profile, {
+        hasGit: false,
+      });
+
+      expect(result.allow.length).toBeGreaterThan(0);
+      for (const entry of result.provenance) {
+        expect(entry.origin).toBe("stack");
+        expect(entry.evidence).toBe(`${id}:evidence-for-${id}`);
+      }
+    }
+  });
+
   it("does not derive git permissions when git repository is absent", () => {
-    const profile: StackProfile = { stacks: [], unrecognized: true };
+    const profile: StackProfile = profileStack({ rootEntries: [] });
     const answers = mockAnswers();
     const result = deriveHostPermissions(answers, profile, { hasGit: false });
 
@@ -90,7 +115,7 @@ describe("permission allowlist derivation and strict provenance", () => {
   });
 
   it("derives permissions for explicit project profile commands", () => {
-    const profile: StackProfile = { stacks: [], unrecognized: true };
+    const profile: StackProfile = profileStack({ rootEntries: [] });
     const answers = mockAnswers({
       projectProfile: {
         commands: {

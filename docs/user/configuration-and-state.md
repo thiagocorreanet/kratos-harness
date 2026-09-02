@@ -69,7 +69,12 @@ closed `resolved`, `not-applicable`, or `unresolved` record. The programming
 languages in this profile do not replace the separate human-language policy.
 
 `.brain/01-architecture/stack-profile.md` is generated deterministically from
-that typed state plus offline root-entry stack evidence. Manual Markdown edits
+that typed state plus offline scan evidence: a language census counted from
+source file extensions and toolchain markers matched by manifest name, reported
+as two separate facts. The scan reads names, never file contents, is bounded in
+depth and entry count, and never enters a dependency, build output, or `.brain`
+directory. A project that matches neither layer is reported with the extensions
+and root entries the scan observed rather than with silence. Manual Markdown edits
 are never authoritative. Doctor compares renderer bytes and reports unresolved
 keys; it does not parse prose to recover values. Initialization and doctor keep
 all configured commands inert.

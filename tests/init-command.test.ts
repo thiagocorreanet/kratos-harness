@@ -935,7 +935,32 @@ describe("the init command", () => {
     // A project this tool does not recognize is still a project it initializes.
     expect(
       run.storage.snapshot().files[".brain/01-architecture/stack-profile.md"],
-    ).toContain("No known stack matched");
+    ).toContain("The technology was not identified.");
+  });
+
+  it("initializes a project whose only manifest is nested", async () => {
+    // The reproduction from ADP-07: a solution under `src/Api/` used to report
+    // no stack, no rules file, and no toolchain permission.
+    const run = subject(ANSWERS, {}, {});
+    const nested = {
+      ...run,
+      ports: {
+        ...run.ports,
+        fileSystem: memoryFileSystem({
+          "src/Api/Api.csproj": "<Project />",
+          "src/Api/Program.cs": "class Program {}",
+        }),
+      },
+    };
+
+    expect(await runCommandLine(["init"], nested.ports)).toBe(0);
+
+    const files = run.storage.snapshot().files;
+    const profile = files[".brain/01-architecture/stack-profile.md"] ?? "";
+    expect(profile).toContain("| dotnet | `src/Api/Api.csproj` |");
+    expect(profile).toContain("| csharp | 1 | `src/Api/Program.cs` |");
+    expect(files[".claude/rules/dotnet.md"]).toContain("# .NET Conventions");
+    expect(files[".claude/settings.json"]).toContain("Bash(dotnet test)");
   });
 
   it("refuses both an answers file and a piped document", async () => {

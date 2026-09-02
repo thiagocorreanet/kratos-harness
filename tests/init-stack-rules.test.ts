@@ -3,12 +3,13 @@ import {
   generateHostStackRules,
   renderStackRuleContent,
   profileStack,
+  STACK_IDS,
   type StackProfile,
 } from "@kratos/runtime/domain/init";
 
 describe("stack-scoped project rules generation", () => {
   it("generates zero rules for an unrecognized stack profile", () => {
-    const profile: StackProfile = { stacks: [], unrecognized: true };
+    const profile: StackProfile = profileStack({ rootEntries: [] });
     const claudeRules = generateHostStackRules("claude", profile);
     const codexRules = generateHostStackRules("codex", profile);
 
@@ -51,17 +52,9 @@ describe("stack-scoped project rules generation", () => {
   });
 
   it("keeps each stack rule file bounded, concise, and under 35 lines", () => {
-    const stacks = [
-      "node",
-      "rust",
-      "python",
-      "go",
-      "dotnet",
-      "java",
-      "php",
-      "ruby",
-    ] as const;
-    for (const stack of stacks) {
+    // Every identifier the marker tables can name, so a toolchain that was
+    // added to detection without rules to go with it fails here.
+    for (const stack of STACK_IDS) {
       const content = renderStackRuleContent(stack);
       const lines = content.split("\n");
       expect(lines.length).toBeLessThanOrEqual(35);

@@ -1,6 +1,7 @@
 import type { EffectPlan, WriteFilePrecondition } from "../effects.js";
 import type {
   ManagedFileObservation,
+  RepositoryEvidence,
   ResolvedInitAnswers,
 } from "../init/index.js";
 import type { ObjectiveObservation } from "../objective/index.js";
@@ -240,8 +241,8 @@ export type CommandObservation =
       readonly answers: ResolvedInitAnswers;
       /** Exact authoritative configuration identity used to resolve profile leaves. */
       readonly configExpected: WriteFilePrecondition;
-      /** Entry names at the project root, for stack profiling. */
-      readonly rootEntries: readonly string[];
+      /** The names a bounded, offline scan saw, for stack profiling. */
+      readonly evidence: RepositoryEvidence;
       /**
        * Every destination the answers imply, as it was found.
        *
