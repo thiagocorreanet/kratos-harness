@@ -72,7 +72,7 @@ describe("runtime distribution", () => {
       expect(manifest.contracts).toEqual({
         result: "1.0.0",
         reasonCatalog: "1.11.0",
-        state: "1.4.0",
+        state: "1.5.0",
         host: "1.4.0",
       });
     },

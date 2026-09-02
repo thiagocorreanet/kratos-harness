@@ -81,7 +81,7 @@ The host family's current global revision is `1.4.0`, with `1.0.0` through
 `1.4.0` accepted for their registered payloads. Exact writes again
 follow `CONTRACT_VERSIONS`:
 
-- Current `host.init-answers@1.5.0` writes optional partial
+- Current `host.init-answers@1.6.0` writes optional partial
   `projectProfile` answers and an optional closed `gateModes` map. Its
   `hostContract` remains `1.4.0`. `host.adapter-message` continues to write
   its registered `1.1.0` revision.

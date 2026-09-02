@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.9.schema.json",
+        "schemas/contracts/contract-manifest.v1.10.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -110,8 +110,8 @@ describe("contract family manifest", () => {
       resultContract: "1.0.0",
       reasonCatalog: "1.11.0",
       stateContract: {
-        current: "1.4.0",
-        readable: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"],
+        current: "1.5.0",
+        readable: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"],
         migrationOnly: ["0.9.0", "go-v3@0.6.5"],
       },
       hostContract: {
@@ -126,13 +126,13 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(68);
+    expect(manifest.schemas).toHaveLength(70);
     expect(manifest.schemas).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "host.init-answers",
-          version: "1.5.0",
-          typeName: "InitAnswersV1_5",
+          version: "1.6.0",
+          typeName: "InitAnswersV1_6",
         }),
         expect.objectContaining({
           id: "host.phase-handoff",
@@ -158,7 +158,7 @@ describe("contract family manifest", () => {
     );
     for (const path of paths) {
       expect(path).toMatch(
-        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[12345])?\.schema\.json$/u,
+        /^schemas\/(?:state|host)\/[a-z-]+\.v1(?:\.[123456])?\.schema\.json$/u,
       );
     }
   });

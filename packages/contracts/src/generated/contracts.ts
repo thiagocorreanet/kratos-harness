@@ -16,6 +16,7 @@
 // source: https://kratos.dev/schemas/host/init-answers/v1.3 sha256:ed729509eb68417fb59a9d9f8e696fbdccc87ea66256fb8d9758e04508f61fc7
 // source: https://kratos.dev/schemas/host/init-answers/v1.4 sha256:fa20c5b49969481e048244f96f3066d2138762578dd6427f0f524bfc82e931ee
 // source: https://kratos.dev/schemas/host/init-answers/v1.5 sha256:a6689fbe696f106ec73fa14cead9bc2434c3be066a974269b8495f2df6a7bcf0
+// source: https://kratos.dev/schemas/host/init-answers/v1.6 sha256:99d4ff630040c537812bef4a166e73ef31f079cad4c03596908f241a9d3ef69b
 // source: https://kratos.dev/schemas/host/memory-capture/v1.2 sha256:fe1e8fdd3fc888407d5df91890a04e79d12ed2c6187fdc673ff8ff5dfc30fabf
 // source: https://kratos.dev/schemas/host/memory-change/v1.2 sha256:066e187826e3ac0b1371ccc76687a88400ea37a17ec0c43b65a59e7b6e391671
 // source: https://kratos.dev/schemas/host/memory-change/v1.4 sha256:e85e1c71e1590a5abfd61839e155feb764524dc24fbbaa74a84d8940ca43b5d5
@@ -58,6 +59,7 @@
 // source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:3f3f7f0fd5a2be574fcb8a15096ebaf75b515a1283df4e848cf41fb9098b43f9
 // source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:4dd74aff09e68f1c3d121e535cae355c3bcca408c998b9fa4296aef3c70534b6
 // source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:c112c4bbec84b108cbae589a8ad2dd097cbb1c23773046fbc4fe136a246cc134
+// source: https://kratos.dev/schemas/state/project-config/v1.5 sha256:427f41f3c5d5a12644238c6c67e8c364372e0c7f4496b4dc668681b0f9ee1b57
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1 sha256:bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1.1 sha256:8dde526faeb7bc240f31e6edef90f6c2670e166dad0b75cda25ab58734386124
@@ -1791,6 +1793,159 @@ export namespace InitAnswersV1_5Contract {
   }
 }
 export type InitAnswersV1_5 = InitAnswersV1_5Contract.InitAnswersV1_5;
+export namespace InitAnswersV1_6Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type GateMode = "shadow" | "warn" | "enforce";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf =
+    ResolvedCommand | DerivedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Evidence = string;
+  export type Reason = string;
+  export type PathsLeaf =
+    ResolvedPaths | DerivedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf =
+    ResolvedConvention | DerivedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    | ResolvedImplementationLanguages
+    | DerivedImplementationLanguages
+    | NotApplicable
+    | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface InitAnswersV1_6 {
+    contractVersion: "1.6.0";
+    hostContract: "1.4.0";
+    /**
+     * @minItems 1
+     */
+    hosts: [
+      "claude" | "codex" | "antigravity",
+      ...("claude" | "codex" | "antigravity")[],
+    ];
+    language?: LanguagePolicy;
+    policyMode?: "standard" | "strict";
+    gateModes?: GateModes;
+    snapshots?: boolean;
+    modelRoles?: ModelRoles;
+    projectProfile?: PartialProjectProfile;
+    acceptanceAttemptCeiling?: number | null;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface GateModes {
+    "context-readable"?: GateMode;
+    "stop-loss"?: GateMode;
+    "prd-present"?: GateMode;
+    "spec-approved"?: GateMode;
+    "gaps-closed"?: GateMode;
+    "partition-approved"?: GateMode;
+    "acceptance-criteria"?: GateMode;
+    "final-acceptance"?: GateMode;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner: Assignment;
+    implementer: Assignment;
+    judge: Assignment;
+  }
+  export interface PartialProjectProfile {
+    commands?: PartialCommands;
+    paths?: PartialPaths;
+    conventions?: PartialConventions;
+  }
+  export interface PartialCommands {
+    test?: CommandLeaf;
+    lint?: CommandLeaf;
+    build?: CommandLeaf;
+    run?: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface DerivedCommand {
+    status: "derived";
+    value: Command;
+    evidence: Evidence;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface PartialPaths {
+    source?: PathsLeaf;
+    tests?: PathsLeaf;
+    configuration?: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface DerivedPaths {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+    evidence: Evidence;
+  }
+  export interface PartialConventions {
+    directoryLayout?: ConventionLeaf;
+    naming?: ConventionLeaf;
+    implementationLanguages?: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface DerivedConvention {
+    status: "derived";
+    value: Convention;
+    evidence: Evidence;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+  export interface DerivedImplementationLanguages {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+    evidence: Evidence;
+  }
+}
+export type InitAnswersV1_6 = InitAnswersV1_6Contract.InitAnswersV1_6;
 export namespace MemoryCaptureV1_2Contract {
   export interface MemoryCaptureV1_2 {
     contractVersion: "1.2.0";
@@ -4772,6 +4927,158 @@ export namespace ProjectConfigV1_4Contract {
   }
 }
 export type ProjectConfigV1_4 = ProjectConfigV1_4Contract.ProjectConfigV1_4;
+export namespace ProjectConfigV1_5Contract {
+  export type LanguageCode = "en" | "pt-BR";
+  export type GateMode = "shadow" | "warn" | "enforce";
+  export type Assignment =
+    | Id
+    | {
+        model: Id;
+        effort: Id;
+      };
+  export type Id = string;
+  export type CommandLeaf =
+    ResolvedCommand | DerivedCommand | NotApplicable | Unresolved;
+  export type Command = string;
+  export type Evidence = string;
+  export type Reason = string;
+  export type PathsLeaf =
+    ResolvedPaths | DerivedPaths | NotApplicable | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf =
+    ResolvedConvention | DerivedConvention | NotApplicable | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    | ResolvedImplementationLanguages
+    | DerivedImplementationLanguages
+    | NotApplicable
+    | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectConfigV1_5 {
+    contractVersion: "1.5.0";
+    stateContract: "1.5.0";
+    pluginVersion: "0.2.0";
+    hostContract: "1.4.0";
+    language: LanguagePolicy;
+    policyMode: "standard" | "strict";
+    gateModes: GateModes;
+    acceptanceAttemptCeiling?: number;
+    managedState: {
+      directory: ".brain";
+      eventLog: "events.jsonl";
+      snapshots: boolean;
+    };
+    modelRoles: ModelRoles;
+    projectProfile: ProjectProfile;
+  }
+  export interface LanguagePolicy {
+    conversation: LanguageCode;
+    documentation: LanguageCode;
+    comments: LanguageCode;
+    identifiers: LanguageCode;
+    commits: LanguageCode;
+    preserveConventions: boolean;
+    enforcement: "advisory" | "off";
+  }
+  export interface GateModes {
+    "context-readable"?: GateMode;
+    "stop-loss"?: GateMode;
+    "prd-present"?: GateMode;
+    "spec-approved"?: GateMode;
+    "gaps-closed"?: GateMode;
+    "partition-approved"?: GateMode;
+    "acceptance-criteria"?: GateMode;
+    "final-acceptance"?: GateMode;
+  }
+  export interface ModelRoles {
+    claude?: RoleMap;
+    codex?: RoleMap;
+    antigravity?: RoleMap;
+  }
+  export interface RoleMap {
+    planner?: Assignment;
+    implementer?: Assignment;
+    judge?: Assignment;
+  }
+  export interface ProjectProfile {
+    commands: Commands;
+    paths: Paths;
+    conventions: Conventions;
+  }
+  export interface Commands {
+    test: CommandLeaf;
+    lint: CommandLeaf;
+    build: CommandLeaf;
+    run: CommandLeaf;
+  }
+  export interface ResolvedCommand {
+    status: "resolved";
+    value: Command;
+  }
+  export interface DerivedCommand {
+    status: "derived";
+    value: Command;
+    evidence: Evidence;
+  }
+  export interface NotApplicable {
+    status: "not-applicable";
+    reason: Reason;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface Paths {
+    source: PathsLeaf;
+    tests: PathsLeaf;
+    configuration: PathsLeaf;
+  }
+  export interface ResolvedPaths {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+  }
+  export interface DerivedPaths {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+    evidence: Evidence;
+  }
+  export interface Conventions {
+    directoryLayout: ConventionLeaf;
+    naming: ConventionLeaf;
+    implementationLanguages: ImplementationLanguagesLeaf;
+  }
+  export interface ResolvedConvention {
+    status: "resolved";
+    value: Convention;
+  }
+  export interface DerivedConvention {
+    status: "derived";
+    value: Convention;
+    evidence: Evidence;
+  }
+  export interface ResolvedImplementationLanguages {
+    status: "resolved";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+  }
+  export interface DerivedImplementationLanguages {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+    evidence: Evidence;
+  }
+}
+export type ProjectConfigV1_5 = ProjectConfigV1_5Contract.ProjectConfigV1_5;
 export namespace RequirementDiscoveryV1Contract {
   export type NonEmptyText = string;
   export type ProblemDiscovery = {

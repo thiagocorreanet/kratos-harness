@@ -15,6 +15,7 @@ import initAnswersV1_2 from "../fixtures/contracts/v1.2/init-answers.json" with 
 import initAnswersV1_3 from "../fixtures/contracts/v1.3/init-answers.json" with { type: "json" };
 import initAnswersV1_4 from "../fixtures/contracts/v1.4/init-answers.json" with { type: "json" };
 import initAnswersV1_5 from "../fixtures/contracts/v1.5/init-answers.json" with { type: "json" };
+import initAnswersV1_6 from "../fixtures/contracts/v1.6/init-answers.json" with { type: "json" };
 import operationApproval from "../fixtures/contracts/v1/operation-approval.json" with { type: "json" };
 import phaseLifecycle from "../fixtures/contracts/v1/phase-lifecycle.json" with { type: "json" };
 import acceptanceCriteriaSnapshot from "../fixtures/contracts/v1/acceptance-criteria-snapshot.json" with { type: "json" };
@@ -56,6 +57,7 @@ import projectConfigV1_1 from "../fixtures/contracts/v1.1/project-config.json" w
 import projectConfigV1_2 from "../fixtures/contracts/v1.2/project-config.json" with { type: "json" };
 import projectConfigV1_3 from "../fixtures/contracts/v1.3/project-config.json" with { type: "json" };
 import projectConfigV1_4 from "../fixtures/contracts/v1.4/project-config.json" with { type: "json" };
+import projectConfigV1_5 from "../fixtures/contracts/v1.5/project-config.json" with { type: "json" };
 import repairLoopStop from "../fixtures/contracts/v1/repair-loop-stop.json" with { type: "json" };
 import repairLoopStopV1_1 from "../fixtures/contracts/v1.1/repair-loop-stop.json" with { type: "json" };
 import repairResolution from "../fixtures/contracts/v1/repair-resolution.json" with { type: "json" };
@@ -99,7 +101,8 @@ const narration = {
 
 interface FixtureCase {
   readonly id: ContractId;
-  readonly version: "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0" | "1.5.0";
+  readonly version:
+    "1.0.0" | "1.1.0" | "1.2.0" | "1.3.0" | "1.4.0" | "1.5.0" | "1.6.0";
   readonly versionField: "stateContract" | "hostContract" | "contractVersion";
   readonly requiredField: string;
   readonly structuralReasonCode: StructuralReasonCode;
@@ -258,6 +261,16 @@ const fixtures = [
     requiredField: "hosts",
     structuralReasonCode: "trail.output_invalido",
     fixture: initAnswersV1_5,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.init-answers",
+    version: "1.6.0",
+    versionField: "hostContract",
+    requiredField: "hosts",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: initAnswersV1_6,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },
@@ -678,6 +691,16 @@ const fixtures = [
     requiredField: "gateModes",
     structuralReasonCode: "guard.config_corrupt",
     fixture: projectConfigV1_4,
+    invalidVersionReason: "contract.state_version_invalid",
+    unsupportedVersionReason: "contract.state_version_unsupported",
+  },
+  {
+    id: "state.project-config",
+    version: "1.5.0",
+    versionField: "stateContract",
+    requiredField: "gateModes",
+    structuralReasonCode: "guard.config_corrupt",
+    fixture: projectConfigV1_5,
     invalidVersionReason: "contract.state_version_invalid",
     unsupportedVersionReason: "contract.state_version_unsupported",
   },

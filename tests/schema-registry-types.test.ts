@@ -19,6 +19,7 @@ import type {
   InitAnswersV1_3,
   InitAnswersV1_4,
   InitAnswersV1_5,
+  InitAnswersV1_6,
   MigrationV1,
   MigrationV1_1,
   MemoryCaptureV1_2,
@@ -37,6 +38,7 @@ import type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
+  ProjectConfigV1_5,
   RequirementDiscoveryV1,
   RepairLoopStopV1,
   RepairLoopStopV1_1,
@@ -117,6 +119,7 @@ describe("schema registry vocabulary", () => {
       | ProjectConfigV1_2
       | ProjectConfigV1_3
       | ProjectConfigV1_4
+      | ProjectConfigV1_5
     >();
     expectTypeOf<ContractValue<"state.event">>().toEqualTypeOf<
       EventV1 | EventV1_1 | EventV1_2 | EventV1_3 | EventV1_4
@@ -134,6 +137,7 @@ describe("schema registry vocabulary", () => {
       | InitAnswersV1_3
       | InitAnswersV1_4
       | InitAnswersV1_5
+      | InitAnswersV1_6
     >();
     expectTypeOf<ContractValue<"host.phase-handoff">>().toEqualTypeOf<
       PhaseHandoffV1_1 | PhaseHandoffV1_2 | PhaseHandoffV1_3 | PhaseHandoffV1_4
