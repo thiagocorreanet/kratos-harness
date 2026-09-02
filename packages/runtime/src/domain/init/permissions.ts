@@ -28,6 +28,21 @@ const STACK_TOOLCHAIN_COMMANDS: Record<StackId, readonly string[]> = {
   java: ["gradle test", "mvn test"],
   php: ["composer test", "vendor/bin/phpunit"],
   ruby: ["bundle exec rake test", "bundle exec rspec"],
+  bun: ["bun test", "bun run build"],
+  clojure: ["clojure -M:test", "lein test"],
+  cmake: ["cmake -S . -B build", "ctest --test-dir build"],
+  dart: ["dart test", "dart analyze"],
+  deno: ["deno test", "deno lint"],
+  elixir: ["mix test", "mix format --check-formatted"],
+  erlang: ["rebar3 eunit", "rebar3 dialyzer"],
+  haskell: ["stack test", "cabal test"],
+  julia: ["julia --project=. test/runtests.jl"],
+  lua: ["busted", "luacheck ."],
+  perl: ["prove -lr t"],
+  r: ["R CMD check ."],
+  scala: ["sbt test", "sbt compile"],
+  swift: ["swift test", "swift build"],
+  zig: ["zig build test", "zig build"],
 };
 
 const GIT_COMMANDS: readonly string[] = ["git status", "git diff", "git log"];

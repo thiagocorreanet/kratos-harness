@@ -7,6 +7,7 @@ import {
   resolveInitAnswers,
   skeletonEffects,
   type ManagedFileObservation,
+  type RepositoryEvidence,
   type ResolvedInitAnswers,
   type ResolvedProjectProfile,
 } from "../domain/init/index.js";
@@ -20,6 +21,7 @@ import type { SchemaRegistry } from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeRepositoryEvidence } from "./repository.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { createSchemaRegistry } from "./schema.js";
 
@@ -85,7 +87,7 @@ export async function observeInitialization(
       gateModes: persisted.gateModes,
     },
   );
-  const rootEntries = await anchored.fileSystem.list(".");
+  const evidence = await observeRepositoryEvidence(anchored.fileSystem);
   return {
     kind: "observed",
     observation: {
@@ -93,8 +95,8 @@ export async function observeInitialization(
       resolution: root.resolution,
       answers,
       configExpected: persisted.expected,
-      rootEntries,
-      destinations: await observeDestinations(answers, rootEntries, anchored),
+      evidence,
+      destinations: await observeDestinations(answers, evidence, anchored),
     },
     ports: anchored,
   };
@@ -205,12 +207,12 @@ function configurationFailure(
  */
 async function observeDestinations(
   answers: ResolvedInitAnswers,
-  rootEntries: readonly string[],
+  evidence: RepositoryEvidence,
   ports: RuntimePorts,
 ): Promise<readonly (readonly [string, ManagedFileObservation])[]> {
   if (answers.kind === "invalid") return [];
   const paths = destinationsOf(
-    skeletonEffects(answers.answers, profileStack({ rootEntries })),
+    skeletonEffects(answers.answers, profileStack(evidence)),
   );
   const observed: (readonly [string, ManagedFileObservation])[] = [];
   for (const path of paths) {

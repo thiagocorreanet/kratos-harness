@@ -104,7 +104,7 @@ function decide(
 
   const generated = skeletonEffects(
     answers,
-    profileStack({ rootEntries: observation.rootEntries }),
+    profileStack(observation.evidence),
   );
   const observed = new Map(observation.destinations);
   const authorization = {

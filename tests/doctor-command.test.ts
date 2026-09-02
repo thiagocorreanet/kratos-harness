@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import type {
+  RepositoryEvidence,
   ResolvedAnswers,
   ResolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
@@ -140,13 +141,35 @@ const baseAnswers = (
   projectProfile,
 });
 
+const NODE_PROJECT: Readonly<Record<string, string>> = { "package.json": "{}" };
+
+/**
+ * The listing the runtime's own scan will produce for this project.
+ *
+ * Stated here rather than walked, so a doctor that renders from the real scan
+ * is compared against an expectation that does not share its implementation.
+ */
+function evidenceOf(
+  projectFiles: Readonly<Record<string, string>>,
+): RepositoryEvidence {
+  const files = Object.keys(projectFiles).sort();
+  return {
+    rootEntries: [
+      ...new Set(files.map((path) => path.split("/")[0] ?? path)),
+    ].sort(),
+    files,
+    truncated: false,
+  };
+}
+
 function generatedFiles(
   projectProfile: ResolvedProjectProfile,
+  projectFiles: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
     skeletonEffects(
       baseAnswers(projectProfile),
-      profileStack({ rootEntries: ["package.json"] }),
+      profileStack(evidenceOf(projectFiles)),
     ).flatMap((effect) =>
       effect.kind === "write_file" ? [[effect.path, effect.content]] : [],
     ),
@@ -160,11 +183,14 @@ interface SubjectOptions {
   ) => Readonly<Record<string, string>>;
   readonly stackProfileDirectory?: boolean;
   readonly unreadableStackProfile?: boolean;
+  /** The project the runtime scans, when it is not a bare Node.js root. */
+  readonly projectFiles?: Readonly<Record<string, string>>;
 }
 
 function subject(options: SubjectOptions = {}) {
   const profile = options.profile ?? completeProfile;
-  const generated = generatedFiles(profile);
+  const projectFiles = options.projectFiles ?? NODE_PROJECT;
+  const generated = generatedFiles(profile, projectFiles);
   const files = options.mutateFiles?.(generated) ?? generated;
   const storage = memoryTransactionStorage({
     files,
@@ -174,7 +200,7 @@ function subject(options: SubjectOptions = {}) {
     ],
   });
   const output = recordingOutput();
-  const fileSystem = memoryFileSystem({ "package.json": "{}" });
+  const fileSystem = memoryFileSystem(projectFiles);
   const durableFileSystem: DurableFileSystem = options.unreadableStackProfile
     ? {
         ...storage.durableFileSystem,
@@ -362,7 +388,7 @@ async function writeNodeProject(
   projectProfile: ResolvedProjectProfile,
 ): Promise<void> {
   for (const [path, content] of Object.entries(
-    generatedFiles(projectProfile),
+    generatedFiles(projectProfile, NODE_PROJECT),
   )) {
     const absolute = join(root, path);
     await mkdir(dirname(absolute), { recursive: true });
@@ -450,6 +476,24 @@ describe("stack-profile doctor readiness", () => {
     expect(result.exitCode).toBe(0);
     expect(result.rendered).toContain("stack-profile: pass");
     expect(await run.fileSystem.stat("doctor-command-ran")).toBeNull();
+  });
+
+  it("agrees with initialization about a project whose manifest is nested", async () => {
+    // Doctor renders from its own scan. If the two walks disagreed about what
+    // a monorepo is, every project like this one would report drift forever.
+    const run = subject({
+      projectFiles: {
+        "apps/web/package.json": "{}",
+        "apps/web/src/index.ts": "export {};",
+        "services/api/go.mod": "module api",
+        "services/api/main.go": "package main",
+      },
+    });
+
+    const result = await doctor(run);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.rendered).toContain("stack-profile: pass");
   });
 
   it("warns with every unresolved typed key", async () => {

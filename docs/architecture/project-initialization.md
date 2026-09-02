@@ -293,7 +293,11 @@ choose roles or enforce independence; prompts only report phase output to the
 runtime-owned policy boundary.
 
 The runtime renders `.brain/01-architecture/stack-profile.md` from the typed
-profile, offline root-entry stack evidence, and configured language policy.
+profile, offline scan evidence, and configured language policy. The scan is a
+bounded, name-only walk below the project root; the classifier it feeds is a
+pure function of that listing and reports a language census and toolchain
+markers as two independent facts, either of which a project may have without
+the other.
 Control-bearing root filenames visibly encode C0, DEL, and Unicode line
 separators before Markdown escaping. The document is a deterministic
 projection, not an answer source. `kratos doctor`

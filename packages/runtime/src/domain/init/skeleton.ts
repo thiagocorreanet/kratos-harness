@@ -272,8 +272,8 @@ function architectureReadme(): string {
     "How this project is put together. One decision per file under `adr`,",
     "recorded when it is made rather than reconstructed later.",
     "",
-    "`stack-profile.md` is generated from the project root and is overwritten",
-    "on the next initialization.",
+    "`stack-profile.md` is generated from a bounded, name-only scan of the",
+    "project and is overwritten on the next initialization.",
   );
 }
 
@@ -398,6 +398,13 @@ function instructions(
     profile.stacks.length > 0
       ? profile.stacks.map((s) => s.id).join(", ")
       : "unrecognized";
+  // What the project is written in and how it is built are two questions, and
+  // a summary that answers only the second is silent about a project whose
+  // language nobody packaged a manifest for.
+  const languageSummary =
+    profile.languages.length > 0
+      ? profile.languages.map((language) => language.id).join(", ")
+      : "unrecognized";
 
   return lines(
     MANAGED_SECTION_BEGIN,
@@ -409,7 +416,8 @@ function instructions(
     "",
     "## This project",
     "",
-    `- Detected stack: ${stackSummary}`,
+    `- Detected languages: ${languageSummary}`,
+    `- Detected toolchains: ${stackSummary}`,
     "- Language policy:",
     `  - Conversation: ${answers.language.conversation}`,
     `  - Documentation: ${answers.language.documentation}`,

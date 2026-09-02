@@ -86,6 +86,7 @@ import {
   profileStack,
   renderStackProfile,
   unresolvedProjectProfileKeys,
+  type RepositoryEvidence,
 } from "../domain/init/index.js";
 import type { StackProfileReadinessObservation } from "../domain/diagnostics/index.js";
 import {
@@ -99,6 +100,7 @@ import {
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
+import { observeRepositoryEvidence } from "./repository.js";
 import { observeModelCatalog } from "./model-routing.js";
 import {
   observePhaseMeasurementLog,
@@ -2210,9 +2212,9 @@ async function observeStackProfile(
       ...destination,
     };
   }
-  let rootEntries: readonly string[];
+  let evidence: RepositoryEvidence;
   try {
-    rootEntries = await ports.fileSystem.list(".");
+    evidence = await observeRepositoryEvidence(ports.fileSystem);
   } catch {
     return {
       authoritativeState: {
@@ -2225,7 +2227,7 @@ async function observeStackProfile(
     };
   }
   const rendered = renderStackProfile(
-    profileStack({ rootEntries }),
+    profileStack(evidence),
     configuration.value.projectProfile,
     configuration.value.language,
   );
