@@ -3,6 +3,7 @@ import {
   profileStack,
   renderStackProfile,
   SCAN_EXCLUDED_DIRECTORIES,
+  STACK_COMMANDS,
   STACK_IDS,
   type StackId,
   unresolvedProjectProfile,
@@ -115,6 +116,31 @@ describe("toolchain markers", () => {
     expect([...STACK_IDS]).toEqual([...STACK_IDS].sort());
     expect(new Set(STACK_IDS).size).toBe(STACK_IDS.length);
     expect(STACK_IDS).toContain<StackId>("elixir");
+  });
+
+  it("gives every enumerated toolchain a commands row", () => {
+    // Command derivation reads this column instead of a list of its own, so a
+    // toolchain the markers name and the column forgets is an ecosystem that
+    // reaches the interview with nothing derived.
+    expect(Object.keys(STACK_COMMANDS).sort()).toEqual([...STACK_IDS]);
+    for (const id of STACK_IDS) {
+      const row = STACK_COMMANDS[id];
+      for (const slot of ["test", "lint", "build", "run"] as const) {
+        const command = row[slot];
+        if (command === undefined) continue;
+        expect(command.trim()).toBe(command);
+        expect(command.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("names the canonical .NET commands", () => {
+    expect(STACK_COMMANDS.dotnet).toEqual({
+      test: "dotnet test",
+      lint: "dotnet format",
+      build: "dotnet build",
+      run: "dotnet run",
+    });
   });
 });
 

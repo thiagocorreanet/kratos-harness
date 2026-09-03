@@ -43,6 +43,7 @@ export {
   SCAN_EXCLUDED_DIRECTORIES,
   SCAN_MAX_DEPTH,
   SCAN_MAX_ENTRIES,
+  STACK_COMMANDS,
   STACK_IDS,
 } from "./stack.js";
 export type {
@@ -52,6 +53,7 @@ export type {
   ObservedEvidence,
   ObservedExtension,
   RepositoryEvidence,
+  StackCommands,
   StackId,
   StackProfile,
 } from "./stack.js";

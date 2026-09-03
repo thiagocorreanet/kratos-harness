@@ -105,16 +105,12 @@ export async function observeManifestContents(
     packageJson?: string;
     makefile?: string;
     pyprojectToml?: string;
-    cargoToml?: string;
-    goMod?: string;
   } = {};
 
   const candidates: readonly (readonly [string, keyof ManifestContents])[] = [
     ["package.json", "packageJson"],
     ["Makefile", "makefile"],
     ["pyproject.toml", "pyprojectToml"],
-    ["Cargo.toml", "cargoToml"],
-    ["go.mod", "goMod"],
   ];
 
   for (const [filename, key] of candidates) {

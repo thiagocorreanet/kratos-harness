@@ -286,6 +286,106 @@ const SUFFIX_MARKERS: readonly (readonly [string, StackId])[] = [
   [".vbproj", "dotnet"],
 ];
 
+/**
+ * What a toolchain calls its own test, lint, build, and run.
+ *
+ * The commands column of the marker table: a toolchain named above maps here,
+ * so recognizing an ecosystem and knowing how to drive it are one fact rather
+ * than two lists that drift. Adding an ecosystem is a marker row and a row
+ * here.
+ *
+ * Only the toolchain's own verbs. `cargo clippy` ships with the toolchain and
+ * `busted` does not, and a default naming a tool the project may never have
+ * installed is worse than asking. A slot left out is a slot the operator is
+ * asked about, which is why an ambiguous id leaves them out: `java` covers
+ * both Gradle and Maven and `haskell` both Stack and Cabal, so the id alone
+ * cannot say which binary to call. `node` leaves them out for the opposite
+ * reason -- a Node project states its commands in `package.json`, and a
+ * declared script is read from the manifest rather than assumed here.
+ *
+ * These are conventions, not facts about the repository. Anything a manifest
+ * declares outranks them, and like every derived value they reach the operator
+ * for confirmation.
+ */
+export interface StackCommands {
+  readonly test?: string;
+  readonly lint?: string;
+  readonly build?: string;
+  readonly run?: string;
+}
+
+/** No verb of its own that a project of this ecosystem reliably answers to. */
+const ASK: StackCommands = Object.freeze({});
+
+export const STACK_COMMANDS: Readonly<Record<StackId, StackCommands>> =
+  Object.freeze({
+    bun: Object.freeze({ test: "bun test" }),
+    clojure: ASK,
+    cmake: Object.freeze({
+      test: "ctest --test-dir build",
+      build: "cmake --build build",
+    }),
+    dart: Object.freeze({
+      test: "dart test",
+      lint: "dart analyze",
+      run: "dart run",
+    }),
+    deno: Object.freeze({ test: "deno test", lint: "deno lint" }),
+    dotnet: Object.freeze({
+      test: "dotnet test",
+      lint: "dotnet format",
+      build: "dotnet build",
+      run: "dotnet run",
+    }),
+    elixir: Object.freeze({
+      test: "mix test",
+      build: "mix compile",
+      run: "mix run",
+    }),
+    erlang: Object.freeze({
+      test: "rebar3 eunit",
+      build: "rebar3 compile",
+      run: "rebar3 shell",
+    }),
+    go: Object.freeze({
+      test: "go test ./...",
+      lint: "go vet ./...",
+      build: "go build ./...",
+      run: "go run .",
+    }),
+    haskell: ASK,
+    java: ASK,
+    julia: ASK,
+    lua: ASK,
+    node: ASK,
+    perl: ASK,
+    php: ASK,
+    python: Object.freeze({ test: "pytest" }),
+    r: ASK,
+    ruby: ASK,
+    rust: Object.freeze({
+      test: "cargo test",
+      lint: "cargo clippy",
+      build: "cargo build",
+      run: "cargo run",
+    }),
+    scala: Object.freeze({
+      test: "sbt test",
+      build: "sbt compile",
+      run: "sbt run",
+    }),
+    swift: Object.freeze({
+      test: "swift test",
+      build: "swift build",
+      run: "swift run",
+    }),
+    zig: Object.freeze({
+      test: "zig build test",
+      build: "zig build",
+      run: "zig build run",
+    }),
+  });
+
 /** Every toolchain this build knows, so a caller can enumerate them. */
 export const STACK_IDS: readonly StackId[] = Object.freeze(
   [

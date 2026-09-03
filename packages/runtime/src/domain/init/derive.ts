@@ -1,13 +1,23 @@
-import type { RepositoryEvidence } from "./stack.js";
-import { profileStack } from "./stack.js";
+import type {
+  DetectedStack,
+  RepositoryEvidence,
+  StackProfile,
+} from "./stack.js";
+import { STACK_COMMANDS, profileStack } from "./stack.js";
 import type { PartialProjectProfile, ProjectProfileLeaf } from "./profile.js";
 
+/**
+ * The manifests whose contents are read rather than whose names are matched.
+ *
+ * Only formats something below actually parses. Recognizing which toolchain a
+ * repository uses is the marker table's job in `stack.ts`; this is for the
+ * declarations a manifest makes about the project itself, which no file name
+ * can carry.
+ */
 export interface ManifestContents {
   readonly packageJson?: string;
   readonly makefile?: string;
   readonly pyprojectToml?: string;
-  readonly cargoToml?: string;
-  readonly goMod?: string;
 }
 
 const SOURCE_PATH_CANDIDATES = ["src", "lib", "app", "packages"] as const;
@@ -227,74 +237,59 @@ function derivePyprojectTomlCommands(
   }
 }
 
-function deriveCargoTomlCommands(
+const COMMAND_SLOTS = ["test", "lint", "build", "run"] as const;
+
+/**
+ * The longest evidence the profile schema stores. A marker buried under long
+ * directory names must not be why initialization refuses to write a profile,
+ * so the stack alone is named when its path would not fit.
+ */
+const EVIDENCE_MAX_LENGTH = 256;
+
+function stackEvidence(detected: DetectedStack): string {
+  const full = `stack:${detected.id} via ${detected.evidence}`;
+  return full.length <= EVIDENCE_MAX_LENGTH ? full : `stack:${detected.id}`;
+}
+
+/**
+ * Fill the slots the manifests did not state with the toolchain's own verbs.
+ *
+ * Runs after content derivation and never overwrites it: a declared
+ * `scripts.test` is a fact about this repository, while a canonical command is
+ * a convention about its ecosystem, and the fact wins. Stacks arrive ordered
+ * by identifier, so a polyglot repository resolves the same way every time.
+ *
+ * The evidence carries the marker that named the toolchain, so a canonical
+ * command still says where it came from and stays checkable.
+ */
+function deriveStackCommands(
+  stack: StackProfile,
   commands: Record<string, ProjectProfileLeaf<string>>,
 ): void {
-  if (!("test" in commands)) {
-    commands.test = {
-      status: "derived",
-      value: "cargo test",
-      evidence: "Cargo.toml",
-    };
-  }
-  if (!("lint" in commands)) {
-    commands.lint = {
-      status: "derived",
-      value: "cargo clippy",
-      evidence: "Cargo.toml",
-    };
-  }
-  if (!("build" in commands)) {
-    commands.build = {
-      status: "derived",
-      value: "cargo build",
-      evidence: "Cargo.toml",
-    };
-  }
-  if (!("run" in commands)) {
-    commands.run = {
-      status: "derived",
-      value: "cargo run",
-      evidence: "Cargo.toml",
-    };
+  for (const detected of stack.stacks) {
+    const canonical = STACK_COMMANDS[detected.id];
+    for (const slot of COMMAND_SLOTS) {
+      const value = canonical[slot];
+      if (value === undefined || slot in commands) continue;
+      commands[slot] = {
+        status: "derived",
+        value,
+        evidence: stackEvidence(detected),
+      };
+    }
   }
 }
 
-function deriveGoModCommands(
-  commands: Record<string, ProjectProfileLeaf<string>>,
-): void {
-  if (!("test" in commands)) {
-    commands.test = {
-      status: "derived",
-      value: "go test ./...",
-      evidence: "go.mod",
-    };
-  }
-  if (!("lint" in commands)) {
-    commands.lint = {
-      status: "derived",
-      value: "go vet ./...",
-      evidence: "go.mod",
-    };
-  }
-  if (!("build" in commands)) {
-    commands.build = {
-      status: "derived",
-      value: "go build ./...",
-      evidence: "go.mod",
-    };
-  }
-  if (!("run" in commands)) {
-    commands.run = {
-      status: "derived",
-      value: "go run .",
-      evidence: "go.mod",
-    };
-  }
-}
-
+/**
+ * Derive the four commands from what the repository declares, then from what
+ * its toolchain conventionally calls them.
+ *
+ * There is no file-name list here. The toolchain is whatever `profileStack`
+ * already named from the marker table, which is why an ecosystem that table
+ * recognizes cannot reach the interview with nothing derived.
+ */
 function deriveCommands(
-  evidence: RepositoryEvidence,
+  stack: StackProfile,
   manifests: ManifestContents,
 ): PartialProjectProfile["commands"] | undefined {
   const commands: Record<string, ProjectProfileLeaf<string>> = {};
@@ -307,32 +302,19 @@ function deriveCommands(
     derivePyprojectTomlCommands(manifests.pyprojectToml, commands);
   }
 
-  if (
-    manifests.cargoToml !== undefined ||
-    evidence.rootEntries.includes("Cargo.toml")
-  ) {
-    deriveCargoTomlCommands(commands);
-  }
-
-  if (
-    manifests.goMod !== undefined ||
-    evidence.rootEntries.includes("go.mod")
-  ) {
-    deriveGoModCommands(commands);
-  }
-
   if (manifests.makefile !== undefined) {
     deriveMakefileCommands(manifests.makefile, commands);
   }
+
+  deriveStackCommands(stack, commands);
 
   return Object.keys(commands).length > 0 ? commands : undefined;
 }
 
 function deriveConventions(
-  evidence: RepositoryEvidence,
+  stack: StackProfile,
 ): PartialProjectProfile["conventions"] | undefined {
-  const profile = profileStack(evidence);
-  const activeLanguages = profile.languages.filter((lang) => lang.files > 0);
+  const activeLanguages = stack.languages.filter((lang) => lang.files > 0);
 
   if (activeLanguages.length === 0) {
     return undefined;
@@ -356,9 +338,10 @@ export function deriveProjectProfile(
   evidence: RepositoryEvidence,
   manifests: ManifestContents = {},
 ): PartialProjectProfile {
-  const commands = deriveCommands(evidence, manifests);
+  const stack = profileStack(evidence);
+  const commands = deriveCommands(stack, manifests);
   const paths = derivePaths(evidence);
-  const conventions = deriveConventions(evidence);
+  const conventions = deriveConventions(stack);
 
   const profile: PartialProjectProfile = {
     ...(commands !== undefined ? { commands } : {}),
