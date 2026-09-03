@@ -99,6 +99,7 @@ Each profile leaf resolves independently according to strict precedence:
 
 The shared `projectProfileQuestions` and `relayProjectProfileAnswers` in `distribution/shared/project-profile-relay.mjs`
 and the host skills (`claude-code`, `antigravity`, `codex`) update their interview:
+
 - Before asking, compute candidate derived values from offline repository evidence.
 - Present derived values with evidence to the user for confirmation.
 - Confirmed values are relayed as `{ status: "resolved", value }`.

@@ -26,6 +26,7 @@
 ### Task 1: Versioned profile contracts, schemas, and pure derivation engine
 
 **Files:**
+
 - Create: `schemas/host/init-answers.v1.6.schema.json`
 - Create: `schemas/state/project-config.v1.5.schema.json`
 - Create: `packages/runtime/src/domain/init/derive.ts`
@@ -37,6 +38,7 @@
 - Test: `tests/init-profile-derivation.test.ts`, `tests/contract-schemas.test.ts`, `tests/init-answers.test.ts`
 
 **Interfaces:**
+
 - `ProjectProfileLeaf<T>` extended with `{ status: "derived", value: T, evidence: string }`.
 - `deriveProjectProfile(evidence: RepositoryEvidence, manifests: ManifestContents): PartialProjectProfile`.
 - `resolveProjectProfile(explicit, persisted, derived)` with precedence: explicit > persisted > derived > unresolved.
@@ -63,6 +65,7 @@
 ### Task 2: Initialization composition, manifest reading, state migration, and stack profile rendering
 
 **Files:**
+
 - Modify: `packages/runtime/src/composition/repository.ts`
 - Modify: `packages/runtime/src/composition/init.ts`
 - Modify: `packages/runtime/src/domain/init/answers.ts`
@@ -73,6 +76,7 @@
 - Test: `tests/init-skeleton.test.ts`, `tests/init-command.test.ts`, `tests/init-stack-profile.test.ts`, `tests/config-migration.test.ts`
 
 **Interfaces:**
+
 - Composition safely reads top-level declarative manifest files (`package.json`, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`) present in root entries.
 - `renderStackProfile` annotates derived entries with `(derived from <evidence>)`.
 - Configuration migration `1.4.0 -> 1.5.0` seamlessly upgrades `.brain/config.json`.
@@ -102,6 +106,7 @@
 ### Task 3: Relay interview, distribution skills, doctor diagnostics, and operator gate invariants
 
 **Files:**
+
 - Modify: `distribution/shared/project-profile-relay.mjs`
 - Modify: `distribution/claude-code/skills/kratos/SKILL.md`
 - Modify: `distribution/antigravity/skills/kratos/SKILL.md`
@@ -115,6 +120,7 @@
 - Test: `tests/diagnostics.test.ts`, `tests/doctor-command.test.ts`, `tests/project-profile-relay.test.ts`
 
 **Interfaces:**
+
 - Relay shapes candidate derived values for operator confirmation (`resolved` if confirmed, `derived` if unconfirmed, `unresolved` if blank).
 - `deriveStackProfileCheck` reports `pass` when all keys are `resolved`, `derived`, or `not-applicable` and file matches expected bytes.
 - Operator decision gates require `resolved` commands before executing actions under operator consent.
@@ -142,6 +148,7 @@
 ### Task 4: Full verification, AC evidence, and gate checks
 
 **Files:**
+
 - Create: `docs/verification/issue-190-project-profile-derivation-evidence.md`
 - Modify: any files needed to fix lint, types, or tests
 
