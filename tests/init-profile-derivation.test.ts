@@ -134,66 +134,172 @@ describe("pure project profile derivation", () => {
     });
   });
 
-  it("derives commands from Cargo.toml manifest", () => {
-    const manifests: ManifestContents = {
-      cargoToml: ["[package]", 'name = "sample"', 'version = "0.1.0"'].join(
-        "\n",
-      ),
-    };
-    const evidence = { rootEntries: ["Cargo.toml"] };
+  it("derives canonical commands from the Rust toolchain marker", () => {
+    const evidence = { rootEntries: ["Cargo.toml", "src"] };
 
-    const derived = deriveProjectProfile(evidence, manifests);
+    const derived = deriveProjectProfile(evidence, {});
 
     expect(derived.commands?.test).toEqual({
       status: "derived",
       value: "cargo test",
-      evidence: "Cargo.toml",
+      evidence: "stack:rust via Cargo.toml",
     });
     expect(derived.commands?.lint).toEqual({
       status: "derived",
       value: "cargo clippy",
-      evidence: "Cargo.toml",
+      evidence: "stack:rust via Cargo.toml",
     });
     expect(derived.commands?.build).toEqual({
       status: "derived",
       value: "cargo build",
-      evidence: "Cargo.toml",
+      evidence: "stack:rust via Cargo.toml",
     });
     expect(derived.commands?.run).toEqual({
       status: "derived",
       value: "cargo run",
-      evidence: "Cargo.toml",
+      evidence: "stack:rust via Cargo.toml",
     });
   });
 
-  it("derives commands from go.mod manifest", () => {
-    const manifests: ManifestContents = {
-      goMod: "module github.com/example/sample\n\ngo 1.22\n",
+  it("derives canonical commands from the Go toolchain marker", () => {
+    const evidence = { rootEntries: ["go.mod", "main.go"] };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands?.test).toEqual({
+      status: "derived",
+      value: "go test ./...",
+      evidence: "stack:go via go.mod",
+    });
+    expect(derived.commands?.lint).toEqual({
+      status: "derived",
+      value: "go vet ./...",
+      evidence: "stack:go via go.mod",
+    });
+    expect(derived.commands?.build).toEqual({
+      status: "derived",
+      value: "go build ./...",
+      evidence: "stack:go via go.mod",
+    });
+    expect(derived.commands?.run).toEqual({
+      status: "derived",
+      value: "go run .",
+      evidence: "stack:go via go.mod",
+    });
+  });
+
+  it("derives the four commands for a .NET solution the census names", () => {
+    const evidence = {
+      rootEntries: ["Sample.sln", "src"],
+      files: ["Sample.sln", "src/Api/Api.csproj", "src/Api/Program.cs"],
     };
-    const evidence = { rootEntries: ["go.mod"] };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands?.test).toEqual({
+      status: "derived",
+      value: "dotnet test",
+      evidence: "stack:dotnet via Sample.sln",
+    });
+    expect(derived.commands?.lint).toEqual({
+      status: "derived",
+      value: "dotnet format",
+      evidence: "stack:dotnet via Sample.sln",
+    });
+    expect(derived.commands?.build).toEqual({
+      status: "derived",
+      value: "dotnet build",
+      evidence: "stack:dotnet via Sample.sln",
+    });
+    expect(derived.commands?.run).toEqual({
+      status: "derived",
+      value: "dotnet run",
+      evidence: "stack:dotnet via Sample.sln",
+    });
+  });
+
+  it("names the nested marker that identified the toolchain", () => {
+    const evidence = {
+      rootEntries: ["src", "README.md"],
+      files: ["src/Api/Api.csproj", "src/Api/Program.cs"],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands?.build).toEqual({
+      status: "derived",
+      value: "dotnet build",
+      evidence: "stack:dotnet via src/Api/Api.csproj",
+    });
+  });
+
+  it("names the stack alone when the marker path would not fit the evidence", () => {
+    // A profile whose evidence exceeds what the schema stores would refuse to
+    // be written, and refusing to initialize is worse than a shorter answer.
+    const buried = `${"nested".repeat(45)}/Api.csproj`;
+    const evidence = { rootEntries: ["src"], files: [buried] };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands?.test).toEqual({
+      status: "derived",
+      value: "dotnet test",
+      evidence: "stack:dotnet",
+    });
+  });
+
+  it("keeps a declared manifest command ahead of the toolchain default", () => {
+    const manifests: ManifestContents = {
+      packageJson: JSON.stringify({ scripts: { test: "vitest run" } }),
+    };
+    const evidence = { rootEntries: ["package.json", "Cargo.toml"] };
 
     const derived = deriveProjectProfile(evidence, manifests);
 
     expect(derived.commands?.test).toEqual({
       status: "derived",
-      value: "go test ./...",
-      evidence: "go.mod",
-    });
-    expect(derived.commands?.lint).toEqual({
-      status: "derived",
-      value: "go vet ./...",
-      evidence: "go.mod",
+      value: "npm test",
+      evidence: "package.json#scripts.test",
     });
     expect(derived.commands?.build).toEqual({
       status: "derived",
-      value: "go build ./...",
-      evidence: "go.mod",
+      value: "cargo build",
+      evidence: "stack:rust via Cargo.toml",
     });
-    expect(derived.commands?.run).toEqual({
+  });
+
+  it("keeps a Makefile target ahead of the toolchain default", () => {
+    const manifests: ManifestContents = {
+      makefile: ["test:", "\tcargo nextest run"].join("\n"),
+    };
+    const evidence = { rootEntries: ["Makefile", "Cargo.toml"] };
+
+    const derived = deriveProjectProfile(evidence, manifests);
+
+    expect(derived.commands?.test).toEqual({
       status: "derived",
-      value: "go run .",
-      evidence: "go.mod",
+      value: "make test",
+      evidence: "Makefile:test",
     });
+  });
+
+  it("derives no command when the census cannot name the toolchain", () => {
+    const evidence = {
+      rootEntries: ["README.md", "src"],
+      files: ["src/tool.awk"],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands).toBeUndefined();
+  });
+
+  it("derives no command for an ecosystem whose toolchain the id cannot pin", () => {
+    const evidence = { rootEntries: ["pom.xml", "src"] };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.commands).toBeUndefined();
   });
 
   it("derives canonical source, tests, and configuration paths from directory layout", () => {

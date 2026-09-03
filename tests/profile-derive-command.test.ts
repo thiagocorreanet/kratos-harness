@@ -135,7 +135,7 @@ describe("the profile derive command", () => {
     expect(profile.commands.test).toEqual({
       status: "derived",
       value: "go test ./...",
-      evidence: "go.mod",
+      evidence: "stack:go via go.mod",
     });
     expect(profile.paths.source).toEqual({
       status: "derived",

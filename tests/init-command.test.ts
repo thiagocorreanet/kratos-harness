@@ -964,6 +964,56 @@ describe("the init command", () => {
     expect(files[".claude/settings.json"]).toContain("Bash(dotnet test)");
   });
 
+  it("derives the four commands from the toolchain the census named", async () => {
+    // The reproduction from ADP-09: a .NET solution matches no manifest the
+    // content reader parses, and the operator was asked for four commands the
+    // runtime had already identified the toolchain for.
+    const run = subject(ANSWERS, {}, {});
+    const dotnet = {
+      ...run,
+      ports: {
+        ...run.ports,
+        fileSystem: memoryFileSystem({
+          "Sample.sln": "Microsoft Visual Studio Solution File",
+          "src/Api/Api.csproj": "<Project />",
+          "src/Api/Program.cs": "class Program {}",
+        }),
+      },
+    };
+
+    expect(await runCommandLine(["init"], dotnet.ports)).toBe(0);
+
+    const files = run.storage.snapshot().files;
+    const config = JSON.parse(
+      files[".brain/config.json"] ?? "null",
+    ) as ProjectConfigV1_5;
+    expect(config.projectProfile.commands).toEqual({
+      test: {
+        status: "derived",
+        value: "dotnet test",
+        evidence: "stack:dotnet via Sample.sln",
+      },
+      lint: {
+        status: "derived",
+        value: "dotnet format",
+        evidence: "stack:dotnet via Sample.sln",
+      },
+      build: {
+        status: "derived",
+        value: "dotnet build",
+        evidence: "stack:dotnet via Sample.sln",
+      },
+      run: {
+        status: "derived",
+        value: "dotnet run",
+        evidence: "stack:dotnet via Sample.sln",
+      },
+    });
+    expect(files[".brain/01-architecture/stack-profile.md"] ?? "").toContain(
+      "### Test (derived from stack:dotnet via Sample.sln)",
+    );
+  });
+
   it("derives commands and paths from repository manifests when answers omit them", async () => {
     const pkg = JSON.stringify({
       scripts: {
