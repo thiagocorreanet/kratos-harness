@@ -226,19 +226,30 @@ function selectPaths(
   return { value, evidence: `directory:${tokens.join(", ")}` };
 }
 
+interface DerivedPathSlot {
+  readonly leaf: ProjectProfileLeaf<readonly string[]>;
+  /** The directories the answer names, kept so the layout can be described. */
+  readonly directories: readonly DirectoryCandidate[];
+}
+
 function derivePathSlot(
   evidence: RepositoryEvidence,
   layout: ObservedLayout,
   candidates: readonly string[],
-): ProjectProfileLeaf<readonly string[]> | undefined {
+): DerivedPathSlot | undefined {
   const found = candidateDirectories(evidence, layout, candidates);
   if (found.length === 0) return undefined;
-  const selected = selectPaths(rankCandidates(withoutEnclosed(found)));
+  const ranked = rankCandidates(withoutEnclosed(found));
+  const selected = selectPaths(ranked);
   if (selected === undefined) return undefined;
+  const named = new Set(selected.value);
   return {
-    status: "derived",
-    value: Object.freeze(selected.value),
-    evidence: selected.evidence,
+    leaf: {
+      status: "derived",
+      value: Object.freeze(selected.value),
+      evidence: selected.evidence,
+    },
+    directories: ranked.filter((candidate) => named.has(candidate.path)),
   };
 }
 
@@ -252,6 +263,14 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+interface DerivedPaths {
+  /** The three path answers, absent when the layout attested to none of them. */
+  readonly leaves: PartialProjectProfile["paths"] | undefined;
+  /** The directories each answer names, for the convention derivation below. */
+  readonly source: readonly DirectoryCandidate[];
+  readonly tests: readonly DirectoryCandidate[];
+}
+
 /**
  * Derive the source, test, and configuration directories from the layout.
  *
@@ -262,8 +281,8 @@ function compareText(left: string, right: string): number {
  */
 function derivePaths(
   evidence: RepositoryEvidence,
-): PartialProjectProfile["paths"] | undefined {
-  const layout = observeLayout(observedPaths(evidence));
+  layout: ObservedLayout,
+): DerivedPaths {
   const paths: {
     source?: ProjectProfileLeaf<readonly string[]>;
     tests?: ProjectProfileLeaf<readonly string[]>;
@@ -271,19 +290,23 @@ function derivePaths(
   } = {};
 
   const source = derivePathSlot(evidence, layout, SOURCE_PATH_CANDIDATES);
-  if (source !== undefined) paths.source = source;
+  if (source !== undefined) paths.source = source.leaf;
 
   const tests = derivePathSlot(evidence, layout, TESTS_PATH_CANDIDATES);
-  if (tests !== undefined) paths.tests = tests;
+  if (tests !== undefined) paths.tests = tests.leaf;
 
   const configuration = derivePathSlot(
     evidence,
     layout,
     CONFIG_PATH_CANDIDATES,
   );
-  if (configuration !== undefined) paths.configuration = configuration;
+  if (configuration !== undefined) paths.configuration = configuration.leaf;
 
-  return Object.keys(paths).length > 0 ? paths : undefined;
+  return {
+    leaves: Object.keys(paths).length > 0 ? paths : undefined,
+    source: source?.directories ?? [],
+    tests: tests?.directories ?? [],
+  };
 }
 
 function derivePackageJsonCommands(
@@ -452,6 +475,9 @@ const COMMAND_SLOTS = ["test", "lint", "build", "run"] as const;
  */
 const EVIDENCE_MAX_LENGTH = 256;
 
+/** The longest convention string the profile schema stores. */
+const CONVENTION_MAX_LENGTH = 1024;
+
 function stackEvidence(detected: DetectedStack): string {
   const full = `stack:${detected.id} via ${detected.evidence}`;
   return full.length <= EVIDENCE_MAX_LENGTH ? full : `stack:${detected.id}`;
@@ -517,23 +543,368 @@ function deriveCommands(
   return Object.keys(commands).length > 0 ? commands : undefined;
 }
 
-function deriveConventions(
-  stack: StackProfile,
-): PartialProjectProfile["conventions"] | undefined {
-  const activeLanguages = stack.languages.filter((lang) => lang.files > 0);
+/**
+ * How many file names of one language the casing census needs before it will
+ * state a convention.
+ *
+ * A convention is a regularity, and three files are not one. Below this the
+ * leaf is left for the operator, because a naming rule derived from a handful
+ * of names is applied silently to every file a phase agent writes afterwards.
+ */
+const NAMING_MIN_SAMPLE = 5;
 
-  if (activeLanguages.length === 0) {
-    return undefined;
+/**
+ * The share of counted names the winning form must hold.
+ *
+ * A repository split between two casings has no naming convention to preserve,
+ * and saying it does would be a wrong answer rather than a missing one.
+ */
+const NAMING_DOMINANCE = 0.8;
+
+type NamingForm =
+  "PascalCase" | "camelCase" | "kebab-case" | "snake_case" | "lowercase";
+
+const NAMING_FORMS: readonly NamingForm[] = [
+  "PascalCase",
+  "camelCase",
+  "kebab-case",
+  "snake_case",
+  "lowercase",
+];
+
+/**
+ * The identifying part of a file name, or nothing when it carries no casing.
+ *
+ * Everything from the first dot onwards is extension, not name: `Order.Tests.cs`
+ * and `order.test.ts` are both named by their first segment, which is the part
+ * a phase agent chooses when it creates the file. A leading dot is a hidden
+ * file rather than a name, and a name with no letters cannot attest to a
+ * casing.
+ */
+function nameStem(path: string): string | null {
+  const base = path.slice(path.lastIndexOf("/") + 1);
+  const dot = base.indexOf(".");
+  const stem = dot <= 0 ? (dot === 0 ? "" : base) : base.slice(0, dot);
+  if (stem.length === 0 || !/[A-Za-z]/u.test(stem)) return null;
+  return stem;
+}
+
+/**
+ * The casing a single name attests to, or nothing when it attests to none.
+ *
+ * A name mixing separators, or carrying characters no convention describes,
+ * is left out of the count rather than pushed into the nearest bucket: the
+ * census reports what it could read, and a name it could not read is not
+ * evidence for anything.
+ */
+function namingFormOf(stem: string): NamingForm | null {
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/u.test(stem)) return "kebab-case";
+  if (/^[a-z0-9]+(?:_[a-z0-9]+)+$/u.test(stem)) return "snake_case";
+  if (/^[A-Z][A-Za-z0-9]*$/u.test(stem) && /[a-z]/u.test(stem)) {
+    return "PascalCase";
+  }
+  if (/^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/u.test(stem)) return "camelCase";
+  if (/^[a-z][a-z0-9]*$/u.test(stem)) return "lowercase";
+  return null;
+}
+
+interface NamingCensus {
+  readonly counts: ReadonlyMap<NamingForm, number>;
+  readonly total: number;
+}
+
+/** Count the casings observed among one language's file names. */
+function censusNames(paths: readonly string[]): NamingCensus {
+  const counts = new Map<NamingForm, number>();
+  let total = 0;
+  for (const path of paths) {
+    const stem = nameStem(path);
+    if (stem === null) continue;
+    const form = namingFormOf(stem);
+    if (form === null) continue;
+    counts.set(form, (counts.get(form) ?? 0) + 1);
+    total += 1;
+  }
+  return { counts, total };
+}
+
+/**
+ * The one casing a census supports, with the names that support it.
+ *
+ * A single-word lowercase name is compatible with both separator forms, so it
+ * is counted for the separator form when exactly one of them is present and no
+ * capitalized form is: `parse-order.ts` beside `parser.ts` is one convention,
+ * not two. Everywhere else the forms compete on their own counts, and a tie
+ * supports nothing.
+ */
+function dominantNaming(
+  census: NamingCensus,
+): { readonly form: NamingForm; readonly files: number } | null {
+  const count = (form: NamingForm): number => census.counts.get(form) ?? 0;
+  const kebab = count("kebab-case");
+  const snake = count("snake_case");
+  const lowercase = count("lowercase");
+  const capitalized = count("PascalCase") + count("camelCase");
+
+  if (capitalized === 0 && kebab > 0 && snake === 0) {
+    return { form: "kebab-case", files: kebab + lowercase };
+  }
+  if (capitalized === 0 && snake > 0 && kebab === 0) {
+    return { form: "snake_case", files: snake + lowercase };
   }
 
-  const languageIds = activeLanguages.map((lang) => lang.id);
+  let best: NamingForm | null = null;
+  let bestFiles = 0;
+  let tied = false;
+  for (const form of NAMING_FORMS) {
+    const files = count(form);
+    if (files === 0) continue;
+    if (files > bestFiles) {
+      best = form;
+      bestFiles = files;
+      tied = false;
+    } else if (files === bestFiles) {
+      tied = true;
+    }
+  }
+  if (best === null || tied) return null;
+  return { form: best, files: bestFiles };
+}
+
+const NAMING_INSTRUCTION: Readonly<Record<NamingForm, string>> = Object.freeze({
+  PascalCase: "Name new files in PascalCase",
+  camelCase: "Name new files in camelCase",
+  "kebab-case": "Name new files in kebab-case",
+  snake_case: "Name new files in snake_case",
+  lowercase: "Name new files in lowercase single words",
+});
+
+/**
+ * State the naming convention the repository already follows, or nothing.
+ *
+ * Measured per language and reported on the one that carries the most readable
+ * names, because casing is a property of a language's community rather than of
+ * a repository: a C# project with a handful of shell scripts names its C#
+ * files `PascalCase.cs` and that is the convention a phase agent must keep.
+ */
+function deriveNaming(
+  stack: StackProfile,
+  paths: readonly string[],
+): ProjectProfileLeaf<string> | undefined {
+  const byLanguage = new Map<string, string[]>();
+  for (const path of paths) {
+    const language = languageOfPath(path);
+    if (language === null) continue;
+    const seen = byLanguage.get(language);
+    if (seen === undefined) byLanguage.set(language, [path]);
+    else seen.push(path);
+  }
+
+  let chosen:
+    | {
+        readonly language: string;
+        readonly form: NamingForm;
+        readonly files: number;
+        readonly total: number;
+      }
+    | undefined;
+
+  // Languages arrive most-counted first, ties broken by identifier, so the
+  // language the project is mostly written in is the one measured. A language
+  // too small to attest to anything is passed over -- two shell scripts in a
+  // C# service say nothing about how its files are named -- but the first
+  // language large enough to measure is the only one measured: falling through
+  // to the next would answer a question about C# with a convention read off
+  // the shell scripts.
+  for (const language of stack.languages) {
+    const observed = byLanguage.get(language.id);
+    if (observed === undefined) continue;
+    const census = censusNames(observed);
+    if (census.total < NAMING_MIN_SAMPLE) continue;
+    const dominant = dominantNaming(census);
+    if (dominant === null) break;
+    if (dominant.files / census.total < NAMING_DOMINANCE) break;
+    chosen = {
+      language: language.id,
+      form: dominant.form,
+      files: dominant.files,
+      total: census.total,
+    };
+    break;
+  }
+
+  if (chosen === undefined) return undefined;
+
   return {
-    implementationLanguages: {
+    status: "derived",
+    value: `${NAMING_INSTRUCTION[chosen.form]}, as the ${chosen.language} files in this project already are.`,
+    evidence: `naming:${chosen.form} on ${String(chosen.files)} of ${String(chosen.total)} ${chosen.language} files`,
+  };
+}
+
+/** The directory a path sits in, or the empty string at the repository root. */
+function parentOf(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index === -1 ? "" : path.slice(0, index);
+}
+
+function nameOf(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+/** True when every path shares the trailing name and the same grandparent. */
+function repeatedShape(
+  directories: readonly DirectoryCandidate[],
+): { readonly parent: string; readonly name: string } | null {
+  const first = directories[0];
+  if (first === undefined || first.root) return null;
+  const name = nameOf(first.path);
+  const parent = parentOf(parentOf(first.path));
+  for (const directory of directories) {
+    if (directory.root) return null;
+    if (nameOf(directory.path) !== name) return null;
+    if (parentOf(parentOf(directory.path)) !== parent) return null;
+  }
+  return { parent, name };
+}
+
+/**
+ * Whether the scan saw test files living inside the source tree.
+ *
+ * The alternative to a sibling test directory is a test beside the code it
+ * covers, and that is a layout instruction of its own. A name is a test when
+ * it says so -- `order.test.ts`, `test_order.py`, `OrderTests.cs` -- which is
+ * the same kind of observation the casing census makes.
+ */
+function colocatedTests(
+  paths: readonly string[],
+  sources: readonly DirectoryCandidate[],
+): number {
+  let found = 0;
+  for (const path of paths) {
+    if (languageOfPath(path) === null) continue;
+    if (!sources.some((source) => path.startsWith(`${source.path}/`))) continue;
+    const base = nameOf(path);
+    if (/(?:^|[._-])(?:tests?|specs?)(?:[._-]|$)/iu.test(base)) found += 1;
+  }
+  return found;
+}
+
+/** A counted noun, so evidence a person reads is evidence a person can read. */
+function countOf(files: number, noun: string): string {
+  return `${String(files)} ${noun}${files === 1 ? "" : "s"}`;
+}
+
+function filesUnder(directories: readonly DirectoryCandidate[]): number {
+  return directories.reduce((total, one) => total + one.files, 0);
+}
+
+/**
+ * State where this repository puts its code, or nothing.
+ *
+ * Only a shape the scan saw repeat, or a single unambiguous root: a tree whose
+ * source directories sit at different depths, or under different parents, has
+ * no one layout to preserve and the operator is asked instead. What is derived
+ * is an instruction about placement, because that is what the leaf is for.
+ */
+function deriveDirectoryLayout(
+  paths: DerivedPaths,
+  observed: readonly string[],
+): ProjectProfileLeaf<string> | undefined {
+  const sources = paths.source;
+  const first = sources[0];
+  if (first === undefined) return undefined;
+
+  const sourceFiles = filesUnder(sources);
+  const testFiles = filesUnder(paths.tests);
+  const counts = (): string =>
+    paths.tests.length > 0
+      ? `${countOf(sourceFiles, "source file")}, ${countOf(testFiles, "test file")}`
+      : countOf(sourceFiles, "source file");
+
+  if (sources.length === 1 && first.root) {
+    const sibling = paths.tests.find((directory) => directory.root);
+    const colocated = colocatedTests(observed, sources);
+    const tail =
+      sibling !== undefined
+        ? ` and its tests in the sibling \`${sibling.path}/\` directory`
+        : colocated > 0
+          ? " and its tests beside the code they cover"
+          : "";
+    return layoutLeaf(
+      `Place new source under \`${first.path}/\` at the repository root${tail}.`,
+      `layout:root ${first.path}; ${counts()}`,
+    );
+  }
+
+  const shape = repeatedShape(sources);
+  if (shape === null) return undefined;
+
+  const placement =
+    shape.parent === ""
+      ? `Place new source in \`<component>/${shape.name}/\`, one directory per component at the repository root`
+      : `Place new source in \`<component>/${shape.name}/\` below \`${shape.parent}/\``;
+  const tests = repeatedShape(paths.tests);
+  const tail =
+    tests !== null && tests.parent === shape.parent
+      ? `, and its tests in \`<component>/${tests.name}/\``
+      : "";
+  return layoutLeaf(
+    `${placement}${tail}.`,
+    `layout:${countOf(sources.length, "component")} under ${shape.parent === "" ? "the root" : shape.parent}; ${counts()}`,
+  );
+}
+
+/**
+ * A layout answer, dropped when its evidence would not fit what a profile can
+ * store -- an answer nothing can write is worse than the question.
+ */
+function layoutLeaf(
+  value: string,
+  evidence: string,
+): ProjectProfileLeaf<string> | undefined {
+  if (evidence.length > EVIDENCE_MAX_LENGTH) return undefined;
+  if (value.length > CONVENTION_MAX_LENGTH) return undefined;
+  return { status: "derived", value, evidence };
+}
+
+/**
+ * Derive the three conventions a phase agent has to preserve.
+ *
+ * Each is an observed regularity rather than a stated preference, which is why
+ * they can be derived at all, and each is offered for confirmation like every
+ * other derived leaf.
+ */
+function deriveConventions(
+  stack: StackProfile,
+  paths: DerivedPaths,
+  observed: readonly string[],
+): PartialProjectProfile["conventions"] | undefined {
+  const conventions: {
+    directoryLayout?: ProjectProfileLeaf<string>;
+    naming?: ProjectProfileLeaf<string>;
+    implementationLanguages?: ProjectProfileLeaf<readonly string[]>;
+  } = {};
+
+  const activeLanguages = stack.languages.filter((lang) => lang.files > 0);
+  if (activeLanguages.length > 0) {
+    const languageIds = activeLanguages.map((lang) => lang.id);
+    conventions.implementationLanguages = {
       status: "derived",
       value: Object.freeze(languageIds),
       evidence: `census:${languageIds.join(",")}`,
-    },
-  };
+    };
+  }
+
+  const directoryLayout = deriveDirectoryLayout(paths, observed);
+  if (directoryLayout !== undefined) {
+    conventions.directoryLayout = directoryLayout;
+  }
+
+  const naming = deriveNaming(stack, observed);
+  if (naming !== undefined) conventions.naming = naming;
+
+  return Object.keys(conventions).length > 0 ? conventions : undefined;
 }
 
 /**
@@ -545,13 +916,14 @@ export function deriveProjectProfile(
   manifests: ManifestContents = {},
 ): PartialProjectProfile {
   const stack = profileStack(evidence);
+  const observed = observedPaths(evidence);
   const commands = deriveCommands(stack, manifests);
-  const paths = derivePaths(evidence);
-  const conventions = deriveConventions(stack);
+  const paths = derivePaths(evidence, observeLayout(observed));
+  const conventions = deriveConventions(stack, paths, observed);
 
   const profile: PartialProjectProfile = {
     ...(commands !== undefined ? { commands } : {}),
-    ...(paths !== undefined ? { paths } : {}),
+    ...(paths.leaves !== undefined ? { paths: paths.leaves } : {}),
     ...(conventions !== undefined ? { conventions } : {}),
   };
 

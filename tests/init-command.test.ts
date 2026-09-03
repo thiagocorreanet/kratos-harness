@@ -1081,7 +1081,13 @@ describe("the init command", () => {
         },
       },
       conventions: {
-        directoryLayout: { status: "unresolved" },
+        directoryLayout: {
+          status: "derived",
+          value:
+            "Place new source under `src/` at the repository root and its tests in the sibling `tests/` directory.",
+          evidence: "layout:root src; 1 source file, 1 test file",
+        },
+        // Two file names attest to no casing, so that one is still asked.
         naming: { status: "unresolved" },
         implementationLanguages: {
           status: "derived",
