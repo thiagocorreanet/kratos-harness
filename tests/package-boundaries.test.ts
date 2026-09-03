@@ -39,7 +39,7 @@ describe("distribution boundaries", () => {
         encoding: "utf8",
       });
 
-    expect(run(first)).toBe("0.2.0\n");
+    expect(run(first)).toBe("0.3.0\n");
     expect(run(second)).toBe(run(first));
     expect(await readdir(first)).toEqual([]);
     expect(await readdir(second)).toEqual([]);
@@ -57,6 +57,6 @@ describe("distribution boundaries", () => {
         [join(installed, "runtime/kratos.mjs"), "--version"],
         { cwd: await project(), encoding: "utf8" },
       ),
-    ).toBe("0.2.0\n");
+    ).toBe("0.3.0\n");
   });
 });

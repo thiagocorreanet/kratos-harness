@@ -19,7 +19,7 @@
   "properties": {
     "contractVersion": { "const": "1.4.0" },
     "stateContract": { "const": "1.4.0" },
-    "pluginVersion": { "const": "0.2.0" },
+    "pluginVersion": { "const": "0.3.0" },
     "hostContract": { "const": "1.4.0" },
     "language": { "$ref": "#/$defs/languagePolicy" },
     "policyMode": { "enum": ["standard", "strict"] },

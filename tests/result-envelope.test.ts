@@ -29,10 +29,10 @@ describe("result envelope", () => {
 
   it("carries a caller summary without changing catalog policy", () => {
     const result = resultFor("runtime.orientation_ok", {
-      summary: "Runtime version 0.2.0.",
+      summary: "Runtime version 0.3.0.",
     });
 
-    expect(result.summary).toBe("Runtime version 0.2.0.");
+    expect(result.summary).toBe("Runtime version 0.3.0.");
     expect(result.exitCode).toBe(0);
     expect(result.recovery).toBeNull();
     expect(result.stateChanged).toBe(false);

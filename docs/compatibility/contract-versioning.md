@@ -23,14 +23,14 @@ the published predecessors
 and the v1 schema keep their shape.
 Their bytes move only when `pluginVersion` does, because that constant is the
 identity of one installed bundle rather than a per-schema historical record;
-the v0.2.0 release is the first time that has happened. The manifest registers
+the v0.2.0 release was the first time that happened. The manifest registers
 every current payload schema, its generated type, and the metadata-only Go v3
 migration profiles.
 
 | Identity | Current | Owner |
 | --- | --- | --- |
-| Contract-manifest schema | `v1.9` | Contract-family manifest format |
-| `pluginVersion` | `0.2.0` | One coherent installed plugin bundle |
+| Contract-manifest schema | `v1.10` | Contract-family manifest format |
+| `pluginVersion` | `0.3.0` | One coherent installed plugin bundle |
 | `stateContract` | `1.5.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.4.0` | Cross-process adapter request and response messages |
 

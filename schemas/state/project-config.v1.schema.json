@@ -16,7 +16,7 @@
   "properties": {
     "contractVersion": { "const": "1.0.0" },
     "stateContract": { "const": "1.0.0" },
-    "pluginVersion": { "const": "0.2.0" },
+    "pluginVersion": { "const": "0.3.0" },
     "hostContract": { "const": "1.0.0" },
     "language": { "enum": ["en", "pt-BR"] },
     "policyMode": { "enum": ["standard", "strict"] },

@@ -106,7 +106,7 @@ describe("contract family manifest", () => {
   it("publishes exact independent compatibility windows", () => {
     expect(manifest).toMatchObject({
       contractVersion: "1.0.0",
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       resultContract: "1.0.0",
       reasonCatalog: "1.11.0",
       stateContract: {

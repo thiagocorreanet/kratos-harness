@@ -235,7 +235,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       hostContract: "1.4.0",
       language: {
         conversation: "en",
@@ -336,7 +336,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.3.0",
       stateContract: "1.3.0",
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       hostContract: "1.3.0",
       language: {
         conversation: "en",
@@ -479,7 +479,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.5.0",
       stateContract: "1.5.0",
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       hostContract: "1.4.0",
       language: {
         conversation: "en",
@@ -620,7 +620,7 @@ describe("versioned state and host schemas", () => {
     const baseProject12 = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -818,12 +818,12 @@ describe("versioned state and host schemas", () => {
   // coherent installed bundle rather than a per-schema historical record:
   // `classifyContractVersion("plugin", ...)` accepts exactly the current
   // value and every configuration upgrade carries the field forward
-  // unchanged. Releasing 0.2.0 therefore moves it in every schema at once,
+  // unchanged. Releasing 0.3.0 therefore moves it in every schema at once,
   // and these digests move with it. Nothing else about these files changed.
   it.each([
     [
       "state/project-config.v1.schema.json",
-      "989427d7680941436b09a8ce7786f43a55131498bec82e74b171a44d5a16056d",
+      "1dab1c54555c62b2b1fd6bd8d73232d5a363ca33ce1127fd1d2d0f7403b4993c",
     ],
     [
       "state/event.v1.schema.json",
@@ -839,15 +839,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "contracts/contract-manifest.v1.1.schema.json",
-      "ec050850bcf9cb584bee1f27a047891d3ed60236a36be3c7bb586fad7cea281e",
+      "f4a90cab9c095cbd6ff039c5d1b8b4a726fd76248f5c1316e9d2a5d8552e78bf",
     ],
     [
       "contracts/contract-manifest.v1.2.schema.json",
-      "4fd2411deadcda1d1012eacbd6036a3b950b58256df0ded745bd84497e4458b3",
+      "991346bf8404b4c55a6bf88fd9ecdce899a6d5f4ea481cec96676a5d1e6a2d00",
     ],
     [
       "contracts/contract-manifest.v1.8.schema.json",
-      "8b1783ad5fbeff14a41240273327d5f45821af68f5785104b3f17e7513506e9f",
+      "ba0d2563ea7dff1a81bea84c10fe2f4875daac9daada8ab5e21f292e04b62703",
     ],
     [
       "host/adapter-message.v1.1.schema.json",
@@ -879,15 +879,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "state/project-config.v1.1.schema.json",
-      "246c84c839d0cf4c5b5b5eca10eb900e3d468feb38633850bf8cab406292b297",
+      "0128b06de2ff573a4b07f2ee867c782e673c15012690591f518e1923a9f9799c",
     ],
     [
       "state/project-config.v1.2.schema.json",
-      "3f3f7f0fd5a2be574fcb8a15096ebaf75b515a1283df4e848cf41fb9098b43f9",
+      "e9974da03424b1434214b017e9ed3713336bfc9976dcb221518ac10eb54235f0",
     ],
     [
       "state/project-config.v1.3.schema.json",
-      "4dd74aff09e68f1c3d121e535cae355c3bcca408c998b9fa4296aef3c70534b6",
+      "72709c73c7ed91b5695ee7f640ec4cb49b2c0b9de546448c7e2b516a6bcb2120",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));
@@ -1179,7 +1179,7 @@ describe("versioned state and host schemas", () => {
       ({ fixtureName }) => fixtureName === "project-config.json",
     )?.fixture;
     expect(projectConfig).toMatchObject({
-      pluginVersion: "0.2.0",
+      pluginVersion: "0.3.0",
       stateContract: "1.0.0",
       hostContract: "1.0.0",
     });

@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 const configuration: ProjectConfigV1_4 = {
   contractVersion: "1.4.0",
   stateContract: "1.4.0",
-  pluginVersion: "0.2.0",
+  pluginVersion: "0.3.0",
   hostContract: "1.4.0",
   language: {
     conversation: "en",
