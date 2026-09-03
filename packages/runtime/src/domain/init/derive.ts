@@ -3,7 +3,12 @@ import type {
   RepositoryEvidence,
   StackProfile,
 } from "./stack.js";
-import { STACK_COMMANDS, profileStack } from "./stack.js";
+import {
+  STACK_COMMANDS,
+  languageOfPath,
+  observedPaths,
+  profileStack,
+} from "./stack.js";
 import type { PartialProjectProfile, ProjectProfileLeaf } from "./profile.js";
 
 /**
@@ -24,58 +29,259 @@ const SOURCE_PATH_CANDIDATES = ["src", "lib", "app", "packages"] as const;
 const TESTS_PATH_CANDIDATES = ["tests", "test", "spec", "__tests__"] as const;
 const CONFIG_PATH_CANDIDATES = ["config", ".config", "etc"] as const;
 
-function hasDirectory(evidence: RepositoryEvidence, dirName: string): boolean {
-  if (evidence.rootEntries.includes(dirName)) {
-    return true;
-  }
-  if (evidence.files !== undefined) {
-    const prefix = `${dirName}/`;
-    return evidence.files.some((file) => file.startsWith(prefix));
-  }
-  return false;
+/**
+ * How many directories one path answer may name.
+ *
+ * A monorepo has more than one source root and saying so is the answer, but a
+ * list long enough to stop being readable is no longer an answer the operator
+ * can confirm at a glance.
+ */
+const PATH_VALUE_LIMIT = 4;
+
+/**
+ * How far below the strongest candidate a directory may fall and still be
+ * offered, as a divisor of its file count.
+ *
+ * This is what separates a second service from a directory of operational
+ * scripts. Two services each hold a real share of the project's files; a
+ * handful of shell scripts under `app/` in a repository with two hundred C#
+ * files does not, and offering it as source code would be a wrong answer
+ * rather than an incomplete one.
+ */
+const CENSUS_SHARE_DIVISOR = 10;
+
+interface DirectoryCandidate {
+  /** The project-relative directory path. */
+  readonly path: string;
+  /** Where the matched name sits in the candidate list, for the census-free case. */
+  readonly rank: number;
+  /** True when the whole path is an entry at the repository root. */
+  readonly root: boolean;
+  readonly depth: number;
+  /** Files below it the census could name, however deep. */
+  readonly files: number;
 }
 
+interface ObservedLayout {
+  /** Every directory the scan passed through, project-relative. */
+  readonly directories: ReadonlySet<string>;
+  /** Per directory, the number of files below it the census could name. */
+  readonly census: ReadonlyMap<string, number>;
+}
+
+/**
+ * The directories the scan walked and how much source each of them holds.
+ *
+ * One pass over the listing, crediting every ancestor of a counted file, so
+ * `apps/backend/src` and `apps` are both described and the deeper answer can
+ * be preferred to the shallower one on evidence rather than by position.
+ */
+function observeLayout(paths: readonly string[]): ObservedLayout {
+  const directories = new Set<string>();
+  const census = new Map<string, number>();
+
+  for (const path of paths) {
+    // The last segment is the file itself, never a directory.
+    const segments = path.split("/").slice(0, -1);
+    const counted = languageOfPath(path) !== null;
+    let prefix = "";
+    for (const segment of segments) {
+      prefix = prefix === "" ? segment : `${prefix}/${segment}`;
+      directories.add(prefix);
+      if (counted) census.set(prefix, (census.get(prefix) ?? 0) + 1);
+    }
+  }
+
+  return { directories, census };
+}
+
+/**
+ * Every directory that carries a candidate name, wherever it sits.
+ *
+ * A root entry equal to the name qualifies as it always has, including the
+ * empty directory no file can attest to. Below the root the name is matched as
+ * a path suffix, which is what lets `apps/backend/src` answer the `src`
+ * candidate at all -- the layouts that put a component directory above the
+ * source directory are the reason nothing was derived before.
+ */
+function candidateDirectories(
+  evidence: RepositoryEvidence,
+  layout: ObservedLayout,
+  candidates: readonly string[],
+): readonly DirectoryCandidate[] {
+  const found = new Map<string, DirectoryCandidate>();
+
+  const consider = (path: string, root: boolean): void => {
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const rank = candidates.indexOf(name);
+    if (rank === -1 || found.has(path)) return;
+    found.set(path, {
+      path,
+      rank,
+      root,
+      depth: depthOf(path),
+      files: layout.census.get(path) ?? 0,
+    });
+  };
+
+  for (const entry of evidence.rootEntries) {
+    if (candidates.includes(entry)) consider(entry, true);
+  }
+  for (const directory of layout.directories) {
+    consider(directory, !directory.includes("/"));
+  }
+
+  return [...found.values()];
+}
+
+/**
+ * Drop a candidate that already contains another one.
+ *
+ * A repository whose `packages/` holds a `src/` per package has one source
+ * root, not five: the enclosing directory says the same thing once. So the
+ * enclosing candidate survives and the ones below it drop, which also keeps a
+ * stray `lib/` deep inside `src/` from displacing the directory that holds it.
+ */
+function withoutEnclosed(
+  candidates: readonly DirectoryCandidate[],
+): readonly DirectoryCandidate[] {
+  return candidates.filter(
+    (candidate) =>
+      !candidates.some(
+        (other) =>
+          other !== candidate && candidate.path.startsWith(`${other.path}/`),
+      ),
+  );
+}
+
+/**
+ * Order the qualifying directories and cut the list where it stops answering.
+ *
+ * The census ranks them, not the order of the candidate list: a directory
+ * holding the files the census counted is a better answer than the first name
+ * that happens to match, and it is the only signal that tells a source root
+ * from a directory of scripts that shares its name.
+ *
+ * When the scan saw no files the census could name -- a root-only listing, a
+ * repository of formats no table maps -- there is nothing to rank with, so the
+ * candidate list decides and a single directory is offered, exactly as before.
+ */
+function rankCandidates(
+  candidates: readonly DirectoryCandidate[],
+): readonly DirectoryCandidate[] {
+  const best = candidates.reduce((most, one) => Math.max(most, one.files), 0);
+
+  if (best === 0) {
+    const ordered = [...candidates].sort(
+      (left, right) =>
+        left.rank - right.rank ||
+        left.depth - right.depth ||
+        compareText(left.path, right.path),
+    );
+    return ordered.slice(0, 1);
+  }
+
+  const floor = Math.max(1, Math.floor(best / CENSUS_SHARE_DIVISOR));
+  return candidates
+    .filter((candidate) => candidate.files >= floor)
+    .sort(
+      (left, right) =>
+        right.files - left.files ||
+        left.depth - right.depth ||
+        compareText(left.path, right.path),
+    )
+    .slice(0, PATH_VALUE_LIMIT);
+}
+
+/**
+ * Name each directory and say why it qualified.
+ *
+ * A root match reads as it always has, so a repository with a root `src/` is
+ * still described by `directory:src`. A suffix match says so, because that is
+ * the derivation that could have picked the wrong directory and a reader has
+ * to be able to see which one it was.
+ *
+ * The evidence a profile can store is bounded, so a directory whose name would
+ * not fit is left out of the answer rather than named in a string nothing can
+ * write.
+ */
+function selectPaths(
+  ranked: readonly DirectoryCandidate[],
+):
+  { readonly value: readonly string[]; readonly evidence: string } | undefined {
+  const value: string[] = [];
+  const tokens: string[] = [];
+
+  for (const candidate of ranked) {
+    const token = candidate.root
+      ? candidate.path
+      : `${candidate.path} (nested)`;
+    const evidence = `directory:${[...tokens, token].join(", ")}`;
+    if (evidence.length > EVIDENCE_MAX_LENGTH) break;
+    value.push(candidate.path);
+    tokens.push(token);
+  }
+
+  if (value.length === 0) return undefined;
+  return { value, evidence: `directory:${tokens.join(", ")}` };
+}
+
+function derivePathSlot(
+  evidence: RepositoryEvidence,
+  layout: ObservedLayout,
+  candidates: readonly string[],
+): ProjectProfileLeaf<readonly string[]> | undefined {
+  const found = candidateDirectories(evidence, layout, candidates);
+  if (found.length === 0) return undefined;
+  const selected = selectPaths(rankCandidates(withoutEnclosed(found)));
+  if (selected === undefined) return undefined;
+  return {
+    status: "derived",
+    value: Object.freeze(selected.value),
+    evidence: selected.evidence,
+  };
+}
+
+function depthOf(path: string): number {
+  let depth = 0;
+  for (const character of path) if (character === "/") depth += 1;
+  return depth;
+}
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * Derive the source, test, and configuration directories from the layout.
+ *
+ * Nothing here reaches a disk: the listing is whatever the bounded scan
+ * observed, and a listing that stopped early describes part of a tree, so a
+ * repository the scan could not cover simply has less to derive from and the
+ * operator is asked. Every answer is offered for confirmation.
+ */
 function derivePaths(
   evidence: RepositoryEvidence,
 ): PartialProjectProfile["paths"] | undefined {
+  const layout = observeLayout(observedPaths(evidence));
   const paths: {
     source?: ProjectProfileLeaf<readonly string[]>;
     tests?: ProjectProfileLeaf<readonly string[]>;
     configuration?: ProjectProfileLeaf<readonly string[]>;
   } = {};
 
-  for (const candidate of SOURCE_PATH_CANDIDATES) {
-    if (hasDirectory(evidence, candidate)) {
-      paths.source = {
-        status: "derived",
-        value: [candidate],
-        evidence: `directory:${candidate}`,
-      };
-      break;
-    }
-  }
+  const source = derivePathSlot(evidence, layout, SOURCE_PATH_CANDIDATES);
+  if (source !== undefined) paths.source = source;
 
-  for (const candidate of TESTS_PATH_CANDIDATES) {
-    if (hasDirectory(evidence, candidate)) {
-      paths.tests = {
-        status: "derived",
-        value: [candidate],
-        evidence: `directory:${candidate}`,
-      };
-      break;
-    }
-  }
+  const tests = derivePathSlot(evidence, layout, TESTS_PATH_CANDIDATES);
+  if (tests !== undefined) paths.tests = tests;
 
-  for (const candidate of CONFIG_PATH_CANDIDATES) {
-    if (hasDirectory(evidence, candidate)) {
-      paths.configuration = {
-        status: "derived",
-        value: [candidate],
-        evidence: `directory:${candidate}`,
-      };
-      break;
-    }
-  }
+  const configuration = derivePathSlot(
+    evidence,
+    layout,
+    CONFIG_PATH_CANDIDATES,
+  );
+  if (configuration !== undefined) paths.configuration = configuration;
 
   return Object.keys(paths).length > 0 ? paths : undefined;
 }
