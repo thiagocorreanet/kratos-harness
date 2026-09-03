@@ -7,7 +7,7 @@ import {
 } from "../init/managed-section.ts";
 import type { PromptCategory } from "./model.ts";
 
-const KRATOS_VERSION = "0.2.0";
+const KRATOS_VERSION = "0.3.0";
 
 export interface ShippedPromptSurface {
   readonly id: string;

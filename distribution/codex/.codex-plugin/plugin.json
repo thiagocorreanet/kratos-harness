@@ -1,6 +1,6 @@
 {
   "name": "kratos",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Run a deterministic SDD workflow backed by the embedded Kratos runtime.",
   "author": {
     "name": "Kratos contributors",

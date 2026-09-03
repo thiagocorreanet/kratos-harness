@@ -77,10 +77,10 @@ describe("acceptance criterion contracts", () => {
       "7d95ea2c2541c12b8e960094bb3bd197b35f5f55ffd6412581449efacde54d3a",
     );
     expect(createHash("sha256").update(manifestV1).digest("hex")).toBe(
-      "a87dd52092ee34eb3d0a1e182f10481c87a83111f104607c2a5df378a431e629",
+      "aa36b05d72b9df368fdbeed693989b44e563bfd67f94e5e8557af11687a3a120",
     );
     expect(createHash("sha256").update(manifestV11).digest("hex")).toBe(
-      "ec050850bcf9cb584bee1f27a047891d3ed60236a36be3c7bb586fad7cea281e",
+      "f4a90cab9c095cbd6ff039c5d1b8b4a726fd76248f5c1316e9d2a5d8552e78bf",
     );
   });
 
