@@ -20,7 +20,11 @@ type ProfileLeaf =
     }
   | { readonly status: "not-applicable"; readonly reason: string }
   | { readonly status: "unresolved" }
-  | { readonly confirmed: boolean; readonly value?: string | readonly string[]; readonly evidence?: string }
+  | {
+      readonly confirmed: boolean;
+      readonly value?: string | readonly string[];
+      readonly evidence?: string;
+    }
   | { readonly value: string | readonly string[]; readonly evidence: string };
 
 interface PackagedProjectProfileRelay {

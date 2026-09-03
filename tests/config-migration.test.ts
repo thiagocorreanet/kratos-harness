@@ -328,7 +328,9 @@ describe("configuration migration", () => {
     expect(await runAuthorizedConfigMigration(run)).toBe(0);
 
     const after = run.storage.snapshot().files;
-    const migrated = JSON.parse(after[CONFIG_REF] ?? "null") as ProjectConfigV1_5;
+    const migrated = JSON.parse(
+      after[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_5;
     expect(migrated).toEqual({
       contractVersion: "1.5.0",
       stateContract: "1.5.0",

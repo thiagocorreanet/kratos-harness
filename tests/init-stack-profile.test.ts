@@ -382,9 +382,13 @@ describe("stack profile rendering", () => {
       DEFAULT_LANGUAGE_POLICY,
     );
 
-    expect(rendered).toContain("### Test (derived from package.json#scripts.test)");
+    expect(rendered).toContain(
+      "### Test (derived from package.json#scripts.test)",
+    );
     expect(rendered).toContain("```text\nnpm test\n```");
-    expect(rendered).toContain("### Lint (derived from package.json#scripts.lint)");
+    expect(rendered).toContain(
+      "### Lint (derived from package.json#scripts.lint)",
+    );
     expect(rendered).toContain("```text\nnpm run lint\n```");
   });
 
@@ -464,11 +468,17 @@ describe("stack profile rendering", () => {
     // Resolved commands have no provenance in heading
     expect(rendered).toContain("### Test\n\n```text\nnpm test\n```");
     // Derived commands have provenance
-    expect(rendered).toContain("### Lint (derived from package.json#scripts.lint)");
+    expect(rendered).toContain(
+      "### Lint (derived from package.json#scripts.lint)",
+    );
     // Not-applicable commands have reason
-    expect(rendered).toContain("### Build\n\nNot applicable: No build step required");
+    expect(rendered).toContain(
+      "### Build\n\nNot applicable: No build step required",
+    );
     // Unresolved commands have placeholder
-    expect(rendered).toContain("### Run\n\n`<UNRESOLVED: projectProfile.commands.run>`");
+    expect(rendered).toContain(
+      "### Run\n\n`<UNRESOLVED: projectProfile.commands.run>`",
+    );
 
     // Table rows
     expect(rendered).toContain("| Source | src (derived from directory:src) |");

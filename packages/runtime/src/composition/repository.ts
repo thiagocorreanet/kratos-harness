@@ -129,4 +129,3 @@ export async function observeManifestContents(
 
   return Object.freeze(manifests);
 }
-

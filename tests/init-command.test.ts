@@ -1042,13 +1042,27 @@ describe("the init command", () => {
     });
 
     const stackProfile = files[".brain/01-architecture/stack-profile.md"] ?? "";
-    expect(stackProfile).toContain("### Test (derived from package.json#scripts.test)");
-    expect(stackProfile).toContain("### Lint (derived from package.json#scripts.lint)");
-    expect(stackProfile).toContain("### Build (derived from package.json#scripts.build)");
-    expect(stackProfile).toContain("### Run (derived from package.json#scripts.start)");
-    expect(stackProfile).toContain("| Source | src (derived from directory:src) |");
-    expect(stackProfile).toContain("| Tests | tests (derived from directory:tests) |");
-    expect(stackProfile).toContain("| Configuration | config (derived from directory:config) |");
+    expect(stackProfile).toContain(
+      "### Test (derived from package.json#scripts.test)",
+    );
+    expect(stackProfile).toContain(
+      "### Lint (derived from package.json#scripts.lint)",
+    );
+    expect(stackProfile).toContain(
+      "### Build (derived from package.json#scripts.build)",
+    );
+    expect(stackProfile).toContain(
+      "### Run (derived from package.json#scripts.start)",
+    );
+    expect(stackProfile).toContain(
+      "| Source | src (derived from directory:src) |",
+    );
+    expect(stackProfile).toContain(
+      "| Tests | tests (derived from directory:tests) |",
+    );
+    expect(stackProfile).toContain(
+      "| Configuration | config (derived from directory:config) |",
+    );
   });
 
   it("refuses both an answers file and a piped document", async () => {

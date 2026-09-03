@@ -215,10 +215,7 @@ function persistedProjectProfile(
 
 function resolvedAttemptCeiling(
   supplied:
-    | InitAnswersV1_3
-    | InitAnswersV1_4
-    | InitAnswersV1_5
-    | InitAnswersV1_6,
+    InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5 | InitAnswersV1_6,
   persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
 ): number | undefined {
   const requested =
@@ -240,10 +237,7 @@ function persistedInitSettings(
 
 function resolvedGateModes(
   supplied:
-    | InitAnswersV1_3
-    | InitAnswersV1_4
-    | InitAnswersV1_5
-    | InitAnswersV1_6,
+    InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5 | InitAnswersV1_6,
   persisted: PersistedInitSettings | undefined,
 ): NonNullable<InitAnswersV1_6["gateModes"]> {
   if ("gateModes" in supplied) {
