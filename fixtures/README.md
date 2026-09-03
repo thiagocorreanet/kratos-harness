@@ -41,6 +41,7 @@ The [`contracts/v1`](contracts/v1) directory contains valid current examples:
 - `operation-error.json`;
 - `agent-output.json`;
 - `doctor-report.json`;
+- `project-profile.json`;
 - `repair-loop-stop.json`;
 - `repair-resolution.json`;
 - `repair-restart.json`.

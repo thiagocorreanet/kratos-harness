@@ -51,6 +51,7 @@ const artifacts = [
   ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
   ["host/phase-lifecycle.v1.schema.json", "phase-lifecycle.json", "host"],
   ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
+  ["host/project-profile.v1.schema.json", "project-profile.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
   ["state/gates.v1.schema.json", "gates.json", "state"],
   ["state/guardrails.v1.schema.json", "guardrails.json", "state"],
@@ -848,6 +849,10 @@ describe("versioned state and host schemas", () => {
     [
       "contracts/contract-manifest.v1.8.schema.json",
       "ba0d2563ea7dff1a81bea84c10fe2f4875daac9daada8ab5e21f292e04b62703",
+    ],
+    [
+      "contracts/contract-manifest.v1.10.schema.json",
+      "061fa654abbb12d4aa6dd065e1ce8dd0c19242871fc816c27730917dc1d48f0b",
     ],
     [
       "host/adapter-message.v1.1.schema.json",

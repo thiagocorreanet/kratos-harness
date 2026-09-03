@@ -82,6 +82,7 @@ describe("commands that observe before deciding", () => {
       "memory archive",
       "narrate",
       "objective",
+      "profile derive",
       "repair",
       "repair resolve",
       "start",

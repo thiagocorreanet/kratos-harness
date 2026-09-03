@@ -1,4 +1,8 @@
-import { CONTRACT_VERSIONS, type DoctorReportV1 } from "@kratos/contracts";
+import {
+  CONTRACT_VERSIONS,
+  type DoctorReportV1,
+  type ProjectProfileV1,
+} from "@kratos/contracts";
 
 import {
   DEFAULT_REGISTRY,
@@ -29,6 +33,7 @@ import { observeHostOperation } from "./host.js";
 import { observeStopLossUnlock } from "./unlock.js";
 import { observeMigration } from "./migration.js";
 import { observeObjective } from "./objective.js";
+import { observeProjectProfile } from "./profile.js";
 import { observeWorkflow } from "./workflow.js";
 import { observeMetricsRefresh } from "./measurements.js";
 import { renderPhaseHandoffHuman } from "../domain/cli/diagnostics.js";
@@ -146,6 +151,24 @@ function prepareDoctorReportPayload(
   return { canonical: prepared.canonical, value: prepared.value };
 }
 
+function prepareProjectProfilePayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): { readonly canonical: string; readonly value: ProjectProfileV1 } {
+  const version = declaredContractVersion(payload, "contractVersion", "1.0.0");
+  const prepared = prepareContract(registry, {
+    id: "host.project-profile",
+    version,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicPayload(prepared.value);
+  return { canonical: prepared.canonical, value: prepared.value };
+}
+
 /** Parse, validate, apply, and publish one command line. */
 export async function runCommandLine(
   argv: readonly string[],
@@ -171,41 +194,43 @@ export async function runCommandLine(
           ? await observeInitialization(invocation, ports, schemaRegistry)
           : invocation.command.prerequisite === "objective"
             ? await observeObjective(invocation, ports, schemaRegistry)
-            : invocation.command.prerequisite === "write-guard"
-              ? await observeGuardWrite(invocation, ports, schemaRegistry)
-              : invocation.command.prerequisite === "scope-record"
-                ? await observeScopeRecord(invocation, ports, schemaRegistry)
-                : invocation.command.prerequisite === "memory"
-                  ? await observeMemory(invocation, ports, schemaRegistry)
-                  : invocation.command.prerequisite === "host-operation"
-                    ? await observeHostOperation(
-                        invocation,
-                        ports,
-                        schemaRegistry,
-                      )
-                    : invocation.command.prerequisite === "stop-loss-unlock"
-                      ? await observeStopLossUnlock(
+            : invocation.command.prerequisite === "project-profile"
+              ? await observeProjectProfile(invocation, ports, schemaRegistry)
+              : invocation.command.prerequisite === "write-guard"
+                ? await observeGuardWrite(invocation, ports, schemaRegistry)
+                : invocation.command.prerequisite === "scope-record"
+                  ? await observeScopeRecord(invocation, ports, schemaRegistry)
+                  : invocation.command.prerequisite === "memory"
+                    ? await observeMemory(invocation, ports, schemaRegistry)
+                    : invocation.command.prerequisite === "host-operation"
+                      ? await observeHostOperation(
                           invocation,
                           ports,
                           schemaRegistry,
                         )
-                      : invocation.command.prerequisite === "metrics-refresh"
-                        ? await observeMetricsRefresh(
+                      : invocation.command.prerequisite === "stop-loss-unlock"
+                        ? await observeStopLossUnlock(
                             invocation,
                             ports,
                             schemaRegistry,
                           )
-                        : invocation.command.prerequisite === "migration"
-                          ? await observeMigration(
+                        : invocation.command.prerequisite === "metrics-refresh"
+                          ? await observeMetricsRefresh(
                               invocation,
                               ports,
                               schemaRegistry,
                             )
-                          : await observeWorkflow(
-                              invocation,
-                              ports,
-                              schemaRegistry,
-                            );
+                          : invocation.command.prerequisite === "migration"
+                            ? await observeMigration(
+                                invocation,
+                                ports,
+                                schemaRegistry,
+                              )
+                            : await observeWorkflow(
+                                invocation,
+                                ports,
+                                schemaRegistry,
+                              );
       if (observed.kind === "failure") {
         return publish(observed.result, json, ports);
       }
@@ -246,6 +271,18 @@ export async function runCommandLine(
       );
       preparedOutput = json
         ? `${doctor.canonical}\n`
+        : (decision.humanStdout ?? `${decision.result.summary}\n`);
+      if (!json) validatePublicText(preparedOutput);
+    } else if (invocation.command.jsonContract === "project-profile@1.0.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const profile = prepareProjectProfilePayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${profile.canonical}\n`
         : (decision.humanStdout ?? `${decision.result.summary}\n`);
       if (!json) validatePublicText(preparedOutput);
     } else if (!json) {

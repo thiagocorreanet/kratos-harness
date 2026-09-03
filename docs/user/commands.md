@@ -7,6 +7,7 @@ also accept `--root PATH` where shown by `kratos help`.
 | --- | --- | --- |
 | `help`, `version`, `handshake` | Usage and contract orientation | No |
 | `adapters` | Report supported host package manifests | No |
+| `profile derive` | Report the project profile the runtime derives from the repository | No |
 | `init` | Create or reconcile managed project surfaces | Yes |
 | `objective TEXT` | Record or replace the active objective | Yes |
 | `start` | Start or idempotently resume a run | Yes |
@@ -79,6 +80,17 @@ resolved, derived with evidence, not applicable with a reason, or unresolved.
 Omitted leaves preserve current `1.5.0` project configuration state during
 reinitialization; explicit unresolved leaves clear it. Initialization never
 infers these values from stack markers and never executes a configured command.
+
+`kratos profile derive [--json]` publishes exactly that derivation before any
+answer is chosen. It mutates nothing, spawns nothing, requires no answers
+document, and reads only what initialization's bounded offline scan already
+reads: the top-level declarative manifests and the directory layout. Its
+`host.project-profile@1.0.0` payload carries all ten profile answers. A leaf the
+derivation produced is `derived` with the evidence string it came from; a leaf
+it did not produce is `unresolved`. A host presents the derived candidates for
+confirmation and asks the unresolved ones blank; it never invents a candidate
+the runtime did not derive. Because the derivation is pure, one repository
+yields the same candidates on every run and on every host.
 
 `kratos init` creates the raw phase log and tracked phase report only when each
 path is absent. Reinitialization preserves the exact existing bytes of both

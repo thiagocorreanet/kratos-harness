@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/project-profile/v1",
+  "title": "Kratos derived project profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "profile"],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "hostContract": {
+      "const": "1.4.0"
+    },
+    "profile": {
+      "$ref": "#/$defs/derivedProjectProfile"
+    }
+  },
+  "$defs": {
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "evidence": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "convention": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "implementationLanguage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "projectPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*[\\u0000-\\u001F\\u007F]).+$"
+    },
+    "unresolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "const": "unresolved"
+        }
+      }
+    },
+    "derivedCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "evidence"],
+      "properties": {
+        "status": {
+          "const": "derived"
+        },
+        "value": {
+          "$ref": "#/$defs/command"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "derivedPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "evidence"],
+      "properties": {
+        "status": {
+          "const": "derived"
+        },
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/projectPath"
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "derivedConvention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "evidence"],
+      "properties": {
+        "status": {
+          "const": "derived"
+        },
+        "value": {
+          "$ref": "#/$defs/convention"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "derivedImplementationLanguages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "evidence"],
+      "properties": {
+        "status": {
+          "const": "derived"
+        },
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/implementationLanguage"
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "commandLeaf": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/derivedCommand"
+        },
+        {
+          "$ref": "#/$defs/unresolved"
+        }
+      ]
+    },
+    "pathsLeaf": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/derivedPaths"
+        },
+        {
+          "$ref": "#/$defs/unresolved"
+        }
+      ]
+    },
+    "conventionLeaf": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/derivedConvention"
+        },
+        {
+          "$ref": "#/$defs/unresolved"
+        }
+      ]
+    },
+    "implementationLanguagesLeaf": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/derivedImplementationLanguages"
+        },
+        {
+          "$ref": "#/$defs/unresolved"
+        }
+      ]
+    },
+    "derivedProjectProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands", "paths", "conventions"],
+      "properties": {
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["test", "lint", "build", "run"],
+          "properties": {
+            "test": {
+              "$ref": "#/$defs/commandLeaf"
+            },
+            "lint": {
+              "$ref": "#/$defs/commandLeaf"
+            },
+            "build": {
+              "$ref": "#/$defs/commandLeaf"
+            },
+            "run": {
+              "$ref": "#/$defs/commandLeaf"
+            }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "tests", "configuration"],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/pathsLeaf"
+            },
+            "tests": {
+              "$ref": "#/$defs/pathsLeaf"
+            },
+            "configuration": {
+              "$ref": "#/$defs/pathsLeaf"
+            }
+          }
+        },
+        "conventions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["directoryLayout", "naming", "implementationLanguages"],
+          "properties": {
+            "directoryLayout": {
+              "$ref": "#/$defs/conventionLeaf"
+            },
+            "naming": {
+              "$ref": "#/$defs/conventionLeaf"
+            },
+            "implementationLanguages": {
+              "$ref": "#/$defs/implementationLanguagesLeaf"
+            }
+          }
+        }
+      }
+    }
+  }
+}

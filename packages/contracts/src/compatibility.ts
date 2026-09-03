@@ -31,6 +31,7 @@ export const CONTRACT_VERSIONS = {
   "host.hook-observation": "1.0.0",
   "host.operation-message": "1.0.0",
   "host.pre-tool-use": "1.0.0",
+  "host.project-profile": "1.0.0",
   "state.acceptance-criteria-snapshot": "1.0.0",
   "state.acceptance-verdict": "1.0.0",
   "state.approval": "1.0.0",

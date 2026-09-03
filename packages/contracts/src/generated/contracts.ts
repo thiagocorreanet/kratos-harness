@@ -30,6 +30,7 @@
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.4 sha256:b023bead73d67aeedcf6cc524020ea85412d73e9df6c7cbe1fa564c27db97f79
 // source: https://kratos.dev/schemas/host/phase-lifecycle/v1 sha256:c521ee3ac865f904fae1961d57e3b940df5e8c9988549425ac876631553fd4b2
 // source: https://kratos.dev/schemas/host/pre-tool-use/v1 sha256:f527cf1e975a204f5c3c90a0e8f7a9f5ca875939c751e054d356f3a6e15e9935
+// source: https://kratos.dev/schemas/host/project-profile/v1 sha256:20bf5f6585dd5c6d158fb3d3bc562e157f0796b531269a57e04590567ce2f89e
 // source: https://kratos.dev/schemas/state/acceptance-criteria-snapshot/v1 sha256:6cd6e5c3cbd50a3e79c9b0159f30cb9f4fb83ce8f3422aed5d957d48f5537181
 // source: https://kratos.dev/schemas/state/acceptance-verdict/v1 sha256:a5455afbd293f137f78ba0adfe00f190339a4f79860600a5b563cf20f3114659
 // source: https://kratos.dev/schemas/state/approval/v1 sha256:746f251be3908027032d23be08c4f300cdf63455e6c32cdea73f459b03da07bf
@@ -2985,6 +2986,72 @@ export namespace PreToolUseV1Contract {
   }
 }
 export type PreToolUseV1 = PreToolUseV1Contract.PreToolUseV1;
+export namespace ProjectProfileV1Contract {
+  export type CommandLeaf = DerivedCommand | Unresolved;
+  export type Command = string;
+  export type Evidence = string;
+  export type PathsLeaf = DerivedPaths | Unresolved;
+  export type ProjectPath = string;
+  export type ConventionLeaf = DerivedConvention | Unresolved;
+  export type Convention = string;
+  export type ImplementationLanguagesLeaf =
+    DerivedImplementationLanguages | Unresolved;
+  export type ImplementationLanguage = string;
+
+  export interface ProjectProfileV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.4.0";
+    profile: DerivedProjectProfile;
+  }
+  export interface DerivedProjectProfile {
+    commands: {
+      test: CommandLeaf;
+      lint: CommandLeaf;
+      build: CommandLeaf;
+      run: CommandLeaf;
+    };
+    paths: {
+      source: PathsLeaf;
+      tests: PathsLeaf;
+      configuration: PathsLeaf;
+    };
+    conventions: {
+      directoryLayout: ConventionLeaf;
+      naming: ConventionLeaf;
+      implementationLanguages: ImplementationLanguagesLeaf;
+    };
+  }
+  export interface DerivedCommand {
+    status: "derived";
+    value: Command;
+    evidence: Evidence;
+  }
+  export interface Unresolved {
+    status: "unresolved";
+  }
+  export interface DerivedPaths {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ProjectPath, ...ProjectPath[]];
+    evidence: Evidence;
+  }
+  export interface DerivedConvention {
+    status: "derived";
+    value: Convention;
+    evidence: Evidence;
+  }
+  export interface DerivedImplementationLanguages {
+    status: "derived";
+    /**
+     * @minItems 1
+     */
+    value: [ImplementationLanguage, ...ImplementationLanguage[]];
+    evidence: Evidence;
+  }
+}
+export type ProjectProfileV1 = ProjectProfileV1Contract.ProjectProfileV1;
 export namespace AcceptanceCriteriaSnapshotV1Contract {
   export type Id = string;
   export type Reference = string;

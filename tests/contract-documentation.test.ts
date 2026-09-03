@@ -416,6 +416,7 @@ describe("contract versioning documentation", () => {
       "contract-manifest.v1.6.schema.json",
       "contract-manifest.v1.9.schema.json",
       "contract-manifest.v1.10.schema.json",
+      "contract-manifest.v1.11.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",

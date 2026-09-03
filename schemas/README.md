@@ -98,6 +98,9 @@ The host family contains:
   current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.json),
 - [`host.doctor-report@1.0.0`](host/doctor-report.v1.schema.json), the read-only
   effective-mode diagnostic report,
+- [`host.project-profile@1.0.0`](host/project-profile.v1.schema.json), the
+  read-only derived project profile every host presents before the
+  initialization interview,
 - [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 - [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
   [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
@@ -135,8 +138,9 @@ The host family contains:
   [agent output contract](../docs/architecture/agent-output-contract.md) for the
   delimiter, the envelope, and the extraction rules. The
   current registry format is
-  [`contract-manifest.v1.10.schema.json`](contracts/contract-manifest.v1.10.schema.json).
+  [`contract-manifest.v1.11.schema.json`](contracts/contract-manifest.v1.11.schema.json).
   The immutable predecessors remain
+  [`contract-manifest.v1.10.schema.json`](contracts/contract-manifest.v1.10.schema.json),
   [`contract-manifest.v1.9.schema.json`](contracts/contract-manifest.v1.9.schema.json),
   [`contract-manifest.v1.8.schema.json`](contracts/contract-manifest.v1.8.schema.json),
   [`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json),

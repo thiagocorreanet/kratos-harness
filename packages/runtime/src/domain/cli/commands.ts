@@ -16,6 +16,7 @@ import {
   memoryReinforceCommand,
 } from "./memory.js";
 import { objectiveCommand } from "./objective.js";
+import { profileDeriveCommand } from "./profile.js";
 import { continueCommand, doneCommand, startCommand } from "./workflow.js";
 import {
   budgetsCommand,
@@ -151,6 +152,7 @@ export const DEFAULT_REGISTRY: CommandRegistry = [
   memoryArchiveCommand,
   narrateCommand,
   objectiveCommand,
+  profileDeriveCommand,
   repairCommand,
   repairResolveCommand,
   startCommand,

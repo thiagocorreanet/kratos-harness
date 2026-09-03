@@ -208,6 +208,17 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
+The host asks the questions, but it does not answer them. `kratos profile
+derive` publishes the candidates: the same bounded scan, the same declarative
+manifests, and the same pure derivation `init` runs internally, observed before
+any answer exists and mutating nothing. A host presents what that command
+derived, with the evidence it came from, and asks a leaf it left unresolved
+blank. Without it a host has no deterministic source for a candidate and writes
+one itself, which is how two operators initializing one repository are offered
+two different sets. `init` still derives internally for the caller that pipes a
+complete document and never asked anything; the command is an observation of
+that function, not a second copy of it.
+
 Current `host.init-answers@1.6.0` accepts `modelRoles`, keyed by enabled
 configuration host. Every supplied host map is closed to `planner`,
 `implementer`, and `judge`. Each assignment is either a bare model name or
