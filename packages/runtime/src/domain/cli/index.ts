@@ -14,6 +14,7 @@ export {
 export { hookCommand } from "./hook.js";
 export { guardWriteCommand, scopeRecordCommand } from "./write-guard.js";
 export { objectiveCommand } from "./objective.js";
+export { profileDeriveCommand } from "./profile.js";
 export { adaptersCommand } from "./adapters.js";
 export { agentRecordCommand } from "./agent.js";
 export { approveCommand } from "./approval.js";

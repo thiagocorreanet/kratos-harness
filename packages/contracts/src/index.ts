@@ -102,6 +102,7 @@ export type {
   ProjectConfigV1_4,
   ProjectConfigV1_5,
   PreToolUseV1,
+  ProjectProfileV1,
   RequirementDiscoveryV1,
   RepairLoopStopV1,
   RepairLoopStopV1_1,

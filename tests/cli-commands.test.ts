@@ -188,6 +188,7 @@ describe("implemented commands", () => {
       "migrate rollback",
       "narrate",
       "objective",
+      "profile derive",
       "repair",
       "repair resolve",
       "scope record",

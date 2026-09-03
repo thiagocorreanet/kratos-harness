@@ -1,0 +1,46 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.4.0",
+  "profile": {
+    "commands": {
+      "test": {
+        "status": "derived",
+        "value": "npm test",
+        "evidence": "package.json#scripts.test"
+      },
+      "lint": {
+        "status": "derived",
+        "value": "npm run lint",
+        "evidence": "package.json#scripts.lint"
+      },
+      "build": {
+        "status": "derived",
+        "value": "npm run build",
+        "evidence": "package.json#scripts.build"
+      },
+      "run": { "status": "unresolved" }
+    },
+    "paths": {
+      "source": {
+        "status": "derived",
+        "value": ["src"],
+        "evidence": "directory:src"
+      },
+      "tests": {
+        "status": "derived",
+        "value": ["tests"],
+        "evidence": "directory:tests"
+      },
+      "configuration": { "status": "unresolved" }
+    },
+    "conventions": {
+      "directoryLayout": { "status": "unresolved" },
+      "naming": { "status": "unresolved" },
+      "implementationLanguages": {
+        "status": "derived",
+        "value": ["typescript"],
+        "evidence": "census:typescript"
+      }
+    }
+  }
+}

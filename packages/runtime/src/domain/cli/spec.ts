@@ -1,6 +1,7 @@
 import type { EffectPlan, WriteFilePrecondition } from "../effects.js";
 import type {
   ManagedFileObservation,
+  PartialProjectProfile,
   RepositoryEvidence,
   ResolvedInitAnswers,
 } from "../init/index.js";
@@ -108,7 +109,8 @@ export type JsonContractId =
   | "result@1.0.0"
   | "adapter-message@1.0.0"
   | "doctor-report@1.0.0"
-  | "phase-handoff@1.4.0";
+  | "phase-handoff@1.4.0"
+  | "project-profile@1.0.0";
 
 export interface Decision {
   readonly result: Result;
@@ -254,6 +256,17 @@ export type CommandObservation =
         string,
         ManagedFileObservation,
       ])[];
+    }
+  | {
+      readonly kind: "project-profile";
+      /**
+       * The profile the pure derivation produced for this project root.
+       *
+       * Only what a manifest or the directory layout actually says. A leaf it
+       * left out is reported as underived rather than filled in, because the
+       * whole point of publishing this is that nobody downstream guesses.
+       */
+      readonly derived: PartialProjectProfile;
     }
   | {
       readonly kind: "objective";

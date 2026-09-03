@@ -10,8 +10,10 @@ that boundary and implement the behavior described below.
 The closed
 [`contract-families.v1.json`](../../packages/contracts/catalogs/contract-families.v1.json)
 manifest owns compatibility policy. Its current format is checked by
-[`contract-manifest.v1.9.schema.json`](../../schemas/contracts/contract-manifest.v1.9.schema.json);
+[`contract-manifest.v1.11.schema.json`](../../schemas/contracts/contract-manifest.v1.11.schema.json);
 the published predecessors
+[`contract-manifest.v1.10.schema.json`](../../schemas/contracts/contract-manifest.v1.10.schema.json),
+[`contract-manifest.v1.9.schema.json`](../../schemas/contracts/contract-manifest.v1.9.schema.json),
 [`contract-manifest.v1.8.schema.json`](../../schemas/contracts/contract-manifest.v1.8.schema.json),
 [`contract-manifest.v1.7.schema.json`](../../schemas/contracts/contract-manifest.v1.7.schema.json),
 [`contract-manifest.v1.6.schema.json`](../../schemas/contracts/contract-manifest.v1.6.schema.json),
@@ -88,6 +90,10 @@ follow `CONTRACT_VERSIONS`:
   write its registered `1.1.0` revision.
 - `host.doctor-report@1.0.0` is the structured read-only diagnostic payload;
   it carries the recorded gate failures and their effective modes.
+- `host.project-profile@1.0.0` is the structured read-only derived project
+  profile `kratos profile derive` publishes. Every answer is present: a leaf
+  the derivation produced carries its `derived` value and evidence, and a leaf
+  it did not carries `unresolved` and nothing else.
 - The current memory-aware selectors are `host.phase-handoff@1.4.0`,
   `host.agent-output@1.3.0`, `host.memory-capture@1.2.0`,
   `host.memory-change@1.4.0`, `host.memory-curation@1.4.0`, and

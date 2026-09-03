@@ -246,6 +246,14 @@
       "typeName": "PreToolUseV1"
     },
     {
+      "id": "host.project-profile",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/project-profile.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "ProjectProfileV1"
+    },
+    {
       "id": "state.acceptance-criteria-snapshot",
       "family": "state",
       "version": "1.0.0",
