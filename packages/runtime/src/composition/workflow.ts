@@ -49,7 +49,7 @@ import {
   type WorkflowObservation,
   type WorkflowReducerConfiguration,
 } from "../domain/workflow/index.js";
-import type { GitPath } from "../domain/git/index.js";
+import type { GitChange, GitPath } from "../domain/git/index.js";
 import { verifyEvidence } from "../domain/evidence/index.js";
 import {
   extractAgentBlock,
@@ -2935,6 +2935,24 @@ function managed(path: GitPath, worktreePrefix: string): boolean {
   );
 }
 
+/**
+ * A path the repository has told Git to ignore is not worktree churn a code
+ * step can be held responsible for. Git itself reports such a tree as clean,
+ * and the recovery a refusal offers — commit, stash, or revert — cannot reach
+ * an ignored path at all. Counting one as dirty refuses every start on any
+ * repository that has been built once, because `bin/`, `obj/`, `target/`,
+ * `dist/`, and `node_modules/` are exactly what a build leaves behind.
+ *
+ * `--ignored=matching` stays in the status command. `GitChange` keeps its
+ * tracking state precisely so it is not collapsed into one `dirty` flag —
+ * `complete.ignored_removed` is defined over what was ignored at baseline —
+ * so which classifications a gate acts on is decided here, not by narrowing
+ * what the observation is allowed to see.
+ */
+function ignoredByGit(change: GitChange): boolean {
+  return change.tracking === "ignored";
+}
+
 async function observeGitContext(
   ports: RuntimePorts,
 ): Promise<{ readonly clean: boolean; readonly commit: string | null }> {
@@ -2949,10 +2967,14 @@ async function observeGitContext(
   const head = observation.repository.head;
   return {
     clean: observation.repository.changes.every(
-      ({ path, renamedFrom }) =>
-        managed(path, observation.repository.worktreePrefix) &&
-        (renamedFrom === null ||
-          managed(renamedFrom, observation.repository.worktreePrefix)),
+      (change) =>
+        ignoredByGit(change) ||
+        (managed(change.path, observation.repository.worktreePrefix) &&
+          (change.renamedFrom === null ||
+            managed(
+              change.renamedFrom,
+              observation.repository.worktreePrefix,
+            ))),
     ),
     commit: head.kind === "unborn" ? null : head.commit,
   };
