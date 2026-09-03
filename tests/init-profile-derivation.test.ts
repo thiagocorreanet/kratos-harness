@@ -352,6 +352,111 @@ describe("pure project profile derivation", () => {
     });
   });
 
+  it("derives a source directory that sits below a component directory", () => {
+    const evidence = {
+      rootEntries: ["apps", "platform", "Api.sln"],
+      files: [
+        "apps/backend/src/Program.cs",
+        "apps/backend/src/Startup.cs",
+        "platform/ci/pipeline.yml",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toEqual({
+      status: "derived",
+      value: ["apps/backend/src"],
+      evidence: "directory:apps/backend/src (nested)",
+    });
+  });
+
+  it("derives every source root a monorepo has rather than only the first", () => {
+    const evidence = {
+      rootEntries: ["services", "package.json"],
+      files: [
+        "services/api/src/index.ts",
+        "services/api/src/router.ts",
+        "services/api/src/store.ts",
+        "services/web/src/main.ts",
+        "services/web/src/app.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toEqual({
+      status: "derived",
+      value: ["services/api/src", "services/web/src"],
+      evidence:
+        "directory:services/api/src (nested), services/web/src (nested)",
+    });
+  });
+
+  it("does not offer a directory of operational scripts as source code", () => {
+    const sources = Array.from(
+      { length: 30 },
+      (_unused, index) => `services/api/src/Handler${String(index)}.cs`,
+    );
+    const evidence = {
+      rootEntries: ["app", "services", "Api.sln"],
+      files: [...sources, "app/deploy.sh", "app/rotate-secrets.sh"],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toEqual({
+      status: "derived",
+      value: ["services/api/src"],
+      evidence: "directory:services/api/src (nested)",
+    });
+  });
+
+  it("prefers the enclosing candidate to the ones it already contains", () => {
+    const evidence = {
+      rootEntries: ["packages", "package.json"],
+      files: ["packages/core/src/index.ts", "packages/cli/src/main.ts"],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toEqual({
+      status: "derived",
+      value: ["packages"],
+      evidence: "directory:packages",
+    });
+  });
+
+  it("derives nested test directories alongside the source they cover", () => {
+    const evidence = {
+      rootEntries: ["apps"],
+      files: [
+        "apps/backend/src/Program.cs",
+        "apps/backend/tests/ProgramTests.cs",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.tests).toEqual({
+      status: "derived",
+      value: ["apps/backend/tests"],
+      evidence: "directory:apps/backend/tests (nested)",
+    });
+  });
+
+  it("asks about paths when a truncated scan saw no candidate directory", () => {
+    const evidence = {
+      rootEntries: ["README.md"],
+      files: ["README.md"],
+      truncated: true,
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths).toBeUndefined();
+  });
+
   it("derives implementation languages from repository census scan", () => {
     const evidence = {
       rootEntries: ["src", "package.json"],

@@ -420,7 +420,7 @@ interface Candidate {
  * instead of guessing at the most popular stack.
  */
 export function profileStack(evidence: RepositoryEvidence): StackProfile {
-  const paths = scannedPaths(evidence);
+  const paths = observedPaths(evidence);
   const markers = new Map<StackId, Candidate>();
   const census = new Map<LanguageId, { files: number; best: Candidate }>();
   const unmapped = new Map<string, number>();
@@ -480,7 +480,7 @@ export function profileStack(evidence: RepositoryEvidence): StackProfile {
  * arrived from somewhere else must not be able to smuggle a dependency tree
  * into the census.
  */
-function scannedPaths(evidence: RepositoryEvidence): readonly string[] {
+export function observedPaths(evidence: RepositoryEvidence): readonly string[] {
   const paths = new Set<string>();
   for (const entry of [...evidence.rootEntries, ...(evidence.files ?? [])]) {
     const normalized = normalize(entry);
@@ -571,6 +571,19 @@ function extensionOf(name: string): string | null {
 const LANGUAGE_BY_EXTENSION: ReadonlyMap<string, LanguageId> = new Map(
   LANGUAGE_EXTENSIONS.map(([extension, id]) => [extension, id]),
 );
+
+/**
+ * The language a path is written in, or nothing.
+ *
+ * The census table read one path at a time, so a caller counting files per
+ * directory names languages exactly as `profileStack` does rather than keeping
+ * a second copy of the table.
+ */
+export function languageOfPath(path: string): LanguageId | null {
+  const extension = extensionOf(basenameOf(path));
+  if (extension === null) return null;
+  return LANGUAGE_BY_EXTENSION.get(extension) ?? null;
+}
 
 function markerFor(name: string): StackId | null {
   for (const [marker, id] of EXACT_MARKERS) if (name === marker) return id;
