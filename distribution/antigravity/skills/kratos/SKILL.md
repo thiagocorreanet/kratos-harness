@@ -21,15 +21,17 @@ stop and relay any refusal unchanged.
 ## Initialization interview
 
 Before `kratos init`, load `scripts/project-profile-relay.mjs` from this skill
-directory. Ask every exported `projectProfileQuestions` entry in order. Record
-each answer explicitly as `resolved`, `not-applicable` with a reason, or
-`unresolved`; never infer an answer from stack detection or repository
-contents. Commands are exact single-line strings run from the project root,
-paths are project-relative lists, and implementation languages are programming
-languages rather than the human-language policy.
+directory. Ask every exported `projectProfileQuestions` entry in order,
+presenting candidate suggestions derived from declarative manifests and
+repository evidence for user confirmation. Record confirmed answers as
+`resolved`, unconfirmed derived values with evidence as `derived`, explicitly
+omitted items as `not-applicable` with a reason, or `unresolved` if blank.
+Commands are exact single-line strings run from the project root, paths are
+project-relative lists, and implementation languages are programming languages
+rather than the human-language policy.
 
 Pass the keyed answers to `relayProjectProfileAnswers`, place its returned
-value in `host.init-answers@1.3.0` as `projectProfile`, and pipe that complete
+value in `host.init-answers@1.6.0` as `projectProfile`, and pipe that complete
 document to:
 
 ```bash

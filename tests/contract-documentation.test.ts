@@ -299,7 +299,7 @@ describe("contract versioning documentation", () => {
     for (const phrase of [
       "pre-`1.4.0` configuration",
       "current `1.4.0` state",
-      "host.init-answers@1.5.0",
+      "host.init-answers@1.6.0",
     ]) {
       expect(commands).toContain(phrase);
     }

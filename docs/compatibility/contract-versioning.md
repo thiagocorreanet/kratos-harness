@@ -31,7 +31,7 @@ migration profiles.
 | --- | --- | --- |
 | Contract-manifest schema | `v1.9` | Contract-family manifest format |
 | `pluginVersion` | `0.2.0` | One coherent installed plugin bundle |
-| `stateContract` | `1.4.0` | Persisted `.brain/` configuration and history |
+| `stateContract` | `1.5.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.4.0` | Cross-process adapter request and response messages |
 
 These identities are exact strings. They do not inherit the package version,
@@ -44,15 +44,15 @@ Plugin assets support only the exact `pluginVersion` in the manifest. The
 runtime, adapters, schemas, skills, and templates are one release unit. A mixed
 installation must be replaced or rolled back as a complete bundle.
 
-The state family's current global revision is `1.4.0`, and its readable window
-contains `1.0.0` through `1.4.0`. This family identity is used for bundle
+The state family's current global revision is `1.5.0`, and its readable window
+contains `1.0.0` through `1.5.0`. This family identity is used for bundle
 compatibility and negotiation; it is not a blanket write revision for every
 payload. Each new payload uses the exact revision in `CONTRACT_VERSIONS`:
 
-- Current `state.project-config` writes `1.4.0`. It keeps `policyMode` as the
-  inherited default and requires the closed partial `gateModes` override map,
-  in addition to the granular language policy from `1.2.0` and typed project
-  profile from `1.3.0`.
+- Current `state.project-config` writes `1.5.0`. It supports `derived` profile
+  leaves with provenance evidence alongside `resolved`, `not-applicable`, and
+  `unresolved` leaves, and preserves `gateModes`, `policyMode`, `modelRoles`, and
+  granular language policy.
 - Current `state.event@1.4.0` writes the ordered effective-mode trace introduced
   by `1.2.0`, the repair metadata added by `1.3.0`, and the legacy-policy
   upgrade boundary added by `1.4.0`. Role-aware `state.migration` continues to
@@ -72,19 +72,20 @@ State `0.9.0` is a synthetic previous fixture and `go-v3@0.6.5` is the frozen
 predecessor family; both are `migration-only`. Ordinary operations must not
 treat them as current state or mutate them. An explicit migration planner owns
 their inspection and recovery. A project configuration at `1.0.0`, `1.1.0`,
-or `1.2.0` is readable only to that planner and returns
+`1.2.0`, or `1.3.0` is readable only to that planner and returns
 `profile.config_migration_required` before an ordinary operation can treat it
-as current state. A `1.3.0` project configuration now receives the same refusal
-until its adjacent `1.4.0` migration is applied.
+as current state. A `1.4.0` project configuration is upgraded to `1.5.0`
+via `migrate config` or `init`.
 
 The host family's current global revision is `1.4.0`, with `1.0.0` through
 `1.4.0` accepted for their registered payloads. Exact writes again
 follow `CONTRACT_VERSIONS`:
 
-- Current `host.init-answers@1.6.0` writes optional partial
-  `projectProfile` answers and an optional closed `gateModes` map. Its
-  `hostContract` remains `1.4.0`. `host.adapter-message` continues to write
-  its registered `1.1.0` revision.
+- Current `host.init-answers@1.6.0` writes candidate derived
+  `projectProfile` answers with provenance evidence alongside confirmed
+  `resolved` and `not-applicable` answers, plus an optional closed `gateModes`
+  map. Its `hostContract` remains `1.4.0`. `host.adapter-message` continues to
+  write its registered `1.1.0` revision.
 - `host.doctor-report@1.0.0` is the structured read-only diagnostic payload;
   it carries the recorded gate failures and their effective modes.
 - The current memory-aware selectors are `host.phase-handoff@1.4.0`,
@@ -264,7 +265,8 @@ and `host.phase-handoff`. The `1.2.0` project-configuration and initialization
 revisions add granular language policy. Their `1.3.0` revisions add the typed
 project profile. `state.project-config@1.4.0` adds the required closed partial
 `gateModes` map while `state.event@1.2.0` adds a required ordered
-`gateFailures` trace containing each failure's effective mode.
+`gateFailures` trace containing each failure's effective mode. `state.project-config@1.5.0`
+adds provenance evidence support for derived project profile leaves.
 
 A mixed event stream is valid: each line selects its exact registered schema
 before the continuous revision and hash chain is verified. The registered
@@ -273,14 +275,9 @@ without upgrading or rewriting old bytes. Migration changes only
 `.brain/config.json` and its audit bundle; it does not rewrite historical
 events, snapshots, documents, approvals, or evidence.
 
-The adjacent `1.3.0` to `1.4.0` configuration migration adds
-`gateModes: {}` and advances only the configuration/state contract constants.
-It preserves `policyMode`, language policy, managed state, model roles, project
-profile, and all historical artifacts. For equal gate facts, resolving the old
-global default and resolving the migrated empty override map produce
-byte-identical canonical `GateDecision` values. `standard` remains warn,
-`strict` remains enforce, and existing approval challenge bytes remain valid
-because the authorized gate receives the same effective mode.
+The adjacent `1.4.0` to `1.5.0` configuration migration preserves `policyMode`,
+`gateModes`, language policy, managed state, model roles, project profile,
+and all historical artifacts, advancing the configuration contract to `1.5.0`.
 
 With non-empty overrides, every failure resolves independently: enforce maps to
 block, warn to warn, and shadow to pass. Aggregation orders by outcome severity

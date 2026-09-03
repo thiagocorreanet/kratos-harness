@@ -6,14 +6,15 @@ Kratos resolves explicit command flags first, then project configuration, then
 documented defaults. It rejects contradictory ownership or unsupported
 contract versions instead of guessing.
 
-The current `state.project-config@1.4.0` records plugin and host contracts,
+The current `state.project-config@1.5.0` records plugin and host contracts,
 granular language policy, inherited policy mode, per-gate overrides,
 host-specific model roles, managed state paths, and the typed project profile.
 Secrets, tokens, prompts, and private keys are prohibited. Historical
 configuration `1.0.0`, `1.1.0`, `1.2.0`, or `1.3.0` is readable only for
 explicit migration and returns
 `profile.config_migration_required` before an ordinary operation can treat it
-as current state.
+as current state. Configuration `1.4.0` is cleanly upgraded to `1.5.0`
+via `migrate config` or `init`.
 
 ## Gate policy modes
 
@@ -65,19 +66,23 @@ runtime-owned result.
 `projectProfile` contains exact project-root commands (`test`, `lint`, `build`,
 and `run`), project-relative source/test/configuration paths, directory and
 naming conventions, and implementation-language labels. Every leaf is a
-closed `resolved`, `not-applicable`, or `unresolved` record. The programming
-languages in this profile do not replace the separate human-language policy.
+closed `resolved`, `derived` (carrying provenance `evidence`), `not-applicable`,
+or `unresolved` record. The programming languages in this profile do not
+replace the separate human-language policy.
 
 `.brain/01-architecture/stack-profile.md` is generated deterministically from
 that typed state plus offline scan evidence: a language census counted from
 source file extensions and toolchain markers matched by manifest name, reported
-as two separate facts. The scan reads names, never file contents, is bounded in
-depth and entry count, and never enters a dependency, build output, or `.brain`
-directory. A project that matches neither layer is reported with the extensions
-and root entries the scan observed rather than with silence. Manual Markdown edits
-are never authoritative. Doctor compares renderer bytes and reports unresolved
-keys; it does not parse prose to recover values. Initialization and doctor keep
-all configured commands inert.
+as two separate facts. Derived commands and paths visibly annotate their
+provenance (e.g. `(derived from package.json#scripts.test)`). The scan reads
+names, never file contents, is bounded in depth and entry count, and never enters
+a dependency, build output, or `.brain` directory. A project that matches
+neither layer is reported with the extensions and root entries the scan observed
+rather than with silence. Manual Markdown edits are never authoritative. Doctor
+compares renderer bytes and passes when all leaves are resolved, derived, or
+not-applicable; unresolved leaves warn with actionable key names. Neither
+initialization nor doctor executes configured commands. Gates requiring operator
+consent fail closed on unconfirmed derived values.
 
 ## Model roles and fixed phase mapping
 

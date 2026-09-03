@@ -44,25 +44,58 @@ export const projectProfileQuestions = Object.freeze([
   ),
 ]);
 
+/** Shape an individual interview candidate or answer into a valid profile leaf. */
+export function shapeProfileLeaf(leaf) {
+  if (leaf === undefined || leaf === null || leaf === "") {
+    return { status: "unresolved" };
+  }
+  if (typeof leaf === "object") {
+    if (
+      leaf.status === "resolved" ||
+      leaf.status === "derived" ||
+      leaf.status === "not-applicable" ||
+      leaf.status === "unresolved"
+    ) {
+      return leaf;
+    }
+    if (leaf.confirmed === true && leaf.value !== undefined) {
+      return { status: "resolved", value: leaf.value };
+    }
+    if (
+      (leaf.confirmed === false || leaf.confirmed === undefined) &&
+      leaf.value !== undefined &&
+      leaf.evidence !== undefined
+    ) {
+      return { status: "derived", value: leaf.value, evidence: leaf.evidence };
+    }
+  }
+  return leaf;
+}
+
 /** Shape flat host answers for the runtime without validating or inferring them. */
 export function relayProjectProfileAnswers(answers) {
   return {
     commands: {
-      test: answers["projectProfile.commands.test"],
-      lint: answers["projectProfile.commands.lint"],
-      build: answers["projectProfile.commands.build"],
-      run: answers["projectProfile.commands.run"],
+      test: shapeProfileLeaf(answers?.["projectProfile.commands.test"]),
+      lint: shapeProfileLeaf(answers?.["projectProfile.commands.lint"]),
+      build: shapeProfileLeaf(answers?.["projectProfile.commands.build"]),
+      run: shapeProfileLeaf(answers?.["projectProfile.commands.run"]),
     },
     paths: {
-      source: answers["projectProfile.paths.source"],
-      tests: answers["projectProfile.paths.tests"],
-      configuration: answers["projectProfile.paths.configuration"],
+      source: shapeProfileLeaf(answers?.["projectProfile.paths.source"]),
+      tests: shapeProfileLeaf(answers?.["projectProfile.paths.tests"]),
+      configuration: shapeProfileLeaf(
+        answers?.["projectProfile.paths.configuration"],
+      ),
     },
     conventions: {
-      directoryLayout: answers["projectProfile.conventions.directoryLayout"],
-      naming: answers["projectProfile.conventions.naming"],
-      implementationLanguages:
-        answers["projectProfile.conventions.implementationLanguages"],
+      directoryLayout: shapeProfileLeaf(
+        answers?.["projectProfile.conventions.directoryLayout"],
+      ),
+      naming: shapeProfileLeaf(answers?.["projectProfile.conventions.naming"]),
+      implementationLanguages: shapeProfileLeaf(
+        answers?.["projectProfile.conventions.implementationLanguages"],
+      ),
     },
   };
 }

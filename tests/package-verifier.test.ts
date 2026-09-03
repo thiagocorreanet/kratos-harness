@@ -154,7 +154,8 @@ describe("package verifier", () => {
         "skills/kratos/scripts/project-profile-relay.mjs",
       );
       const relay = await readFile(relayPath, "utf8");
-      const exactMapping = 'source: answers["projectProfile.paths.source"],';
+      const exactMapping =
+        'source: shapeProfileLeaf(answers?.["projectProfile.paths.source"]),';
       expect(relay).toContain(exactMapping);
       await writeFile(
         relayPath,
@@ -162,9 +163,9 @@ describe("package verifier", () => {
           exactMapping,
           [
             "source:",
-            '  Array.isArray(answers["projectProfile.paths.source"]?.value)',
+            '  Array.isArray(answers?.["projectProfile.paths.source"]?.value)',
             '    ? { status: "unresolved" }',
-            '    : answers["projectProfile.paths.source"],',
+            '    : shapeProfileLeaf(answers?.["projectProfile.paths.source"]),',
           ].join("\n"),
         ),
       );

@@ -83,6 +83,20 @@ describe("read-only diagnostics", () => {
       [],
     ],
     [
+      "matching authoritative bytes with derived profile leaves and no unresolved keys",
+      {
+        authoritativeState: { kind: "valid" },
+        exists: true,
+        regularFile: true,
+        readable: true,
+        expectedBytes: { size: 42, sha256: "derived-bytes" },
+        actualBytes: { size: 42, sha256: "derived-bytes" },
+        unresolvedKeys: [],
+      },
+      "pass",
+      [],
+    ],
+    [
       "unresolved typed answers",
       {
         authoritativeState: { kind: "valid" },

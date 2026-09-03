@@ -13,16 +13,24 @@ import { repositoryRoot } from "./support/built-plugin.js";
 type PackageHost = "claude-code" | "codex" | "antigravity";
 type ProfileLeaf =
   | { readonly status: "resolved"; readonly value: string | readonly string[] }
+  | {
+      readonly status: "derived";
+      readonly value: string | readonly string[];
+      readonly evidence: string;
+    }
   | { readonly status: "not-applicable"; readonly reason: string }
-  | { readonly status: "unresolved" };
+  | { readonly status: "unresolved" }
+  | { readonly confirmed: boolean; readonly value?: string | readonly string[]; readonly evidence?: string }
+  | { readonly value: string | readonly string[]; readonly evidence: string };
 
 interface PackagedProjectProfileRelay {
   readonly projectProfileQuestions: readonly {
     readonly key: string;
     readonly prompt: string;
   }[];
+  shapeProfileLeaf?(leaf: unknown): unknown;
   relayProjectProfileAnswers(
-    answers: Readonly<Record<string, ProfileLeaf>>,
+    answers: Readonly<Record<string, unknown>>,
   ): unknown;
 }
 
@@ -214,6 +222,44 @@ describe("packaged project-profile initialization relay", () => {
       expect(relay.relayProjectProfileAnswers(flatAnswers)).toEqual(
         expectedProfile,
       );
+    },
+  );
+
+  it.each(["codex", "claude-code", "antigravity"] as const)(
+    "shapes candidate derived answers in %s",
+    async (host) => {
+      const relay = await packagedRelay(host);
+
+      const candidateAnswers = {
+        "projectProfile.commands.test": {
+          confirmed: true,
+          value: "npm test",
+        },
+        "projectProfile.commands.lint": {
+          value: "npm run lint",
+          evidence: "package.json#scripts.lint",
+        },
+        "projectProfile.commands.build": {
+          status: "not-applicable" as const,
+          reason: "Directly interpreted.",
+        },
+      };
+
+      expect(relay.relayProjectProfileAnswers(candidateAnswers)).toMatchObject({
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: {
+            status: "derived",
+            value: "npm run lint",
+            evidence: "package.json#scripts.lint",
+          },
+          build: {
+            status: "not-applicable",
+            reason: "Directly interpreted.",
+          },
+          run: { status: "unresolved" },
+        },
+      });
     },
   );
 
