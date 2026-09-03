@@ -95,6 +95,67 @@ describe("the workflow worktree gate", () => {
   );
 
   it(
+    "starts when the only unmanaged dirty paths are ignored by Git",
+    async () => {
+      const repository = await createRootProjectRepository();
+      try {
+        expect(
+          await runCommandLine(
+            ["init", "--root", repository.projectRoot],
+            runtime(repository.projectRoot, ANSWERS).ports,
+          ),
+        ).toBe(0);
+        await writeFile(
+          join(repository.projectRoot, ".gitignore"),
+          "build/\n",
+          "utf8",
+        );
+        repository.commitAll("initialize project");
+
+        // A build output, produced after the commit. Git reports it as an
+        // ignored path, so the worktree it belongs to is clean by Git's own
+        // account, and the recovery a refusal would offer — commit, stash, or
+        // revert — cannot act on it.
+        await mkdir(join(repository.projectRoot, "build"));
+        await writeFile(
+          join(repository.projectRoot, "build/output.o"),
+          "artifact\n",
+          "utf8",
+        );
+
+        expect(
+          await runCommandLine(
+            [
+              "objective",
+              "Ship the root project",
+              "--root",
+              repository.projectRoot,
+            ],
+            runtime(repository.projectRoot).ports,
+          ),
+        ).toBe(0);
+
+        const started = runtime(repository.projectRoot);
+        const exitCode = await runCommandLine(
+          [
+            "--json",
+            "start",
+            "--root",
+            repository.projectRoot,
+            "--host",
+            "claude-code",
+          ],
+          started.ports,
+        );
+        expect(exitCode, started.output.structured_.join("")).toBe(0);
+      } finally {
+        await repository.dispose();
+      }
+    },
+    REAL_REPOSITORY_TIMEOUT,
+  );
+
+  it(
     "starts a nested project when only its managed state is dirty",
     async () => {
       const repository = await createNestedProjectRepository();
