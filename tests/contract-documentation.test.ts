@@ -299,7 +299,7 @@ describe("contract versioning documentation", () => {
     for (const phrase of [
       "pre-`1.4.0` configuration",
       "current `1.4.0` state",
-      "host.init-answers@1.5.0",
+      "host.init-answers@1.6.0",
     ]) {
       expect(commands).toContain(phrase);
     }
@@ -405,6 +405,9 @@ describe("contract versioning documentation", () => {
       "init-answers.v1.2.schema.json",
       "init-answers.v1.3.schema.json",
       "init-answers.v1.4.schema.json",
+      "init-answers.v1.5.schema.json",
+      "init-answers.v1.6.schema.json",
+      "project-config.v1.5.schema.json",
       "phase-handoff.v1.1.schema.json",
       "contract-manifest.v1.2.schema.json",
       "contract-manifest.v1.3.schema.json",
@@ -412,6 +415,7 @@ describe("contract versioning documentation", () => {
       "contract-manifest.v1.5.schema.json",
       "contract-manifest.v1.6.schema.json",
       "contract-manifest.v1.9.schema.json",
+      "contract-manifest.v1.10.schema.json",
       "contract-manifest.v1.1.schema.json",
       "npm run contracts:generate",
       "npm run contracts:check",

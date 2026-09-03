@@ -14,6 +14,7 @@ import initAnswersV1_2Schema from "../../../../../schemas/host/init-answers.v1.2
 import initAnswersV1_3Schema from "../../../../../schemas/host/init-answers.v1.3.schema.json" with { type: "json" };
 import initAnswersV1_4Schema from "../../../../../schemas/host/init-answers.v1.4.schema.json" with { type: "json" };
 import initAnswersV1_5Schema from "../../../../../schemas/host/init-answers.v1.5.schema.json" with { type: "json" };
+import initAnswersV1_6Schema from "../../../../../schemas/host/init-answers.v1.6.schema.json" with { type: "json" };
 import memoryCaptureV1_2Schema from "../../../../../schemas/host/memory-capture.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_2Schema from "../../../../../schemas/host/memory-change.v1.2.schema.json" with { type: "json" };
 import memoryChangeV1_4Schema from "../../../../../schemas/host/memory-change.v1.4.schema.json" with { type: "json" };
@@ -58,6 +59,7 @@ import projectConfigV1_1Schema from "../../../../../schemas/state/project-config
 import projectConfigV1_2Schema from "../../../../../schemas/state/project-config.v1.2.schema.json" with { type: "json" };
 import projectConfigV1_3Schema from "../../../../../schemas/state/project-config.v1.3.schema.json" with { type: "json" };
 import projectConfigV1_4Schema from "../../../../../schemas/state/project-config.v1.4.schema.json" with { type: "json" };
+import projectConfigV1_5Schema from "../../../../../schemas/state/project-config.v1.5.schema.json" with { type: "json" };
 import requirementDiscoverySchema from "../../../../../schemas/state/requirement-discovery.v1.schema.json" with { type: "json" };
 import repairLoopStopSchema from "../../../../../schemas/state/repair-loop-stop.v1.schema.json" with { type: "json" };
 import repairLoopStopV1_1Schema from "../../../../../schemas/state/repair-loop-stop.v1.1.schema.json" with { type: "json" };
@@ -191,6 +193,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.5.0",
       path: "schemas/host/init-answers.v1.5.schema.json",
       schema: initAnswersV1_5Schema,
+    },
+    {
+      id: "host.init-answers",
+      family: "host",
+      version: "1.6.0",
+      path: "schemas/host/init-answers.v1.6.schema.json",
+      schema: initAnswersV1_6Schema,
     },
     {
       id: "host.memory-capture",
@@ -487,6 +496,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       schema: projectConfigV1_4Schema,
     },
     {
+      id: "state.project-config",
+      family: "state",
+      version: "1.5.0",
+      path: "schemas/state/project-config.v1.5.schema.json",
+      schema: projectConfigV1_5Schema,
+    },
+    {
       id: "state.requirement-discovery",
       family: "state",
       version: "1.0.0",
@@ -580,11 +596,13 @@ function expectedSchemaId(entry: EmbeddedSchemaEntry): string {
         ? "1.1"
         : entry.version === "1.2.0"
           ? "1.2"
-          : entry.version === "1.5.0"
-            ? "1.5"
-            : entry.version === "1.4.0"
-              ? "1.4"
-              : "1.3";
+          : entry.version === "1.6.0"
+            ? "1.6"
+            : entry.version === "1.5.0"
+              ? "1.5"
+              : entry.version === "1.4.0"
+                ? "1.4"
+                : "1.3";
   return `https://kratos.dev/schemas/${family}/${name}/v${revision}`;
 }
 

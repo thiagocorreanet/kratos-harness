@@ -8,6 +8,7 @@ import type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
+  ProjectConfigV1_5,
 } from "@kratos/contracts";
 import { applyPlan } from "@kratos/runtime/composition";
 import { runCommandLine } from "@kratos/runtime/composition/cli";
@@ -18,6 +19,7 @@ import {
   completeMigration,
   plannedMigration,
   upgradeProjectConfigurationV1_2,
+  upgradeProjectConfigurationV1_5,
 } from "@kratos/runtime/domain/migration";
 import {
   DEFAULT_REGISTRY,
@@ -274,6 +276,82 @@ async function observedConfigMigrationId(run: Subject): Promise<string> {
 }
 
 describe("configuration migration", () => {
+  it("migrates 1.4 configuration seamlessly to 1.5 without requiring answers", async () => {
+    const source: ProjectConfigV1_4 = {
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      pluginVersion: "0.2.0",
+      hostContract: "1.4.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "strict",
+      gateModes: { "spec-approved": "enforce" },
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "unresolved" },
+          build: { status: "not-applicable", reason: "None" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "resolved", value: ["src"] },
+          tests: { status: "resolved", value: ["tests"] },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+      acceptanceAttemptCeiling: 3,
+    };
+    const sourceBytes = `${JSON.stringify(source, null, 2)}\n`;
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: sourceBytes,
+    });
+    const before = run.storage.snapshot().files;
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const after = run.storage.snapshot().files;
+    const migrated = JSON.parse(
+      after[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_5;
+    expect(migrated).toEqual({
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
+      pluginVersion: "0.2.0",
+      hostContract: "1.4.0",
+      language: source.language,
+      policyMode: "strict",
+      gateModes: { "spec-approved": "enforce" },
+      managedState: source.managedState,
+      modelRoles: source.modelRoles,
+      projectProfile: source.projectProfile,
+      acceptanceAttemptCeiling: 3,
+    });
+    const backup = Object.entries(after).find(([path]) =>
+      path.endsWith("/backup/config.json"),
+    );
+    expect(backup?.[1]).toBe(sourceBytes);
+    expect(after[EVENTS_REF]).toBe(before[EVENTS_REF]);
+    expect(after[SNAPSHOT_REF]).toBe(before[SNAPSHOT_REF]);
+  });
+
   it("migrates 1.3 configuration without rewriting predecessor history", async () => {
     const source: ProjectConfigV1_3 = {
       contractVersion: "1.3.0",
@@ -325,8 +403,8 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      contractVersion: "1.4.0",
-      stateContract: "1.4.0",
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
     });
     const backup = Object.entries(after).find(([path]) =>
       path.endsWith("/backup/config.json"),
@@ -367,10 +445,10 @@ describe("configuration migration", () => {
 
     const migrated = JSON.parse(
       run.storage.snapshot().files[CONFIG_REF] ?? "null",
-    ) as ProjectConfigV1_4;
+    ) as ProjectConfigV1_5;
     expect(migrated).toMatchObject({
-      contractVersion: "1.4.0",
-      stateContract: "1.4.0",
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
       hostContract: "1.4.0",
     });
     expect(migrated.projectProfile.commands.test).toEqual({
@@ -843,7 +921,7 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toMatchObject({
-      stateContract: "1.4.0",
+      stateContract: "1.5.0",
       language: {
         conversation: "pt-BR",
         documentation: "pt-BR",
@@ -891,8 +969,8 @@ describe("configuration migration", () => {
 
     const after = run.storage.snapshot().files;
     expect(JSON.parse(after[CONFIG_REF] ?? "null")).toEqual({
-      contractVersion: "1.4.0",
-      stateContract: "1.4.0",
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
       pluginVersion: "0.2.0",
       hostContract: "1.4.0",
       gateModes: {},
@@ -1937,5 +2015,57 @@ describe("configuration migration", () => {
         content: expect.stringContaining('"status": "rolled-back"') as string,
       },
     ]);
+  });
+
+  it("upgrades project configuration 1.4 to 1.5 directly with upgradeProjectConfigurationV1_5", () => {
+    const source: ProjectConfigV1_4 = {
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      pluginVersion: "0.2.0",
+      hostContract: "1.4.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      gateModes: {},
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+    };
+
+    const upgraded = upgradeProjectConfigurationV1_5(source);
+    expect(upgraded.contractVersion).toBe("1.5.0");
+    expect(upgraded.stateContract).toBe("1.5.0");
+    expect(upgraded.projectProfile.commands.test).toEqual({
+      status: "resolved",
+      value: "npm test",
+    });
   });
 });

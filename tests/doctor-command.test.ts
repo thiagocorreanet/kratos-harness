@@ -108,6 +108,65 @@ const notApplicableProfile: ResolvedProjectProfile = {
   },
 };
 
+const derivedProfile: ResolvedProjectProfile = {
+  commands: {
+    test: {
+      status: "derived",
+      value: "npm test",
+      evidence: "package.json#scripts.test",
+    },
+    lint: {
+      status: "derived",
+      value: "npm run lint",
+      evidence: "package.json#scripts.lint",
+    },
+    build: {
+      status: "derived",
+      value: "npm run build",
+      evidence: "package.json#scripts.build",
+    },
+    run: {
+      status: "derived",
+      value: "npm start",
+      evidence: "package.json#scripts.start",
+    },
+  },
+  paths: {
+    source: {
+      status: "derived",
+      value: ["src"],
+      evidence: "directory:src",
+    },
+    tests: {
+      status: "derived",
+      value: ["tests"],
+      evidence: "directory:tests",
+    },
+    configuration: {
+      status: "derived",
+      value: ["package.json"],
+      evidence: "package.json",
+    },
+  },
+  conventions: {
+    directoryLayout: {
+      status: "derived",
+      value: "Standard layout.",
+      evidence: "directory structure",
+    },
+    naming: {
+      status: "derived",
+      value: "kebab-case",
+      evidence: "file names",
+    },
+    implementationLanguages: {
+      status: "derived",
+      value: ["TypeScript"],
+      evidence: "package.json",
+    },
+  },
+};
+
 const replacementCharacterProfile: ResolvedProjectProfile = {
   ...completeProfile,
   conventions: {
@@ -122,7 +181,7 @@ const replacementCharacterProfile: ResolvedProjectProfile = {
 const baseAnswers = (
   projectProfile: ResolvedProjectProfile,
 ): ResolvedAnswers => ({
-  contractVersion: "1.5.0",
+  contractVersion: "1.6.0",
   hostContract: "1.4.0",
   hosts: ["codex"],
   language: {
@@ -583,6 +642,15 @@ describe("stack-profile doctor readiness", () => {
 
   it("counts not-applicable typed leaves as complete", async () => {
     const run = subject({ profile: notApplicableProfile });
+
+    const result = await doctor(run);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.rendered).toContain("stack-profile: pass");
+  });
+
+  it("counts derived typed leaves as complete and passes doctor", async () => {
+    const run = subject({ profile: derivedProfile });
 
     const result = await doctor(run);
 

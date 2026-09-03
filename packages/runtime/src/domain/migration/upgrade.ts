@@ -5,6 +5,7 @@ import type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
+  ProjectConfigV1_5,
 } from "@kratos/contracts";
 
 import {
@@ -129,6 +130,27 @@ export function upgradeProjectConfigurationV1_4(
     managedState: { ...source.managedState },
     modelRoles: source.modelRoles,
     projectProfile: structuredClone(source.projectProfile),
+  };
+}
+
+/** Upgrade a v1.4 configuration payload to v1.5 with derived profile support. */
+export function upgradeProjectConfigurationV1_5(
+  source: ProjectConfigV1_4,
+): ProjectConfigV1_5 {
+  return {
+    contractVersion: "1.5.0",
+    stateContract: "1.5.0",
+    pluginVersion: source.pluginVersion,
+    hostContract: "1.4.0",
+    language: { ...source.language },
+    policyMode: source.policyMode,
+    gateModes: { ...source.gateModes },
+    managedState: { ...source.managedState },
+    modelRoles: source.modelRoles,
+    projectProfile: structuredClone(source.projectProfile),
+    ...(source.acceptanceAttemptCeiling === undefined
+      ? {}
+      : { acceptanceAttemptCeiling: source.acceptanceAttemptCeiling }),
   };
 }
 

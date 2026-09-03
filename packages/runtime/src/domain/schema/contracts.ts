@@ -17,6 +17,7 @@ import type {
   InitAnswersV1_3,
   InitAnswersV1_4,
   InitAnswersV1_5,
+  InitAnswersV1_6,
   EventV1,
   EventV1_1,
   EventV1_2,
@@ -45,6 +46,7 @@ import type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
+  ProjectConfigV1_5,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RepairLoopStopV1,
@@ -82,7 +84,8 @@ export interface ContractValues {
     | InitAnswersV1_2
     | InitAnswersV1_3
     | InitAnswersV1_4
-    | InitAnswersV1_5;
+    | InitAnswersV1_5
+    | InitAnswersV1_6;
   readonly "host.operation-message": HostOperationMessageV1;
   readonly "host.phase-lifecycle": PhaseLifecycleV1;
   readonly "host.phase-handoff":
@@ -115,7 +118,8 @@ export interface ContractValues {
     | ProjectConfigV1_1
     | ProjectConfigV1_2
     | ProjectConfigV1_3
-    | ProjectConfigV1_4;
+    | ProjectConfigV1_4
+    | ProjectConfigV1_5;
   readonly "state.requirement-discovery": RequirementDiscoveryV1;
   readonly "state.repair-loop-stop": RepairLoopStopV1 | RepairLoopStopV1_1;
   readonly "state.repair-resolution": RepairResolutionV1 | RepairResolutionV1_1;

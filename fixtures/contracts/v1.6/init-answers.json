@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.6.0",
+  "hostContract": "1.4.0",
+  "hosts": ["codex"],
+  "projectProfile": {
+    "commands": {
+      "test": {
+        "status": "derived",
+        "value": "npm test",
+        "evidence": "package.json#scripts.test"
+      }
+    }
+  }
+}

@@ -171,8 +171,12 @@ function renderCommand(
       `Not applicable: ${escapeMarkdownProse(leaf.reason)}`,
     ];
   }
+  const heading =
+    leaf.status === "derived"
+      ? `### ${label} (derived from ${escape(leaf.evidence)})`
+      : `### ${label}`;
   const fence = "`".repeat(Math.max(3, longestRun(leaf.value, "`") + 1));
-  return [`### ${label}`, "", `${fence}text`, leaf.value, fence];
+  return [heading, "", `${fence}text`, leaf.value, fence];
 }
 
 function renderProseLeaf<T>(leaf: ProjectProfileLeaf<T>, key: string): string {
@@ -180,9 +184,13 @@ function renderProseLeaf<T>(leaf: ProjectProfileLeaf<T>, key: string): string {
   if (leaf.status === "not-applicable") {
     return `Not applicable: ${escapeMarkdownProse(leaf.reason)}`;
   }
-  return Array.isArray(leaf.value)
+  const renderedValue = Array.isArray(leaf.value)
     ? leaf.value.map((value) => escapeMarkdownProse(String(value))).join(", ")
     : escapeMarkdownProse(String(leaf.value));
+  if (leaf.status === "derived") {
+    return `${renderedValue} (derived from ${escape(leaf.evidence)})`;
+  }
+  return renderedValue;
 }
 
 function code(value: string): string {

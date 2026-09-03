@@ -208,17 +208,18 @@ source; a document that is present but blank fails validation with a reason.
 Keeping the interview in the host adapter is what makes initialization testable
 without a terminal and identical under Claude Code, Codex, and a CI job.
 
-Current `host.init-answers@1.5.0` accepts `modelRoles`, keyed by enabled
+Current `host.init-answers@1.6.0` accepts `modelRoles`, keyed by enabled
 configuration host. Every supplied host map is closed to `planner`,
 `implementer`, and `judge`. Each assignment is either a bare model name or
 `{ "model": NAME, "effort": EFFORT }`; a bare name normalizes exactly to the
 object form with `effort: "medium"`.
 
 It also accepts a partial `projectProfile` whose `commands`, `paths`, and
-`conventions` leaves are independently `resolved`, `not-applicable` with a
-reason, or `unresolved`. Reinitialization preserves omitted current leaves;
-explicit `unresolved` clears one. Detection never invents a command, path, or
-convention from a stack marker.
+`conventions` leaves are independently `resolved`, `derived` carrying
+provenance `evidence`, `not-applicable` with a reason, or `unresolved`.
+Reinitialization preserves omitted current leaves; explicit `unresolved` clears
+one. Detection extracts commands and paths from declarative manifests and
+directory layouts without executing commands or making network calls.
 
 Its optional `acceptanceAttemptCeiling` sets a positive safe-integer override,
 clears an existing override with `null`, or preserves the current value when
@@ -232,7 +233,7 @@ current project's selections during reinitialization. For example:
 
 ```json
 {
-  "contractVersion": "1.5.0",
+  "contractVersion": "1.6.0",
   "hostContract": "1.4.0",
   "hosts": ["codex"],
   "gateModes": { "gaps-closed": "shadow" }
@@ -240,13 +241,14 @@ current project's selections during reinitialization. For example:
 ```
 
 The initializer persists the selected partial map in
-`state.project-config@1.4.0`; it does not evaluate or decide a gate. Host
+`state.project-config@1.5.0`; it does not evaluate or decide a gate. Host
 input cannot select a result, and every later report derives the effective mode
 from persisted state.
 
 ```json
 {
-  "contractVersion": "1.4.0",
+  "contractVersion": "1.5.0",
+  "stateContract": "1.5.0",
   "hostContract": "1.4.0",
   "hosts": ["codex"],
   "modelRoles": {
@@ -259,14 +261,22 @@ from persisted state.
   "acceptanceAttemptCeiling": 3,
   "projectProfile": {
     "commands": {
-      "test": { "status": "resolved", "value": "npm test" },
+      "test": {
+        "status": "derived",
+        "value": "npm test",
+        "evidence": "package.json#scripts.test"
+      },
       "build": {
         "status": "not-applicable",
         "reason": "The project runs directly from source."
       }
     },
     "paths": {
-      "source": { "status": "resolved", "value": ["packages"] }
+      "source": {
+        "status": "derived",
+        "value": ["packages"],
+        "evidence": "directory:packages"
+      }
     },
     "conventions": {
       "implementationLanguages": {
@@ -297,15 +307,15 @@ profile, offline scan evidence, and configured language policy. The scan is a
 bounded, name-only walk below the project root; the classifier it feeds is a
 pure function of that listing and reports a language census and toolchain
 markers as two independent facts, either of which a project may have without
-the other.
+the other. Provenance is visibly displayed for derived entries (e.g. `(derived from package.json#scripts.test)`).
 Control-bearing root filenames visibly encode C0, DEL, and Unicode line
 separators before Markdown escaping. The document is a deterministic
 projection, not an answer source. `kratos doctor`
 compares its exact bytes with a fresh rendering and reports each
 unresolved typed key. Missing or drifted bytes warn; an unreadable or non-file
-destination and invalid authoritative configuration fail. A `not-applicable`
-leaf counts as complete. Neither `init` nor `doctor` executes configured
-commands.
+destination and invalid authoritative configuration fail. `derived` and `not-applicable`
+leaves count as complete, so doctor reports `pass` when all profile leaves are resolved, derived, or not applicable.
+Neither `init` nor `doctor` executes configured commands. Gates requiring operator consent fail closed on unconfirmed `derived` values.
 
 Reinitialization reads the authoritative configuration as one stable,
 fingerprinted byte snapshot. The exact fingerprint becomes the configuration

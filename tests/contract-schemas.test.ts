@@ -112,7 +112,7 @@ function contractAjv(): Ajv2020 {
 
 describe("versioned state and host schemas", () => {
   it("publishes selectable gate modes and closed host diagnostics", async () => {
-    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.5.0");
+    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.6.0");
     expect(CONTRACT_VERSIONS["host.phase-handoff"]).toBe("1.4.0");
     expect(CONTRACT_VERSIONS["host.doctor-report"]).toBe("1.0.0");
 
@@ -400,6 +400,154 @@ describe("versioned state and host schemas", () => {
           conventions: {
             ...completeProfile.conventions,
             naming: { status: "not-applicable", reason: "x".repeat(257) },
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("validates derived profile leaves with evidence in init-answers v1.6 and project-config v1.5", async () => {
+    expect(CONTRACT_VERSIONS["host.init-answers"]).toBe("1.6.0");
+    expect(CONTRACT_VERSIONS["state.project-config"]).toBe("1.5.0");
+
+    const [initSchema, projectSchema] = await Promise.all([
+      readJson(join(schemaRoot, "host/init-answers.v1.6.schema.json")),
+      readJson(join(schemaRoot, "state/project-config.v1.5.schema.json")),
+    ]);
+    const ajv = contractAjv();
+    const initValidate = ajv.compile(initSchema);
+    const projectValidate = ajv.compile(projectSchema);
+
+    const completeDerivedProfile = {
+      commands: {
+        test: {
+          status: "derived",
+          value: "npm test",
+          evidence: "package.json#scripts.test",
+        },
+        lint: {
+          status: "derived",
+          value: "npm run lint",
+          evidence: "package.json#scripts.lint",
+        },
+        build: {
+          status: "derived",
+          value: "npm run build",
+          evidence: "package.json#scripts.build",
+        },
+        run: {
+          status: "derived",
+          value: "npm start",
+          evidence: "package.json#scripts.start",
+        },
+      },
+      paths: {
+        source: {
+          status: "derived",
+          value: ["src"],
+          evidence: "directory:src",
+        },
+        tests: {
+          status: "derived",
+          value: ["tests"],
+          evidence: "directory:tests",
+        },
+        configuration: {
+          status: "derived",
+          value: ["config"],
+          evidence: "directory:config",
+        },
+      },
+      conventions: {
+        directoryLayout: { status: "unresolved" },
+        naming: { status: "unresolved" },
+        implementationLanguages: {
+          status: "derived",
+          value: ["typescript", "javascript"],
+          evidence: "census:typescript,javascript",
+        },
+      },
+    };
+
+    const init = {
+      contractVersion: "1.6.0",
+      hostContract: "1.4.0",
+      hosts: ["antigravity"],
+      projectProfile: completeDerivedProfile,
+    };
+
+    const project = {
+      contractVersion: "1.5.0",
+      stateContract: "1.5.0",
+      pluginVersion: "0.2.0",
+      hostContract: "1.4.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "standard",
+      gateModes: {},
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { antigravity: {} },
+      projectProfile: completeDerivedProfile,
+    };
+
+    expect(initValidate(init), JSON.stringify(initValidate.errors)).toBe(true);
+    expect(
+      projectValidate(project),
+      JSON.stringify(projectValidate.errors),
+    ).toBe(true);
+
+    // Rejects derived leaf missing evidence
+    expect(
+      initValidate({
+        ...init,
+        projectProfile: {
+          ...completeDerivedProfile,
+          commands: {
+            ...completeDerivedProfile.commands,
+            test: { status: "derived", value: "npm test" },
+          },
+        },
+      }),
+    ).toBe(false);
+
+    // Rejects derived leaf with empty evidence
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeDerivedProfile,
+          commands: {
+            ...completeDerivedProfile.commands,
+            test: { status: "derived", value: "npm test", evidence: "" },
+          },
+        },
+      }),
+    ).toBe(false);
+
+    // Rejects derived leaf with multiline evidence
+    expect(
+      projectValidate({
+        ...project,
+        projectProfile: {
+          ...completeDerivedProfile,
+          commands: {
+            ...completeDerivedProfile.commands,
+            test: {
+              status: "derived",
+              value: "npm test",
+              evidence: "line1\nline2",
+            },
           },
         },
       }),

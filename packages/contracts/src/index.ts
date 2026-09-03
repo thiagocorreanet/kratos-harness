@@ -17,7 +17,8 @@ import type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
-  ProjectConfigV1_4Contract,
+  ProjectConfigV1_5,
+  ProjectConfigV1_5Contract,
   RepairLoopStopV1,
   RepairLoopStopV1_1,
   RepairResolutionV1,
@@ -70,6 +71,7 @@ export type {
   InitAnswersV1_3,
   InitAnswersV1_4,
   InitAnswersV1_5,
+  InitAnswersV1_6,
   HostOperationMessageV1,
   EventV1,
   EventV1_1,
@@ -98,6 +100,7 @@ export type {
   ProjectConfigV1_2,
   ProjectConfigV1_3,
   ProjectConfigV1_4,
+  ProjectConfigV1_5,
   PreToolUseV1,
   RequirementDiscoveryV1,
   RepairLoopStopV1,
@@ -122,7 +125,7 @@ export type {
   MemoryMigrationV1_4,
 } from "./generated/contracts.js";
 
-export type LanguagePolicyV1 = ProjectConfigV1_4Contract.LanguagePolicy;
+export type LanguagePolicyV1 = ProjectConfigV1_5Contract.LanguagePolicy;
 export type ModelRole = "planner" | "implementer" | "judge";
 export type ModelAssignmentV1_1 =
   string | { readonly model: string; readonly effort: string };
@@ -140,13 +143,14 @@ export type ReadableRepairLoopStop = RepairLoopStopV1 | RepairLoopStopV1_1;
 export type CurrentRepairResolution = RepairResolutionV1_1;
 export type ReadableRepairResolution =
   RepairResolutionV1 | RepairResolutionV1_1;
-export type CurrentProjectConfig = ProjectConfigV1_4;
+export type CurrentProjectConfig = ProjectConfigV1_5;
 export type ReadableProjectConfig =
   | ProjectConfigV1
   | ProjectConfigV1_1
   | ProjectConfigV1_2
   | ProjectConfigV1_3
-  | ProjectConfigV1_4;
+  | ProjectConfigV1_4
+  | ProjectConfigV1_5;
 export type {
   BeatKind,
   BeatV1,

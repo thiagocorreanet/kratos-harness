@@ -1,6 +1,7 @@
 /** A single answer about a project command or convention. */
 export type ProjectProfileLeaf<T> =
   | { readonly status: "resolved"; readonly value: T }
+  | { readonly status: "derived"; readonly value: T; readonly evidence: string }
   | { readonly status: "not-applicable"; readonly reason: string }
   | { readonly status: "unresolved" };
 
@@ -63,34 +64,63 @@ export function unresolvedProjectProfile(): ResolvedProjectProfile {
 export function resolveProjectProfile(
   explicit: PartialProjectProfile | undefined,
   persisted: ResolvedProjectProfile | undefined,
+  derived?: PartialProjectProfile,
 ): ResolvedProjectProfile {
   return {
     commands: {
-      test: select(explicit?.commands?.test, persisted?.commands.test),
-      lint: select(explicit?.commands?.lint, persisted?.commands.lint),
-      build: select(explicit?.commands?.build, persisted?.commands.build),
-      run: select(explicit?.commands?.run, persisted?.commands.run),
+      test: select(
+        explicit?.commands?.test,
+        persisted?.commands.test,
+        derived?.commands?.test,
+      ),
+      lint: select(
+        explicit?.commands?.lint,
+        persisted?.commands.lint,
+        derived?.commands?.lint,
+      ),
+      build: select(
+        explicit?.commands?.build,
+        persisted?.commands.build,
+        derived?.commands?.build,
+      ),
+      run: select(
+        explicit?.commands?.run,
+        persisted?.commands.run,
+        derived?.commands?.run,
+      ),
     },
     paths: {
-      source: select(explicit?.paths?.source, persisted?.paths.source),
-      tests: select(explicit?.paths?.tests, persisted?.paths.tests),
+      source: select(
+        explicit?.paths?.source,
+        persisted?.paths.source,
+        derived?.paths?.source,
+      ),
+      tests: select(
+        explicit?.paths?.tests,
+        persisted?.paths.tests,
+        derived?.paths?.tests,
+      ),
       configuration: select(
         explicit?.paths?.configuration,
         persisted?.paths.configuration,
+        derived?.paths?.configuration,
       ),
     },
     conventions: {
       directoryLayout: select(
         explicit?.conventions?.directoryLayout,
         persisted?.conventions.directoryLayout,
+        derived?.conventions?.directoryLayout,
       ),
       naming: select(
         explicit?.conventions?.naming,
         persisted?.conventions.naming,
+        derived?.conventions?.naming,
       ),
       implementationLanguages: select(
         explicit?.conventions?.implementationLanguages,
         persisted?.conventions.implementationLanguages,
+        derived?.conventions?.implementationLanguages,
       ),
     },
   };
@@ -126,6 +156,7 @@ export function unresolvedProjectProfileKeys(
 function select<T>(
   explicit: ProjectProfileLeaf<T> | undefined,
   persisted: ProjectProfileLeaf<T> | undefined,
+  derived?: ProjectProfileLeaf<T>,
 ): ProjectProfileLeaf<T> {
-  return explicit ?? persisted ?? unresolved();
+  return explicit ?? persisted ?? derived ?? unresolved();
 }

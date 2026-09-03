@@ -1,8 +1,11 @@
 import {
+  DEFAULT_LANGUAGE_POLICY,
   profileStack,
+  renderStackProfile,
   SCAN_EXCLUDED_DIRECTORIES,
   STACK_IDS,
   type StackId,
+  unresolvedProjectProfile,
 } from "@kratos/runtime/domain/init";
 import { describe, expect, it } from "vitest";
 
@@ -351,5 +354,144 @@ describe("unidentified projects", () => {
 
     expect(profileStack(evidence)).toEqual(profileStack(evidence));
     expect(Object.isFrozen(profileStack(evidence))).toBe(true);
+  });
+});
+
+describe("stack profile rendering", () => {
+  it("annotates derived commands with their exact provenance", () => {
+    const stack = profileStack({ rootEntries: ["package.json"] });
+    const profile = unresolvedProjectProfile();
+    const rendered = renderStackProfile(
+      stack,
+      {
+        ...profile,
+        commands: {
+          ...profile.commands,
+          test: {
+            status: "derived",
+            value: "npm test",
+            evidence: "package.json#scripts.test",
+          },
+          lint: {
+            status: "derived",
+            value: "npm run lint",
+            evidence: "package.json#scripts.lint",
+          },
+        },
+      },
+      DEFAULT_LANGUAGE_POLICY,
+    );
+
+    expect(rendered).toContain(
+      "### Test (derived from package.json#scripts.test)",
+    );
+    expect(rendered).toContain("```text\nnpm test\n```");
+    expect(rendered).toContain(
+      "### Lint (derived from package.json#scripts.lint)",
+    );
+    expect(rendered).toContain("```text\nnpm run lint\n```");
+  });
+
+  it("annotates derived paths and conventions in tables with provenance", () => {
+    const stack = profileStack({ rootEntries: ["src"] });
+    const profile = unresolvedProjectProfile();
+    const rendered = renderStackProfile(
+      stack,
+      {
+        ...profile,
+        paths: {
+          ...profile.paths,
+          source: {
+            status: "derived",
+            value: ["src"],
+            evidence: "directory:src",
+          },
+        },
+        conventions: {
+          ...profile.conventions,
+          implementationLanguages: {
+            status: "derived",
+            value: ["typescript", "rust"],
+            evidence: "census:typescript,rust",
+          },
+        },
+      },
+      DEFAULT_LANGUAGE_POLICY,
+    );
+
+    expect(rendered).toContain("| Source | src (derived from directory:src) |");
+    expect(rendered).toContain(
+      "| Implementation languages | typescript, rust (derived from census:typescript,rust) |",
+    );
+  });
+
+  it("visibly distinguishes resolved, derived, not-applicable, and unresolved leaves", () => {
+    const stack = profileStack({ rootEntries: ["package.json"] });
+    const rendered = renderStackProfile(
+      stack,
+      {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: {
+            status: "derived",
+            value: "npm run lint",
+            evidence: "package.json#scripts.lint",
+          },
+          build: { status: "not-applicable", reason: "No build step required" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: {
+            status: "derived",
+            value: ["src"],
+            evidence: "directory:src",
+          },
+          tests: { status: "resolved", value: ["tests"] },
+          configuration: {
+            status: "not-applicable",
+            reason: "Host provides config",
+          },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "resolved", value: "camelCase" },
+          implementationLanguages: {
+            status: "derived",
+            value: ["node"],
+            evidence: "census:node",
+          },
+        },
+      },
+      DEFAULT_LANGUAGE_POLICY,
+    );
+
+    // Resolved commands have no provenance in heading
+    expect(rendered).toContain("### Test\n\n```text\nnpm test\n```");
+    // Derived commands have provenance
+    expect(rendered).toContain(
+      "### Lint (derived from package.json#scripts.lint)",
+    );
+    // Not-applicable commands have reason
+    expect(rendered).toContain(
+      "### Build\n\nNot applicable: No build step required",
+    );
+    // Unresolved commands have placeholder
+    expect(rendered).toContain(
+      "### Run\n\n`<UNRESOLVED: projectProfile.commands.run>`",
+    );
+
+    // Table rows
+    expect(rendered).toContain("| Source | src (derived from directory:src) |");
+    expect(rendered).toContain("| Tests | tests |");
+    expect(rendered).toContain(
+      "| Configuration | Not applicable: Host provides config |",
+    );
+    expect(rendered).toContain(
+      "| Directory layout | `<UNRESOLVED: projectProfile.conventions.directoryLayout>` |",
+    );
+    expect(rendered).toContain("| Naming | camelCase |");
+    expect(rendered).toContain(
+      "| Implementation languages | node (derived from census:node) |",
+    );
   });
 });

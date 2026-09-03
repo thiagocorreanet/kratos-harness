@@ -29,7 +29,7 @@ import type {
   GateFactsV1,
   MigrationV1,
   MigrationV1_1,
-  ProjectConfigV1_4,
+  ProjectConfigV1_5,
   CurrentRepairResolution,
   ReadableRepairResolution,
   RepairRestartV1,
@@ -551,7 +551,7 @@ export type CommandObservation =
               readonly content: string;
               readonly sha256: string;
             };
-            readonly destination: ProjectConfigV1_4;
+            readonly destination: ProjectConfigV1_5;
             readonly destinationDigest: string;
             /** Caller-carried authorization over every final write byte. */
             readonly planDigest: string;

@@ -17,6 +17,8 @@ export type {
   ProjectProfileLeaf,
   ResolvedProjectProfile,
 } from "./profile.js";
+export { deriveProjectProfile } from "./derive.js";
+export type { ManifestContents } from "./derive.js";
 export { detectLanguageConventions } from "./detect.js";
 export type {
   DetectedLanguageConventions,

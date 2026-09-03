@@ -2,6 +2,7 @@ import type {
   InitAnswersV1_3,
   InitAnswersV1_4,
   InitAnswersV1_5,
+  InitAnswersV1_6,
   LanguagePolicyV1,
 } from "@kratos/contracts";
 
@@ -17,19 +18,20 @@ import type { ModelRouting } from "../../ports/model-routing.js";
 import type { SchemaRegistry } from "../schema/index.js";
 import {
   resolveProjectProfile,
+  type PartialProjectProfile,
   type ResolvedProjectProfile,
 } from "./profile.js";
 
 /** Answers after every default has been made visible and every model resolved. */
 export type ResolvedAnswers = Omit<
-  Required<InitAnswersV1_5>,
+  Required<InitAnswersV1_6>,
   | "contractVersion"
   | "hostContract"
   | "modelRoles"
   | "projectProfile"
   | "acceptanceAttemptCeiling"
 > & {
-  readonly contractVersion: "1.5.0";
+  readonly contractVersion: "1.6.0";
   readonly hostContract: "1.4.0";
   readonly modelRoles: ResolvedModelRoles;
   readonly projectProfile: ResolvedProjectProfile;
@@ -59,10 +61,11 @@ const ROLES = ["planner", "implementer", "judge"] as const;
 export interface PersistedInitSettings {
   readonly projectProfile?: ResolvedProjectProfile | undefined;
   readonly acceptanceAttemptCeiling?: number | undefined;
-  readonly gateModes?: NonNullable<InitAnswersV1_5["gateModes"]> | undefined;
+  readonly gateModes?: NonNullable<InitAnswersV1_6["gateModes"]> | undefined;
+  readonly derived?: PartialProjectProfile | undefined;
 }
 type Host = "claude" | "codex" | "antigravity";
-type ExplicitRoleMap = NonNullable<InitAnswersV1_5["modelRoles"]>[Host];
+type ExplicitRoleMap = NonNullable<InitAnswersV1_6["modelRoles"]>[Host];
 
 /** The only model assignment shape a resolved initializer may persist. */
 export type ResolvedRoleMap = Readonly<
@@ -105,6 +108,7 @@ export async function resolveInitAnswers(
   registry: SchemaRegistry,
   modelRouting: ModelRouting,
   persisted?: ResolvedProjectProfile | PersistedInitSettings,
+  derived?: PartialProjectProfile,
 ): Promise<ResolvedInitAnswers> {
   const validated = registry.validate({
     id: "host.init-answers",
@@ -123,7 +127,8 @@ export async function resolveInitAnswers(
   if (
     validated.value.contractVersion !== "1.3.0" &&
     validated.value.contractVersion !== "1.4.0" &&
-    validated.value.contractVersion !== "1.5.0"
+    validated.value.contractVersion !== "1.5.0" &&
+    validated.value.contractVersion !== "1.6.0"
   ) {
     return { kind: "invalid", reasonCode: "trail.output_invalido" };
   }
@@ -167,10 +172,12 @@ export async function resolveInitAnswers(
     if (roles !== undefined) modelRoles[host] = roles;
   }
 
+  const effectiveDerived = derived ?? persistedSettings?.derived;
+
   return {
     kind: "resolved",
     answers: {
-      contractVersion: "1.5.0",
+      contractVersion: "1.6.0",
       hostContract: "1.4.0",
       hosts: supplied.hosts,
       language: supplied.language ?? DEFAULT_LANGUAGE_POLICY,
@@ -181,6 +188,7 @@ export async function resolveInitAnswers(
       projectProfile: resolveProjectProfile(
         supplied.projectProfile,
         persistedProjectProfile(persisted),
+        effectiveDerived,
       ),
       ...(resolvedAttemptCeiling(supplied, persisted) === undefined
         ? {}
@@ -206,7 +214,8 @@ function persistedProjectProfile(
 }
 
 function resolvedAttemptCeiling(
-  supplied: InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5,
+  supplied:
+    InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5 | InitAnswersV1_6,
   persisted: ResolvedProjectProfile | PersistedInitSettings | undefined,
 ): number | undefined {
   const requested =
@@ -227,9 +236,10 @@ function persistedInitSettings(
 }
 
 function resolvedGateModes(
-  supplied: InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5,
+  supplied:
+    InitAnswersV1_3 | InitAnswersV1_4 | InitAnswersV1_5 | InitAnswersV1_6,
   persisted: PersistedInitSettings | undefined,
-): NonNullable<InitAnswersV1_5["gateModes"]> {
+): NonNullable<InitAnswersV1_6["gateModes"]> {
   if ("gateModes" in supplied) {
     return structuredClone(supplied.gateModes);
   }

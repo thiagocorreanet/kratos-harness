@@ -1,7 +1,8 @@
 import type { CommandObservation, Invocation } from "../domain/cli/index.js";
 import type { WriteFilePrecondition } from "../domain/effects.js";
-import type { ProjectConfigV1_4 } from "@kratos/contracts";
+import type { ProjectConfigV1_5 } from "@kratos/contracts";
 import {
+  deriveProjectProfile,
   destinationsOf,
   profileStack,
   resolveInitAnswers,
@@ -21,7 +22,10 @@ import type { SchemaRegistry } from "../domain/schema/index.js";
 import type { RuntimePorts } from "../ports/index.js";
 
 import { anchorPorts, resolveCommandRoot } from "./root.js";
-import { observeRepositoryEvidence } from "./repository.js";
+import {
+  observeManifestContents,
+  observeRepositoryEvidence,
+} from "./repository.js";
 import { observeModelCatalog } from "./model-routing.js";
 import { createSchemaRegistry } from "./schema.js";
 
@@ -75,6 +79,13 @@ export async function observeInitialization(
   const persisted = await observePersistedProfile(anchored, registry);
   if (persisted.kind === "failure") return persisted;
 
+  const evidence = await observeRepositoryEvidence(anchored.fileSystem);
+  const manifests = await observeManifestContents(
+    anchored.fileSystem,
+    evidence.rootEntries,
+  );
+  const derived = deriveProjectProfile(evidence, manifests);
+
   const answers = await resolveInitAnswers(
     parse(document),
     registry,
@@ -85,9 +96,9 @@ export async function observeInitialization(
       projectProfile: persisted.profile,
       acceptanceAttemptCeiling: persisted.acceptanceAttemptCeiling,
       gateModes: persisted.gateModes,
+      derived,
     },
   );
-  const evidence = await observeRepositoryEvidence(anchored.fileSystem);
   return {
     kind: "observed",
     observation: {
@@ -110,7 +121,7 @@ async function observePersistedProfile(
       readonly kind: "profile";
       readonly profile?: ResolvedProjectProfile;
       readonly acceptanceAttemptCeiling?: number | undefined;
-      readonly gateModes?: ProjectConfigV1_4["gateModes"] | undefined;
+      readonly gateModes?: ProjectConfigV1_5["gateModes"] | undefined;
       readonly expected: WriteFilePrecondition;
     }
   | Extract<Observed, { readonly kind: "failure" }>
@@ -151,7 +162,8 @@ async function observePersistedProfile(
     version === "1.0.0" ||
     version === "1.1.0" ||
     version === "1.2.0" ||
-    version === "1.3.0"
+    version === "1.3.0" ||
+    version === "1.4.0"
   ) {
     return configurationFailure("profile.config_migration_required");
   }
@@ -161,7 +173,7 @@ async function observePersistedProfile(
     value: parsed,
     structuralReasonCode: "guard.config_corrupt",
   });
-  if (validated.kind !== "valid" || validated.value.stateContract !== "1.4.0") {
+  if (validated.kind !== "valid" || validated.value.stateContract !== "1.5.0") {
     return configurationFailure(
       validated.kind === "invalid"
         ? (validated.diagnostics[0]?.reasonCode ?? "guard.config_corrupt")

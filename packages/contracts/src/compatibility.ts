@@ -16,10 +16,10 @@ export const CONTRACT_IDENTITIES = {
 
 export const CONTRACT_VERSIONS = {
   "host.adapter-message": "1.1.0",
-  "state.project-config": "1.4.0",
+  "state.project-config": "1.5.0",
   "state.event": "1.4.0",
   "state.migration": "1.1.0",
-  "host.init-answers": "1.5.0",
+  "host.init-answers": "1.6.0",
   "host.phase-handoff": "1.4.0",
   "host.doctor-report": "1.0.0",
   "host.memory-capture": "1.2.0",

@@ -2,6 +2,7 @@ import {
   SCAN_EXCLUDED_DIRECTORIES,
   SCAN_MAX_DEPTH,
   SCAN_MAX_ENTRIES,
+  type ManifestContents,
   type RepositoryEvidence,
 } from "../domain/init/index.js";
 import type { FileSystem } from "../ports/index.js";
@@ -90,4 +91,41 @@ async function inspect(
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * Safely read declarative top-level manifest files present in root entries.
+ * Missing, unreadable, or failing files are skipped silently.
+ */
+export async function observeManifestContents(
+  fileSystem: FileSystem,
+  rootEntries: readonly string[],
+): Promise<ManifestContents> {
+  const manifests: {
+    packageJson?: string;
+    makefile?: string;
+    pyprojectToml?: string;
+    cargoToml?: string;
+    goMod?: string;
+  } = {};
+
+  const candidates: readonly (readonly [string, keyof ManifestContents])[] = [
+    ["package.json", "packageJson"],
+    ["Makefile", "makefile"],
+    ["pyproject.toml", "pyprojectToml"],
+    ["Cargo.toml", "cargoToml"],
+    ["go.mod", "goMod"],
+  ];
+
+  for (const [filename, key] of candidates) {
+    if (rootEntries.includes(filename)) {
+      try {
+        manifests[key] = await fileSystem.read(filename);
+      } catch {
+        // Ignored safely
+      }
+    }
+  }
+
+  return Object.freeze(manifests);
 }

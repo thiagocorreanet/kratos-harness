@@ -241,7 +241,7 @@ describe("feature document contracts", () => {
   it("generates every feature template byte for byte from the canonical contract", () => {
     const effects = skeletonEffects(
       {
-        contractVersion: "1.5.0",
+        contractVersion: "1.6.0",
         hostContract: "1.4.0",
         hosts: ["codex"],
         language: DEFAULT_LANGUAGE_POLICY,

@@ -38,6 +38,15 @@ function answersV1_5(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function answersV1_6(overrides: Record<string, unknown> = {}) {
+  return {
+    contractVersion: "1.6.0",
+    hostContract: "1.4.0",
+    hosts: ["claude"],
+    ...overrides,
+  };
+}
+
 describe("initialization answers", () => {
   it("selects, clears, defaults, or preserves per-gate modes", async () => {
     const routing = fixedModelRouting([claudeCatalog()]);
@@ -82,6 +91,52 @@ describe("initialization answers", () => {
     expect(cleared).toMatchObject({
       kind: "resolved",
       answers: { gateModes: {} },
+    });
+  });
+
+  it("resolves v1.6.0 answers document with explicit, persisted, and derived profile precedence", async () => {
+    const routing = fixedModelRouting([claudeCatalog()]);
+    const resolved = await resolveInitAnswers(
+      answersV1_6({
+        projectProfile: {
+          commands: {
+            test: { status: "resolved", value: "vitest" },
+          },
+        },
+      }),
+      registry,
+      routing,
+      {
+        derived: {
+          commands: {
+            test: {
+              status: "derived",
+              value: "npm test",
+              evidence: "package.json#scripts.test",
+            },
+            lint: {
+              status: "derived",
+              value: "npm run lint",
+              evidence: "package.json#scripts.lint",
+            },
+          },
+        },
+      },
+    );
+
+    expect(resolved.kind).toBe("resolved");
+    if (resolved.kind !== "resolved") return;
+    expect(resolved.answers.contractVersion).toBe("1.6.0");
+    // Explicit takes precedence over derived
+    expect(resolved.answers.projectProfile.commands.test).toEqual({
+      status: "resolved",
+      value: "vitest",
+    });
+    // Derived fills in omitted key
+    expect(resolved.answers.projectProfile.commands.lint).toEqual({
+      status: "derived",
+      value: "npm run lint",
+      evidence: "package.json#scripts.lint",
     });
   });
 
@@ -208,7 +263,7 @@ describe("initialization answers", () => {
     expect(resolved.kind).toBe("resolved");
     if (resolved.kind !== "resolved") return;
     expect(resolved.answers).toEqual({
-      contractVersion: "1.5.0",
+      contractVersion: "1.6.0",
       hostContract: "1.4.0",
       hosts: ["codex"],
       language: {

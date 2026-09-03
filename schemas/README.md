@@ -46,9 +46,11 @@ The state family contains:
   configuration with closed per-artifact language policy;
 - [`project-config.v1.3.schema.json`](state/project-config.v1.3.schema.json), the
   configuration with complete project-profile answers;
-- current [`project-config.v1.4.schema.json`](state/project-config.v1.4.schema.json),
+- [`project-config.v1.4.schema.json`](state/project-config.v1.4.schema.json),
   which requires the closed partial `gateModes` map and optionally carries the
   positive `acceptanceAttemptCeiling` override;
+- current [`project-config.v1.5.schema.json`](state/project-config.v1.5.schema.json),
+  which adds derived profile status and evidence;
 - [`requirement-discovery.v1.schema.json`](state/requirement-discovery.v1.schema.json),
   the applied/skip outcomes embedded in a requirement document;
 - [`snapshot.v1.schema.json`](state/snapshot.v1.schema.json);
@@ -88,58 +90,62 @@ The state family contains:
 - [`curated-memory.v1.schema.json`](state/curated-memory.v1.schema.json), the
   committed confirmed-lesson and archive-tombstone ledger.
 - [`curated-memory.v1.1.schema.json`](state/curated-memory.v1.1.schema.json),
-  which adds classification, dependency, observation counts, dates, and scored
-  archive evidence without changing predecessor bytes.
+  the current curated-memory ledger supporting structured candidate linkages.
 
-The host family contains
-[`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the
-current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.json),
-[`host.doctor-report@1.0.0`](host/doctor-report.v1.schema.json), the read-only
-effective-mode diagnostic report,
-[`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
-[`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
-[`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
-[`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
-[`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json) with
-partial project-profile answers, plus
-[`init-answers.v1.4.schema.json`](host/init-answers.v1.4.schema.json), which
-sets a positive ceiling, clears it with `null`, or preserves it when omitted,
-plus current [`host.init-answers@1.5.0`](host/init-answers.v1.5.schema.json),
-which adds the optional closed per-gate `gateModes` map,
-plus
-[`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
-approval, hook, timeout, cancellation, and error delivery, and
-[`agent-output.v1.schema.json`](host/agent-output.v1.schema.json),
-[`agent-output.v1.1.schema.json`](host/agent-output.v1.1.schema.json),
-[`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), and
-current [`host.agent-output@1.3.0`](host/agent-output.v1.3.schema.json),
-the machine block one phase agent appends to its reply, plus
-[`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized
-structured file mutations, and
-[`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json),
-[`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json), and
-[`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json), plus
-current [`host.phase-handoff@1.4.0`](host/phase-handoff.v1.4.schema.json)
-for the digest-bound resolved assignment, acceptance attempt context, and
-effective gate-failure trace. The current memory schemas are
-[`host.memory-capture@1.2.0`](host/memory-capture.v1.2.schema.json),
-[`host.memory-change@1.4.0`](host/memory-change.v1.4.schema.json),
-[`host.memory-curation@1.4.0`](host/memory-curation.v1.4.schema.json), and
-[`host.memory-migration@1.4.0`](host/memory-migration.v1.4.schema.json).
-See the
-[agent output contract](../docs/architecture/agent-output-contract.md) for the
-delimiter, the envelope, and the extraction rules. The
-current registry format is
-[`contract-manifest.v1.9.schema.json`](contracts/contract-manifest.v1.9.schema.json).
-The immutable predecessors remain
-[`contract-manifest.v1.8.schema.json`](contracts/contract-manifest.v1.8.schema.json),
-[`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json),
-[`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json),
-[`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
-[`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
-[`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
-[`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
-and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
+The host family contains:
+
+- [`adapter-message.v1.schema.json`](host/adapter-message.v1.schema.json) and the
+  current [`adapter-message.v1.1.schema.json`](host/adapter-message.v1.1.schema.json),
+- [`host.doctor-report@1.0.0`](host/doctor-report.v1.schema.json), the read-only
+  effective-mode diagnostic report,
+- [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
+- [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
+  [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and
+  [`init-answers.v1.2.schema.json`](host/init-answers.v1.2.schema.json), plus
+  [`init-answers.v1.3.schema.json`](host/init-answers.v1.3.schema.json) with
+  partial project-profile answers, plus
+  [`init-answers.v1.4.schema.json`](host/init-answers.v1.4.schema.json), which
+  sets a positive ceiling, clears it with `null`, or preserves it when omitted,
+  plus
+  [`init-answers.v1.5.schema.json`](host/init-answers.v1.5.schema.json),
+  which adds the optional closed per-gate `gateModes` map,
+  plus current [`host.init-answers@1.6.0`](host/init-answers.v1.6.schema.json),
+  which adds derived profile status and evidence,
+  plus
+- [`operation-message.v1.schema.json`](host/operation-message.v1.schema.json) for
+  approval, hook, timeout, cancellation, and error delivery, and
+- [`agent-output.v1.schema.json`](host/agent-output.v1.schema.json),
+  [`agent-output.v1.1.schema.json`](host/agent-output.v1.1.schema.json),
+  [`agent-output.v1.2.schema.json`](host/agent-output.v1.2.schema.json), and
+  current [`host.agent-output@1.3.0`](host/agent-output.v1.3.schema.json),
+  the machine block one phase agent appends to its reply, plus
+- [`pre-tool-use.v1.schema.json`](host/pre-tool-use.v1.schema.json) for normalized
+  structured file mutations, and
+- [`phase-handoff.v1.1.schema.json`](host/phase-handoff.v1.1.schema.json),
+  [`phase-handoff.v1.2.schema.json`](host/phase-handoff.v1.2.schema.json), and
+  [`phase-handoff.v1.3.schema.json`](host/phase-handoff.v1.3.schema.json), plus
+  current [`host.phase-handoff@1.4.0`](host/phase-handoff.v1.4.schema.json)
+  for the digest-bound resolved assignment, acceptance attempt context, and
+  effective gate-failure trace. The current memory schemas are
+  [`host.memory-capture@1.2.0`](host/memory-capture.v1.2.schema.json),
+  [`host.memory-change@1.4.0`](host/memory-change.v1.4.schema.json),
+  [`host.memory-curation@1.4.0`](host/memory-curation.v1.4.schema.json), and
+  [`host.memory-migration@1.4.0`](host/memory-migration.v1.4.schema.json).
+  See the
+  [agent output contract](../docs/architecture/agent-output-contract.md) for the
+  delimiter, the envelope, and the extraction rules. The
+  current registry format is
+  [`contract-manifest.v1.10.schema.json`](contracts/contract-manifest.v1.10.schema.json).
+  The immutable predecessors remain
+  [`contract-manifest.v1.9.schema.json`](contracts/contract-manifest.v1.9.schema.json),
+  [`contract-manifest.v1.8.schema.json`](contracts/contract-manifest.v1.8.schema.json),
+  [`contract-manifest.v1.7.schema.json`](contracts/contract-manifest.v1.7.schema.json),
+  [`contract-manifest.v1.6.schema.json`](contracts/contract-manifest.v1.6.schema.json),
+  [`contract-manifest.v1.5.schema.json`](contracts/contract-manifest.v1.5.schema.json),
+  [`contract-manifest.v1.4.schema.json`](contracts/contract-manifest.v1.4.schema.json),
+  [`contract-manifest.v1.3.schema.json`](contracts/contract-manifest.v1.3.schema.json),
+  [`contract-manifest.v1.2.schema.json`](contracts/contract-manifest.v1.2.schema.json),
+  and [`contract-manifest.v1.1.schema.json`](contracts/contract-manifest.v1.1.schema.json).
 
 The compatibility test family contains the closed
 [`differential-scenario.v1.schema.json`](compatibility/differential-scenario.v1.schema.json)

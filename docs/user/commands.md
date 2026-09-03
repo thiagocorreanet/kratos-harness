@@ -47,7 +47,7 @@ Never automate by scraping human output; use `--json`.
 
 ## Model-role command behavior
 
-`kratos init` consumes `host.init-answers@1.5.0` from standard input or
+`kratos init` consumes `host.init-answers@1.6.0` from standard input or
 `--answers PATH`. Explicit host role maps override adapter defaults. Omitted
 maps are filled only from the corresponding enabled host catalog, and every
 default is disclosed and persisted after canonical resolution. Initialization
@@ -58,7 +58,7 @@ Select a gate rollout in the same answers document:
 
 ```json
 {
-  "contractVersion": "1.5.0",
+  "contractVersion": "1.6.0",
   "hostContract": "1.4.0",
   "hosts": ["codex"],
   "gateModes": { "gaps-closed": "shadow" }
@@ -68,17 +68,17 @@ Select a gate rollout in the same answers document:
 The optional closed `gateModes` map selects effective modes only for its named
 gates. When it is omitted on reinitialization, the current project's map is
 preserved; supplying it replaces that map. A new project persists current
-`state.project-config@1.4.0` state, and a runtime that does not support that
+`state.project-config@1.5.0` state, and a runtime that does not support that
 persisted state refuses it before mutation with
 `contract.state_version_unsupported`.
 
 The same answers document may carry a partial typed `projectProfile` for the
 project's exact root commands; source, test, and configuration paths; directory
 and naming conventions; and implementation languages. Every leaf is explicitly
-resolved, not applicable with a reason, or unresolved. Omitted leaves preserve
-current `1.4.0` project configuration state during reinitialization; explicit
-unresolved leaves clear it. Initialization never infers these values from stack
-markers and never executes a configured command.
+resolved, derived with evidence, not applicable with a reason, or unresolved.
+Omitted leaves preserve current `1.5.0` project configuration state during
+reinitialization; explicit unresolved leaves clear it. Initialization never
+infers these values from stack markers and never executes a configured command.
 
 `kratos init` creates the raw phase log and tracked phase report only when each
 path is absent. Reinitialization preserves the exact existing bytes of both
@@ -88,12 +88,12 @@ transaction commits, initialization returns `runtime.revision_conflict` and
 publishes none of its other planned writes.
 
 `kratos doctor` is also read-only. Its `stack-profile` check passes only when
-the deterministic rendered bytes match and no typed leaf is unresolved. It
-warns with actionable key names for unresolved answers, a missing document, or
-byte drift, and fails for invalid authoritative configuration or an unreadable
-or non-file destination. Not-applicable leaves count as complete. Recovery is
-to change typed initialization answers and rerun `kratos init`, not edit the
-generated Markdown.
+the deterministic rendered bytes match and no typed leaf is unresolved.
+Derived and not-applicable leaves count as complete alongside resolved leaves.
+Doctor warns with actionable key names for unresolved answers, a missing
+document, or byte drift, and fails for invalid authoritative configuration or an
+unreadable or non-file destination. Recovery is to change typed initialization
+answers and rerun `kratos init`, not edit the generated Markdown.
 
 Doctor also reports every recorded gate finding with its effective mode in its
 human output and in `host.doctor-report@1.0.0` JSON. A shadow `gaps-closed`
