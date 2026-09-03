@@ -470,8 +470,221 @@ describe("pure project profile derivation", () => {
       value: ["typescript", "javascript"],
       evidence: "census:typescript,javascript",
     });
-    expect(derived.conventions?.directoryLayout).toBeUndefined();
+    // Three names, none of them discriminating, attest to no casing.
     expect(derived.conventions?.naming).toBeUndefined();
+  });
+
+  it("derives the layout of a monorepo from the shape its components repeat", () => {
+    const evidence = {
+      rootEntries: ["apps", "Api.sln"],
+      files: [
+        "apps/backend/src/Program.cs",
+        "apps/backend/src/OrderService.cs",
+        "apps/backend/tests/OrderServiceTests.cs",
+        "apps/worker/src/Worker.cs",
+        "apps/worker/src/QueueReader.cs",
+        "apps/worker/tests/WorkerTests.cs",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value:
+        "Place new source in `<component>/src/` below `apps/`, and its tests in `<component>/tests/`.",
+      evidence: "layout:2 components under apps; 4 source files, 2 test files",
+    });
+    expect(derived.conventions?.naming).toEqual({
+      status: "derived",
+      value:
+        "Name new files in PascalCase, as the csharp files in this project already are.",
+      evidence: "naming:PascalCase on 6 of 6 csharp files",
+    });
+  });
+
+  it("describes components that sit at the repository root", () => {
+    const evidence = {
+      rootEntries: ["backend", "worker"],
+      files: [
+        "backend/src/handler.ts",
+        "backend/src/router.ts",
+        "backend/tests/handler.test.ts",
+        "worker/src/queue.ts",
+        "worker/src/runner.ts",
+        "worker/tests/queue.test.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value:
+        "Place new source in `<component>/src/`, one directory per component at the repository root, and its tests in `<component>/tests/`.",
+      evidence:
+        "layout:2 components under the root; 4 source files, 2 test files",
+    });
+  });
+
+  it("derives a root layout and says where its tests sit", () => {
+    const evidence = {
+      rootEntries: ["src", "tests", "package.json"],
+      files: [
+        "src/parse-order.ts",
+        "src/user-store.ts",
+        "src/http-server.ts",
+        "src/index.ts",
+        "tests/parse-order.test.ts",
+        "tests/user-store.test.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value:
+        "Place new source under `src/` at the repository root and its tests in the sibling `tests/` directory.",
+      evidence: "layout:root src; 4 source files, 2 test files",
+    });
+    // A single-word lowercase name is compatible with kebab-case, so it
+    // supports the convention the separated names attest to.
+    expect(derived.conventions?.naming).toEqual({
+      status: "derived",
+      value:
+        "Name new files in kebab-case, as the typescript files in this project already are.",
+      evidence: "naming:kebab-case on 6 of 6 typescript files",
+    });
+  });
+
+  it("says tests sit beside the code when no test directory holds them", () => {
+    const evidence = {
+      rootEntries: ["src", "pyproject.toml"],
+      files: [
+        "src/parse_order.py",
+        "src/user_store.py",
+        "src/http_server.py",
+        "src/queue_reader.py",
+        "src/test_parse_order.py",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value:
+        "Place new source under `src/` at the repository root and its tests beside the code they cover.",
+      evidence: "layout:root src; 5 source files",
+    });
+    expect(derived.conventions?.naming).toEqual({
+      status: "derived",
+      value:
+        "Name new files in snake_case, as the python files in this project already are.",
+      evidence: "naming:snake_case on 5 of 5 python files",
+    });
+  });
+
+  it("asks about naming when the observed file names are split between casings", () => {
+    const evidence = {
+      rootEntries: ["src", "package.json"],
+      files: [
+        "src/parse-order.ts",
+        "src/other-thing.ts",
+        "src/UserStore.ts",
+        "src/OrderThing.ts",
+        "src/httpServer.ts",
+        "src/api_client.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.naming).toBeUndefined();
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value: "Place new source under `src/` at the repository root.",
+      evidence: "layout:root src; 6 source files",
+    });
+  });
+
+  it("asks about naming when too few names were observed to call it a convention", () => {
+    const evidence = {
+      rootEntries: ["src", "package.json"],
+      files: ["src/parse-order.ts", "src/user-store.ts", "src/http-server.ts"],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.naming).toBeUndefined();
+  });
+
+  it("measures naming on the language the census counted most", () => {
+    const evidence = {
+      rootEntries: ["src"],
+      files: [
+        "src/OrderService.cs",
+        "src/UserRepository.cs",
+        "src/Program.cs",
+        "src/QueueReader.cs",
+        "src/HttpClientFactory.cs",
+        "src/deploy_release.sh",
+        "src/rotate_secrets.sh",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.conventions?.naming).toEqual({
+      status: "derived",
+      value:
+        "Name new files in PascalCase, as the csharp files in this project already are.",
+      evidence: "naming:PascalCase on 5 of 5 csharp files",
+    });
+  });
+
+  it("asks about naming rather than answering off a smaller language", () => {
+    const evidence = {
+      rootEntries: ["src"],
+      files: [
+        "src/order-service.ts",
+        "src/UserStore.ts",
+        "src/httpServer.ts",
+        "src/queue_reader.ts",
+        "src/OrderThing.ts",
+        "src/other-thing.ts",
+        "src/deploy_release.sh",
+        "src/rotate_secrets.sh",
+        "src/publish_bundle.sh",
+        "src/tag_release.sh",
+        "src/sign_artifact.sh",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    // The project is written in TypeScript and its TypeScript names disagree.
+    // The shell scripts are consistent, and answering with their convention
+    // would instruct an agent writing TypeScript in the shell one.
+    expect(derived.conventions?.naming).toBeUndefined();
+  });
+
+  it("asks about the layout when the source directories share no shape", () => {
+    const evidence = {
+      rootEntries: ["services"],
+      files: [
+        "services/api/src/handler.ts",
+        "services/api/src/router.ts",
+        "services/worker/lib/queue.ts",
+        "services/worker/lib/runner.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toBeDefined();
+    expect(derived.conventions?.directoryLayout).toBeUndefined();
   });
 
   it("produces deterministic output for arbitrary manifest and entry orders", () => {
