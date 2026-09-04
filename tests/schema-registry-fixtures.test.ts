@@ -64,6 +64,7 @@ import repairResolution from "../fixtures/contracts/v1/repair-resolution.json" w
 import repairResolutionV1_1 from "../fixtures/contracts/v1.1/repair-resolution.json" with { type: "json" };
 import repairRestart from "../fixtures/contracts/v1/repair-restart.json" with { type: "json" };
 import preToolUse from "../fixtures/contracts/v1/pre-tool-use.json" with { type: "json" };
+import migrationPlan from "../fixtures/contracts/v1/migration-plan.json" with { type: "json" };
 import projectProfile from "../fixtures/contracts/v1/project-profile.json" with { type: "json" };
 import requirementDiscovery from "../fixtures/contracts/v1/requirement-discovery.json" with { type: "json" };
 import runUsage from "../fixtures/contracts/v1/run-usage.json" with { type: "json" };
@@ -342,6 +343,16 @@ const fixtures = [
     requiredField: "operation",
     structuralReasonCode: "guard.target_uninspectable",
     fixture: preToolUse,
+    invalidVersionReason: "contract.host_version_invalid",
+    unsupportedVersionReason: "contract.host_version_unsupported",
+  },
+  {
+    id: "host.migration-plan",
+    version: "1.0.0",
+    versionField: "hostContract",
+    requiredField: "status",
+    structuralReasonCode: "trail.output_invalido",
+    fixture: migrationPlan,
     invalidVersionReason: "contract.host_version_invalid",
     unsupportedVersionReason: "contract.host_version_unsupported",
   },

@@ -2,6 +2,7 @@ import goldenV1 from "./fixtures/events/golden-event-v1.json" with { type: "json
 
 import type {
   EventV1,
+  MigrationPlanV1,
   MigrationV1_1,
   ProjectConfigV1,
   ProjectConfigV1_1,
@@ -1320,6 +1321,38 @@ describe("configuration migration", () => {
     expect(run.storage.snapshot()).toEqual(before);
   });
 
+  it("authorizes the apply from the machine-readable preview alone", async () => {
+    // The plan digest is derived from the plan instant, so a caller holding
+    // only --json could not reconstruct the apply while the instant lived in
+    // the human render alone.
+    const run = legacyProjectWithHistory();
+
+    expect(
+      await runCommandLine(["--json", "migrate", "config"], run.ports),
+    ).toBe(0);
+
+    const preview = JSON.parse(
+      run.output.structured_.join(""),
+    ) as MigrationPlanV1;
+    expect(preview.status).toBe("preview");
+    expect(preview.plan?.planDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(preview.plan?.writes.map(({ path }) => path)).toContain(CONFIG_REF);
+    if (preview.plan === null) throw new Error("expected a plan");
+
+    const applied = await runCommandLine(
+      [
+        "--json",
+        ...authorizedArguments({
+          planDigest: preview.plan.planDigest,
+          planTime: preview.plan.planTime,
+        }),
+      ],
+      run.ports,
+    );
+
+    expect(applied).toBe(0);
+  });
+
   it("treats a current configuration as an idempotent no-op", async () => {
     const first = legacyProjectWithHistory();
     expect(await runAuthorizedConfigMigration(first)).toBe(0);
@@ -1336,8 +1369,12 @@ describe("configuration migration", () => {
     ).toBe(0);
 
     expect(current.storage.snapshot()).toEqual(before);
-    expect(JSON.parse(current.output.structured_.join(""))).toMatchObject({
-      stateChanged: false,
+    // A configuration already on the current contract has no plan to carry.
+    expect(JSON.parse(current.output.structured_.join(""))).toEqual({
+      contractVersion: "1.0.0",
+      hostContract: "1.4.0",
+      status: "current",
+      plan: null,
     });
   });
 

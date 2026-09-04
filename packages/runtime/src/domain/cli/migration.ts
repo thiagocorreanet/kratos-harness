@@ -1,4 +1,4 @@
-import type { MigrationV1 } from "@kratos/contracts";
+import type { MigrationPlanV1, MigrationV1 } from "@kratos/contracts";
 
 import {
   authorizeMigration,
@@ -16,7 +16,6 @@ import { observingCommand } from "./observed.js";
 import {
   renderApplyInstructions,
   renderPosixCommand,
-  shellArgument,
 } from "./shell-argument.js";
 import type {
   CommandObservation,
@@ -97,7 +96,7 @@ export const migrateConfigCommand: CommandSpec = observingCommand(
       },
     ],
     positionals: { min: 0, max: 0 },
-    jsonContract: "result@1.0.0",
+    jsonContract: "migration-plan@1.0.0",
   },
   (invocation, observation) => migrateConfig(invocation, observation),
 );
@@ -282,9 +281,12 @@ function migrateConfig(
 ): Decision {
   const operation = observation.operation;
   if (operation.kind === "config-current") {
-    return orientation(
-      `Project configuration ${operation.sha256} is already current.`,
-    );
+    return {
+      ...orientation(
+        `Project configuration ${operation.sha256} is already current.`,
+      ),
+      payload: migrationPlanPayload("current", null),
+    };
   }
   if (operation.kind !== "config") return corrupt();
 
@@ -301,9 +303,15 @@ function migrateConfig(
         `Plan digest: ${operation.planDigest}`,
         `Plan time: ${operation.now}`,
         ...details,
-        `Apply command: ${configApplyCommand(invocation, operation.planDigest, operation.now)}`,
+        ...renderApplyInstructions(
+          configMigrationApplyArgv(
+            invocation,
+            operation.planDigest,
+            operation.now,
+          ),
+        ),
       ].join("\n")}\n`,
-      payload: null,
+      payload: migrationPlanPayload("preview", operation),
     };
   }
   if (
@@ -322,6 +330,7 @@ function migrateConfig(
       })),
       why: operation.defaulted.map((path) => `defaulted: ${path}`),
     }),
+    payload: migrationPlanPayload("applied", operation),
     plan: planOf(
       ...operation.guards.map(({ path, content, expected }) => ({
         kind: "write_file" as const,
@@ -337,7 +346,37 @@ function migrateConfig(
       })),
     ),
     humanStdout: null,
-    payload: null,
+  };
+}
+
+/**
+ * The plan as a host reads it, rather than as a sentence it would have to
+ * parse.
+ *
+ * The apply is authorized by the exact digest and the exact instant the
+ * preview planned at, and the digest is derived from that instant, so a caller
+ * holding only the machine-readable output could not reconstruct the
+ * invocation while these lived in the human render alone.
+ */
+function migrationPlanPayload(
+  status: MigrationPlanV1["status"],
+  operation: ConfigOperation | null,
+): MigrationPlanV1 {
+  return {
+    contractVersion: "1.0.0",
+    hostContract: "1.4.0",
+    status,
+    plan:
+      operation === null
+        ? null
+        : {
+            planDigest: operation.planDigest,
+            planTime: operation.now,
+            writes: operation.writes.map(({ path, sha256 }) => ({
+              path,
+              sha256,
+            })),
+          },
   };
 }
 
@@ -602,24 +641,25 @@ function chunk(value: string, maximum: number): string[] {
   return chunks;
 }
 
-function configApplyCommand(
+/**
+ * The exact argv that authorizes this preview.
+ *
+ * Values are collected unquoted; quoting belongs to whichever shell display
+ * `renderApplyInstructions` renders, and the argv line itself is the authority
+ * a host reads.
+ */
+export function configMigrationApplyArgv(
   invocation: Invocation,
   planDigest: string,
   planTime: string,
-): string {
-  const arguments_: string[] = ["kratos", "migrate", "config"];
+): string[] {
+  const argv: string[] = ["kratos", "migrate", "config"];
   for (const flag of ["--root", "--answers"] as const) {
     const value = invocation.flags.get(flag);
-    if (typeof value === "string") arguments_.push(flag, shellArgument(value));
+    if (typeof value === "string") argv.push(flag, value);
   }
-  arguments_.push(
-    "--yes",
-    "--plan-digest",
-    planDigest,
-    "--plan-time",
-    planTime,
-  );
-  return arguments_.join(" ");
+  argv.push("--yes", "--plan-digest", planDigest, "--plan-time", planTime);
+  return argv;
 }
 
 function json(value: unknown): string {

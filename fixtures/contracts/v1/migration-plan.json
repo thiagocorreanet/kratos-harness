@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.0.0",
+  "hostContract": "1.4.0",
+  "status": "preview",
+  "plan": {
+    "planDigest": "11fb2b79000000000000000000000000000000000000000000000000000d0d54",
+    "planTime": "2026-08-29T00:00:00.000Z",
+    "writes": [
+      {
+        "path": ".brain/config.json",
+        "sha256": "4934fb90ff8365eb3129ec2bbca57c65d5755698c4579688bbf1824d5a2e3231"
+      }
+    ]
+  }
+}

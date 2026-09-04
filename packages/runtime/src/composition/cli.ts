@@ -1,6 +1,7 @@
 import {
   CONTRACT_VERSIONS,
   type DoctorReportV1,
+  type MigrationPlanV1,
   type ProjectProfileV1,
 } from "@kratos/contracts";
 
@@ -151,6 +152,24 @@ function prepareDoctorReportPayload(
   return { canonical: prepared.canonical, value: prepared.value };
 }
 
+function prepareMigrationPlanPayload(
+  payload: unknown,
+  registry: SchemaRegistry,
+): { readonly canonical: string; readonly value: MigrationPlanV1 } {
+  const version = declaredContractVersion(payload, "contractVersion", "1.0.0");
+  const prepared = prepareContract(registry, {
+    id: "host.migration-plan",
+    version,
+    value: payload,
+    structuralReasonCode: "trail.output_invalido",
+  });
+  if (prepared.kind === "invalid") {
+    throw new Error("Command payload does not satisfy its declared contract");
+  }
+  validatePublicPayload(prepared.value);
+  return { canonical: prepared.canonical, value: prepared.value };
+}
+
 function prepareProjectProfilePayload(
   payload: unknown,
   registry: SchemaRegistry,
@@ -271,6 +290,18 @@ export async function runCommandLine(
       );
       preparedOutput = json
         ? `${doctor.canonical}\n`
+        : (decision.humanStdout ?? `${decision.result.summary}\n`);
+      if (!json) validatePublicText(preparedOutput);
+    } else if (invocation.command.jsonContract === "migration-plan@1.0.0") {
+      if (decision.payload === undefined) {
+        throw new Error("Command payload is absent");
+      }
+      const migration = prepareMigrationPlanPayload(
+        decision.payload,
+        schemaRegistry,
+      );
+      preparedOutput = json
+        ? `${migration.canonical}\n`
         : (decision.humanStdout ?? `${decision.result.summary}\n`);
       if (!json) validatePublicText(preparedOutput);
     } else if (invocation.command.jsonContract === "project-profile@1.0.0") {

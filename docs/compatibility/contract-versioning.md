@@ -94,6 +94,12 @@ follow `CONTRACT_VERSIONS`:
   profile `kratos profile derive` publishes. Every answer is present: a leaf
   the derivation produced carries its `derived` value and evidence, and a leaf
   it did not carries `unresolved` and nothing else.
+- `host.migration-plan@1.0.0` is the structured configuration migration plan
+  `kratos migrate config` publishes. It replaces the result envelope on that
+  command's successful `--json` output. A preview and a completed apply carry
+  the plan digest, the plan instant, and the exact write paths; a configuration
+  already on the current contract carries `status: "current"` and a null plan,
+  because there is no plan to carry.
 - The current memory-aware selectors are `host.phase-handoff@1.4.0`,
   `host.agent-output@1.3.0`, `host.memory-capture@1.2.0`,
   `host.memory-change@1.4.0`, `host.memory-curation@1.4.0`, and

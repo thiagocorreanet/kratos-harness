@@ -3,6 +3,7 @@ export { DEFAULT_REGISTRY } from "./commands.js";
 export { dispatch } from "./dispatch.js";
 export { initCommand } from "./init.js";
 export {
+  configMigrationApplyArgv,
   memoryMigrationApplyArgv,
   renderMemoryMigrationApply,
 } from "./migration.js";
