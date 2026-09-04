@@ -56,7 +56,7 @@ describe("runtime distribution", () => {
       const core = await readFile(join(root, manifest.runtime.core));
 
       expect(manifest.contractVersion).toBe("1.0.0");
-      expect(manifest.pluginVersion).toBe("0.3.0");
+      expect(manifest.pluginVersion).toBe("0.4.0");
       expect(manifest.host.name).toBe(host);
       expect(manifest.host.assetsSha256).toMatch(/^[a-f0-9]{64}$/u);
       expect(manifest.runtime).toMatchObject({

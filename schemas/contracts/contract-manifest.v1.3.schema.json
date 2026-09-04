@@ -16,7 +16,7 @@
   ],
   "properties": {
     "contractVersion": { "const": "1.0.0" },
-    "pluginVersion": { "const": "0.3.0" },
+    "pluginVersion": { "const": "0.4.0" },
     "resultContract": { "const": "1.0.0" },
     "reasonCatalog": { "const": "1.8.0" },
     "stateContract": {

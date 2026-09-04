@@ -1,7 +1,7 @@
 {
   "contractVersion": "1.3.0",
   "stateContract": "1.3.0",
-  "pluginVersion": "0.3.0",
+  "pluginVersion": "0.4.0",
   "hostContract": "1.3.0",
   "language": {
     "conversation": "en",

@@ -1,7 +1,7 @@
 {
   "contractVersion": "1.1.0",
   "stateContract": "1.1.0",
-  "pluginVersion": "0.3.0",
+  "pluginVersion": "0.4.0",
   "hostContract": "1.1.0",
   "language": "en",
   "policyMode": "strict",

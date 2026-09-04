@@ -62,7 +62,7 @@ describe("standalone runtime package", () => {
       const result = execute(host, "--version");
 
       expect(result.status).toBe(0);
-      expect(result.stdout).toBe("0.3.0\n");
+      expect(result.stdout).toBe("0.4.0\n");
       expect(result.stderr).toBe("");
     },
   );
