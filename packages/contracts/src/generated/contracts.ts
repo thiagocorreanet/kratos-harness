@@ -55,12 +55,12 @@
 // source: https://kratos.dev/schemas/state/migration/v1.1 sha256:4223e8c4d4f69d60453edc2aaa880f0b0d04fdfea435ea45e378abff0d6aea38
 // source: https://kratos.dev/schemas/state/narration/v1 sha256:b3d99195b1792dbfb6d0d693f24fcfc546f0993c9fafcce4d873218aa7058e5f
 // source: https://kratos.dev/schemas/state/phase-measurement/v1 sha256:c783ccba225a9cd283460d11f9f1b590195c70ddcc8af28bf2bd891014888548
-// source: https://kratos.dev/schemas/state/project-config/v1 sha256:1dab1c54555c62b2b1fd6bd8d73232d5a363ca33ce1127fd1d2d0f7403b4993c
-// source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:0128b06de2ff573a4b07f2ee867c782e673c15012690591f518e1923a9f9799c
-// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:e9974da03424b1434214b017e9ed3713336bfc9976dcb221518ac10eb54235f0
-// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:72709c73c7ed91b5695ee7f640ec4cb49b2c0b9de546448c7e2b516a6bcb2120
-// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:ef6a7b72d92f7f0b292e582e8dc7ce5dbbfaed5fb54d66c372f5c276befec929
-// source: https://kratos.dev/schemas/state/project-config/v1.5 sha256:a24bdd38c01b74471bf458f6778cad24cd4fcfca72c3c487f6a0fa94d170a6ea
+// source: https://kratos.dev/schemas/state/project-config/v1 sha256:14f90509bf59676c51980214418e4a67c86ba29b63d03626d93d17df65b70cd3
+// source: https://kratos.dev/schemas/state/project-config/v1.1 sha256:f03afbf773e7994a80535497ff8c067ba10714bc0dc315b373c2c8eff2870052
+// source: https://kratos.dev/schemas/state/project-config/v1.2 sha256:b80f716eb284153fcadc12bddaeb83ae1e0a476b18247fedb69c458b7ddeab97
+// source: https://kratos.dev/schemas/state/project-config/v1.3 sha256:f09065e00c907658c78d774452b614ecce4eaa6d663bc985e48980bfb5310ddb
+// source: https://kratos.dev/schemas/state/project-config/v1.4 sha256:9a0c8dcc4e895336e64482f049643b88791345b95e785d9d94bb592d4a7b492a
+// source: https://kratos.dev/schemas/state/project-config/v1.5 sha256:9fdb7e0bec669edcd59beedf7aa7c5310f43e5fe3f75102f7118a1722baee5f7
 // source: https://kratos.dev/schemas/state/requirement-discovery/v1 sha256:7974861ace6571c08cc3cee2921715f06800e48fb5ee9767cdcf45c0dc4354b4
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1 sha256:bf18ca66a29e1615e4714bcc081b8d41257cd553d9e3466d26846ce7d441d21b
 // source: https://kratos.dev/schemas/state/repair-loop-stop/v1.1 sha256:8dde526faeb7bc240f31e6edef90f6c2670e166dad0b75cda25ab58734386124
@@ -4675,10 +4675,12 @@ export namespace PhaseMeasurementV1Contract {
 }
 export type PhaseMeasurementV1 = PhaseMeasurementV1Contract.PhaseMeasurementV1;
 export namespace ProjectConfigV1Contract {
+  export type PluginVersion = string;
+
   export interface ProjectConfigV1 {
     contractVersion: "1.0.0";
     stateContract: "1.0.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.0.0";
     language: "en" | "pt-BR";
     policyMode: "standard" | "strict";
@@ -4691,6 +4693,7 @@ export namespace ProjectConfigV1Contract {
 }
 export type ProjectConfigV1 = ProjectConfigV1Contract.ProjectConfigV1;
 export namespace ProjectConfigV1_1Contract {
+  export type PluginVersion = string;
   export type Assignment =
     | Id
     | {
@@ -4702,7 +4705,7 @@ export namespace ProjectConfigV1_1Contract {
   export interface ProjectConfigV1_1 {
     contractVersion: "1.1.0";
     stateContract: "1.1.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.1.0";
     language: "en" | "pt-BR";
     policyMode: "standard" | "strict";
@@ -4725,6 +4728,7 @@ export namespace ProjectConfigV1_1Contract {
 }
 export type ProjectConfigV1_1 = ProjectConfigV1_1Contract.ProjectConfigV1_1;
 export namespace ProjectConfigV1_2Contract {
+  export type PluginVersion = string;
   export type LanguageCode = "en" | "pt-BR";
   export type Assignment =
     | Id
@@ -4737,7 +4741,7 @@ export namespace ProjectConfigV1_2Contract {
   export interface ProjectConfigV1_2 {
     contractVersion: "1.2.0";
     stateContract: "1.2.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.2.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
@@ -4770,6 +4774,7 @@ export namespace ProjectConfigV1_2Contract {
 }
 export type ProjectConfigV1_2 = ProjectConfigV1_2Contract.ProjectConfigV1_2;
 export namespace ProjectConfigV1_3Contract {
+  export type PluginVersion = string;
   export type LanguageCode = "en" | "pt-BR";
   export type Assignment =
     | Id
@@ -4792,7 +4797,7 @@ export namespace ProjectConfigV1_3Contract {
   export interface ProjectConfigV1_3 {
     contractVersion: "1.3.0";
     stateContract: "1.3.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.3.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
@@ -4876,6 +4881,7 @@ export namespace ProjectConfigV1_3Contract {
 }
 export type ProjectConfigV1_3 = ProjectConfigV1_3Contract.ProjectConfigV1_3;
 export namespace ProjectConfigV1_4Contract {
+  export type PluginVersion = string;
   export type LanguageCode = "en" | "pt-BR";
   export type GateMode = "shadow" | "warn" | "enforce";
   export type Assignment =
@@ -4899,7 +4905,7 @@ export namespace ProjectConfigV1_4Contract {
   export interface ProjectConfigV1_4 {
     contractVersion: "1.4.0";
     stateContract: "1.4.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.4.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";
@@ -4995,6 +5001,7 @@ export namespace ProjectConfigV1_4Contract {
 }
 export type ProjectConfigV1_4 = ProjectConfigV1_4Contract.ProjectConfigV1_4;
 export namespace ProjectConfigV1_5Contract {
+  export type PluginVersion = string;
   export type LanguageCode = "en" | "pt-BR";
   export type GateMode = "shadow" | "warn" | "enforce";
   export type Assignment =
@@ -5025,7 +5032,7 @@ export namespace ProjectConfigV1_5Contract {
   export interface ProjectConfigV1_5 {
     contractVersion: "1.5.0";
     stateContract: "1.5.0";
-    pluginVersion: "0.3.0";
+    pluginVersion: PluginVersion;
     hostContract: "1.4.0";
     language: LanguagePolicy;
     policyMode: "standard" | "strict";

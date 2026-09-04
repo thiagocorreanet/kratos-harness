@@ -352,6 +352,66 @@ describe("configuration migration", () => {
     expect(after[SNAPSHOT_REF]).toBe(before[SNAPSHOT_REF]);
   });
 
+  it("migrates a configuration an older plugin wrote, not only one this version wrote", async () => {
+    // A v0.2.0 project carries `pluginVersion: "0.2.0"`. Pinning the legacy
+    // schema to the shipping version made that document unreadable, so the
+    // upgrade the command exists to perform was refused as corrupt.
+    const source: ProjectConfigV1_4 = {
+      contractVersion: "1.4.0",
+      stateContract: "1.4.0",
+      pluginVersion: "0.2.0",
+      hostContract: "1.4.0",
+      language: {
+        conversation: "en",
+        documentation: "en",
+        comments: "en",
+        identifiers: "en",
+        commits: "en",
+        preserveConventions: true,
+        enforcement: "advisory",
+      },
+      policyMode: "strict",
+      gateModes: { "spec-approved": "enforce" },
+      managedState: {
+        directory: ".brain",
+        eventLog: "events.jsonl",
+        snapshots: true,
+      },
+      modelRoles: { codex: codexCatalog().defaults },
+      projectProfile: {
+        commands: {
+          test: { status: "resolved", value: "npm test" },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "resolved", value: ["src"] },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+      acceptanceAttemptCeiling: 3,
+    };
+    const run = legacyProjectWithHistory([null, null], undefined, {
+      [CONFIG_REF]: `${JSON.stringify(source, null, 2)}\n`,
+    });
+
+    expect(await runAuthorizedConfigMigration(run)).toBe(0);
+
+    const migrated = JSON.parse(
+      run.storage.snapshot().files[CONFIG_REF] ?? "null",
+    ) as ProjectConfigV1_5;
+    expect(migrated.stateContract).toBe("1.5.0");
+    // The upgrade carries the writing version forward rather than restating it.
+    expect(migrated.pluginVersion).toBe("0.2.0");
+  });
+
   it("migrates 1.3 configuration without rewriting predecessor history", async () => {
     const source: ProjectConfigV1_3 = {
       contractVersion: "1.3.0",

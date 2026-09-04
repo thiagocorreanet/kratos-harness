@@ -824,7 +824,7 @@ describe("versioned state and host schemas", () => {
   it.each([
     [
       "state/project-config.v1.schema.json",
-      "1dab1c54555c62b2b1fd6bd8d73232d5a363ca33ce1127fd1d2d0f7403b4993c",
+      "14f90509bf59676c51980214418e4a67c86ba29b63d03626d93d17df65b70cd3",
     ],
     [
       "state/event.v1.schema.json",
@@ -884,15 +884,15 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "state/project-config.v1.1.schema.json",
-      "0128b06de2ff573a4b07f2ee867c782e673c15012690591f518e1923a9f9799c",
+      "f03afbf773e7994a80535497ff8c067ba10714bc0dc315b373c2c8eff2870052",
     ],
     [
       "state/project-config.v1.2.schema.json",
-      "e9974da03424b1434214b017e9ed3713336bfc9976dcb221518ac10eb54235f0",
+      "b80f716eb284153fcadc12bddaeb83ae1e0a476b18247fedb69c458b7ddeab97",
     ],
     [
       "state/project-config.v1.3.schema.json",
-      "72709c73c7ed91b5695ee7f640ec4cb49b2c0b9de546448c7e2b516a6bcb2120",
+      "f09065e00c907658c78d774452b614ecce4eaa6d663bc985e48980bfb5310ddb",
     ],
   ])("keeps the published %s schema byte-identical", async (path, digest) => {
     const bytes = await readFile(join(schemaRoot, path));

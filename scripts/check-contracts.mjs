@@ -115,7 +115,28 @@ async function verifyArtifacts() {
       throw new VerificationError("registered schema could not be compiled");
     }
   }
+  assertPluginVersionIsNotPinned(registeredSchemas);
   return manifest;
+}
+
+/**
+ * A versioned state schema must not pin `pluginVersion` to one constant.
+ *
+ * A legacy schema exists to read a document an older plugin wrote, so pinning
+ * it to the shipping version makes every pre-upgrade configuration invalid and
+ * leaves `migrate config` with nothing it can read. The constant was rewritten
+ * across the whole historical set at each release, which is what made this
+ * recur; this check is what stops the next release from doing it again.
+ */
+function assertPluginVersionIsNotPinned(schemas) {
+  for (const schema of schemas) {
+    const pluginVersion = schema.properties?.pluginVersion;
+    if (pluginVersion?.const !== undefined) {
+      throw new VerificationError(
+        `${schema.$id} pins pluginVersion to a constant`,
+      );
+    }
+  }
 }
 
 function parseArguments(argv) {
