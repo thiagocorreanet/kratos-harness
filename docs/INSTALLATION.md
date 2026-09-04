@@ -94,6 +94,40 @@ Before handing a package to a host, confirm the runtime inside it answers:
 `version` prints the plugin version; `handshake --json` prints the contract
 versions the package carries. Repeat for `codex/` and `antigravity/`.
 
+## What a rollback can and cannot recover
+
+Reinstalling the previous release restores the plugin. It does not restore a
+project the newer plugin already wrote to, and for one class of project the
+older plugin refuses to read it at all.
+
+A configuration records the `pluginVersion` that wrote it, and an upgrade
+carries that value forward rather than restating it. Up to and including
+v0.3.0, each versioned `state.project-config` schema pinned the field to the
+version shipping it, so a package refuses any configuration a different plugin
+version wrote. v0.4.0 replaced that constant with a semver pattern, which is
+what lets a newer plugin read an older project -- but it cannot change a
+package that already shipped.
+
+The result is one-directional. Rolling the plugin back is safe for a project
+that predates the release you are leaving, and destructive for one that
+release initialized or migrated: the older runtime reports
+`context_unreadable` and exits 4.
+
+Before rolling back, decide per project:
+
+- **Initialized under the older plugin, then updated.** Its configuration still
+  records the older version. It reads on both.
+- **Initialized or migrated under the newer plugin.** It does not read on the
+  older one. Restore the project from a snapshot taken before the update, or
+  keep the newer plugin.
+
+Editing `pluginVersion` by hand inside managed state is the workaround the
+migration command exists to remove, and it is not a supported recovery.
+
+Keep the previous `~/.kratos/releases/<version>` tree until the new one is
+accepted, and take a snapshot of any project before updating the plugin under
+it.
+
 ## Install in Claude Code
 
 Claude Code installs a plugin from a marketplace, and accepts a local directory
@@ -123,8 +157,10 @@ claude plugin install kratos@kratos-open-source
 ### Roll back
 
 Rolling back is the same sequence pointed at the previous release directory,
-which is why each release is extracted under its own version. Keep the previous
-`~/.kratos/releases/<version>` tree until the new one is accepted.
+which is why each release is extracted under its own version. Read
+[what a rollback can and cannot recover](#what-a-rollback-can-and-cannot-recover)
+first: the plugin goes back, and a project the newer plugin initialized or
+migrated does not.
 
 ### Uninstall
 
@@ -166,7 +202,9 @@ marketplace in place.
 ### Roll back
 
 Remove the marketplace, add the previous release's `marketplace` directory, and
-reinstall from `codex /plugins`.
+reinstall from `codex /plugins`. The project-side limit in
+[what a rollback can and cannot recover](#what-a-rollback-can-and-cannot-recover)
+applies here too.
 
 ### Uninstall
 
@@ -222,6 +260,10 @@ agy plugin install "$KRATOS_HOME/antigravity"
 agy plugin uninstall kratos
 agy plugin install ~/.kratos/releases/<previous-version>/antigravity
 ```
+
+The project-side limit in
+[what a rollback can and cannot recover](#what-a-rollback-can-and-cannot-recover)
+applies here too.
 
 `agy plugin disable kratos` suspends the plugin without removing it, and
 `agy plugin enable kratos` restores it. Prefer disabling while diagnosing a
@@ -291,9 +333,21 @@ node scripts/install-plugin.mjs install \
 
 The same script supports `update`, `rollback`, `commit`, and `uninstall` with
 the same `--host` and `--target` arguments. It refuses a downgrade, keeps the
-replaced version as a rollback copy until `commit`, and `uninstall` quarantines
-the installation instead of deleting it. None of these operations touches
-project-owned state.
+replaced version as a rollback copy at `<target>.rollback` until `commit`, and
+never deletes what it replaces: `rollback` moves the rejected version to
+`<target>.failed` and `uninstall` moves the installation to
+`<target>.uninstalled`.
+
+Each quarantine blocks the operation that would overwrite it, so a second
+`rollback` refuses while `<target>.failed` is present, and `install` refuses
+while either quarantine is. Inspect the quarantined tree, then remove it to
+proceed. `update` over a bundle whose runtime and asset digests already match
+the installed one is a no-op, so it leaves no rollback copy and `commit` then
+has nothing to discard.
+
+None of these operations touches project-owned state, which is also why none of
+them recovers it -- see
+[what a rollback can and cannot recover](#what-a-rollback-can-and-cannot-recover).
 
 ## Initialize a project
 
