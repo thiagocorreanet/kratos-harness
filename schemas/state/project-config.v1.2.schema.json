@@ -17,7 +17,7 @@
   "properties": {
     "contractVersion": { "const": "1.2.0" },
     "stateContract": { "const": "1.2.0" },
-    "pluginVersion": { "const": "0.3.0" },
+    "pluginVersion": { "$ref": "#/$defs/pluginVersion" },
     "hostContract": { "const": "1.2.0" },
     "language": { "$ref": "#/$defs/languagePolicy" },
     "policyMode": { "enum": ["standard", "strict"] },
@@ -34,6 +34,10 @@
     "modelRoles": { "$ref": "#/$defs/modelRoles" }
   },
   "$defs": {
+    "pluginVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
     "languageCode": {
       "enum": ["en", "pt-BR"]
     },
