@@ -64,6 +64,158 @@ describe("pure project profile derivation", () => {
     });
   });
 
+  it("names the package manager the lockfile at the root attests to", () => {
+    // `npm test` on a pnpm project is the wrong command, and a wrong command
+    // that is recorded without being put to the operator is granted an
+    // allowance nobody checked.
+    const manifests: ManifestContents = {
+      packageJson: JSON.stringify({
+        scripts: {
+          test: "vitest run",
+          lint: "eslint .",
+          build: "next build",
+          start: "next start",
+        },
+      }),
+    };
+
+    const pnpm = deriveProjectProfile(
+      { rootEntries: ["package.json", "pnpm-lock.yaml"] },
+      manifests,
+    );
+    expect(pnpm.commands).toEqual({
+      test: {
+        status: "derived",
+        value: "pnpm test",
+        evidence: "package.json#scripts.test via pnpm-lock.yaml",
+      },
+      lint: {
+        status: "derived",
+        value: "pnpm run lint",
+        evidence: "package.json#scripts.lint via pnpm-lock.yaml",
+      },
+      build: {
+        status: "derived",
+        value: "pnpm run build",
+        evidence: "package.json#scripts.build via pnpm-lock.yaml",
+      },
+      run: {
+        status: "derived",
+        value: "pnpm start",
+        evidence: "package.json#scripts.start via pnpm-lock.yaml",
+      },
+    });
+
+    const yarn = deriveProjectProfile(
+      { rootEntries: ["package.json", "yarn.lock"] },
+      manifests,
+    );
+    expect(yarn.commands?.test).toEqual({
+      status: "derived",
+      value: "yarn test",
+      evidence: "package.json#scripts.test via yarn.lock",
+    });
+    expect(
+      yarn.commands?.lint?.status === "derived" && yarn.commands.lint.value,
+    ).toBe("yarn run lint");
+
+    // `bun test` is Bun's own runner, not the declared script, so every slot
+    // goes through `bun run`.
+    const bun = deriveProjectProfile(
+      { rootEntries: ["package.json", "bun.lockb"] },
+      manifests,
+    );
+    expect(bun.commands).toEqual({
+      test: {
+        status: "derived",
+        value: "bun run test",
+        evidence: "package.json#scripts.test via bun.lockb",
+      },
+      lint: {
+        status: "derived",
+        value: "bun run lint",
+        evidence: "package.json#scripts.lint via bun.lockb",
+      },
+      build: {
+        status: "derived",
+        value: "bun run build",
+        evidence: "package.json#scripts.build via bun.lockb",
+      },
+      run: {
+        status: "derived",
+        value: "bun run start",
+        evidence: "package.json#scripts.start via bun.lockb",
+      },
+    });
+
+    const npm = deriveProjectProfile(
+      { rootEntries: ["package.json", "package-lock.json"] },
+      manifests,
+    );
+    expect(npm.commands?.test).toEqual({
+      status: "derived",
+      value: "npm test",
+      evidence: "package.json#scripts.test via package-lock.json",
+    });
+  });
+
+  it("lets the packageManager field outrank the lockfile", () => {
+    const manifests: ManifestContents = {
+      packageJson: JSON.stringify({
+        packageManager: "pnpm@9.12.0+sha512.abc",
+        scripts: { test: "vitest run" },
+      }),
+    };
+
+    const derived = deriveProjectProfile(
+      { rootEntries: ["package.json", "package-lock.json"] },
+      manifests,
+    );
+
+    expect(derived.commands?.test).toEqual({
+      status: "derived",
+      value: "pnpm test",
+      evidence: "package.json#scripts.test via package.json#packageManager",
+    });
+  });
+
+  it("derives no command from package.json when two lockfiles disagree", () => {
+    // Two lockfiles admit two readings that produce different commands, and
+    // that is the operator's call, not a coin the runtime flips.
+    const manifests: ManifestContents = {
+      packageJson: JSON.stringify({
+        scripts: { test: "vitest run", lint: "eslint ." },
+      }),
+    };
+
+    const derived = deriveProjectProfile(
+      { rootEntries: ["package.json", "pnpm-lock.yaml", "package-lock.json"] },
+      manifests,
+    );
+
+    expect(derived.commands).toBeUndefined();
+  });
+
+  it("ignores a packageManager field naming a manager it does not know", () => {
+    const manifests: ManifestContents = {
+      packageJson: JSON.stringify({
+        packageManager: "volta@1.0.0",
+        scripts: { test: "vitest run" },
+      }),
+    };
+
+    const derived = deriveProjectProfile(
+      { rootEntries: ["package.json", "yarn.lock"] },
+      manifests,
+    );
+
+    expect(derived.commands?.test).toEqual({
+      status: "derived",
+      value: "yarn test",
+      evidence: "package.json#scripts.test via yarn.lock",
+    });
+  });
+
   it("derives commands from Makefile targets", () => {
     const manifests: ManifestContents = {
       makefile: [
@@ -442,6 +594,42 @@ describe("pure project profile derivation", () => {
       status: "derived",
       value: ["apps/backend/tests"],
       evidence: "directory:apps/backend/tests (nested)",
+    });
+  });
+
+  it("does not offer a directory below the tests as source code", () => {
+    // `tests/unit/lib` carries a source candidate name, but a `lib` that sits
+    // below `tests` mirrors the source tree rather than being one, and naming
+    // it as a second source root also hid the layout of the real one.
+    const evidence = {
+      rootEntries: ["src", "tests", "package.json"],
+      files: [
+        "src/lib/parse-order.ts",
+        "src/lib/user-store.ts",
+        "src/lib/http-server.ts",
+        "src/index.ts",
+        "tests/unit/lib/parse-order.test.ts",
+        "tests/unit/lib/user-store.test.ts",
+      ],
+    };
+
+    const derived = deriveProjectProfile(evidence, {});
+
+    expect(derived.paths?.source).toEqual({
+      status: "derived",
+      value: ["src"],
+      evidence: "directory:src",
+    });
+    expect(derived.paths?.tests).toEqual({
+      status: "derived",
+      value: ["tests"],
+      evidence: "directory:tests",
+    });
+    expect(derived.conventions?.directoryLayout).toEqual({
+      status: "derived",
+      value:
+        "Place new source under `src/` at the repository root and its tests in the sibling `tests/` directory.",
+      evidence: "layout:root src; 4 source files, 2 test files",
     });
   });
 

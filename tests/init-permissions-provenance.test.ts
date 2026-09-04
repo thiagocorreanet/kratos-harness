@@ -142,6 +142,106 @@ describe("permission allowlist derivation and strict provenance", () => {
     expect(result.allow).toContain("Bash(make lint-all)");
   });
 
+  it("derives a permission for a derived project profile command and keeps its evidence", () => {
+    // The host records a derived answer without asking the operator, so a
+    // command the runtime read from a manifest must earn its allowance from
+    // that evidence rather than from a confirmation that no longer happens.
+    const profile: StackProfile = profileStack({ rootEntries: [] });
+    const answers = mockAnswers({
+      projectProfile: {
+        commands: {
+          test: {
+            status: "derived",
+            value: "pnpm test",
+            evidence: "package.json#scripts.test",
+          },
+          lint: {
+            status: "derived",
+            value: "make lint",
+            evidence: "Makefile:lint",
+          },
+          build: { status: "unresolved" },
+          run: { status: "not-applicable", reason: "library" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+    });
+    const result = deriveHostPermissions(answers, profile, { hasGit: false });
+
+    expect(result.allow).toEqual(["Bash(make lint)", "Bash(pnpm test)"]);
+    expect(result.provenance).toEqual([
+      {
+        permission: "Bash(pnpm test)",
+        origin: "derived_profile",
+        evidence: "package.json#scripts.test",
+      },
+      {
+        permission: "Bash(make lint)",
+        origin: "derived_profile",
+        evidence: "Makefile:lint",
+      },
+    ]);
+  });
+
+  it("rejects a derived permission whose evidence the profile does not carry", () => {
+    const profile: StackProfile = profileStack({ rootEntries: [] });
+    const answers = mockAnswers({
+      projectProfile: {
+        commands: {
+          test: {
+            status: "derived",
+            value: "pnpm test",
+            evidence: "package.json#scripts.test",
+          },
+          lint: { status: "unresolved" },
+          build: { status: "unresolved" },
+          run: { status: "unresolved" },
+        },
+        paths: {
+          source: { status: "unresolved" },
+          tests: { status: "unresolved" },
+          configuration: { status: "unresolved" },
+        },
+        conventions: {
+          directoryLayout: { status: "unresolved" },
+          naming: { status: "unresolved" },
+          implementationLanguages: { status: "unresolved" },
+        },
+      },
+    });
+
+    const wrongEvidence = {
+      permission: "Bash(pnpm test)",
+      origin: "derived_profile" as const,
+      evidence: "Makefile:test",
+    };
+    expect(() => {
+      assertPermissionProvenance(wrongEvidence, answers, profile, {
+        hasGit: false,
+      });
+    }).toThrow(/PERMISSION_WITHOUT_PROVENANCE/);
+
+    const wrongCommand = {
+      permission: "Bash(pnpm run build)",
+      origin: "derived_profile" as const,
+      evidence: "package.json#scripts.test",
+    };
+    expect(() => {
+      assertPermissionProvenance(wrongCommand, answers, profile, {
+        hasGit: false,
+      });
+    }).toThrow(/PERMISSION_WITHOUT_PROVENANCE/);
+  });
+
   it("asserts provenance for all derived permissions and throws on unproven allowances", () => {
     const profile = profileStack({ rootEntries: ["package.json"] });
     const answers = mockAnswers();
