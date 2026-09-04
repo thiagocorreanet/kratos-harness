@@ -48,6 +48,7 @@ import type {
   ProjectConfigV1_4,
   ProjectConfigV1_5,
   PreToolUseV1,
+  MigrationPlanV1,
   ProjectProfileV1,
   RequirementDiscoveryV1,
   RepairLoopStopV1,
@@ -95,6 +96,7 @@ export interface ContractValues {
   readonly "host.memory-change": MemoryChangeV1_2 | MemoryChangeV1_4;
   readonly "host.memory-curation": MemoryCurationV1_4;
   readonly "host.memory-migration": MemoryMigrationV1_2 | MemoryMigrationV1_4;
+  readonly "host.migration-plan": MigrationPlanV1;
   readonly "host.pre-tool-use": PreToolUseV1;
   readonly "host.project-profile": ProjectProfileV1;
   readonly "state.approval": ApprovalV1;

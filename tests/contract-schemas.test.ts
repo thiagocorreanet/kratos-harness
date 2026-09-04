@@ -50,6 +50,7 @@ const artifacts = [
   ["host/gap-proposal.v1.schema.json", "gap-proposal.json", "host"],
   ["host/hook-observation.v1.schema.json", "hook-observation.json", "host"],
   ["host/phase-lifecycle.v1.schema.json", "phase-lifecycle.json", "host"],
+  ["host/migration-plan.v1.schema.json", "migration-plan.json", "host"],
   ["host/pre-tool-use.v1.schema.json", "pre-tool-use.json", "host"],
   ["host/project-profile.v1.schema.json", "project-profile.json", "host"],
   ["state/gap.v1.schema.json", "gap.json", "state"],
@@ -853,6 +854,10 @@ describe("versioned state and host schemas", () => {
     [
       "contracts/contract-manifest.v1.10.schema.json",
       "061fa654abbb12d4aa6dd065e1ce8dd0c19242871fc816c27730917dc1d48f0b",
+    ],
+    [
+      "contracts/contract-manifest.v1.11.schema.json",
+      "7cd291e9aec78e3b2480896267991d7d03cf07a472fba0a09ae4bb9b3322d838",
     ],
     [
       "host/adapter-message.v1.1.schema.json",

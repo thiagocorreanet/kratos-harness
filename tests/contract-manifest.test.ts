@@ -87,7 +87,7 @@ beforeAll(async () => {
     readJson<JsonObject>(
       join(
         repositoryRoot,
-        "schemas/contracts/contract-manifest.v1.11.schema.json",
+        "schemas/contracts/contract-manifest.v1.12.schema.json",
       ),
     ),
     readJson<Discovery>(
@@ -126,7 +126,7 @@ describe("contract family manifest", () => {
   });
 
   it("registers every readable payload schema by id and version with safe paths", async () => {
-    expect(manifest.schemas).toHaveLength(71);
+    expect(manifest.schemas).toHaveLength(72);
     expect(manifest.schemas).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

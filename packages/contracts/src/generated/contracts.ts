@@ -23,6 +23,7 @@
 // source: https://kratos.dev/schemas/host/memory-curation/v1.4 sha256:c55c4b72817340d0f4cd190fd01e57dc1a2028c95b1a6968284218a08c08e589
 // source: https://kratos.dev/schemas/host/memory-migration/v1.2 sha256:8d55797500d2758dba1b7cca53dab0d873a10f8d12bf69fb391621a9276a2d01
 // source: https://kratos.dev/schemas/host/memory-migration/v1.4 sha256:f07bf84b45234ab5031cf4db421a5cb3d9f9ee4036a1066e1687dd75cef0425b
+// source: https://kratos.dev/schemas/host/migration-plan/v1 sha256:80e3908c6aec1ad8bc655322fecc9909f8aa3ae80c269aa9f4bb281922d1a1ac
 // source: https://kratos.dev/schemas/host/operation-message/v1 sha256:8ba8d2a6a61a30e80c5a215130eeb8c60456d087012369f5284be92c81d2152a
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.1 sha256:1d86294f4b9add65d6d71d9c9174072c526a9799141d798ab78733820e6236ae
 // source: https://kratos.dev/schemas/host/phase-handoff/v1.2 sha256:a88b38d5d78813221ed554217de8cc39a2470687467a58f113e5b77dc972023a
@@ -2173,6 +2174,31 @@ export namespace MemoryMigrationV1_4Contract {
 }
 export type MemoryMigrationV1_4 =
   MemoryMigrationV1_4Contract.MemoryMigrationV1_4;
+export namespace MigrationPlanV1Contract {
+  export type Sha256 = string;
+  export type Instant = string;
+  export type Path = string;
+
+  export interface MigrationPlanV1 {
+    contractVersion: "1.0.0";
+    hostContract: "1.4.0";
+    status: "current" | "preview" | "applied";
+    plan: null | Plan;
+  }
+  export interface Plan {
+    planDigest: Sha256;
+    planTime: Instant;
+    /**
+     * @maxItems 256
+     */
+    writes: Write[];
+  }
+  export interface Write {
+    path: Path;
+    sha256: Sha256;
+  }
+}
+export type MigrationPlanV1 = MigrationPlanV1Contract.MigrationPlanV1;
 export namespace HostOperationMessageV1Contract {
   export type HostOperationMessageV1 =
     | ApprovalMessage

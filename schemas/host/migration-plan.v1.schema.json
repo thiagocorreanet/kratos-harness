@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kratos.dev/schemas/host/migration-plan/v1",
+  "title": "Kratos configuration migration plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "hostContract", "status", "plan"],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "hostContract": { "const": "1.4.0" },
+    "status": { "enum": ["current", "preview", "applied"] },
+    "plan": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/plan" }]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "instant": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*[\\u0000-\\u001F\\u007F]).+$"
+    },
+    "write": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planDigest", "planTime", "writes"],
+      "properties": {
+        "planDigest": { "$ref": "#/$defs/sha256" },
+        "planTime": { "$ref": "#/$defs/instant" },
+        "writes": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/write" }
+        }
+      }
+    }
+  }
+}

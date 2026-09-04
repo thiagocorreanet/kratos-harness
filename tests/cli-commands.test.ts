@@ -20,10 +20,13 @@ import {
 } from "@kratos/runtime/domain/cli";
 import { renderMemoryApplyCommand } from "@kratos/runtime/domain/cli/memory";
 import {
+  configMigrationApplyArgv,
   memoryMigrationApplyArgv,
+  renderApplyInstructions,
   renderMemoryMigrationApply,
   renderPowerShellCommand,
 } from "@kratos/runtime/domain/cli";
+import { validatePublicText } from "@kratos/runtime/domain/result";
 import { USAGE_WHY } from "@kratos/runtime/domain/result";
 
 function invoke(argv: readonly string[]) {
@@ -64,6 +67,54 @@ describe("implemented commands", () => {
     ).toBe(
       String.raw`kratos memory promote --root 'a root'\''$;$(bad)' 'proposal '\''x'\''; $(bad).json' --yes --proposal-digest aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --plan-digest bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --plan-time 2026-08-29T00:00:00Z`,
     );
+  });
+
+  it("withholds an absolute root from the apply instructions instead of failing to publish them", () => {
+    // The result contract refuses to publish an absolute path. Echoing the
+    // --root the operator passed made the whole preview unpublishable, which
+    // surfaced as an internal failure in human mode while --json, which never
+    // renders these lines, succeeded.
+    const parsed = parseInvocation(
+      ["migrate", "config", "--root", "/srv/projects/api"],
+      DEFAULT_REGISTRY,
+    );
+    if (parsed.kind !== "invocation") throw new Error("expected invocation");
+
+    const lines = renderApplyInstructions(
+      configMigrationApplyArgv(
+        parsed.invocation,
+        "a".repeat(64),
+        "2026-08-29T00:00:00Z",
+      ),
+    );
+
+    for (const line of lines) {
+      expect(() => validatePublicText(line), line).not.toThrow();
+      expect(line).not.toContain("/srv/projects/api");
+    }
+    expect(lines.join("\n")).toContain("<the --root value you passed>");
+    // The digest and the plan time still authorize the apply exactly.
+    expect(lines.join("\n")).toContain(`--plan-digest ${"a".repeat(64)}`);
+    expect(lines.join("\n")).toContain("--plan-time 2026-08-29T00:00:00Z");
+  });
+
+  it("keeps the exact argv when every value can be published", () => {
+    const parsed = parseInvocation(
+      ["migrate", "config", "--root", "projects/api"],
+      DEFAULT_REGISTRY,
+    );
+    if (parsed.kind !== "invocation") throw new Error("expected invocation");
+
+    const lines = renderApplyInstructions(
+      configMigrationApplyArgv(
+        parsed.invocation,
+        "a".repeat(64),
+        "2026-08-29T00:00:00Z",
+      ),
+    );
+
+    expect(lines.join("\n")).toContain("projects/api");
+    expect(lines.join("\n")).not.toContain("value you passed");
   });
 
   it("renders a migration apply command that reconstructs hostile argv without executing it", async () => {

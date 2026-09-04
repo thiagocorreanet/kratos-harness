@@ -190,6 +190,14 @@
       "typeName": "MemoryMigrationV1_4"
     },
     {
+      "id": "host.migration-plan",
+      "family": "host",
+      "version": "1.0.0",
+      "path": "schemas/host/migration-plan.v1.schema.json",
+      "boundary": "cross-process",
+      "typeName": "MigrationPlanV1"
+    },
+    {
       "id": "host.operation-message",
       "family": "host",
       "version": "1.0.0",
