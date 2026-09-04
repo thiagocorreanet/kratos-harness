@@ -1,6 +1,6 @@
 {
   "runtimeSourceBytes": 1700000,
-  "contractSchemaBytes": 370000,
+  "contractSchemaBytes": 410000,
   "helpP95Ms": 2000,
   "versionP95Ms": 2000,
   "handshakeP95Ms": 2000,

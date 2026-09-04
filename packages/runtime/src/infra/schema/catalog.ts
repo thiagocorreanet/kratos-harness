@@ -21,6 +21,7 @@ import memoryChangeV1_4Schema from "../../../../../schemas/host/memory-change.v1
 import memoryCurationV1_4Schema from "../../../../../schemas/host/memory-curation.v1.4.schema.json" with { type: "json" };
 import memoryMigrationV1_2Schema from "../../../../../schemas/host/memory-migration.v1.2.schema.json" with { type: "json" };
 import memoryMigrationV1_4Schema from "../../../../../schemas/host/memory-migration.v1.4.schema.json" with { type: "json" };
+import migrationPlanSchema from "../../../../../schemas/host/migration-plan.v1.schema.json" with { type: "json" };
 import operationMessageSchema from "../../../../../schemas/host/operation-message.v1.schema.json" with { type: "json" };
 import preToolUseSchema from "../../../../../schemas/host/pre-tool-use.v1.schema.json" with { type: "json" };
 import projectProfileSchema from "../../../../../schemas/host/project-profile.v1.schema.json" with { type: "json" };
@@ -243,6 +244,13 @@ export const EMBEDDED_SCHEMA_CATALOG: readonly EmbeddedSchemaEntry[] =
       version: "1.4.0",
       path: "schemas/host/memory-migration.v1.4.schema.json",
       schema: memoryMigrationV1_4Schema,
+    },
+    {
+      id: "host.migration-plan",
+      family: "host",
+      version: "1.0.0",
+      path: "schemas/host/migration-plan.v1.schema.json",
+      schema: migrationPlanSchema,
     },
     {
       id: "host.operation-message",

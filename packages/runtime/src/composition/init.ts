@@ -82,7 +82,7 @@ export async function observeInitialization(
   const evidence = await observeRepositoryEvidence(anchored.fileSystem);
   const manifests = await observeManifestContents(
     anchored.fileSystem,
-    evidence.rootEntries,
+    evidence,
   );
   const derived = deriveProjectProfile(evidence, manifests);
 

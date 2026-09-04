@@ -101,6 +101,9 @@ The host family contains:
 - [`host.project-profile@1.0.0`](host/project-profile.v1.schema.json), the
   read-only derived project profile every host presents before the
   initialization interview,
+- [`host.migration-plan@1.0.0`](host/migration-plan.v1.schema.json), the
+  configuration migration plan `kratos migrate config` publishes, carrying the
+  plan digest and the plan instant an apply has to repeat,
 - [`gap-proposal.v1.schema.json`](host/gap-proposal.v1.schema.json), and
 - [`init-answers.v1.schema.json`](host/init-answers.v1.schema.json) plus its
   [`init-answers.v1.1.schema.json`](host/init-answers.v1.1.schema.json) and

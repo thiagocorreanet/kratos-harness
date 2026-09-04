@@ -110,6 +110,7 @@ export type JsonContractId =
   | "adapter-message@1.0.0"
   | "doctor-report@1.0.0"
   | "phase-handoff@1.4.0"
+  | "migration-plan@1.0.0"
   | "project-profile@1.0.0";
 
 export interface Decision {

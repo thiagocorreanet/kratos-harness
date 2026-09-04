@@ -297,7 +297,15 @@ the current configuration/state version constants.
 The preview performs no writes and prints the source, destination, answers,
 catalog, and plan digests; confirmed hosts; every canonical assignment and
 default; resolved project-profile answers; the plan time; six exact write
-paths; and the complete apply command.
+paths; and the complete apply command. A `--root` the operator passed as an
+absolute path is named rather than echoed, because the result contract does not
+publish absolute paths.
+
+With `--json` the command publishes `host.migration-plan@1.0.0` in place of the
+result envelope, so a host can authorize the apply from the machine-readable
+output alone: the payload carries `planDigest`, `planTime`, and the exact write
+paths. A configuration already on the current contract answers
+`status: "current"` with a null plan.
 Apply requires the exact caller-carried values:
 
 ```bash
