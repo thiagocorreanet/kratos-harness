@@ -24,21 +24,21 @@ Before `kratos init`, run
 `node scripts/kratos.mjs --json profile derive --root <absolute-project-root>`
 from this skill directory. Its `host.project-profile@1.0.0` payload is the only
 source of interview candidates. Then load `scripts/project-profile-relay.mjs`
-from this skill directory and ask every exported `projectProfileQuestions` entry
-in order.
+from this skill directory.
 
-Present an answer the payload reports as `derived` with its value and its
-evidence string for confirmation, and ask an answer it reports as `unresolved`
-blank. Never present a candidate the payload does not carry, and never add a
-description the payload does not carry. The runtime derives these, and a
-suggestion you author makes one repository answer differently for different
-operators.
+Record an answer the payload reports as `derived` exactly as it stands, with
+its value and its evidence string, and ask the operator nothing about it. Ask
+only the `projectProfileQuestions` entries the payload reports as `unresolved`,
+in order, and ask those blank. Never present a candidate the payload does not
+carry, and never add a description the payload does not carry. The runtime
+derives these, and a suggestion you author makes one repository answer
+differently for different operators.
 
-Record confirmed answers as `resolved`, unconfirmed derived values with their
-evidence as `derived`, explicitly omitted items as `not-applicable` with a
-reason, or `unresolved` if blank. Commands are exact single-line strings run
-from the project root, paths are project-relative lists, and implementation
-languages are programming languages rather than the human-language policy.
+Record an answer the operator gives as `resolved`, an item the operator
+explicitly omits as `not-applicable` with a reason, and anything still blank as
+`unresolved`. Commands are exact single-line strings run from the project root,
+paths are project-relative lists, and implementation languages are programming
+languages rather than the human-language policy.
 
 Pass the keyed answers to `relayProjectProfileAnswers`, place its returned
 value in `host.init-answers@1.6.0` as `projectProfile`, and pipe that complete

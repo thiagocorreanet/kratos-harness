@@ -304,8 +304,8 @@ const SUFFIX_MARKERS: readonly (readonly [string, StackId])[] = [
  * declared script is read from the manifest rather than assumed here.
  *
  * These are conventions, not facts about the repository. Anything a manifest
- * declares outranks them, and like every derived value they reach the operator
- * for confirmation.
+ * declares outranks them, and like every derived value they are recorded with
+ * their evidence rather than put to the operator.
  */
 export interface StackCommands {
   readonly test?: string;

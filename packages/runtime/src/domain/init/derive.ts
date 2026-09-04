@@ -257,8 +257,11 @@ function derivePathSlot(
   evidence: RepositoryEvidence,
   layout: ObservedLayout,
   candidates: readonly string[],
+  notBelow: readonly string[] = [],
 ): DerivedPathSlot | undefined {
-  const found = candidateDirectories(evidence, layout, candidates);
+  const found = candidateDirectories(evidence, layout, candidates).filter(
+    (candidate) => !sitsBelow(candidate.path, notBelow),
+  );
   if (found.length === 0) return undefined;
   const ranked = rankCandidates(withoutEnclosed(found));
   const selected = selectPaths(ranked);
@@ -272,6 +275,19 @@ function derivePathSlot(
     },
     directories: ranked.filter((candidate) => named.has(candidate.path)),
   };
+}
+
+/**
+ * Whether any directory above the path carries one of the names.
+ *
+ * A `lib` below `tests` mirrors the source tree rather than being one, and
+ * offering it as a second source root also hides the layout of the real one.
+ */
+function sitsBelow(path: string, names: readonly string[]): boolean {
+  return path
+    .split("/")
+    .slice(0, -1)
+    .some((segment) => names.includes(segment));
 }
 
 function depthOf(path: string): number {
@@ -297,8 +313,9 @@ interface DerivedPaths {
  *
  * Nothing here reaches a disk: the listing is whatever the bounded scan
  * observed, and a listing that stopped early describes part of a tree, so a
- * repository the scan could not cover simply has less to derive from and the
- * operator is asked. Every answer is offered for confirmation.
+ * repository the scan could not cover simply has less to derive from, so the
+ * operator is asked for what stayed unresolved. A derived answer is recorded
+ * as derived and is not put to the operator.
  */
 function derivePaths(
   evidence: RepositoryEvidence,
@@ -310,7 +327,12 @@ function derivePaths(
     configuration?: ProjectProfileLeaf<readonly string[]>;
   } = {};
 
-  const source = derivePathSlot(evidence, layout, SOURCE_PATH_CANDIDATES);
+  const source = derivePathSlot(
+    evidence,
+    layout,
+    SOURCE_PATH_CANDIDATES,
+    TESTS_PATH_CANDIDATES,
+  );
   if (source !== undefined) paths.source = source.leaf;
 
   const tests = derivePathSlot(evidence, layout, TESTS_PATH_CANDIDATES);
@@ -330,8 +352,87 @@ function derivePaths(
   };
 }
 
+type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
+
+const PACKAGE_MANAGERS: readonly PackageManager[] = [
+  "npm",
+  "pnpm",
+  "yarn",
+  "bun",
+];
+
+/**
+ * The lockfile each package manager leaves at the root, in a fixed order so the
+ * evidence names the same file whichever order the directory listing came in.
+ */
+const PACKAGE_MANAGER_LOCKFILES: readonly (readonly [
+  string,
+  PackageManager,
+])[] = [
+  ["package-lock.json", "npm"],
+  ["npm-shrinkwrap.json", "npm"],
+  ["pnpm-lock.yaml", "pnpm"],
+  ["yarn.lock", "yarn"],
+  ["bun.lock", "bun"],
+  ["bun.lockb", "bun"],
+];
+
+interface PackageManagerChoice {
+  readonly manager: PackageManager;
+  /** What decided it, or undefined when nothing did and npm is the default. */
+  readonly via: string | undefined;
+}
+
+/**
+ * Which package manager runs the scripts a `package.json` declares.
+ *
+ * The `packageManager` field is a statement and outranks any lockfile. One
+ * lockfile at the root is an attestation. No lockfile leaves npm, the manager
+ * every Node installation ships with, as the default nothing contradicts. Two
+ * lockfiles that disagree are two readings, and which one the project means is
+ * the operator's call, so nothing is derived from the manifest at all.
+ */
+function packageManagerOf(
+  parsed: Record<string, unknown>,
+  rootEntries: readonly string[],
+): PackageManagerChoice | undefined {
+  const declared = parsed.packageManager;
+  if (typeof declared === "string") {
+    const at = declared.indexOf("@");
+    const name = at === -1 ? declared : declared.slice(0, at);
+    const manager = PACKAGE_MANAGERS.find((known) => known === name);
+    if (manager !== undefined) {
+      return { manager, via: "package.json#packageManager" };
+    }
+  }
+
+  const present = PACKAGE_MANAGER_LOCKFILES.filter(([file]) =>
+    rootEntries.includes(file),
+  );
+  const managers = new Set(present.map(([, manager]) => manager));
+  if (managers.size > 1) return undefined;
+  const first = present[0];
+  if (first === undefined) return { manager: "npm", via: undefined };
+  return { manager: first[1], via: first[0] };
+}
+
+/**
+ * The command that runs one declared script under one package manager.
+ *
+ * `test` and `start` are verbs every manager has; other scripts go through
+ * `run`. Bun goes through `run` for everything, because `bun test` is Bun's
+ * own runner and not the script the project declared.
+ */
+function scriptCommand(manager: PackageManager, script: string): string {
+  if (manager !== "bun" && (script === "test" || script === "start")) {
+    return `${manager} ${script}`;
+  }
+  return `${manager} run ${script}`;
+}
+
 function derivePackageJsonCommands(
   content: string,
+  rootEntries: readonly string[],
   commands: Record<string, ProjectProfileLeaf<string>>,
 ): void {
   try {
@@ -345,64 +446,30 @@ function derivePackageJsonCommands(
     ) {
       return;
     }
+    const choice = packageManagerOf(parsed, rootEntries);
+    if (choice === undefined) return;
     const scripts = parsed.scripts as Record<string, unknown>;
+    const declares = (script: string): boolean => {
+      const value = scripts[script];
+      return typeof value === "string" && value.trim().length > 0;
+    };
 
-    if (
-      typeof scripts.test === "string" &&
-      scripts.test.trim().length > 0 &&
-      !("test" in commands)
-    ) {
-      commands.test = {
+    const slots: readonly (readonly [string, readonly string[]])[] = [
+      ["test", ["test"]],
+      ["lint", ["lint"]],
+      ["build", ["build"]],
+      ["run", ["start", "run"]],
+    ];
+    for (const [slot, candidates] of slots) {
+      if (slot in commands) continue;
+      const script = candidates.find(declares);
+      if (script === undefined) continue;
+      const via = choice.via === undefined ? "" : ` via ${choice.via}`;
+      commands[slot] = {
         status: "derived",
-        value: "npm test",
-        evidence: "package.json#scripts.test",
+        value: scriptCommand(choice.manager, script),
+        evidence: `package.json#scripts.${script}${via}`,
       };
-    }
-
-    if (
-      typeof scripts.lint === "string" &&
-      scripts.lint.trim().length > 0 &&
-      !("lint" in commands)
-    ) {
-      commands.lint = {
-        status: "derived",
-        value: "npm run lint",
-        evidence: "package.json#scripts.lint",
-      };
-    }
-
-    if (
-      typeof scripts.build === "string" &&
-      scripts.build.trim().length > 0 &&
-      !("build" in commands)
-    ) {
-      commands.build = {
-        status: "derived",
-        value: "npm run build",
-        evidence: "package.json#scripts.build",
-      };
-    }
-
-    if (!("run" in commands)) {
-      if (
-        typeof scripts.start === "string" &&
-        scripts.start.trim().length > 0
-      ) {
-        commands.run = {
-          status: "derived",
-          value: "npm start",
-          evidence: "package.json#scripts.start",
-        };
-      } else if (
-        typeof scripts.run === "string" &&
-        scripts.run.trim().length > 0
-      ) {
-        commands.run = {
-          status: "derived",
-          value: "npm run run",
-          evidence: "package.json#scripts.run",
-        };
-      }
     }
   } catch {
     // Declarative derivation ignores unparseable manifests safely
@@ -550,11 +617,16 @@ function deriveStackCommands(
 function deriveCommands(
   stack: StackProfile,
   manifests: ManifestContents,
+  evidence: RepositoryEvidence,
 ): PartialProjectProfile["commands"] | undefined {
   const commands: Record<string, ProjectProfileLeaf<string>> = {};
 
   if (manifests.packageJson !== undefined) {
-    derivePackageJsonCommands(manifests.packageJson, commands);
+    derivePackageJsonCommands(
+      manifests.packageJson,
+      evidence.rootEntries,
+      commands,
+    );
   }
 
   if (manifests.pyprojectToml !== undefined) {
@@ -919,8 +991,8 @@ function layoutLeaf(
  * Derive the three conventions a phase agent has to preserve.
  *
  * Each is an observed regularity rather than a stated preference, which is why
- * they can be derived at all, and each is offered for confirmation like every
- * other derived leaf.
+ * they can be derived at all, and each is recorded as derived without the
+ * operator being asked, like every other derived leaf.
  */
 function deriveConventions(
   stack: StackProfile,
@@ -964,7 +1036,7 @@ export function deriveProjectProfile(
 ): PartialProjectProfile {
   const stack = profileStack(evidence);
   const observed = observedPaths(evidence);
-  const commands = deriveCommands(stack, manifests);
+  const commands = deriveCommands(stack, manifests, evidence);
   const paths = derivePaths(evidence, observeLayout(observed));
   const conventions = deriveConventions(stack, paths, observed);
 

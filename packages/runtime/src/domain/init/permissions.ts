@@ -1,7 +1,8 @@
 import type { ResolvedAnswers } from "./answers.js";
 import type { StackId, StackProfile } from "./stack.js";
 
-export type PermissionOrigin = "git" | "stack" | "explicit_profile";
+export type PermissionOrigin =
+  "git" | "stack" | "explicit_profile" | "derived_profile";
 
 export interface PermissionProvenance {
   readonly permission: string;
@@ -90,26 +91,26 @@ export function deriveHostPermissions(
     }
   }
 
-  // 3. Explicit project profile answers provenance
-  const profileCommands = answers.projectProfile.commands;
-  const slots = [
-    profileCommands.test,
-    profileCommands.lint,
-    profileCommands.build,
-    profileCommands.run,
-  ];
-  for (const slot of slots) {
-    if (slot.status === "resolved" && slot.value.trim().length > 0) {
-      const perm = `Bash(${slot.value.trim()})`;
-      if (!allowSet.has(perm)) {
-        allowSet.add(perm);
-        provenance.push({
-          permission: perm,
-          origin: "explicit_profile",
-          evidence: slot.value.trim(),
-        });
-      }
-    }
+  // 3. Project profile command provenance. A resolved command is one the
+  // operator stated; a derived command is one the runtime read from a manifest
+  // and the host recorded without asking, so its allowance traces to the
+  // evidence string rather than to a confirmation.
+  for (const slot of profileCommandSlots(answers)) {
+    if (slot.status !== "resolved" && slot.status !== "derived") continue;
+    const command = slot.value.trim();
+    if (command.length === 0) continue;
+    const perm = `Bash(${command})`;
+    if (allowSet.has(perm)) continue;
+    allowSet.add(perm);
+    provenance.push(
+      slot.status === "resolved"
+        ? { permission: perm, origin: "explicit_profile", evidence: command }
+        : {
+            permission: perm,
+            origin: "derived_profile",
+            evidence: slot.evidence,
+          },
+    );
   }
 
   const allow = [...allowSet].sort(compareText);
@@ -166,29 +167,28 @@ export function assertPermissionProvenance(
       return;
     }
     case "explicit_profile": {
-      const profileCommands = answers.projectProfile.commands;
-      const resolvedValues = [
-        profileCommands.test.status === "resolved"
-          ? profileCommands.test.value
-          : null,
-        profileCommands.lint.status === "resolved"
-          ? profileCommands.lint.value
-          : null,
-        profileCommands.build.status === "resolved"
-          ? profileCommands.build.value
-          : null,
-        profileCommands.run.status === "resolved"
-          ? profileCommands.run.value
-          : null,
-      ].filter((val): val is string => typeof val === "string");
-
-      if (
-        !resolvedValues.some(
-          (cmd) => entry.permission === `Bash(${cmd.trim()})`,
-        )
-      ) {
+      const stated = profileCommandSlots(answers).some(
+        (slot) =>
+          slot.status === "resolved" &&
+          entry.permission === `Bash(${slot.value.trim()})`,
+      );
+      if (!stated) {
         throw new Error(
           `PERMISSION_WITHOUT_PROVENANCE: Explicit command '${entry.permission}' not found in resolved profile.`,
+        );
+      }
+      return;
+    }
+    case "derived_profile": {
+      const derived = profileCommandSlots(answers).some(
+        (slot) =>
+          slot.status === "derived" &&
+          entry.permission === `Bash(${slot.value.trim()})` &&
+          entry.evidence === slot.evidence,
+      );
+      if (!derived) {
+        throw new Error(
+          `PERMISSION_WITHOUT_PROVENANCE: Derived command '${entry.permission}' does not carry the evidence the profile recorded.`,
         );
       }
       return;
@@ -200,6 +200,11 @@ export function assertPermissionProvenance(
       );
     }
   }
+}
+
+function profileCommandSlots(answers: ResolvedAnswers) {
+  const commands = answers.projectProfile.commands;
+  return [commands.test, commands.lint, commands.build, commands.run];
 }
 
 function compareText(left: string, right: string): number {
