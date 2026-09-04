@@ -19,6 +19,18 @@ export type {
 } from "./profile.js";
 export { deriveProjectProfile } from "./derive.js";
 export type { ManifestContents } from "./derive.js";
+export {
+  CI_FILE_MAX_BYTES,
+  CI_WORKFLOW_MAX_FILES,
+  deriveDevcontainerCommands,
+  deriveJustfileCommands,
+  deriveMiseCommands,
+  deriveTaskfileCommands,
+  deriveWorkflowCommands,
+  readWorkflowSteps,
+  slotOfName,
+} from "./tasks.js";
+export type { CommandSlot, ManifestFile } from "./tasks.js";
 export { detectLanguageConventions } from "./detect.js";
 export type {
   DetectedLanguageConventions,

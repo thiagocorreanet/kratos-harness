@@ -36,7 +36,7 @@ export async function observeProjectProfile(
   const evidence = await observeRepositoryEvidence(anchored.fileSystem);
   const manifests = await observeManifestContents(
     anchored.fileSystem,
-    evidence.rootEntries,
+    evidence,
   );
   return {
     kind: "observed",

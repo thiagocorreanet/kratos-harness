@@ -10,6 +10,14 @@ import {
   profileStack,
 } from "./stack.js";
 import type { PartialProjectProfile, ProjectProfileLeaf } from "./profile.js";
+import {
+  deriveDevcontainerCommands,
+  deriveJustfileCommands,
+  deriveMiseCommands,
+  deriveTaskfileCommands,
+  deriveWorkflowCommands,
+  type ManifestFile,
+} from "./tasks.js";
 
 /**
  * The manifests whose contents are read rather than whose names are matched.
@@ -23,6 +31,19 @@ export interface ManifestContents {
   readonly packageJson?: string;
   readonly makefile?: string;
   readonly pyprojectToml?: string;
+  /** A Taskfile, a justfile, or a mise configuration, when the project has one. */
+  readonly taskfile?: ManifestFile;
+  readonly justfile?: ManifestFile;
+  readonly miseToml?: ManifestFile;
+  readonly devcontainerJson?: ManifestFile;
+  /**
+   * The workflow files under `.github/workflows/`, in path order.
+   *
+   * These are the only files here whose contents are not a declaration about
+   * the project but a record of what a machine runs against it, which is why
+   * they answer after every declaration and before any convention.
+   */
+  readonly workflows?: readonly ManifestFile[];
 }
 
 const SOURCE_PATH_CANDIDATES = ["src", "lib", "app", "packages"] as const;
@@ -513,12 +534,18 @@ function deriveStackCommands(
 }
 
 /**
- * Derive the four commands from what the repository declares, then from what
- * its toolchain conventionally calls them.
+ * Derive the four commands, most specific evidence first.
  *
- * There is no file-name list here. The toolchain is whatever `profileStack`
- * already named from the marker table, which is why an ecosystem that table
- * recognizes cannot reach the interview with nothing derived.
+ * A declaration the project makes about itself wins, because it is this
+ * repository stating its own answer. Failing that, what CI runs on every push
+ * is a literal command a maintainer wrote for this repository. Failing both,
+ * the toolchain's canonical verb is a convention about the ecosystem, which is
+ * the weakest of the three and still better than asking.
+ *
+ * There is no file-name list for the last of these. The toolchain is whatever
+ * `profileStack` already named from the marker table, which is why an
+ * ecosystem that table recognizes cannot reach the interview with nothing
+ * derived.
  */
 function deriveCommands(
   stack: StackProfile,
@@ -536,6 +563,26 @@ function deriveCommands(
 
   if (manifests.makefile !== undefined) {
     deriveMakefileCommands(manifests.makefile, commands);
+  }
+
+  if (manifests.taskfile !== undefined) {
+    deriveTaskfileCommands(manifests.taskfile, commands);
+  }
+
+  if (manifests.justfile !== undefined) {
+    deriveJustfileCommands(manifests.justfile, commands);
+  }
+
+  if (manifests.miseToml !== undefined) {
+    deriveMiseCommands(manifests.miseToml, commands);
+  }
+
+  if (manifests.devcontainerJson !== undefined) {
+    deriveDevcontainerCommands(manifests.devcontainerJson, commands);
+  }
+
+  if (manifests.workflows !== undefined) {
+    deriveWorkflowCommands(manifests.workflows, commands);
   }
 
   deriveStackCommands(stack, commands);
