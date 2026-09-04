@@ -150,6 +150,42 @@ describe("the profile derive command", () => {
     });
   });
 
+  it("derives the command CI runs, and survives a workflow it cannot parse", async () => {
+    const root = await project({
+      "Api.csproj": "<Project />\n",
+      "src/Program.cs": "class Program {}\n",
+      ".github/workflows/broken.yml": "jobs:\n\t- not: [ yaml\n",
+      ".github/workflows/ci.yml": [
+        "name: CI",
+        "on: [push]",
+        "jobs:",
+        "  verify:",
+        "    runs-on: ubuntu-latest",
+        "    steps:",
+        "      - uses: actions/checkout@v4",
+        "      - name: Run tests",
+        "        run: dotnet test --filter Category!=Integration",
+        "",
+      ].join("\n"),
+    });
+
+    const { exitCode, stdout } = await derive(root, "--json");
+
+    expect(exitCode).toBe(0);
+    const { profile } = JSON.parse(stdout) as ProjectProfileV1;
+    expect(profile.commands.test).toEqual({
+      status: "derived",
+      value: "dotnet test --filter Category!=Integration",
+      evidence: ".github/workflows/ci.yml#job:verify/step:Run tests",
+    });
+    // The workflow says nothing about building, so the toolchain still does.
+    expect(profile.commands.build).toEqual({
+      status: "derived",
+      value: "dotnet build",
+      evidence: "stack:dotnet via Api.csproj",
+    });
+  });
+
   it("names each answer with its evidence in human output", async () => {
     const root = await project({
       Makefile: "test:\n\tgo test ./...\n",
