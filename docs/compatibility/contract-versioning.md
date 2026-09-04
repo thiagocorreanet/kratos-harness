@@ -32,7 +32,7 @@ migration profiles.
 | Identity | Current | Owner |
 | --- | --- | --- |
 | Contract-manifest schema | `v1.10` | Contract-family manifest format |
-| `pluginVersion` | `0.3.0` | One coherent installed plugin bundle |
+| `pluginVersion` | `0.4.0` | One coherent installed plugin bundle |
 | `stateContract` | `1.5.0` | Persisted `.brain/` configuration and history |
 | `hostContract` | `1.4.0` | Cross-process adapter request and response messages |
 

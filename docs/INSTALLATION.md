@@ -47,7 +47,7 @@ The commands below use the release tag and repository as variables so the same
 block works for any version.
 
 ```bash
-KRATOS_VERSION=v0.3.0
+KRATOS_VERSION=v0.4.0
 KRATOS_REPO=thiagocorreanet/kratos-harness
 KRATOS_HOME=~/.kratos/releases/$KRATOS_VERSION
 mkdir -p "$KRATOS_HOME/download"

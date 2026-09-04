@@ -1,6 +1,6 @@
 {
   "name": "@kratos/runtime",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -61,8 +61,8 @@
     "./ports": "./src/ports/index.ts"
   },
   "dependencies": {
-    "@kratos/adapters": "0.3.0",
-    "@kratos/contracts": "0.3.0",
+    "@kratos/adapters": "0.4.0",
+    "@kratos/contracts": "0.4.0",
     "ajv": "8.20.0"
   }
 }

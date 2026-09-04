@@ -11,7 +11,7 @@ import {
 describe("result rendering", () => {
   it("emits one compact newline-terminated object in JSON mode", () => {
     const result = resultFor("runtime.orientation_ok", {
-      summary: "Runtime version 0.3.0.",
+      summary: "Runtime version 0.4.0.",
     });
     const rendered = renderResultJson(result);
 

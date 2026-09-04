@@ -237,7 +237,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.4.0",
       stateContract: "1.4.0",
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       hostContract: "1.4.0",
       language: {
         conversation: "en",
@@ -338,7 +338,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.3.0",
       stateContract: "1.3.0",
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       hostContract: "1.3.0",
       language: {
         conversation: "en",
@@ -481,7 +481,7 @@ describe("versioned state and host schemas", () => {
     const project = {
       contractVersion: "1.5.0",
       stateContract: "1.5.0",
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       hostContract: "1.4.0",
       language: {
         conversation: "en",
@@ -622,7 +622,7 @@ describe("versioned state and host schemas", () => {
     const baseProject12 = {
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       hostContract: "1.2.0",
       language: {
         conversation: "en",
@@ -815,13 +815,14 @@ describe("versioned state and host schemas", () => {
   });
 
   // These digests freeze a superseded schema so an edit to it has to be
-  // deliberate. `pluginVersion` is the one field they all pin to a single
-  // value, because the contract model treats it as the identity of one
-  // coherent installed bundle rather than a per-schema historical record:
-  // `classifyContractVersion("plugin", ...)` accepts exactly the current
-  // value and every configuration upgrade carries the field forward
-  // unchanged. Releasing 0.3.0 therefore moves it in every schema at once,
-  // and these digests move with it. Nothing else about these files changed.
+  // deliberate. `pluginVersion` is the one field a release still moves, and it
+  // now moves in one place only. A versioned state schema matches the field by
+  // semver pattern, because a legacy schema exists to read what an older
+  // plugin wrote, so releasing 0.4.0 leaves every `state/project-config`
+  // digest below byte-identical. The `contracts/contract-manifest` schemas
+  // still pin it to a constant -- a manifest describes the installed bundle
+  // rather than a document an earlier plugin wrote -- so those digests move
+  // with the release and no others do. Nothing else about these files changed.
   it.each([
     [
       "state/project-config.v1.schema.json",
@@ -841,23 +842,23 @@ describe("versioned state and host schemas", () => {
     ],
     [
       "contracts/contract-manifest.v1.1.schema.json",
-      "f4a90cab9c095cbd6ff039c5d1b8b4a726fd76248f5c1316e9d2a5d8552e78bf",
+      "0a18724b7515345b224da929f9d399a3b7a20422bd8bd2ccf4bf1589b0cdfdde",
     ],
     [
       "contracts/contract-manifest.v1.2.schema.json",
-      "991346bf8404b4c55a6bf88fd9ecdce899a6d5f4ea481cec96676a5d1e6a2d00",
+      "68d4327331f4c6614893056d9658f433b2bfbc8494fcfc083e5a993c0c2bc69d",
     ],
     [
       "contracts/contract-manifest.v1.8.schema.json",
-      "ba0d2563ea7dff1a81bea84c10fe2f4875daac9daada8ab5e21f292e04b62703",
+      "06d4f5a474653867a836a4fa4aac412d1c7cfcc166ed8b9e5df8f96fbcd94c01",
     ],
     [
       "contracts/contract-manifest.v1.10.schema.json",
-      "061fa654abbb12d4aa6dd065e1ce8dd0c19242871fc816c27730917dc1d48f0b",
+      "c70281589571a95ef026cef1433de38b09881267855d2b513dd5e64febba4121",
     ],
     [
       "contracts/contract-manifest.v1.11.schema.json",
-      "7cd291e9aec78e3b2480896267991d7d03cf07a472fba0a09ae4bb9b3322d838",
+      "7d4c001a5f9aea4d64813431fe56cfa66f96f35a111be14240010f33f44e8704",
     ],
     [
       "host/adapter-message.v1.1.schema.json",
@@ -1189,7 +1190,7 @@ describe("versioned state and host schemas", () => {
       ({ fixtureName }) => fixtureName === "project-config.json",
     )?.fixture;
     expect(projectConfig).toMatchObject({
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       stateContract: "1.0.0",
       hostContract: "1.0.0",
     });

@@ -95,7 +95,7 @@ describe("transactional migration lifecycle", () => {
       {
         contractVersion: "1.0.0",
         stateContract: "1.0.0",
-        pluginVersion: "0.3.0",
+        pluginVersion: "0.4.0",
         hostContract: "1.0.0",
         language: "pt-BR",
         policyMode: "strict",
@@ -117,7 +117,7 @@ describe("transactional migration lifecycle", () => {
     expect(upgraded).toEqual({
       contractVersion: "1.2.0",
       stateContract: "1.2.0",
-      pluginVersion: "0.3.0",
+      pluginVersion: "0.4.0",
       hostContract: "1.2.0",
       language: {
         conversation: "pt-BR",
